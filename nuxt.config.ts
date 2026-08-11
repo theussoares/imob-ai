@@ -26,6 +26,9 @@ export default defineNuxtConfig({
       // Anon key + URL (públicas) — usadas só pelo painel /admin, sob demanda.
       supabaseUrl: process.env.SUPABASE_URL || '',
       supabaseKey: process.env.SUPABASE_KEY || '',
+      // Crédito do desenvolvedor no rodapé (fixo em todos os tenants).
+      builtByName: process.env.NUXT_PUBLIC_BUILT_BY_NAME || 'Matheus Soares',
+      builtByWhatsapp: process.env.NUXT_PUBLIC_BUILT_BY_WHATSAPP || '5567992171768',
     },
   },
 

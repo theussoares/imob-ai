@@ -2,6 +2,14 @@
 const tenant = useTenant()
 const { whatsappLink } = useContact()
 const year = new Date().getFullYear()
+
+const config = useRuntimeConfig()
+const builtByName = config.public.builtByName
+const builtByLink = computed(() => {
+  const wa = (config.public.builtByWhatsapp || '').replace(/\D/g, '')
+  const msg = `Olá, ${builtByName}! Vi um site que você desenvolveu e gostaria de um orçamento.`
+  return wa ? `https://wa.me/${wa}?text=${encodeURIComponent(msg)}` : '#'
+})
 </script>
 
 <template>
@@ -35,8 +43,24 @@ const year = new Date().getFullYear()
           © {{ year }} {{ tenant?.name || 'Imóveis' }}
           <template v-if="tenant?.creci"> — CRECI {{ tenant.creci }}</template>
         </span>
-        <span>Feito para você encontrar o imóvel certo.</span>
+        <span v-if="builtByName" class="dev-credit">
+          Desenvolvido por
+          <a :href="builtByLink" target="_blank" rel="noopener">{{ builtByName }}</a>
+        </span>
       </div>
     </div>
   </footer>
 </template>
+
+<style scoped>
+.dev-credit a {
+  color: #eaf3f0;
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  padding-bottom: 1px;
+}
+.dev-credit a:hover {
+  border-bottom-color: #eaf3f0;
+}
+</style>
