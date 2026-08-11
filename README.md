@@ -124,6 +124,26 @@ end $$;
 O acesso é escopado ao tenant do domínio (um admin só enxerga/edita os dados da própria
 imobiliária), garantido por `requireTenantMember` no servidor + RLS no banco.
 
+## Agent-readiness (descoberta por IA / agentes)
+
+Além do SEO tradicional, o site expõe metadados para agentes de IA:
+
+- **Link headers (RFC 8288)** na home e nas páginas de imóvel, apontando para o
+  `api-catalog` e o `sitemap.xml` (`server/middleware/agents.ts`).
+- **Markdown for Agents**: requisições com `Accept: text/markdown` em `/` e
+  `/imovel/[code]` recebem uma versão em Markdown (HTML segue padrão para navegadores).
+- **API catalog (RFC 9727)** em `/.well-known/api-catalog` (`application/linkset+json`)
+  descrevendo os endpoints públicos.
+- **Content Signals** no `robots.txt`: `search=yes, ai-input=yes, ai-train=no`.
+- **WebMCP** (progressive enhancement): expõe a ferramenta `buscar_imoveis` a agentes
+  no navegador via `navigator.modelContext`, quando suportado (`app/plugins/webmcp.client.ts`).
+
+Não implementados por não se aplicarem a este site (catálogo público, sem APIs
+protegidas por OAuth e sem servidor MCP próprio) ou por exigirem domínio/DNS ainda não
+adquiridos: **DNS-AID** (precisa de domínio + DNSSEC), **OAuth/OIDC discovery**,
+**OAuth Protected Resource**, **auth.md** e **MCP Server Card**. Podem ser adicionados
+quando houver domínio próprio e/ou APIs autenticadas para agentes.
+
 ## Deploy (Vercel)
 
 O Nitro já usa o preset `vercel`. Configure as variáveis `SUPABASE_URL`, `SUPABASE_KEY`,

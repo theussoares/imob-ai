@@ -1,8 +1,17 @@
 /** Resolve o tenant (imobiliária) por domínio/subdomínio em cada requisição. */
 export default defineEventHandler(async (event) => {
   const path = event.path || ''
-  // Ignora assets internos do Nuxt/Nitro.
-  if (path.startsWith('/_') || path.startsWith('/__') || path.startsWith('/favicon')) return
+  // Ignora assets internos e endpoints que não dependem de tenant
+  // (robots.txt e /.well-known/* só usam a origin — não devem falhar por causa do banco).
+  if (
+    path.startsWith('/_') ||
+    path.startsWith('/__') ||
+    path.startsWith('/favicon') ||
+    path === '/robots.txt' ||
+    path.startsWith('/.well-known/')
+  ) {
+    return
+  }
 
   // Atalho de desenvolvimento: ?tenant=slug troca o tenant e grava cookie.
   // (?tenant= vazio limpa). Desativado em produção.
