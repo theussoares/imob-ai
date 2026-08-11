@@ -36,7 +36,7 @@ async function logout() {
       <a href="/" target="_blank" rel="noopener">Ver site ↗</a>
     </nav>
 
-    <button class="admin-btn ghost" style="margin-top: 18px" @click="logout">Sair</button>
+    <button class="admin-btn ghost admin-logout" @click="logout">Sair</button>
   </aside>
 </template>
 
