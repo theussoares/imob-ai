@@ -23,6 +23,7 @@ const { whatsappLink } = useContact()
           :href="whatsappLink()"
           target="_blank"
           rel="noopener"
+          aria-label="Falar no WhatsApp"
         >
           <AppIcon name="wa" />
           <span class="label-desk">Falar no WhatsApp</span>

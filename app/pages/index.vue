@@ -76,7 +76,7 @@ useHead(() => ({
         </div>
         <div class="sort">
           Ordenar
-          <select v-model="filters.sort">
+          <select v-model="filters.sort" aria-label="Ordenar imóveis">
             <option value="rel">Relevância</option>
             <option value="menor">Menor preço</option>
             <option value="maior">Maior preço</option>
