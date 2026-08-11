@@ -37,10 +37,21 @@ Os **mappers** (`server/mappers/*`) convertem `snake_case` do Postgres para o `c
 domínio e vice-versa, isolando o schema da UI.
 
 ### Multitenancy
-`server/middleware/tenant.ts` resolve o tenant a partir do `Host` (tabela `tenant_domains`,
-cacheada 10 min) e o coloca em `event.context.tenant`. Toda query é escopada por `tenant_id`.
-As cores da marca (`brand_primary` / `brand_accent`) são injetadas como CSS vars no SSR — trocar
-de tenant muda o tema sem rebuild.
+O catálogo é a **home (`/`)** e cada tenant é um **domínio** — não há prefixo de rota.
+`server/middleware/tenant.ts` resolve o tenant por requisição, nesta ordem:
+
+1. **Domínio próprio** cadastrado em `tenant_domains` (ex.: `imoveis3lagoas.com.br`).
+2. **Subdomínio da plataforma**: `<slug>.<NUXT_PLATFORM_DOMAIN>` (ex.:
+   `vitrine-imoveis.suaplataforma.com.br`) resolve pelo `slug` do tenant. Sem
+   `NUXT_PLATFORM_DOMAIN`, o 1º rótulo de um host com subdomínio é usado como slug.
+3. **Fallback** `NUXT_DEFAULT_TENANT` (dev / domínio não cadastrado).
+
+O resultado vai para `event.context.tenant`; toda query é escopada por `tenant_id`.
+As cores da marca (`brand_primary` / `brand_accent`) são injetadas como CSS vars no SSR —
+trocar de tenant muda o tema sem rebuild. A resolução é cacheada 10 min em memória.
+
+**Atalho de desenvolvimento:** em `pnpm dev`, `http://localhost:3000/?tenant=<slug>` troca o
+tenant e grava um cookie (`?tenant=` vazio limpa). Desativado em produção.
 
 ### Cache (poucas requisições)
 - **Servidor:** `/api/tenant` e `/api/properties*` são cacheados por **10 min** (TTL) com chave

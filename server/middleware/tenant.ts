@@ -1,8 +1,32 @@
-/** Resolve o tenant (imobiliária) a partir do domínio em cada requisição. */
+/** Resolve o tenant (imobiliária) por domínio/subdomínio em cada requisição. */
 export default defineEventHandler(async (event) => {
   const path = event.path || ''
   // Ignora assets internos do Nuxt/Nitro.
   if (path.startsWith('/_') || path.startsWith('/__') || path.startsWith('/favicon')) return
+
+  // Atalho de desenvolvimento: ?tenant=slug troca o tenant e grava cookie.
+  // (?tenant= vazio limpa). Desativado em produção.
+  if (import.meta.dev) {
+    const q = getQuery(event)
+    let devSlug = getCookie(event, 'dev_tenant') || undefined
+    if (typeof q.tenant === 'string') {
+      if (q.tenant.trim()) {
+        devSlug = q.tenant.trim()
+        setCookie(event, 'dev_tenant', devSlug, { path: '/', sameSite: 'lax' })
+      } else {
+        deleteCookie(event, 'dev_tenant')
+        devSlug = undefined
+      }
+    }
+    if (devSlug) {
+      const t = await resolveTenantBySlug(devSlug)
+      if (t) {
+        event.context.tenant = t
+        return
+      }
+    }
+  }
+
   const hostname = getHostname(event)
   event.context.tenant = await resolveTenantForHost(hostname)
 })
