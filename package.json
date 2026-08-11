@@ -14,6 +14,7 @@
   "dependencies": {
     "@nuxtjs/supabase": "^1.5.3",
     "@supabase/supabase-js": "^2.47.10",
+    "@vercel/analytics": "^2.0.1",
     "@vueuse/core": "^12.5.0",
     "@vueuse/nuxt": "^12.5.0",
     "nuxt": "^4.0.0",
