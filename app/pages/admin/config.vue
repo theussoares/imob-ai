@@ -223,8 +223,13 @@ useHead({ title: 'Configurações · Painel' })
 }
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
+}
+@media (min-width: 520px) {
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .color-row {
   display: flex;
