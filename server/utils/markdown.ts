@@ -62,6 +62,46 @@ export function tenantCatalogMarkdown(tenant: Tenant, properties: Property[], or
   return lines.join('\n') + '\n'
 }
 
+/** /llms.txt (llmstxt.org): índice em Markdown do site para LLMs. */
+export function buildLlmsTxt(tenant: Tenant, properties: Property[], origin: string): string {
+  const lines: string[] = []
+  lines.push(`# ${tenant.name}`)
+  const summary = tenant.heroSubtitle || tenant.tagline
+  if (summary) lines.push(`\n> ${summary}`)
+
+  const local = [tenant.city, tenant.state].filter(Boolean).join('/')
+  lines.push(
+    `\nImobiliária/corretor de imóveis${local ? ` em ${local}` : ''} — compra, venda e locação. ` +
+      `Este arquivo lista os imóveis disponíveis e os recursos do site.`,
+  )
+  const contact = contactBlock(tenant)
+  if (contact) lines.push(`\n**Contato:** ${contact}`)
+
+  const venda = properties.filter((p) => p.purpose === 'venda')
+  const aluguel = properties.filter((p) => p.purpose === 'aluguel')
+
+  const section = (title: string, list: Property[]) => {
+    if (!list.length) return
+    lines.push(`\n## ${title}`)
+    for (const p of list) {
+      const loc = [p.neighborhood, p.city].filter(Boolean).join(', ')
+      lines.push(
+        `- [${p.title} — ${priceLabel(p)}](${origin}/imovel/${encodeURIComponent(p.code)}): ` +
+          `${PROPERTY_TYPE_LABELS[p.type]}${loc ? ` em ${loc}` : ''}. ${specsLine(p)}.`,
+      )
+    }
+  }
+  section('Imóveis à venda', venda)
+  section('Imóveis para alugar', aluguel)
+
+  lines.push(`\n## Recursos`)
+  lines.push(`- [Catálogo completo (Markdown)](${origin}/): peça com \`Accept: text/markdown\``)
+  lines.push(`- [API de imóveis (JSON)](${origin}/api/properties)`)
+  lines.push(`- [Sitemap](${origin}/sitemap.xml)`)
+
+  return lines.join('\n') + '\n'
+}
+
 /** Markdown da página de um imóvel. */
 export function propertyMarkdown(tenant: Tenant, p: Property, origin: string): string {
   const lines: string[] = []

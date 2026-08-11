@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
   // RFC 8288 — Link headers para descoberta
   appendResponseHeader(event, 'Link', `<${origin}/.well-known/api-catalog>; rel="api-catalog"`)
   appendResponseHeader(event, 'Link', `<${origin}/sitemap.xml>; rel="sitemap"`)
+  appendResponseHeader(event, 'Link', `<${origin}/llms.txt>; rel="alternate"; type="text/markdown"`)
   appendResponseHeader(event, 'Vary', 'Accept')
 
   // Markdown for Agents

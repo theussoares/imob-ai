@@ -136,6 +136,8 @@ Além do SEO tradicional, o site expõe metadados para agentes de IA:
 - **API catalog (RFC 9727)** em `/.well-known/api-catalog` (`application/linkset+json`)
   descrevendo os endpoints públicos.
 - **Content Signals** no `robots.txt`: `search=yes, ai-input=yes, ai-train=no`.
+- **`/llms.txt`** (llmstxt.org): índice do site em Markdown por tenant, listando os
+  imóveis e recursos, para os LLMs entenderem o conteúdo.
 - **WebMCP** (progressive enhancement): expõe a ferramenta `buscar_imoveis` a agentes
   no navegador via `navigator.modelContext`, quando suportado (`app/plugins/webmcp.client.ts`).
 
