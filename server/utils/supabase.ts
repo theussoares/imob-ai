@@ -10,8 +10,8 @@ let _publicClient: SupabaseClient<Database> | null = null
 export function publicSupabase(): SupabaseClient<Database> {
   if (_publicClient) return _publicClient
   const config = useRuntimeConfig()
-  const url = config.public.supabase?.url
-  const key = config.public.supabase?.key
+  const url = config.public.supabaseUrl
+  const key = config.public.supabaseKey
   if (!url || !key) {
     throw createError({ statusCode: 500, statusMessage: 'Supabase não configurado (SUPABASE_URL / SUPABASE_KEY).' })
   }

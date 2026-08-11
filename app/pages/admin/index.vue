@@ -5,7 +5,7 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const { data: properties, pending } = await useAsyncData(
   'admin:properties',
-  () => $fetch<Property[]>('/api/admin/properties'),
+  () => adminFetch<Property[]>('/api/admin/properties'),
   { server: false, default: () => [] as Property[] },
 )
 

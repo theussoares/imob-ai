@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const tenant = useTenant();
-const client = useSupabaseClient();
+const { signOut } = useAdminAuth();
 const route = useRoute();
 
 const links = [
@@ -14,7 +14,7 @@ function isActive(l: { to: string; exact: boolean }) {
 }
 
 async function logout() {
-  await client.auth.signOut();
+  await signOut();
   await navigateTo("/admin/login");
 }
 </script>

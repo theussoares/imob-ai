@@ -35,7 +35,7 @@ const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
   async () => {
     if (isNew.value) return null
-    const all = await $fetch<Property[]>('/api/admin/properties')
+    const all = await adminFetch<Property[]>('/api/admin/properties')
     return all.find((p) => p.id === id.value) ?? null
   },
   { server: false },
@@ -79,9 +79,9 @@ async function save() {
   }
   try {
     if (isNew.value) {
-      await $fetch('/api/admin/properties', { method: 'POST', body: payload })
+      await adminFetch('/api/admin/properties', { method: 'POST', body: payload })
     } else {
-      await $fetch(`/api/admin/properties/${id.value}`, { method: 'PUT', body: payload })
+      await adminFetch(`/api/admin/properties/${id.value}`, { method: 'PUT', body: payload })
     }
     await navigateTo('/admin/imoveis')
   } catch (e: unknown) {

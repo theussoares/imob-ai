@@ -6,7 +6,7 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const { data: properties, refresh, pending } = await useAsyncData(
   'admin:properties:list',
-  () => $fetch<Property[]>('/api/admin/properties'),
+  () => adminFetch<Property[]>('/api/admin/properties'),
   { server: false, default: () => [] as Property[] },
 )
 
@@ -16,7 +16,7 @@ async function remove(p: Property) {
   if (!confirm(`Excluir o imóvel ${p.code}? Esta ação não pode ser desfeita.`)) return
   deleting.value = p.id
   try {
-    await $fetch(`/api/admin/properties/${p.id}`, { method: 'DELETE' })
+    await adminFetch(`/api/admin/properties/${p.id}`, { method: 'DELETE' })
     await refresh()
   } catch {
     alert('Não foi possível excluir.')

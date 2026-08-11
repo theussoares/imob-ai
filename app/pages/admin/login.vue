@@ -1,8 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const client = useSupabaseClient()
-const user = useSupabaseUser()
+const { user, init, signIn } = useAdminAuth()
 const tenant = useTenant()
 
 const email = ref('')
@@ -10,23 +9,22 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-watchEffect(() => {
+onMounted(async () => {
+  if (user.value === null) await init()
   if (user.value) navigateTo('/admin')
 })
 
 async function login() {
   loading.value = true
   error.value = ''
-  const { error: e } = await client.auth.signInWithPassword({
-    email: email.value,
-    password: password.value,
-  })
-  loading.value = false
-  if (e) {
+  try {
+    await signIn(email.value.trim(), password.value)
+    await navigateTo('/admin')
+  } catch {
     error.value = 'E-mail ou senha inválidos.'
-    return
+  } finally {
+    loading.value = false
   }
-  await navigateTo('/admin')
 }
 
 useHead({ title: 'Entrar · Painel' })

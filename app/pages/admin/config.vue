@@ -4,7 +4,6 @@ import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const tenant = useTenant()
-const client = useSupabaseClient()
 
 const form = reactive<TenantSettingsInput>({
   name: '',
@@ -62,6 +61,7 @@ async function onLogo(e: Event) {
   if (!file) return
   uploadingLogo.value = true
   try {
+    const client = await getAdminSupabase()
     const ext = file.name.split('.').pop() || 'png'
     const path = `${tenant.value?.slug || 'tenant'}/logo-${Date.now()}.${ext}`
     const { error } = await client.storage.from('tenant-logos').upload(path, file, { upsert: true, cacheControl: '3600' })
@@ -86,7 +86,7 @@ async function save() {
   saved.value = false
   error.value = ''
   try {
-    const updated = await $fetch<Tenant>('/api/admin/tenant', { method: 'PUT', body: form })
+    const updated = await adminFetch<Tenant>('/api/admin/tenant', { method: 'PUT', body: form })
     tenant.value = updated
     saved.value = true
   } catch (e: unknown) {

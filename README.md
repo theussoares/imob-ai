@@ -10,7 +10,8 @@ atende vários clientes, resolvidos pelo domínio. O primeiro tenant é a **Imó
 - **Nuxt 4** (SSR) + **Nitro** (fullstack; preset **Vercel**)
 - **Tailwind CSS v4** + design tokens por tenant (CSS vars)
 - **Supabase** (Postgres + Auth + Storage), acesso via `@supabase/supabase-js`
-- **@nuxtjs/supabase** para sessão/autenticação do painel
+- **Supabase Auth** carregado sob demanda apenas no painel `/admin` (SPA), mantendo
+  o client do Supabase fora do bundle das páginas públicas
 - TypeScript, `@vueuse/nuxt`
 
 ## Arquitetura

@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@nuxtjs/supabase', '@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights'],
+  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights'],
 
   css: ['~/assets/css/main.css'],
 
@@ -23,17 +23,17 @@ export default defineNuxtConfig({
     public: {
       // Sobrescrito por NUXT_PUBLIC_SITE_URL.
       siteUrl: 'http://localhost:3000',
+      // Anon key + URL (públicas) — usadas só pelo painel /admin, sob demanda.
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseKey: process.env.SUPABASE_KEY || '',
     },
-  },
-
-  // Auth do painel: sem redirect global — protegemos apenas /admin/** via middleware próprio.
-  supabase: {
-    redirect: false,
   },
 
   nitro: {
     preset: 'vercel',
     routeRules: {
+      // Painel é SPA (sem SSR) — mantém o bundle do Supabase fora das páginas públicas.
+      '/admin/**': { ssr: false },
       // Cabeçalhos de segurança (Best Practices): anti-clickjacking + isolamento de origem.
       '/**': {
         headers: {

@@ -3,7 +3,6 @@ import type { PropertyImageInput } from '~~/shared/models/property'
 
 const model = defineModel<PropertyImageInput[]>({ default: () => [] })
 
-const client = useSupabaseClient()
 const tenant = useTenant()
 const uploading = ref(false)
 const urlInput = ref('')
@@ -20,6 +19,7 @@ async function onFiles(e: Event) {
   if (!files.length) return
   uploading.value = true
   try {
+    const client = await getAdminSupabase()
     for (const file of files) {
       const ext = file.name.split('.').pop() || 'jpg'
       const path = `${tenant.value?.slug || 'tenant'}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
