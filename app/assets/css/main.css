@@ -1026,28 +1026,16 @@ select.ctl {
 .admin-sidebar {
   background: var(--brand);
   color: #eaf3f0;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  padding: 14px 16px;
 }
 .admin-sidebar .brand b {
   color: #fff;
 }
-.admin-sidebar .brand small {
-  display: none;
-}
 .admin-nav {
   display: flex;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.admin-nav::-webkit-scrollbar {
-  display: none;
+  flex-wrap: wrap;
+  margin-top: 12px;
 }
 .admin-nav a {
   display: flex;
@@ -1059,10 +1047,9 @@ select.ctl {
   text-decoration: none;
   font-weight: 600;
   font-size: 14px;
-  white-space: nowrap;
 }
 .admin-logout {
-  flex: none;
+  margin-top: 12px;
 }
 .admin-nav a:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -1178,18 +1165,10 @@ select.ctl {
     min-height: 100vh;
     position: sticky;
     top: 0;
-    flex-direction: column;
-    align-items: stretch;
     padding: 18px 16px;
-  }
-  .admin-sidebar .brand small {
-    display: block;
   }
   .admin-nav {
     flex-direction: column;
-    flex: none;
-    overflow: visible;
-    margin-top: 8px;
   }
   .admin-logout {
     margin-top: 18px;
