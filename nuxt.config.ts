@@ -33,6 +33,18 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'vercel',
+    routeRules: {
+      // Cabeçalhos de segurança (Best Practices): anti-clickjacking + isolamento de origem.
+      '/**': {
+        headers: {
+          'X-Frame-Options': 'SAMEORIGIN',
+          'X-Content-Type-Options': 'nosniff',
+          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          'Cross-Origin-Opener-Policy': 'same-origin',
+          'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+        },
+      },
+    },
   },
 
   app: {
