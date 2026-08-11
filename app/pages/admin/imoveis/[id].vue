@@ -175,7 +175,7 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
       <textarea v-model="featuresText" class="admin-textarea" rows="4" placeholder="Piscina&#10;Churrasqueira&#10;Portão eletrônico" />
 
       <label class="admin-label" style="margin-top: 14px">Imagens</label>
-      <ImageUploader v-model="form.images" />
+      <AdminImageUploader v-model="form.images" />
 
       <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
 
