@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@nuxtjs/supabase', '@vueuse/nuxt', '@vercel/analytics'],
+  modules: ['@nuxtjs/supabase', '@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights'],
 
   css: ['~/assets/css/main.css'],
 
