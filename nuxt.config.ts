@@ -17,9 +17,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Sobrescrito por NUXT_DEFAULT_TENANT (fallback de tenant em dev).
     defaultTenant: '',
-    // Domínio-base da plataforma p/ resolução por subdomínio (slug.<platform>).
-    // Sobrescrito por NUXT_PLATFORM_DOMAIN. Ex.: "suaplataforma.com.br".
-    platformDomain: '',
+    // Domínio-base da plataforma: raiz = landing da Moradi; slug.<platform> = tenant.
+    // Sobrescrito por NUXT_PLATFORM_DOMAIN (para white-label em outro domínio).
+    platformDomain: process.env.NUXT_PLATFORM_DOMAIN || 'usemoradi.com.br',
     public: {
       // Sobrescrito por NUXT_PUBLIC_SITE_URL.
       siteUrl: 'http://localhost:3000',
