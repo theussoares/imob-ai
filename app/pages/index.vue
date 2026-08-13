@@ -3,8 +3,8 @@ import type { Property } from '~~/shared/models/property'
 import { createCatalogFilters } from '~/composables/useCatalog'
 
 const tenant = useTenant()
-const config = useRuntimeConfig()
 const requestFetch = useRequestFetch()
+const requestUrl = useRequestURL()
 
 const { data: properties } = await useAsyncData('properties', () => requestFetch<Property[]>('/api/properties'), {
   default: () => [] as Property[],
@@ -36,7 +36,7 @@ const orgJsonLd = computed(() => ({
   telephone: tenant.value?.phone || undefined,
   email: tenant.value?.email || undefined,
   areaServed: tenant.value?.city || undefined,
-  url: config.public.siteUrl,
+  url: requestUrl.origin,
   address: tenant.value?.city
     ? {
         '@type': 'PostalAddress',

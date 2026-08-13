@@ -34,6 +34,12 @@ useHead({
     title ? `${title} · ${tenantState.value?.name || 'Imóveis'}` : tenantState.value?.name || 'Imóveis',
 })
 
+// Canonical/URL por HOST (multitenant): cada tenant se auto-canonicaliza no
+// próprio domínio, em vez de um domínio único global.
+const requestUrl = useRequestURL()
+const route = useRoute()
+const canonicalUrl = computed(() => `${requestUrl.origin}${route.path}`)
+
 useSeoMeta({
   description: () =>
     tenantState.value?.heroSubtitle ||
@@ -43,13 +49,14 @@ useSeoMeta({
   ogTitle: () => tenantState.value?.name || 'Imóveis',
   ogDescription: () =>
     tenantState.value?.heroSubtitle || 'Encontre o imóvel certo e fale direto com o corretor.',
+  ogUrl: () => canonicalUrl.value,
   ogLocale: 'pt_BR',
   twitterCard: 'summary_large_image',
 })
 
-useHead({
-  link: [{ rel: 'canonical', href: config.public.siteUrl }],
-})
+useHead(() => ({
+  link: [{ rel: 'canonical', href: canonicalUrl.value }],
+}))
 </script>
 
 <template>

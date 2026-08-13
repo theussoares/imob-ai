@@ -70,8 +70,8 @@ const jsonLd = computed(() => [
   },
 ])
 
+// canonical é definido globalmente no app.vue (por host) — aqui só os dados estruturados.
 useHead(() => ({
-  link: [{ rel: 'canonical', href: canonical }],
   script: jsonLd.value.map((node) => ({ type: 'application/ld+json', innerHTML: JSON.stringify(node) })),
 }))
 </script>
