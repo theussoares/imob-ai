@@ -2,11 +2,23 @@ import { listActiveProperties } from '~~/server/repositories/property.repository
 
 /** Sitemap dinâmico por host (tenant). */
 export default defineEventHandler(async (event) => {
+  const origin = getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
+
+  // Domínio-raiz da plataforma: sitemap mínimo (só a landing).
+  if (event.context.platformRoot) {
+    setHeader(event, 'content-type', 'application/xml; charset=utf-8')
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      `  <url><loc>${origin}/</loc><priority>1.0</priority></url>\n` +
+      `</urlset>\n`
+    )
+  }
+
   const tenant = useTenantContext(event)
   const list = await cached(tenantCacheKey(tenant.id, 'properties:active'), () =>
     listActiveProperties(publicSupabase(), tenant.id),
   )
-  const origin = getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
 
   const urls: { loc: string; lastmod?: string; priority: string }[] = [
     { loc: `${origin}/`, priority: '1.0' },

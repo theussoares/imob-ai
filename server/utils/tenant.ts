@@ -5,7 +5,15 @@ import { getTenantByDomain, getTenantBySlug } from '~~/server/repositories/tenan
 declare module 'h3' {
   interface H3EventContext {
     tenant?: Tenant | null
+    platformRoot?: boolean
   }
+}
+
+/** O host é o domínio-raiz da plataforma (ex.: usemoradi.com.br), sem subdomínio de tenant? */
+export function isPlatformRootHost(hostname: string): boolean {
+  const platform = (useRuntimeConfig().platformDomain || '').toLowerCase()
+  if (!platform) return false
+  return hostname === platform || hostname === 'www.' + platform
 }
 
 const TTL_MS = 10 * 60 * 1000

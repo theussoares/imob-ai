@@ -37,5 +37,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const hostname = getHostname(event)
+  // Domínio-raiz da plataforma: sem tenant, renderiza a landing da Moradi.
+  if (isPlatformRootHost(hostname)) {
+    event.context.platformRoot = true
+    return
+  }
   event.context.tenant = await resolveTenantForHost(hostname)
 })

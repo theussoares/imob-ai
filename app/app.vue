@@ -1,18 +1,29 @@
 <script setup lang="ts">
 import type { Tenant } from '~~/shared/models/tenant'
 
+type TenantResponse = Tenant | { platformRoot: true }
+
 const tenantState = useTenant()
+const platformRoot = useState('platformRoot', () => false)
 const requestFetch = useRequestFetch()
 
 // Carrega o tenant uma única vez (SSR) e reaproveita o payload no client.
 // useRequestFetch encaminha o header Host (essencial p/ resolver o tenant no SSR).
-const { data } = await useAsyncData('tenant', () => requestFetch<Tenant>('/api/tenant'), {
+const { data } = await useAsyncData('tenant', () => requestFetch<TenantResponse>('/api/tenant'), {
   getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
 })
-if (data.value) tenantState.value = data.value
-watch(data, (v) => {
-  if (v) tenantState.value = v
-})
+function applyTenant(v: TenantResponse | null) {
+  if (!v) return
+  if ('platformRoot' in v) {
+    platformRoot.value = true
+    tenantState.value = null
+  } else {
+    tenantState.value = v
+    platformRoot.value = false
+  }
+}
+applyTenant(data.value ?? null)
+watch(data, (v) => applyTenant(v ?? null))
 
 const config = useRuntimeConfig()
 
@@ -30,8 +41,10 @@ useHead(() => ({
 }))
 
 useHead({
-  titleTemplate: (title?: string) =>
-    title ? `${title} · ${tenantState.value?.name || 'Imóveis'}` : tenantState.value?.name || 'Imóveis',
+  titleTemplate: (title?: string) => {
+    const base = platformRoot.value ? 'Moradi' : tenantState.value?.name || 'Imóveis'
+    return title ? `${title} · ${base}` : base
+  },
 })
 
 // Canonical/URL por HOST (multitenant): cada tenant se auto-canonicaliza no

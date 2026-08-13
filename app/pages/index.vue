@@ -6,10 +6,18 @@ const tenant = useTenant()
 const requestFetch = useRequestFetch()
 const requestUrl = useRequestURL()
 
-const { data: properties } = await useAsyncData('properties', () => requestFetch<Property[]>('/api/properties'), {
-  default: () => [] as Property[],
-  getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
-})
+// Domínio-raiz da plataforma -> landing da Moradi (sem catálogo/tenant).
+const platformRoot = useState('platformRoot', () => false)
+if (platformRoot.value) setPageLayout('landing')
+
+const { data: properties } = await useAsyncData(
+  'properties',
+  () => (platformRoot.value ? Promise.resolve([] as Property[]) : requestFetch<Property[]>('/api/properties')),
+  {
+    default: () => [] as Property[],
+    getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
+  },
+)
 
 const list = computed(() => properties.value ?? [])
 const filters = reactive(createCatalogFilters())
@@ -57,12 +65,15 @@ const orgJsonLd = computed(() => ({
 }))
 
 useHead(() => ({
-  script: [{ type: 'application/ld+json', innerHTML: JSON.stringify(orgJsonLd.value) }],
+  script: platformRoot.value
+    ? []
+    : [{ type: 'application/ld+json', innerHTML: JSON.stringify(orgJsonLd.value) }],
 }))
 </script>
 
 <template>
-  <div>
+  <MoradiLanding v-if="platformRoot" />
+  <div v-else>
     <section class="hero">
       <div class="hero-in">
         <span v-if="tenant?.tagline" class="eyebrow"><span class="dot" />{{ tenant.tagline }}</span>
