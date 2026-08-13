@@ -29,6 +29,8 @@ export default defineNuxtConfig({
       // Crédito do desenvolvedor no rodapé (fixo em todos os tenants).
       builtByName: process.env.NUXT_PUBLIC_BUILT_BY_NAME || 'Matheus Soares',
       builtByWhatsapp: process.env.NUXT_PUBLIC_BUILT_BY_WHATSAPP || '5567992171768',
+      // Link da demonstração (usado na landing da Moradi).
+      demoUrl: process.env.NUXT_PUBLIC_DEMO_URL || 'https://demo.usemoradi.com.br',
     },
   },
 

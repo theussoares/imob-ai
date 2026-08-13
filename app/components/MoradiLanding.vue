@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
 const builtByName = config.public.builtByName || 'Matheus Soares'
+const demoUrl = config.public.demoUrl || 'https://demo.usemoradi.com.br'
 const waDigits = (config.public.builtByWhatsapp || '').replace(/\D/g, '')
 const waLink = computed(() => {
   const msg = 'Olá! Quero um site de imóveis pela Moradi. Pode me passar mais informações?'
@@ -54,7 +55,7 @@ useSeoMeta({
         </p>
         <div class="m-actions">
           <a class="m-btn" :href="waLink" target="_blank" rel="noopener">Quero meu site</a>
-          <a class="m-btn ghost" href="#recursos">Ver recursos</a>
+          <a class="m-btn ghost" :href="demoUrl" target="_blank" rel="noopener">Ver demonstração</a>
         </div>
       </div>
     </section>
@@ -90,8 +91,11 @@ useSeoMeta({
     <section class="m-band">
       <div class="m-wrap">
         <h2>Quer um site assim para a sua imobiliária?</h2>
-        <p>Fale agora no WhatsApp e receba uma proposta.</p>
-        <a class="m-btn light" :href="waLink" target="_blank" rel="noopener">Falar no WhatsApp</a>
+        <p>Veja a demonstração ou fale agora no WhatsApp e receba uma proposta.</p>
+        <div class="m-actions">
+          <a class="m-btn light" :href="waLink" target="_blank" rel="noopener">Falar no WhatsApp</a>
+          <a class="m-btn band-ghost" :href="demoUrl" target="_blank" rel="noopener">Ver demonstração</a>
+        </div>
       </div>
     </section>
 
@@ -232,6 +236,14 @@ useSeoMeta({
 .m-btn.light {
   background: #fff;
   color: var(--m-accent-2);
+}
+.m-btn.band-ghost {
+  background: transparent;
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+.m-btn.band-ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 .m-section {
   padding: 56px 0;
