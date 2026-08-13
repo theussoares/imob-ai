@@ -28,15 +28,24 @@ useSeoMeta({
   ogTitle: () => `${tenant.value?.name || 'Imóveis'} · Imóveis à venda e para alugar`,
 })
 
+const sameAs = computed(() =>
+  [tenant.value?.instagram, tenant.value?.website].filter(Boolean) as string[],
+)
+
 const orgJsonLd = computed(() => ({
   '@context': 'https://schema.org',
   '@type': 'RealEstateAgent',
+  '@id': requestUrl.origin,
   name: tenant.value?.name,
+  alternateName: tenant.value?.alternateNames?.length ? tenant.value.alternateNames : undefined,
   description: tenant.value?.heroSubtitle,
   telephone: tenant.value?.phone || undefined,
   email: tenant.value?.email || undefined,
   areaServed: tenant.value?.city || undefined,
   url: requestUrl.origin,
+  logo: tenant.value?.logoUrl || undefined,
+  image: tenant.value?.logoUrl || undefined,
+  sameAs: sameAs.value.length ? sameAs.value : undefined,
   address: tenant.value?.city
     ? {
         '@type': 'PostalAddress',

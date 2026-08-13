@@ -198,6 +198,9 @@ export type Database = {
       tenants: {
         Row: {
           active: boolean
+          alternate_names: string[]
+          instagram: string | null
+          website: string | null
           brand_accent: string
           brand_primary: string
           city: string | null
@@ -218,6 +221,9 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          alternate_names?: string[]
+          instagram?: string | null
+          website?: string | null
           brand_accent?: string
           brand_primary?: string
           city?: string | null
@@ -238,6 +244,9 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          alternate_names?: string[]
+          instagram?: string | null
+          website?: string | null
           brand_accent?: string
           brand_primary?: string
           city?: string | null

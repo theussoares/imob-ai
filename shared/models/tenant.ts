@@ -15,6 +15,9 @@ export interface Tenant {
   brandPrimary: string
   brandAccent: string
   logoUrl: string | null
+  instagram: string | null
+  website: string | null
+  alternateNames: string[]
   active: boolean
 }
 
@@ -33,4 +36,7 @@ export interface TenantSettingsInput {
   brandPrimary?: string
   brandAccent?: string
   logoUrl?: string | null
+  instagram?: string | null
+  website?: string | null
+  alternateNames?: string[]
 }

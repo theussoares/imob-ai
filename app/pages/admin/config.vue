@@ -19,7 +19,10 @@ const form = reactive<TenantSettingsInput>({
   brandPrimary: '#0f3d38',
   brandAccent: '#c2410c',
   logoUrl: '',
+  instagram: '',
+  website: '',
 })
+const alternateNamesText = ref('')
 
 let inited = false
 watchEffect(() => {
@@ -39,7 +42,10 @@ watchEffect(() => {
       brandPrimary: tenant.value.brandPrimary,
       brandAccent: tenant.value.brandAccent,
       logoUrl: tenant.value.logoUrl || '',
+      instagram: tenant.value.instagram || '',
+      website: tenant.value.website || '',
     })
+    alternateNamesText.value = (tenant.value.alternateNames || []).join('\n')
   }
 })
 
@@ -85,6 +91,10 @@ async function save() {
   saving.value = true
   saved.value = false
   error.value = ''
+  form.alternateNames = alternateNamesText.value
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
   try {
     const updated = await adminFetch<Tenant>('/api/admin/tenant', { method: 'PUT', body: form })
     tenant.value = updated
@@ -192,6 +202,30 @@ useHead({ title: 'Configurações · Painel' })
           <label class="admin-label">UF</label>
           <input v-model="form.state" class="admin-input" maxlength="2" />
         </div>
+      </div>
+
+      <h3 class="section-t">SEO e redes sociais</h3>
+      <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
+        Ajuda o Google a encontrar você pelo nome e conectar suas redes.
+      </p>
+      <div class="form-grid">
+        <div>
+          <label class="admin-label">Instagram (URL)</label>
+          <input v-model="form.instagram" class="admin-input" placeholder="https://instagram.com/seuperfil" />
+        </div>
+        <div>
+          <label class="admin-label">Site (URL, opcional)</label>
+          <input v-model="form.website" class="admin-input" placeholder="https://..." />
+        </div>
+      </div>
+      <div style="margin-top: 12px">
+        <label class="admin-label">Nomes alternativos / como te buscam (um por linha)</label>
+        <textarea
+          v-model="alternateNamesText"
+          class="admin-textarea"
+          rows="3"
+          placeholder="TP Imobiliária&#10;Imóveis Pacheco&#10;Tatiane Imóveis"
+        />
       </div>
 
       <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
