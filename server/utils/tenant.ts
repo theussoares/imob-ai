@@ -16,7 +16,9 @@ export function isPlatformRootHost(hostname: string): boolean {
   return hostname === platform || hostname === 'www.' + platform
 }
 
-const TTL_MS = 10 * 60 * 1000
+// Cache curto: mudanças de branding/config no painel refletem no site em ~1 min.
+// (Em serverless a invalidação só alcança uma instância, então o TTL é o que garante.)
+const TTL_MS = 60 * 1000
 const cache = new Map<string, { tenant: Tenant | null; expiresAt: number }>()
 
 function getCached(key: string): Tenant | null | undefined {
