@@ -12,6 +12,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      brokers: {
+        Row: {
+          active: boolean
+          created_at: string
+          creci: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          creci?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          creci?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           created_at: string
