@@ -12,6 +12,11 @@ const { data: properties, refresh, pending } = await useAsyncData(
 
 const deleting = ref<string | null>(null)
 
+function waHref(phone?: string | null) {
+  const d = (phone || '').replace(/\D/g, '')
+  return d ? `https://wa.me/${d}` : ''
+}
+
 async function remove(p: Property) {
   if (!confirm(`Excluir o imóvel ${p.code}? Esta ação não pode ser desfeita.`)) return
   deleting.value = p.id
@@ -60,6 +65,19 @@ useHead({ title: 'Imóveis · Painel' })
               {{ PROPERTY_TYPE_LABELS[p.type] }} · {{ p.purpose === 'aluguel' ? 'Aluguel' : 'Venda' }}
               · <b>{{ formatBRL(p.price) }}</b>
             </div>
+
+            <div v-if="p.location || p.broker || p.ownerName" class="row-internal">
+              <div v-if="p.location" class="int-loc">📍 {{ p.location }}</div>
+              <div v-if="p.broker" class="int-line">
+                <span>👤 Captou: {{ p.broker.name }}</span>
+                <a v-if="waHref(p.broker.phone)" class="wa-mini" :href="waHref(p.broker.phone)" target="_blank" rel="noopener" aria-label="WhatsApp do captador"><AppIcon name="wa" /></a>
+              </div>
+              <div v-if="p.ownerName" class="int-line">
+                <span>🔑 Proprietário: {{ p.ownerName }}</span>
+                <a v-if="waHref(p.ownerPhone)" class="wa-mini" :href="waHref(p.ownerPhone)" target="_blank" rel="noopener" aria-label="WhatsApp do proprietário"><AppIcon name="wa" /></a>
+              </div>
+            </div>
+
             <div class="row-actions">
               <NuxtLink class="admin-btn ghost sm" :to="`/admin/imoveis/${p.id}`">Editar</NuxtLink>
               <button class="admin-btn danger sm" :disabled="deleting === p.id" @click="remove(p)">
@@ -81,6 +99,7 @@ useHead({ title: 'Imóveis · Painel' })
               <th>Pretensão</th>
               <th>Preço</th>
               <th>Status</th>
+              <th>Interno</th>
               <th></th>
             </tr>
           </thead>
@@ -95,6 +114,18 @@ useHead({ title: 'Imóveis · Painel' })
                 <span class="pill" :class="{ muted: p.status !== 'active' }">
                   {{ PROPERTY_STATUS_LABELS[p.status] }}
                 </span>
+              </td>
+              <td class="td-internal">
+                <div v-if="p.broker" class="int-line">
+                  <span>👤 {{ p.broker.name }}</span>
+                  <a v-if="waHref(p.broker.phone)" class="wa-mini" :href="waHref(p.broker.phone)" target="_blank" rel="noopener" aria-label="WhatsApp do captador"><AppIcon name="wa" /></a>
+                </div>
+                <div v-if="p.ownerName" class="int-line">
+                  <span>🔑 {{ p.ownerName }}</span>
+                  <a v-if="waHref(p.ownerPhone)" class="wa-mini" :href="waHref(p.ownerPhone)" target="_blank" rel="noopener" aria-label="WhatsApp do proprietário"><AppIcon name="wa" /></a>
+                </div>
+                <div v-if="p.location" class="int-loc">📍 {{ p.location }}</div>
+                <span v-if="!p.broker && !p.ownerName && !p.location" style="color: var(--line-2)">—</span>
               </td>
               <td class="td-actions">
                 <NuxtLink class="admin-btn ghost sm" :to="`/admin/imoveis/${p.id}`">Editar</NuxtLink>
@@ -202,6 +233,40 @@ useHead({ title: 'Imóveis · Painel' })
 .td-actions {
   white-space: nowrap;
   text-align: right;
+}
+.row-internal {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.int-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.td-internal {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  max-width: 220px;
+}
+.wa-mini {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--wa);
+  flex: none;
+}
+.wa-mini :deep(svg) {
+  width: 14px;
+  height: 14px;
+  fill: #fff;
 }
 .td-actions .admin-btn + .admin-btn {
   margin-left: 6px;

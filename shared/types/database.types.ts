@@ -86,11 +86,15 @@ export type Database = {
           area: number
           bathrooms: number
           bedrooms: number
+          broker_id: string | null
           city: string | null
           code: string
           created_at: string
           description: string | null
           featured: boolean
+          location: string | null
+          owner_name: string | null
+          owner_phone: string | null
           features: string[]
           high_standard: boolean
           id: string
@@ -109,6 +113,10 @@ export type Database = {
           area?: number
           bathrooms?: number
           bedrooms?: number
+          broker_id?: string | null
+          location?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           city?: string | null
           code: string
           created_at?: string
@@ -132,6 +140,10 @@ export type Database = {
           area?: number
           bathrooms?: number
           bedrooms?: number
+          broker_id?: string | null
+          location?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           city?: string | null
           code?: string
           created_at?: string

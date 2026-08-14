@@ -20,6 +20,9 @@ export default defineNuxtConfig({
     // Domínio-base da plataforma: raiz = landing da Moradi; slug.<platform> = tenant.
     // Sobrescrito por NUXT_PLATFORM_DOMAIN (para white-label em outro domínio).
     platformDomain: process.env.NUXT_PLATFORM_DOMAIN || 'usemoradi.com.br',
+    // Atalho ?tenant=slug: habilitado fora de produção (dev + previews da Vercel),
+    // para testar tenants sem subdomínio. Nunca em produção.
+    allowTenantSwitch: process.env.VERCEL_ENV !== 'production',
     public: {
       // Sobrescrito por NUXT_PUBLIC_SITE_URL.
       siteUrl: 'http://localhost:3000',

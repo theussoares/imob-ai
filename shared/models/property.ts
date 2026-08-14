@@ -1,3 +1,5 @@
+import type { Broker } from './broker'
+
 export type PropertyType = 'casa' | 'apartamento' | 'sobrado' | 'terreno'
 export type PropertyPurpose = 'venda' | 'aluguel'
 export type PropertyStatus = 'active' | 'sold' | 'rented' | 'draft'
@@ -34,6 +36,12 @@ export interface Property {
   images: PropertyImage[]
   createdAt: string
   updatedAt: string
+  // Campos privados (somente painel/admin) — nunca expostos no site público.
+  location?: string | null
+  brokerId?: string | null
+  broker?: Broker | null
+  ownerName?: string | null
+  ownerPhone?: string | null
 }
 
 /** Payload de imagem enviado pelo painel ao criar/editar um imóvel. */
@@ -64,6 +72,11 @@ export interface PropertyInput {
   status?: PropertyStatus
   featured?: boolean
   images?: PropertyImageInput[]
+  // Campos privados (admin)
+  location?: string | null
+  brokerId?: string | null
+  ownerName?: string | null
+  ownerPhone?: string | null
 }
 
 export const PROPERTY_TYPES: PropertyType[] = ['casa', 'apartamento', 'sobrado', 'terreno']

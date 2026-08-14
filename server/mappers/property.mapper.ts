@@ -1,5 +1,6 @@
 import type { Database } from '~~/shared/types/database.types'
 import type { Property, PropertyImage, PropertyInput } from '~~/shared/models/property'
+import type { Broker } from '~~/shared/models/broker'
 
 type PropertyRow = Database['public']['Tables']['properties']['Row']
 type PropertyImageRow = Database['public']['Tables']['property_images']['Row']
@@ -50,6 +51,22 @@ export function toPropertyModel(
   }
 }
 
+/** Modelo com os campos privados (uso interno do painel) + corretor captador. */
+export function toPropertyAdminModel(
+  row: PropertyRow,
+  images: PropertyImageRow[] = [],
+  broker: Broker | null = null,
+): Property {
+  return {
+    ...toPropertyModel(row, images),
+    location: row.location,
+    brokerId: row.broker_id,
+    broker,
+    ownerName: row.owner_name,
+    ownerPhone: row.owner_phone,
+  }
+}
+
 /** Converte o payload do formulário na row de inserção/atualização. */
 export function toPropertyRow(input: PropertyInput, tenantId: string): PropertyInsert {
   return {
@@ -71,5 +88,9 @@ export function toPropertyRow(input: PropertyInput, tenantId: string): PropertyI
     features: input.features ?? [],
     status: input.status ?? 'active',
     featured: input.featured ?? false,
+    location: input.location ?? null,
+    broker_id: input.brokerId ?? null,
+    owner_name: input.ownerName ?? null,
+    owner_phone: input.ownerPhone ?? null,
   }
 }
