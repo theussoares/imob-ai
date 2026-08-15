@@ -12,6 +12,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      brokers: {
+        Row: {
+          active: boolean
+          created_at: string
+          creci: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          creci?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          creci?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           created_at: string
@@ -50,11 +86,15 @@ export type Database = {
           area: number
           bathrooms: number
           bedrooms: number
+          broker_id: string | null
           city: string | null
           code: string
           created_at: string
           description: string | null
           featured: boolean
+          location: string | null
+          owner_name: string | null
+          owner_phone: string | null
           features: string[]
           high_standard: boolean
           id: string
@@ -73,6 +113,10 @@ export type Database = {
           area?: number
           bathrooms?: number
           bedrooms?: number
+          broker_id?: string | null
+          location?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           city?: string | null
           code: string
           created_at?: string
@@ -96,6 +140,10 @@ export type Database = {
           area?: number
           bathrooms?: number
           bedrooms?: number
+          broker_id?: string | null
+          location?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           city?: string | null
           code?: string
           created_at?: string

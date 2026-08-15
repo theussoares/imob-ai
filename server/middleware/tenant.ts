@@ -13,9 +13,9 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // Atalho de desenvolvimento: ?tenant=slug troca o tenant e grava cookie.
-  // (?tenant= vazio limpa). Desativado em produção.
-  if (import.meta.dev) {
+  // Atalho ?tenant=slug (dev + previews da Vercel, nunca em produção): troca o
+  // tenant e grava cookie. (?tenant= vazio limpa).
+  if (import.meta.dev || useRuntimeConfig().allowTenantSwitch) {
     const q = getQuery(event)
     let devSlug = getCookie(event, 'dev_tenant') || undefined
     if (typeof q.tenant === 'string') {

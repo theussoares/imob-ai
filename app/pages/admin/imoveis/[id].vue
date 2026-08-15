@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Property, PropertyInput, PropertyImageInput } from '~~/shared/models/property'
+import type { Broker } from '~~/shared/models/broker'
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '~~/shared/models/property'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -28,8 +29,18 @@ const form = reactive<Required<Omit<PropertyInput, 'images'>> & { images: Proper
   status: 'active',
   featured: false,
   images: [],
+  location: '',
+  brokerId: '',
+  ownerName: '',
+  ownerPhone: '',
 })
 const featuresText = ref('')
+
+const { data: brokers } = await useAsyncData(
+  'admin:brokers:select',
+  () => adminFetch<Broker[]>('/api/admin/brokers'),
+  { server: false, default: () => [] as Broker[] },
+)
 
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
@@ -63,6 +74,10 @@ watchEffect(() => {
     status: p.status,
     featured: p.featured,
     images: p.images.map((i) => ({ url: i.url, alt: i.alt, isCover: i.isCover, position: i.position })),
+    location: p.location || '',
+    brokerId: p.brokerId || '',
+    ownerName: p.ownerName || '',
+    ownerPhone: p.ownerPhone || '',
   })
   featuresText.value = p.features.join('\n')
 })
@@ -75,6 +90,7 @@ async function save() {
   error.value = ''
   const payload: PropertyInput = {
     ...form,
+    brokerId: form.brokerId || null,
     features: featuresText.value.split('\n').map((s) => s.trim()).filter(Boolean),
   }
   try {
@@ -177,6 +193,30 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
       <label class="admin-label" style="margin-top: 14px">Imagens</label>
       <AdminImageUploader v-model="form.images" />
 
+      <h3 class="int-title">🔒 Informações internas <span>(só no painel, não aparecem no site)</span></h3>
+      <div class="form-grid">
+        <div style="grid-column: 1 / -1">
+          <label class="admin-label">Localização (endereço / referência)</label>
+          <input v-model="form.location" class="admin-input" placeholder="Rua, nº, bairro, ponto de referência..." />
+        </div>
+        <div>
+          <label class="admin-label">Corretor que captou</label>
+          <select v-model="form.brokerId" class="admin-select">
+            <option value="">— Nenhum —</option>
+            <option v-for="b in brokers" :key="b.id" :value="b.id">{{ b.name }}</option>
+          </select>
+          <NuxtLink to="/admin/corretores" class="hint-link">Gerenciar corretores →</NuxtLink>
+        </div>
+        <div>
+          <label class="admin-label">Proprietário — nome</label>
+          <input v-model="form.ownerName" class="admin-input" />
+        </div>
+        <div>
+          <label class="admin-label">Proprietário — WhatsApp</label>
+          <input v-model="form.ownerPhone" class="admin-input" placeholder="5567999999999" />
+        </div>
+      </div>
+
       <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
 
       <div style="margin-top: 18px; display: flex; gap: 10px">
@@ -207,6 +247,27 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
   .form-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+.int-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  margin: 24px 0 12px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line-2);
+}
+.int-title span {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.hint-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
 }
 .checks {
   display: flex;
