@@ -1,5 +1,5 @@
 import type { Database } from '~~/shared/types/database.types'
-import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
+import type { HeroImagePosition, Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 
 type TenantRow = Database['public']['Tables']['tenants']['Row']
 type TenantUpdate = Database['public']['Tables']['tenants']['Update']
@@ -12,6 +12,10 @@ export function toTenantModel(row: TenantRow): Tenant {
     tagline: row.tagline,
     heroTitle: row.hero_title,
     heroSubtitle: row.hero_subtitle,
+    heroImage: row.hero_image,
+    heroImagePosition: (row.hero_image_position as HeroImagePosition) || 'right',
+    heroCtaLabel: row.hero_cta_label,
+    heroCtaHref: row.hero_cta_href,
     whatsapp: row.whatsapp,
     phone: row.phone,
     email: row.email,
@@ -35,6 +39,10 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.tagline !== undefined) row.tagline = input.tagline
   if (input.heroTitle !== undefined) row.hero_title = input.heroTitle
   if (input.heroSubtitle !== undefined) row.hero_subtitle = input.heroSubtitle
+  if (input.heroImage !== undefined) row.hero_image = input.heroImage
+  if (input.heroImagePosition !== undefined) row.hero_image_position = input.heroImagePosition
+  if (input.heroCtaLabel !== undefined) row.hero_cta_label = input.heroCtaLabel
+  if (input.heroCtaHref !== undefined) row.hero_cta_href = input.heroCtaHref
   if (input.whatsapp !== undefined) row.whatsapp = input.whatsapp
   if (input.phone !== undefined) row.phone = input.phone
   if (input.email !== undefined) row.email = input.email

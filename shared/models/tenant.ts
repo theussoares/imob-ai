@@ -1,3 +1,5 @@
+export type HeroImagePosition = 'left' | 'right' | 'background'
+
 /** Modelo de domínio do tenant (imobiliária/corretor). */
 export interface Tenant {
   id: string
@@ -6,6 +8,10 @@ export interface Tenant {
   tagline: string | null
   heroTitle: string | null
   heroSubtitle: string | null
+  heroImage: string | null
+  heroImagePosition: HeroImagePosition
+  heroCtaLabel: string | null
+  heroCtaHref: string | null
   whatsapp: string | null
   phone: string | null
   email: string | null
@@ -27,6 +33,10 @@ export interface TenantSettingsInput {
   tagline?: string | null
   heroTitle?: string | null
   heroSubtitle?: string | null
+  heroImage?: string | null
+  heroImagePosition?: HeroImagePosition
+  heroCtaLabel?: string | null
+  heroCtaHref?: string | null
   whatsapp?: string | null
   phone?: string | null
   email?: string | null

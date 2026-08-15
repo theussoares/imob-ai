@@ -10,6 +10,10 @@ const form = reactive<TenantSettingsInput>({
   tagline: '',
   heroTitle: '',
   heroSubtitle: '',
+  heroImage: '',
+  heroImagePosition: 'right',
+  heroCtaLabel: '',
+  heroCtaHref: '',
   whatsapp: '',
   phone: '',
   email: '',
@@ -33,6 +37,10 @@ watchEffect(() => {
       tagline: tenant.value.tagline || '',
       heroTitle: tenant.value.heroTitle || '',
       heroSubtitle: tenant.value.heroSubtitle || '',
+      heroImage: tenant.value.heroImage || '',
+      heroImagePosition: tenant.value.heroImagePosition,
+      heroCtaLabel: tenant.value.heroCtaLabel || '',
+      heroCtaHref: tenant.value.heroCtaHref || '',
       whatsapp: tenant.value.whatsapp || '',
       phone: tenant.value.phone || '',
       email: tenant.value.email || '',
@@ -65,12 +73,28 @@ async function onLogo(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+  const slug = tenant.value?.slug
+  if (!slug) {
+    alert('Não foi possível identificar a imobiliária. Recarregue a página.')
+    input.value = ''
+    return
+  }
   uploadingLogo.value = true
   try {
     const client = await getAdminSupabase()
-    const ext = file.name.split('.').pop() || 'png'
-    const path = `${tenant.value?.slug || 'tenant'}/logo-${Date.now()}.${ext}`
-    const { error } = await client.storage.from('tenant-logos').upload(path, file, { upsert: true, cacheControl: '3600' })
+    // Logo é exibido a 40px — 256px de WebP sobra e evita subir PNG de vários MB.
+    const resizable = isResizableImage(file)
+    const body: Blob = resizable ? await resizeToWebp(file, 256) : file
+    const ext = resizable ? 'webp' : file.name.split('.').pop() || 'png'
+    const path = `${slug}/logo-${Date.now()}.${ext}`
+    // upsert:false — o path já é único (timestamp); upsert exigiria uma policy de
+    // SELECT em storage.objects (Supabase checa existência antes de sobrescrever),
+    // que não temos configurada, e falharia com "row-level security policy".
+    const { error } = await client.storage.from('tenant-logos').upload(path, body, {
+      upsert: false,
+      cacheControl: '31536000',
+      contentType: resizable ? 'image/webp' : file.type,
+    })
     if (error) throw error
     const { data } = client.storage.from('tenant-logos').getPublicUrl(path)
     form.logoUrl = data.publicUrl
@@ -82,6 +106,59 @@ async function onLogo(e: Event) {
     input.value = ''
   }
 }
+
+const uploadingHeroImage = ref(false)
+async function onHeroImage(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const slug = tenant.value?.slug
+  if (!slug) {
+    alert('Não foi possível identificar a imobiliária. Recarregue a página.')
+    input.value = ''
+    return
+  }
+  uploadingHeroImage.value = true
+  try {
+    const client = await getAdminSupabase()
+    // Hero é full-bleed: 1600px de WebP cobre telas grandes com uma fração dos bytes.
+    const resizable = isResizableImage(file)
+    const body: Blob = resizable ? await resizeToWebp(file, IMAGE_SIZE_LG) : file
+    const ext = resizable ? 'webp' : file.name.split('.').pop() || 'jpg'
+    const path = `${slug}/hero-${Date.now()}.${ext}`
+    const { error } = await client.storage.from('tenant-hero').upload(path, body, {
+      upsert: false,
+      cacheControl: '31536000',
+      contentType: resizable ? 'image/webp' : file.type,
+    })
+    if (error) throw error
+    const { data } = client.storage.from('tenant-hero').getPublicUrl(path)
+    form.heroImage = data.publicUrl
+  } catch (err: unknown) {
+    const m = err as { message?: string }
+    alert('Falha no upload da foto: ' + (m?.message || 'erro'))
+  } finally {
+    uploadingHeroImage.value = false
+    input.value = ''
+  }
+}
+
+// Preview ao vivo do hero — reaproveita o próprio componente público, alimentado
+// pelo form em edição (não pelo tenant salvo).
+const previewTenant = computed<Tenant | null>(() => {
+  if (!tenant.value) return null
+  return {
+    ...tenant.value,
+    name: form.name || tenant.value.name,
+    tagline: form.tagline || null,
+    heroTitle: form.heroTitle || null,
+    heroSubtitle: form.heroSubtitle || null,
+    heroImage: form.heroImage || null,
+    heroImagePosition: form.heroImagePosition || 'right',
+    heroCtaLabel: form.heroCtaLabel || null,
+    heroCtaHref: form.heroCtaHref || null,
+  }
+})
 
 const saving = ref(false)
 const saved = ref(false)
@@ -170,14 +247,88 @@ useHead({ title: 'Configurações · Painel' })
         <button v-if="form.logoUrl" type="button" class="admin-btn ghost" @click="form.logoUrl = ''">Remover</button>
       </div>
 
-      <h3 class="section-t">Textos da home</h3>
+      <h3 class="section-t">Hero (topo da home)</h3>
       <div>
-        <label class="admin-label">Título principal (hero)</label>
+        <label class="admin-label">Título principal</label>
         <input v-model="form.heroTitle" class="admin-input" />
       </div>
       <div style="margin-top: 12px">
-        <label class="admin-label">Subtítulo (hero)</label>
+        <label class="admin-label">Subtítulo</label>
         <textarea v-model="form.heroSubtitle" class="admin-textarea" rows="2" />
+      </div>
+
+      <div class="form-grid" style="margin-top: 14px">
+        <div>
+          <label class="admin-label">Foto (institucional, da equipe, de um imóvel...)</label>
+          <div class="logo-row">
+            <div class="hero-img-preview">
+              <img v-if="form.heroImage" :src="form.heroImage" alt="Foto do hero" />
+              <AppIcon v-else name="home" />
+            </div>
+            <label class="admin-btn ghost file-btn">
+              {{ uploadingHeroImage ? 'Enviando...' : 'Enviar foto' }}
+              <input type="file" accept="image/*" hidden @change="onHeroImage" />
+            </label>
+            <button v-if="form.heroImage" type="button" class="admin-btn ghost" @click="form.heroImage = ''">
+              Remover
+            </button>
+          </div>
+          <p class="hint-text">
+            Sem foto, o hero aparece só com texto (como hoje). Com foto, vira um layout
+            dividido — recomendado: retrato ou quadrada, mínimo 800×1000px.
+          </p>
+        </div>
+        <div v-if="form.heroImage">
+          <label class="admin-label">Posição da foto</label>
+          <div class="pos-toggle" role="radiogroup" aria-label="Posição da foto no hero">
+            <button
+              type="button"
+              class="pos-btn"
+              :class="{ on: form.heroImagePosition === 'right' }"
+              @click="form.heroImagePosition = 'right'"
+            >
+              <span class="pos-mock"><span class="pos-text" /><span class="pos-img" /></span>
+              Foto à direita
+            </button>
+            <button
+              type="button"
+              class="pos-btn"
+              :class="{ on: form.heroImagePosition === 'left' }"
+              @click="form.heroImagePosition = 'left'"
+            >
+              <span class="pos-mock"><span class="pos-img" /><span class="pos-text" /></span>
+              Foto à esquerda
+            </button>
+            <button
+              type="button"
+              class="pos-btn"
+              :class="{ on: form.heroImagePosition === 'background' }"
+              @click="form.heroImagePosition = 'background'"
+            >
+              <span class="pos-mock pos-mock-bg"><span class="pos-text" /></span>
+              Foto de fundo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top: 14px">
+        <div>
+          <label class="admin-label">Botão do hero — texto (opcional)</label>
+          <input v-model="form.heroCtaLabel" class="admin-input" placeholder="Ex.: Conheça nossa história" />
+        </div>
+        <div>
+          <label class="admin-label">Botão do hero — link (opcional)</label>
+          <input v-model="form.heroCtaHref" class="admin-input" placeholder="/sobre ou https://..." />
+        </div>
+      </div>
+      <p class="hint-text">O botão só aparece se texto e link estiverem preenchidos.</p>
+
+      <div class="hero-preview-wrap">
+        <span class="hero-preview-label">Pré-visualização</span>
+        <div class="hero-preview-box">
+          <Hero :tenant="previewTenant" />
+        </div>
       </div>
 
       <h3 class="section-t">Contato</h3>
@@ -312,6 +463,102 @@ useHead({ title: 'Configurações · Painel' })
 }
 .file-btn {
   cursor: pointer;
+}
+.hero-img-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1.5px solid var(--line-2);
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.hero-img-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hero-img-preview :deep(svg) {
+  width: 26px;
+  height: 26px;
+}
+.hint-text {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 6px 0 0;
+}
+.pos-toggle {
+  display: flex;
+  gap: 8px;
+}
+.pos-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1.5px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--paper);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.pos-btn.on {
+  border-color: var(--brand);
+  color: var(--ink);
+  background: var(--brand-ghost);
+}
+.pos-mock {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  height: 26px;
+}
+.pos-mock .pos-text,
+.pos-mock .pos-img {
+  flex: 1;
+  border-radius: 4px;
+  background: var(--line-2);
+}
+.pos-btn.on .pos-img {
+  background: var(--brand);
+}
+.pos-mock-bg {
+  position: relative;
+  background: var(--ink);
+}
+.pos-mock-bg .pos-text {
+  position: absolute;
+  inset: 6px 40% 6px 6px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.pos-btn.on .pos-mock-bg {
+  background: var(--brand);
+}
+.hero-preview-wrap {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line-2);
+}
+.hero-preview-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.hero-preview-box {
+  border: 1.5px solid var(--line-2);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
 }
 @media (min-width: 720px) {
   .form-grid {
