@@ -7,6 +7,8 @@ export type PropertyStatus = 'active' | 'sold' | 'rented' | 'draft'
 export interface PropertyImage {
   id: string
   url: string
+  /** Derivada de 640px (WebP) para srcset; null em imagens antigas ou por URL externa. */
+  urlSm: string | null
   alt: string | null
   position: number
   isCover: boolean
@@ -44,9 +46,34 @@ export interface Property {
   ownerPhone?: string | null
 }
 
+/**
+ * Subconjunto de Property servido na listagem do catálogo. Só o que o card
+ * realmente usa (inclusive pra filtrar e ordenar) + a imagem de capa — o modelo
+ * completo carrega description, features e TODAS as imagens de cada imóvel, o que
+ * multiplicava o payload da home por ~2,7.
+ */
+export interface PropertyCard {
+  id: string
+  code: string
+  title: string
+  type: PropertyType
+  purpose: PropertyPurpose
+  price: number
+  neighborhood: string | null
+  city: string | null
+  bedrooms: number
+  bathrooms: number
+  parking: number
+  area: number
+  highStandard: boolean
+  featured: boolean
+  cover: PropertyImage | null
+}
+
 /** Payload de imagem enviado pelo painel ao criar/editar um imóvel. */
 export interface PropertyImageInput {
   url: string
+  urlSm?: string | null
   alt?: string | null
   position?: number
   isCover?: boolean

@@ -1,15 +1,52 @@
 import type { Database } from '~~/shared/types/database.types'
-import type { Property, PropertyImage, PropertyInput } from '~~/shared/models/property'
+import type { Property, PropertyCard, PropertyImage, PropertyInput } from '~~/shared/models/property'
 import type { Broker } from '~~/shared/models/broker'
 
 type PropertyRow = Database['public']['Tables']['properties']['Row']
 type PropertyImageRow = Database['public']['Tables']['property_images']['Row']
+
+/**
+ * Só as colunas de imagem que os mappers realmente usam. As queries trazem as
+ * imagens por embed do PostgREST selecionando exatamente estes campos (sem
+ * created_at/property_id), então exigir a row completa aqui quebraria a tipagem.
+ */
+export type PropertyImageFields = Pick<
+  PropertyImageRow,
+  'id' | 'url' | 'url_sm' | 'alt' | 'position' | 'is_cover'
+>
 type PropertyInsert = Database['public']['Tables']['properties']['Insert']
 
-export function toPropertyImageModel(row: PropertyImageRow): PropertyImage {
+/** Colunas públicas de properties (sem os campos internos: location, broker_id, owner_name, owner_phone). */
+export type PublicPropertyRow = Pick<
+  PropertyRow,
+  | 'id'
+  | 'tenant_id'
+  | 'code'
+  | 'title'
+  | 'type'
+  | 'purpose'
+  | 'price'
+  | 'neighborhood'
+  | 'city'
+  | 'state'
+  | 'bedrooms'
+  | 'bathrooms'
+  | 'parking'
+  | 'area'
+  | 'high_standard'
+  | 'description'
+  | 'features'
+  | 'status'
+  | 'featured'
+  | 'created_at'
+  | 'updated_at'
+>
+
+export function toPropertyImageModel(row: PropertyImageFields): PropertyImage {
   return {
     id: row.id,
     url: row.url,
+    urlSm: row.url_sm,
     alt: row.alt,
     position: row.position,
     isCover: row.is_cover,
@@ -18,8 +55,8 @@ export function toPropertyImageModel(row: PropertyImageRow): PropertyImage {
 
 /** Converte uma row de imóvel (+ imagens) no modelo de domínio. */
 export function toPropertyModel(
-  row: PropertyRow,
-  images: PropertyImageRow[] = [],
+  row: PublicPropertyRow,
+  images: PropertyImageFields[] = [],
 ): Property {
   const sorted = [...images].sort((a, b) => {
     if (a.is_cover !== b.is_cover) return a.is_cover ? -1 : 1
@@ -51,10 +88,57 @@ export function toPropertyModel(
   }
 }
 
+/** Colunas mínimas para montar um card do catálogo. */
+export type PublicPropertyCardRow = Pick<
+  PropertyRow,
+  | 'id'
+  | 'code'
+  | 'title'
+  | 'type'
+  | 'purpose'
+  | 'price'
+  | 'neighborhood'
+  | 'city'
+  | 'bedrooms'
+  | 'bathrooms'
+  | 'parking'
+  | 'area'
+  | 'high_standard'
+  | 'featured'
+>
+
+/** Modelo enxuto do card: só a capa, sem description/features/demais imagens. */
+export function toPropertyCardModel(
+  row: PublicPropertyCardRow,
+  images: PropertyImageFields[] = [],
+): PropertyCard {
+  const cover = [...images].sort((a, b) => {
+    if (a.is_cover !== b.is_cover) return a.is_cover ? -1 : 1
+    return a.position - b.position
+  })[0]
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    type: row.type,
+    purpose: row.purpose,
+    price: Number(row.price),
+    neighborhood: row.neighborhood,
+    city: row.city,
+    bedrooms: row.bedrooms,
+    bathrooms: row.bathrooms,
+    parking: row.parking,
+    area: Number(row.area),
+    highStandard: row.high_standard,
+    featured: row.featured,
+    cover: cover ? toPropertyImageModel(cover) : null,
+  }
+}
+
 /** Modelo com os campos privados (uso interno do painel) + corretor captador. */
 export function toPropertyAdminModel(
   row: PropertyRow,
-  images: PropertyImageRow[] = [],
+  images: PropertyImageFields[] = [],
   broker: Broker | null = null,
 ): Property {
   return {
