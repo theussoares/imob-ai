@@ -43,11 +43,30 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  const tenant = await resolveTenantForHost(hostname)
+  let tenant = await resolveTenantForHost(hostname)
+
   if (!tenant) {
-    // Host não reconhecido (ex.: <projeto>.vercel.app, subdomínio inexistente):
-    // cai na landing da plataforma. Antes servia o catálogo do tenant default,
-    // o que publicava o site dele duplicado e indexável em outro domínio.
+    // Subdomínio não reconhecido de um domínio de cliente (o wildcard da Vercel
+    // faz todos existirem): manda pro site dele em vez de exibir a landing da
+    // plataforma dentro do domínio do próprio cliente.
+    const base = await findRegisteredBaseDomain(hostname)
+    if (base) {
+      const url = getRequestURL(event, { xForwardedHost: true, xForwardedProto: true })
+      return sendRedirect(event, `${url.protocol}//${base}${url.pathname}${url.search}`, 302)
+    }
+
+    // Conveniência de dev: host qualquer cai no tenant de NUXT_DEFAULT_TENANT.
+    // Vazio = sem fallback, que é como se testa localmente o comportamento de
+    // produção (host desconhecido -> landing). Nada de slug hardcoded aqui: o
+    // código da plataforma não deve conhecer o slug de nenhum cliente.
+    const fallbackSlug = import.meta.dev ? useRuntimeConfig().defaultTenant : ''
+    if (fallbackSlug) {
+      tenant = await resolveTenantBySlug(fallbackSlug)
+    }
+  }
+
+  if (!tenant) {
+    // Host realmente desconhecido (ex.: <projeto>.vercel.app): landing da plataforma.
     event.context.platformRoot = true
     event.context.unknownHost = true
     return

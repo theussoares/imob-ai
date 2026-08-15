@@ -18,6 +18,17 @@ export function isPlatformRootHost(hostname: string): boolean {
   return hostname === platform || hostname === 'www.' + platform
 }
 
+/**
+ * Convenção da plataforma: `painel.<dominio-do-cliente>` serve exclusivamente o
+ * admin. É prefixo em vez de configuração por tenant justamente pra que todo
+ * cliente novo ganhe o painel no próprio domínio sem cadastro extra.
+ */
+export const ADMIN_HOST_PREFIX = 'painel.'
+
+export function isAdminHost(hostname: string): boolean {
+  return hostname.startsWith(ADMIN_HOST_PREFIX)
+}
+
 // Cache curto: mudanças de branding/config no painel refletem no site em ~1 min.
 // (Em serverless a invalidação só alcança uma instância, então o TTL é o que garante.)
 const TTL_MS = 60 * 1000
@@ -77,23 +88,51 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
     tenant = await getTenantByDomain(client, hostname.slice(4))
   }
 
-  // 3) Subdomínio da plataforma (slug)
+  // 3) `painel.<dominio>` resolve pelo domínio-base: assim o painel no domínio do
+  //    cliente funciona só com o apex cadastrado, sem linha extra por tenant.
+  if (!tenant && isAdminHost(hostname)) {
+    tenant = await getTenantByDomain(client, hostname.slice(ADMIN_HOST_PREFIX.length))
+  }
+
+  // 4) Subdomínio da plataforma (slug)
   if (!tenant) {
     const slug = subdomainSlug(hostname)
     if (slug) tenant = await getTenantBySlug(client, slug)
   }
 
-  // 4) Fallback APENAS em dev. Em produção, host não reconhecido não pode servir
-  //    o catálogo de um tenant qualquer: isso publicaria o site inteiro dele
-  //    duplicado e auto-canonicalizado em domínios como <projeto>.vercel.app.
-  //    Quem trata o host desconhecido é o middleware (cai na landing).
-  if (!tenant && import.meta.dev) {
-    const fallback = useRuntimeConfig().defaultTenant || 'tres-lagoas'
-    tenant = await getTenantBySlug(client, fallback)
-  }
-
+  // Sem fallback aqui de propósito: quem decide o que fazer com host não
+  // resolvido é o middleware (redirect, landing ou — só em dev — tenant padrão).
+  // Deixar o fallback dentro desta função fazia QUALQUER host resolver em dev,
+  // mascarando esses caminhos e tornando-os impossíveis de testar localmente.
   setCached('host:' + hostname, tenant)
   return tenant
+}
+
+/**
+ * Se `hostname` for um subdomínio de um domínio cadastrado de tenant, devolve
+ * esse domínio-base; senão, null.
+ *
+ * Serve ao caso do wildcard na Vercel (*.dominio.com.br): com ele TODOS os
+ * subdomínios do cliente passam a existir, e um host não reconhecido acabaria
+ * exibindo a landing da plataforma dentro do domínio do próprio cliente. Aqui o
+ * middleware detecta isso e manda a pessoa para o site dele.
+ *
+ * Usa getTenantByDomain (correspondência exata), não resolveTenantForHost: este
+ * último tem fallback em dev e devolveria um tenant para qualquer host,
+ * provocando redirect indevido.
+ */
+export async function findRegisteredBaseDomain(hostname: string): Promise<string | null> {
+  const parts = hostname.split('.')
+  if (parts.length < 3) return null // já é apex; não há rótulo a remover
+  const base = parts.slice(1).join('.')
+
+  const cacheKey = 'domain:' + base
+  const cached = getCached(cacheKey)
+  if (cached !== undefined) return cached ? base : null
+
+  const tenant = await getTenantByDomain(publicSupabase(), base)
+  setCached(cacheKey, tenant)
+  return tenant ? base : null
 }
 
 /** Resolve diretamente por slug (usado pelo atalho de dev ?tenant=slug). */

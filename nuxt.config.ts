@@ -36,6 +36,13 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      // O app resolve o tenant POR HOST. Sem isto o dev server responde 403 a
+      // qualquer Host diferente de localhost, impossibilitando testar domínio de
+      // cliente, painel.<dominio> e subdomínios sem subir pra produção.
+      // Vale só em desenvolvimento — `server` do Vite não existe no build.
+      allowedHosts: true,
+    },
   },
 
   runtimeConfig: {
@@ -48,8 +55,8 @@ export default defineNuxtConfig({
     // para testar tenants sem subdomínio. Nunca em produção.
     allowTenantSwitch: process.env.VERCEL_ENV !== 'production',
     public: {
-      // Sobrescrito por NUXT_PUBLIC_SITE_URL.
-      siteUrl: 'http://localhost:3000',
+      // Não existe URL canônica global: cada tenant se auto-canonicaliza no
+      // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.
       // Anon key + URL (públicas) — usadas só pelo painel /admin, sob demanda.
       supabaseUrl: process.env.SUPABASE_URL || '',
       supabaseKey: process.env.SUPABASE_KEY || '',
