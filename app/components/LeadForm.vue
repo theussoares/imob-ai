@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isValidBrPhone } from '~~/shared/utils/phone'
+
 const props = defineProps<{ propertyCode?: string }>()
 
 const name = ref('')
@@ -7,9 +9,16 @@ const message = ref('')
 const status = ref<'idle' | 'sending' | 'ok' | 'error'>('idle')
 const error = ref('')
 
+// Campo exibe (67) 99217-1768; `phone` guarda só os dígitos.
+const { display: phoneDisplay, onInput: onPhoneInput } = usePhoneInput(phone, 'br')
+
 async function submit() {
-  if (!name.value.trim() || !phone.value.trim()) {
-    error.value = 'Preencha nome e telefone.'
+  if (!name.value.trim()) {
+    error.value = 'Preencha seu nome.'
+    return
+  }
+  if (!isValidBrPhone(phone.value)) {
+    error.value = 'Telefone inválido. Ex.: (67) 99217-1768'
     return
   }
   status.value = 'sending'
@@ -43,7 +52,14 @@ async function submit() {
     <p v-if="status === 'ok'" class="lead-ok">Recebemos seu contato! Retornaremos em breve. ✅</p>
     <template v-else>
       <input v-model="name" class="admin-input" type="text" placeholder="Seu nome" />
-      <input v-model="phone" class="admin-input" type="tel" placeholder="Seu telefone / WhatsApp" />
+      <input
+        :value="phoneDisplay"
+        class="admin-input"
+        type="tel"
+        inputmode="numeric"
+        placeholder="(67) 99217-1768"
+        @input="onPhoneInput"
+      />
       <textarea v-model="message" class="admin-textarea" rows="3" placeholder="Mensagem (opcional)" />
       <p v-if="error" class="lead-err">{{ error }}</p>
       <button class="admin-btn" type="submit" :disabled="status === 'sending'">

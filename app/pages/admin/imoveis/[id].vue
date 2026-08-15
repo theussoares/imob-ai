@@ -20,6 +20,7 @@ const form = reactive<Required<Omit<PropertyInput, 'images'>> & { images: Proper
   city: tenant.value?.city || '',
   state: tenant.value?.state || '',
   bedrooms: 0,
+  suites: 0,
   bathrooms: 0,
   parking: 0,
   area: 0,
@@ -35,6 +36,12 @@ const form = reactive<Required<Omit<PropertyInput, 'images'>> & { images: Proper
   ownerPhone: '',
 })
 const featuresText = ref('')
+
+// Preço: campo exibe "R$ 350.000", model guarda o inteiro 350000.
+const { display: priceDisplay, onInput: onPriceInput } = useMoneyInput(toRef(form, 'price'))
+// Proprietário: exibe +55 (67) 99217-1768, model guarda dígitos com DDI.
+const { display: ownerPhoneDisplay, onInput: onOwnerPhoneInput, isValid: ownerPhoneValid } =
+  usePhoneInput(toRef(form, 'ownerPhone'), 'whatsapp')
 
 const { data: brokers } = await useAsyncData(
   'admin:brokers:list',
@@ -61,6 +68,7 @@ watchEffect(() => {
     city: p.city || '',
     state: p.state || '',
     bedrooms: p.bedrooms,
+    suites: p.suites,
     bathrooms: p.bathrooms,
     parking: p.parking,
     area: p.area,
@@ -90,6 +98,14 @@ const saving = ref(false)
 const error = ref('')
 
 async function save() {
+  if (form.price <= 0) {
+    error.value = 'Informe o preço do imóvel.'
+    return
+  }
+  if (!ownerPhoneValid.value) {
+    error.value = 'WhatsApp do proprietário inválido (com DDD).'
+    return
+  }
   saving.value = true
   error.value = ''
   const payload: PropertyInput = {
@@ -145,7 +161,14 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
         </div>
         <div>
           <label class="admin-label">Preço (R$) *</label>
-          <input v-model.number="form.price" class="admin-input" type="number" min="0" step="1" required />
+          <input
+            :value="priceDisplay"
+            class="admin-input"
+            type="text"
+            inputmode="numeric"
+            placeholder="R$ 350.000"
+            @input="onPriceInput"
+          />
         </div>
         <div>
           <label class="admin-label">Status</label>
@@ -168,6 +191,10 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
         <div>
           <label class="admin-label">Quartos</label>
           <input v-model.number="form.bedrooms" class="admin-input" type="number" min="0" />
+        </div>
+        <div>
+          <label class="admin-label">Suítes</label>
+          <input v-model.number="form.suites" class="admin-input" type="number" min="0" />
         </div>
         <div>
           <label class="admin-label">Banheiros</label>
@@ -217,7 +244,15 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
         </div>
         <div>
           <label class="admin-label">Proprietário — WhatsApp</label>
-          <input v-model="form.ownerPhone" class="admin-input" placeholder="5567999999999" />
+          <input
+            :value="ownerPhoneDisplay"
+            class="admin-input"
+            type="tel"
+            inputmode="numeric"
+            placeholder="+55 (67) 99217-1768"
+            @input="onOwnerPhoneInput"
+          />
+          <p v-if="!ownerPhoneValid" class="field-err">Número inválido (com DDD).</p>
         </div>
       </div>
 
@@ -272,6 +307,11 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
   color: var(--brand);
   text-decoration: none;
   font-weight: 600;
+}
+.field-err {
+  color: #b91c1c;
+  font-size: 12.5px;
+  margin: 4px 0 0;
 }
 .checks {
   display: flex;

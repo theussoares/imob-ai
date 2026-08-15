@@ -28,6 +28,13 @@ const form = reactive<TenantSettingsInput>({
 })
 const alternateNamesText = ref('')
 
+// Campos exibem +55 (67) 99217-1768; o model guarda os dígitos com DDI (o que os
+// links wa.me/tel: já consomem).
+const { display: whatsappDisplay, onInput: onWhatsappInput, isValid: whatsappValid } =
+  usePhoneInput(toRef(form, 'whatsapp'), 'whatsapp')
+const { display: phoneDisplay, onInput: onPhoneInput, isValid: phoneValid } =
+  usePhoneInput(toRef(form, 'phone'), 'whatsapp')
+
 let inited = false
 watchEffect(() => {
   if (tenant.value && !inited) {
@@ -165,6 +172,10 @@ const saved = ref(false)
 const error = ref('')
 
 async function save() {
+  if (!whatsappValid.value || !phoneValid.value) {
+    error.value = 'Confira os números de contato (com DDD).'
+    return
+  }
   saving.value = true
   saved.value = false
   error.value = ''
@@ -334,12 +345,28 @@ useHead({ title: 'Configurações · Painel' })
       <h3 class="section-t">Contato</h3>
       <div class="form-grid">
         <div>
-          <label class="admin-label">WhatsApp (só números, com DDI)</label>
-          <input v-model="form.whatsapp" class="admin-input" placeholder="5567991512269" />
+          <label class="admin-label">WhatsApp</label>
+          <input
+            :value="whatsappDisplay"
+            class="admin-input"
+            type="tel"
+            inputmode="numeric"
+            placeholder="+55 (67) 99217-1768"
+            @input="onWhatsappInput"
+          />
+          <p v-if="!whatsappValid" class="field-err">Número inválido (com DDD).</p>
         </div>
         <div>
           <label class="admin-label">Telefone</label>
-          <input v-model="form.phone" class="admin-input" placeholder="+5567991512269" />
+          <input
+            :value="phoneDisplay"
+            class="admin-input"
+            type="tel"
+            inputmode="numeric"
+            placeholder="+55 (67) 3521-1234"
+            @input="onPhoneInput"
+          />
+          <p v-if="!phoneValid" class="field-err">Número inválido (com DDD).</p>
         </div>
         <div>
           <label class="admin-label">E-mail</label>
@@ -394,6 +421,11 @@ useHead({ title: 'Configurações · Painel' })
 </template>
 
 <style scoped>
+.field-err {
+  color: #b91c1c;
+  font-size: 12.5px;
+  margin: 4px 0 0;
+}
 .section-t {
   font-family: 'Space Grotesk', sans-serif;
   font-size: 15px;

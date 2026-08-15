@@ -1,5 +1,7 @@
 import type { PropertyInput } from '~~/shared/models/property'
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
+import type { BrokerInput } from '~~/shared/models/broker'
+import { isValidWhatsapp } from '~~/shared/utils/phone'
 
 const TYPES = ['casa', 'apartamento', 'sobrado', 'terreno']
 const PURPOSES = ['venda', 'aluguel']
@@ -29,6 +31,14 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
   if (t.heroImagePosition !== undefined && !HERO_POSITIONS.includes(t.heroImagePosition as string)) {
     throw createError({ statusCode: 422, statusMessage: 'Posição da imagem do hero inválida.' })
   }
+
+  // WhatsApp/telefone alimentam links wa.me/tel: — exigem DDI 55 (12–13 dígitos).
+  for (const field of ['whatsapp', 'phone'] as const) {
+    const v = t[field]
+    if (v !== undefined && v !== null && String(v).trim() && !isValidWhatsapp(String(v))) {
+      throw createError({ statusCode: 422, statusMessage: 'Número de contato inválido.' })
+    }
+  }
 }
 
 /** Valida o payload de imóvel vindo do painel. */
@@ -46,5 +56,20 @@ export function assertPropertyInput(input: unknown): asserts input is PropertyIn
   }
   if (p.status !== undefined && !STATUSES.includes(p.status as string)) {
     throw createError({ statusCode: 422, statusMessage: 'Status inválido.' })
+  }
+  if (p.ownerPhone !== undefined && p.ownerPhone !== null && String(p.ownerPhone).trim() && !isValidWhatsapp(String(p.ownerPhone))) {
+    throw createError({ statusCode: 422, statusMessage: 'WhatsApp do proprietário inválido.' })
+  }
+}
+
+/** Valida o payload de corretor vindo do painel. */
+export function assertBrokerInput(input: unknown): asserts input is BrokerInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const b = input as Record<string, unknown>
+  if (!String(b.name ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+  if (b.phone !== undefined && b.phone !== null && String(b.phone).trim() && !isValidWhatsapp(String(b.phone))) {
+    throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do corretor inválido.' })
   }
 }

@@ -25,6 +25,37 @@ export function useAuthUser() {
   return useState<User | null>('admin-user', () => null)
 }
 
+/**
+ * O usuário logado é membro do tenant informado? Espelha, no client, o
+ * `requireTenantMember` do servidor: estar autenticado não basta, o painel é
+ * por-tenant (subdomínio). A policy `tenant_members_self_read` deixa o usuário
+ * ler a própria associação, então esta query só retorna linha se ele for membro.
+ */
+export async function isMemberOfTenant(tenantId: string): Promise<boolean> {
+  const sb = await getAdminSupabase()
+  const { data: sessionData } = await sb.auth.getSession()
+  const uid = sessionData.session?.user?.id
+  if (!uid) return false
+
+  // Associação não muda durante a sessão: cacheia por (tenant, usuário) pra não
+  // reconsultar o banco a cada navegação interna do painel (o middleware roda em
+  // toda troca de tela). Servidor e RLS seguem validando em toda escrita.
+  const cache = useState<Record<string, boolean>>('admin-membership', () => ({}))
+  const key = `${tenantId}:${uid}`
+  if (cache.value[key] !== undefined) return cache.value[key]
+
+  const { data, error } = await sb
+    .from('tenant_members')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', uid)
+    .maybeSingle()
+  if (error) return false // erro transitório não vira "sem acesso" cacheado
+  const ok = !!data
+  cache.value[key] = ok
+  return ok
+}
+
 export function useAdminAuth() {
   const user = useAuthUser()
 

@@ -23,11 +23,11 @@ type PropertyImageRow = Database['public']['Tables']['property_images']['Row']
  * o Postgrest gera a query apenas com elas.
  */
 const PUBLIC_PROPERTY_COLUMNS =
-  'id, tenant_id, code, title, type, purpose, price, neighborhood, city, state, bedrooms, bathrooms, parking, area, high_standard, description, features, status, featured, created_at, updated_at'
+  'id, tenant_id, code, title, type, purpose, price, neighborhood, city, state, bedrooms, suites, bathrooms, parking, area, high_standard, description, features, status, featured, created_at, updated_at'
 
 /** Colunas mínimas do card (o catálogo não precisa de description/features). */
 const PUBLIC_CARD_COLUMNS =
-  'id, code, title, type, purpose, price, neighborhood, city, bedrooms, bathrooms, parking, area, high_standard, featured'
+  'id, code, title, type, purpose, price, neighborhood, city, bedrooms, suites, bathrooms, parking, area, high_standard, featured'
 
 /**
  * Imagens via embed do PostgREST, numa query só. A alternativa (buscar os ids e

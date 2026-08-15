@@ -3,11 +3,16 @@ definePageMeta({ layout: false })
 
 const { user, init, signIn } = useAdminAuth()
 const tenant = useTenant()
+const route = useRoute()
 
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-const error = ref('')
+const error = ref(
+  route.query.erro === 'sem-acesso'
+    ? 'Sua conta não tem acesso a esta imobiliária. Entre com o usuário desta imobiliária.'
+    : '',
+)
 
 onMounted(async () => {
   if (user.value === null) await init()

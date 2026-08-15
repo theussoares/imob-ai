@@ -56,6 +56,7 @@ const isAboveFold = computed(() => props.index < 3)
         </template>
         <template v-else>
           <div class="spec"><AppIcon name="bed" />{{ property.bedrooms }}</div>
+          <div v-if="property.suites" class="spec"><AppIcon name="suite" />{{ property.suites }}</div>
           <div class="spec"><AppIcon name="bath" />{{ property.bathrooms }}</div>
           <div class="spec"><AppIcon name="car" />{{ property.parking }}</div>
           <div class="spec"><AppIcon name="area" />{{ property.area }} m²</div>
