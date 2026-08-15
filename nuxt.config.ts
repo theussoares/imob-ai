@@ -89,6 +89,32 @@ export default defineNuxtConfig({
           'Referrer-Policy': 'strict-origin-when-cross-origin',
           'Cross-Origin-Opener-Policy': 'same-origin',
           'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+          // CSP. O ganho principal aqui é `connect-src`: o painel guarda a sessão
+          // do Supabase no localStorage, e restringir para onde a página pode
+          // enviar dados impede que um XSS exfiltre esse token para um domínio
+          // do atacante.
+          //
+          // script-src leva 'unsafe-inline' porque o Nuxt emite um script inline
+          // e um importmap; travar isso exige nonce por requisição (módulo à
+          // parte). Assumido conscientemente — as diretivas abaixo seguem valendo.
+          //
+          // img-src é permissivo em https: de propósito: o painel deixa cadastrar
+          // imagem colando URL de qualquer origem, então restringir a domínios
+          // fixos quebraria imóveis já cadastrados.
+          'Content-Security-Policy': [
+            "default-src 'self'",
+            // va.vercel-scripts.com: o @vercel/speed-insights injeta esse script
+            // em runtime (não aparece no HTML inicial — só o navegador revela).
+            "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+            "style-src 'self' 'unsafe-inline'", // <style id="tenant-theme"> + style= nos cards
+            "img-src 'self' data: blob: https:",
+            "font-src 'self' data:", // fontes são self-hosted pelo @nuxt/fonts
+            "connect-src 'self' https://*.supabase.co",
+            "frame-ancestors 'self'", // sucessor do X-Frame-Options
+            "base-uri 'self'", // bloqueia injeção de <base> pra sequestrar URLs relativas
+            "form-action 'self'",
+            "object-src 'none'",
+          ].join('; '),
         },
       },
     },
