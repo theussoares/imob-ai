@@ -37,18 +37,14 @@ const form = reactive<Required<Omit<PropertyInput, 'images'>> & { images: Proper
 const featuresText = ref('')
 
 const { data: brokers } = await useAsyncData(
-  'admin:brokers:select',
+  'admin:brokers:list',
   () => adminFetch<Broker[]>('/api/admin/brokers'),
   { server: false, default: () => [] as Broker[] },
 )
 
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
-  async () => {
-    if (isNew.value) return null
-    const all = await adminFetch<Property[]>('/api/admin/properties')
-    return all.find((p) => p.id === id.value) ?? null
-  },
+  async () => (isNew.value ? null : await adminFetch<Property>(`/api/admin/properties/${id.value}`)),
   { server: false },
 )
 
@@ -73,7 +69,15 @@ watchEffect(() => {
     features: p.features,
     status: p.status,
     featured: p.featured,
-    images: p.images.map((i) => ({ url: i.url, alt: i.alt, isCover: i.isCover, position: i.position })),
+    // urlSm precisa vir junto: replaceImages regrava as linhas do zero, e sem
+    // isto a derivada de 640px seria perdida a cada edição do imóvel.
+    images: p.images.map((i) => ({
+      url: i.url,
+      urlSm: i.urlSm,
+      alt: i.alt,
+      isCover: i.isCover,
+      position: i.position,
+    })),
     location: p.location || '',
     brokerId: p.brokerId || '',
     ownerName: p.ownerName || '',

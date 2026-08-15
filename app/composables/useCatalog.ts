@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { Property, PropertyType, PropertyPurpose } from '~~/shared/models/property'
+import type { PropertyCard, PropertyType, PropertyPurpose } from '~~/shared/models/property'
 
 export type SortKey = 'rel' | 'menor' | 'maior' | 'area'
 
@@ -20,7 +20,7 @@ export function createCatalogFilters(): CatalogFilters {
  * Filtro/ordenação 100% em memória sobre a lista já carregada — nenhuma
  * requisição extra é feita ao interagir com os filtros.
  */
-export function useCatalog(properties: Ref<Property[]>, filters: CatalogFilters) {
+export function useCatalog(properties: Ref<PropertyCard[]>, filters: CatalogFilters) {
   const filtered = computed(() => {
     let list = properties.value.filter((p) => p.purpose === filters.purpose)
 

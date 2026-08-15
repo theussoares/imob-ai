@@ -1,35 +1,41 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
-import type { Property, PropertyInput } from '~~/shared/models/property'
+import type { Property, PropertyCard, PropertyInput } from '~~/shared/models/property'
 import type { Broker } from '~~/shared/models/broker'
-import { toPropertyModel, toPropertyAdminModel, toPropertyRow } from '~~/server/mappers/property.mapper'
+import {
+  toPropertyModel,
+  toPropertyAdminModel,
+  toPropertyCardModel,
+  toPropertyRow,
+  type PropertyImageFields,
+} from '~~/server/mappers/property.mapper'
 import { toBrokerModel } from '~~/server/mappers/broker.mapper'
 
 type Client = SupabaseClient<Database>
 type PropertyRow = Database['public']['Tables']['properties']['Row']
 type PropertyImageRow = Database['public']['Tables']['property_images']['Row']
 
-async function fetchImagesByProperty(client: Client, ids: string[]) {
-  const map = new Map<string, PropertyImageRow[]>()
-  if (!ids.length) return map
-  const { data, error } = await client
-    .from('property_images')
-    .select('*')
-    .in('property_id', ids)
-    .order('position', { ascending: true })
-  if (error) throw error
-  for (const img of data ?? []) {
-    const arr = map.get(img.property_id) ?? []
-    arr.push(img)
-    map.set(img.property_id, arr)
-  }
-  return map
-}
+/**
+ * Colunas públicas de properties. `select('*')` não pode ser usado nas leituras
+ * como anon: o Postgrest expande `*` para todas as colunas da tabela (inclusive
+ * as internas, com SELECT revogado para anon) e a query inteira falha com
+ * "permission denied for table properties". Listando só as colunas públicas,
+ * o Postgrest gera a query apenas com elas.
+ */
+const PUBLIC_PROPERTY_COLUMNS =
+  'id, tenant_id, code, title, type, purpose, price, neighborhood, city, state, bedrooms, bathrooms, parking, area, high_standard, description, features, status, featured, created_at, updated_at'
 
-async function attachImages(client: Client, rows: PropertyRow[]): Promise<Property[]> {
-  const imagesByProp = await fetchImagesByProperty(client, rows.map((r) => r.id))
-  return rows.map((r) => toPropertyModel(r, imagesByProp.get(r.id) ?? []))
-}
+/** Colunas mínimas do card (o catálogo não precisa de description/features). */
+const PUBLIC_CARD_COLUMNS =
+  'id, code, title, type, purpose, price, neighborhood, city, bedrooms, bathrooms, parking, area, high_standard, featured'
+
+/**
+ * Imagens via embed do PostgREST, numa query só. A alternativa (buscar os ids e
+ * fazer `.in('property_id', ids)`) monta uma querystring com TODOS os UUIDs —
+ * estoura o limite de URL entre ~400 e 600 imóveis — e ainda custa um
+ * round-trip extra ao Supabase.
+ */
+const IMAGES_EMBED = 'property_images(id, url, url_sm, alt, position, is_cover)'
 
 async function fetchBrokersById(client: Client, tenantId: string, ids: string[]): Promise<Map<string, Broker>> {
   const map = new Map<string, Broker>()
@@ -41,62 +47,94 @@ async function fetchBrokersById(client: Client, tenantId: string, ids: string[])
   return map
 }
 
-/** Como attachImages, mas inclui os campos privados + o corretor captador (uso admin). */
-async function attachImagesAdmin(client: Client, tenantId: string, rows: PropertyRow[]): Promise<Property[]> {
-  const imagesByProp = await fetchImagesByProperty(client, rows.map((r) => r.id))
+/** Monta o modelo admin (campos privados + corretor) a partir das rows já com imagens embutidas. */
+type AdminRowWithImages = PropertyRow & { property_images?: PropertyImageFields[] | null }
+async function attachBrokersAdmin(client: Client, tenantId: string, rows: AdminRowWithImages[]): Promise<Property[]> {
   const brokers = await fetchBrokersById(client, tenantId, rows.map((r) => r.broker_id ?? '').filter(Boolean))
-  return rows.map((r) =>
-    toPropertyAdminModel(r, imagesByProp.get(r.id) ?? [], r.broker_id ? brokers.get(r.broker_id) ?? null : null),
-  )
+  return rows.map((r) => {
+    const { property_images: images, ...rest } = r
+    return toPropertyAdminModel(
+      rest as PropertyRow,
+      images ?? [],
+      r.broker_id ? brokers.get(r.broker_id) ?? null : null,
+    )
+  })
 }
 
-/** Imóveis publicados (site público). */
+/**
+ * Imóveis publicados, modelo COMPLETO (sitemap, llms.txt e o markdown para
+ * agentes precisam de description/features e de todas as imagens).
+ * O catálogo do site usa `listActivePropertyCards`, que é bem mais enxuto.
+ */
 export async function listActiveProperties(client: Client, tenantId: string): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
-    .select('*')
+    .select(`${PUBLIC_PROPERTY_COLUMNS}, ${IMAGES_EMBED}`)
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
-  return attachImages(client, data ?? [])
+  return (data ?? []).map((row) => {
+    const { property_images: images, ...rest } = row
+    return toPropertyModel(rest, images ?? [])
+  })
+}
+
+/** Imóveis publicados, modelo enxuto para os cards do catálogo. */
+export async function listActivePropertyCards(client: Client, tenantId: string): Promise<PropertyCard[]> {
+  const { data, error } = await client
+    .from('properties')
+    .select(`${PUBLIC_CARD_COLUMNS}, ${IMAGES_EMBED}`)
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .order('featured', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row) => {
+    const { property_images: images, ...rest } = row
+    return toPropertyCardModel(rest, images ?? [])
+  })
 }
 
 /** Todos os imóveis do tenant (painel — qualquer status). */
 export async function listAllProperties(client: Client, tenantId: string): Promise<Property[]> {
   const { data, error } = await client
     .from('properties')
-    .select('*')
+    .select(`*, ${IMAGES_EMBED}`)
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
   if (error) throw error
-  return attachImagesAdmin(client, tenantId, data ?? [])
+  return attachBrokersAdmin(client, tenantId, data ?? [])
 }
 
 export async function getPropertyByCode(client: Client, tenantId: string, code: string): Promise<Property | null> {
+  // `%` e `_` são curingas no ilike: sem escapar, /imovel/% casaria com tudo.
+  const safeCode = code.replace(/[\\%_]/g, '\\$&')
   const { data, error } = await client
     .from('properties')
-    .select('*')
+    .select(`${PUBLIC_PROPERTY_COLUMNS}, ${IMAGES_EMBED}`)
     .eq('tenant_id', tenantId)
-    .eq('code', code)
-    .maybeSingle()
+    .eq('status', 'active')
+    .ilike('code', safeCode) // busca por código é case-insensitive (NC-0231 = nc-0231)
+    .limit(1)
   if (error) throw error
-  if (!data) return null
-  const [model] = await attachImages(client, [data])
-  return model ?? null
+  const row = data?.[0]
+  if (!row) return null
+  const { property_images: images, ...rest } = row
+  return toPropertyModel(rest, images ?? [])
 }
 
 export async function getPropertyById(client: Client, tenantId: string, id: string): Promise<Property | null> {
   const { data, error } = await client
     .from('properties')
-    .select('*')
+    .select(`*, ${IMAGES_EMBED}`)
     .eq('tenant_id', tenantId)
     .eq('id', id)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
-  const [model] = await attachImagesAdmin(client, tenantId, [data])
+  const [model] = await attachBrokersAdmin(client, tenantId, [data])
   return model ?? null
 }
 
@@ -107,6 +145,7 @@ async function replaceImages(client: Client, propertyId: string, input: Property
   const rows = images.map((img, i) => ({
     property_id: propertyId,
     url: img.url,
+    url_sm: img.urlSm ?? null,
     alt: img.alt ?? null,
     position: img.position ?? i,
     is_cover: img.isCover ?? i === 0,

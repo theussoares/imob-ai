@@ -164,12 +164,7 @@ button {
   display: none;
 }
 
-/* ---------- Hero ---------- */
-.hero-in {
-  max-width: 1140px;
-  margin: 0 auto;
-  padding: 44px 18px 24px;
-}
+/* ---------- Eyebrow (usado no Hero.vue e no error.vue) ---------- */
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -189,37 +184,6 @@ button {
   border-radius: 50%;
   background: var(--brand);
 }
-.hero h1 {
-  font-size: clamp(33px, 6.6vw, 56px);
-  color: var(--ink);
-  margin: 18px 0 12px;
-  max-width: 16ch;
-  font-weight: 700;
-}
-.hero h1 em {
-  font-style: normal;
-  color: var(--brand);
-  position: relative;
-  white-space: nowrap;
-}
-.hero h1 em::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.06em;
-  height: 0.14em;
-  background: var(--brand-ghost);
-  z-index: -1;
-  border-radius: 3px;
-}
-.hero p.sub {
-  font-size: 16.5px;
-  color: var(--ink-soft);
-  max-width: 46ch;
-  margin: 0;
-}
-
 /* ---------- Busca ---------- */
 .search {
   max-width: 1140px;
@@ -242,7 +206,10 @@ button {
   gap: 4px;
   margin-bottom: 15px;
 }
-.seg button {
+.seg button,
+.seg a {
+  display: inline-block;
+  text-decoration: none;
   padding: 9px 18px;
   border-radius: 9px;
   font-weight: 600;
@@ -252,7 +219,8 @@ button {
   background: none;
   transition: all 0.18s;
 }
-.seg button.on {
+.seg button.on,
+.seg a.on {
   background: var(--brand);
   color: #fff;
 }
@@ -457,34 +425,6 @@ select.ctl {
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line-2);
-}
-.fav {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  width: 35px;
-  height: 35px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  display: grid;
-  place-items: center;
-  border: none;
-  transition: transform 0.15s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-}
-.fav:hover {
-  transform: scale(1.12);
-}
-.fav svg {
-  width: 17px;
-  height: 17px;
-  fill: none;
-  stroke: var(--ink);
-  stroke-width: 1.8;
-}
-.fav.on svg {
-  fill: var(--accent);
-  stroke: var(--accent);
 }
 .code {
   position: absolute;
@@ -716,132 +656,12 @@ select.ctl {
   flex-wrap: wrap;
 }
 
-/* ---------- Modal / detalhe ---------- */
-.modal-bg {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 22, 26, 0.5);
-  backdrop-filter: blur(3px);
-  z-index: 60;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-.modal {
-  background: var(--paper);
-  width: 100%;
-  max-width: 640px;
-  max-height: 94vh;
-  overflow-y: auto;
-  border-radius: 20px 20px 0 0;
-  box-shadow: var(--shadow-lg);
-  animation: sheet 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-@keyframes sheet {
-  from {
-    transform: translateY(28px);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-.m-hero {
-  position: relative;
-  aspect-ratio: 16/10;
-  background: #cdd6cf;
-  overflow: hidden;
-}
-.m-hero img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.m-close {
-  position: absolute;
-  top: 13px;
-  right: 13px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  display: grid;
-  place-items: center;
-  z-index: 2;
-  border: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-.m-close svg {
-  width: 19px;
-  height: 19px;
-  stroke: var(--ink);
-  stroke-width: 2;
-  fill: none;
-}
-.m-thumbs {
-  position: absolute;
-  bottom: 11px;
-  left: 11px;
-  display: flex;
-  gap: 6px;
-}
-.m-thumbs button {
-  width: 8px;
-  height: 8px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
-  transition: width 0.2s;
-}
-.m-thumbs button.on {
-  background: #fff;
-  width: 22px;
-  border-radius: 100px;
-}
-.m-body {
-  padding: 20px 20px 26px;
-}
+/* ---------- Detalhe do imóvel (/imovel/[code]) ---------- */
 .m-badges {
   display: flex;
   gap: 7px;
   margin-bottom: 13px;
   flex-wrap: wrap;
-}
-.m-price {
-  font-family: "Space Grotesk";
-  font-size: 31px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: -0.02em;
-}
-.m-price span {
-  font-size: 14px;
-  color: var(--ink-soft);
-  font-family: "Inter";
-  font-weight: 500;
-}
-.m-ttl {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 8px 0 4px;
-  color: var(--ink);
-  font-family: "Space Grotesk";
-}
-.m-loc {
-  color: var(--ink-soft);
-  font-size: 14.5px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.m-loc svg {
-  width: 15px;
-  height: 15px;
-  stroke: var(--ink-soft);
-  fill: none;
-  stroke-width: 1.7;
 }
 .m-specs {
   display: grid;
@@ -857,7 +677,7 @@ select.ctl {
   text-align: center;
 }
 .m-spec svg {
-  width: 20px;
+  width: 100%;
   height: 20px;
   stroke: var(--brand);
   fill: none;
@@ -881,7 +701,7 @@ select.ctl {
   line-height: 1.65;
   margin: 6px 0 22px;
 }
-.m-desc h4 {
+.m-desc h3 {
   font-family: "Inter";
   font-size: 12px;
   text-transform: uppercase;
@@ -904,62 +724,6 @@ select.ctl {
   color: var(--brand);
   font-weight: 600;
 }
-.m-cta {
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(transparent, var(--paper) 24%);
-  padding-top: 16px;
-  display: flex;
-  gap: 10px;
-}
-.m-cta a.wa {
-  flex: 2;
-  background: var(--wa);
-  color: #fff;
-  font-weight: 600;
-  font-size: 16px;
-  padding: 15px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  text-decoration: none;
-}
-.m-cta a.wa:hover {
-  background: var(--wa-dark);
-}
-.m-cta a.wa svg {
-  width: 19px;
-  height: 19px;
-  fill: #fff;
-}
-.m-cta a.tel {
-  flex: 1;
-  background: var(--paper);
-  border: 1.5px solid var(--line-2);
-  color: var(--ink);
-  font-weight: 600;
-  font-size: 15px;
-  padding: 15px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  text-decoration: none;
-}
-.m-cta a.tel:hover {
-  background: var(--surface);
-}
-.m-cta a.tel svg {
-  width: 17px;
-  height: 17px;
-  stroke: var(--ink);
-  fill: none;
-  stroke-width: 1.8;
-}
-
 @media (min-width: 560px) {
   .fields {
     grid-template-columns: 1fr 1fr;
@@ -1063,6 +827,11 @@ select.ctl {
   max-width: 1000px;
   margin: 0 auto;
   width: 100%;
+  /* Item de grid tem `min-width: auto`: sem isto ele se recusa a encolher abaixo
+     da largura do conteúdo, então a tabela larga empurrava o main — e a PÁGINA
+     inteira ganhava scroll horizontal, em vez de o scroll ficar contido na
+     tabela (que já tem overflow-x próprio). */
+  min-width: 0;
 }
 .admin-card {
   background: var(--paper);

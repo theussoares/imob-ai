@@ -1,9 +1,14 @@
 /**
  * Cache simples com TTL sobre o storage do Nitro.
- * Atende ao requisito: servir do cache por ~10 min e, na próxima requisição
- * após expirar, refazer a chamada para atualizar os dados.
+ *
+ * TTL curto de propósito: em serverless (Vercel) o `useStorage('cache')` vive
+ * DENTRO de cada lambda, então `invalidateTenantCache` só limpa a instância que
+ * atendeu o POST/PUT do painel — as outras instâncias quentes continuariam
+ * servindo dado velho até expirar. Quem garante a atualização é o TTL, não a
+ * invalidação. Mesmo raciocínio (e mesmo valor) do cache de tenant em
+ * `server/utils/tenant.ts`.
  */
-const DEFAULT_TTL_MS = 10 * 60 * 1000 // 10 minutos
+const DEFAULT_TTL_MS = 60 * 1000 // 1 minuto
 
 interface CacheEntry<T> {
   value: T

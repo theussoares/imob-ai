@@ -1,11 +1,13 @@
-import type { Property } from '~~/shared/models/property'
+import type { Property, PropertyCard } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 
 /** Gera links de WhatsApp e telefone a partir do tenant atual. */
 export function useContact() {
   const tenant = useTenant()
 
-  function whatsappLink(property?: Property | null): string {
+  // Aceita o modelo completo (página de detalhe) ou o enxuto do card — a mensagem
+  // usa só campos que os dois têm.
+  function whatsappLink(property?: Property | PropertyCard | null): string {
     const wa = onlyDigits(tenant.value?.whatsapp)
     let msg: string
     if (property) {

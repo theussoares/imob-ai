@@ -5,6 +5,7 @@ import { updateTenantSettings } from '~~/server/repositories/tenant.repository'
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
   const body = await readBody<TenantSettingsInput>(event)
+  assertTenantSettingsInput(body)
   const updated = await updateTenantSettings(client, tenant.id, body)
   await invalidateTenantCache(tenant.id)
   clearTenantHostCache()

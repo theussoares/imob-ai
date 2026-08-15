@@ -33,3 +33,6 @@ pnpm-debug.log*
 
 # Vercel
 .vercel
+
+# Config local de dev do Claude Code (launch.json do preview)
+.claude/

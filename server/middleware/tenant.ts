@@ -42,5 +42,15 @@ export default defineEventHandler(async (event) => {
     event.context.platformRoot = true
     return
   }
-  event.context.tenant = await resolveTenantForHost(hostname)
+
+  const tenant = await resolveTenantForHost(hostname)
+  if (!tenant) {
+    // Host não reconhecido (ex.: <projeto>.vercel.app, subdomínio inexistente):
+    // cai na landing da plataforma. Antes servia o catálogo do tenant default,
+    // o que publicava o site dele duplicado e indexável em outro domínio.
+    event.context.platformRoot = true
+    event.context.unknownHost = true
+    return
+  }
+  event.context.tenant = tenant
 })

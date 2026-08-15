@@ -8,6 +8,8 @@ export interface Lead {
   message: string | null
   source: string
   createdAt: string
+  /** Imóvel de origem do contato (null quando veio da home ou foi excluído). */
+  property?: { code: string; title: string } | null
 }
 
 export interface LeadInput {

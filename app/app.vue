@@ -33,7 +33,10 @@ useHead(() => ({
     ? [
         {
           id: 'tenant-theme',
-          innerHTML: `:root{--brand:${tenantState.value.brandPrimary};--accent:${tenantState.value.brandAccent};}`,
+          // especificidade de `:root` sozinho (0,1,0) empata com a do main.css — quem
+          // vem depois no <head> vence, e essa ordem não é garantida. `html:root`
+          // (0,1,1) sempre bate o main.css, não importa a ordem de injeção.
+          innerHTML: `html:root{--brand:${tenantState.value.brandPrimary};--accent:${tenantState.value.brandAccent};}`,
         },
       ]
     : [],

@@ -79,7 +79,15 @@ export type Database = {
           source?: string
           tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'leads_property_id_fkey'
+            columns: ['property_id']
+            isOneToOne: false
+            referencedRelation: 'properties'
+            referencedColumns: ['id']
+          },
+        ]
       }
       properties: {
         Row: {
@@ -174,6 +182,7 @@ export type Database = {
           position: number
           property_id: string
           url: string
+          url_sm: string | null
         }
         Insert: {
           alt?: string | null
@@ -183,6 +192,7 @@ export type Database = {
           position?: number
           property_id: string
           url: string
+          url_sm?: string | null
         }
         Update: {
           alt?: string | null
@@ -192,8 +202,17 @@ export type Database = {
           position?: number
           property_id?: string
           url?: string
+          url_sm?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'property_images_property_id_fkey'
+            columns: ['property_id']
+            isOneToOne: false
+            referencedRelation: 'properties'
+            referencedColumns: ['id']
+          },
+        ]
       }
       tenant_domains: {
         Row: {
@@ -257,6 +276,10 @@ export type Database = {
           email: string | null
           hero_subtitle: string | null
           hero_title: string | null
+          hero_image: string | null
+          hero_image_position: string
+          hero_cta_label: string | null
+          hero_cta_href: string | null
           id: string
           logo_url: string | null
           name: string
@@ -280,6 +303,10 @@ export type Database = {
           email?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
+          hero_image?: string | null
+          hero_image_position?: string
+          hero_cta_label?: string | null
+          hero_cta_href?: string | null
           id?: string
           logo_url?: string | null
           name: string
@@ -303,6 +330,10 @@ export type Database = {
           email?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
+          hero_image?: string | null
+          hero_image_position?: string
+          hero_cta_label?: string | null
+          hero_cta_href?: string | null
           id?: string
           logo_url?: string | null
           name?: string
