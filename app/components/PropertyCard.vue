@@ -1,15 +1,21 @@
 <script setup lang="ts">
-import type { Property } from '~~/shared/models/property'
+import type { PropertyCard } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 
-const props = defineProps<{ property: Property }>()
-const emit = defineEmits<{ open: [Property] }>()
+const props = withDefaults(defineProps<{ property: PropertyCard; index?: number }>(), { index: 99 })
 
-const { has, toggle } = useFavorites()
 const { whatsappLink } = useContact()
 
-const cover = computed(() => props.property.images[0]?.url || '')
+const coverImage = computed(() => props.property.cover)
+const cover = computed(() => coverImage.value?.url || '')
+// srcset só quando existe a derivada de 640px; imagem externa/antiga usa a original.
+const coverSrcset = computed(() =>
+  coverImage.value?.urlSm ? `${coverImage.value.urlSm} 640w, ${coverImage.value.url} 1600w` : undefined,
+)
 const isRent = computed(() => props.property.purpose === 'aluguel')
+// Cards acima da dobra não podem ser lazy: em tenant sem hero image, a capa do
+// primeiro card É o elemento de LCP, e lazy adia o download pro pós-layout.
+const isAboveFold = computed(() => props.index < 3)
 </script>
 
 <template>
@@ -18,22 +24,17 @@ const isRent = computed(() => props.property.purpose === 'aluguel')
       <img
         v-if="cover"
         :src="cover"
+        :srcset="coverSrcset"
+        sizes="(min-width: 1040px) 360px, (min-width: 820px) 50vw, 100vw"
         :alt="`${PROPERTY_TYPE_LABELS[property.type]} em ${property.neighborhood}`"
-        loading="lazy"
+        :loading="isAboveFold ? 'eager' : 'lazy'"
+        :fetchpriority="index === 0 ? 'high' : 'auto'"
         decoding="async"
       />
       <div class="badges">
         <span class="badge" :class="{ rent: isRent }">{{ isRent ? 'Aluguel' : 'Venda' }}</span>
         <span v-if="property.highStandard" class="badge high">Alto padrão</span>
       </div>
-      <button
-        class="fav"
-        :class="{ on: has(property.code) }"
-        :aria-label="has(property.code) ? 'Remover dos favoritos' : 'Favoritar'"
-        @click="toggle(property.code)"
-      >
-        <AppIcon name="heart" />
-      </button>
       <span class="code">{{ property.code }}</span>
     </div>
 
@@ -62,7 +63,7 @@ const isRent = computed(() => props.property.purpose === 'aluguel')
       </div>
 
       <div class="actions">
-        <button class="btn-detail" @click="emit('open', property)">Ver detalhes</button>
+        <NuxtLink class="btn-detail" :to="`/imovel/${property.code}`">Ver detalhes</NuxtLink>
         <a class="btn-wa" :href="whatsappLink(property)" target="_blank" rel="noopener">
           <AppIcon name="wa" /> WhatsApp
         </a>

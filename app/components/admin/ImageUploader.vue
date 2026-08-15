@@ -17,20 +17,54 @@ async function onFiles(e: Event) {
   const input = e.target as HTMLInputElement
   const files = Array.from(input.files || [])
   if (!files.length) return
+  const slug = tenant.value?.slug
+  if (!slug) {
+    alert('Não foi possível identificar a imobiliária. Recarregue a página.')
+    input.value = ''
+    return
+  }
   uploading.value = true
   try {
     const client = await getAdminSupabase()
+    const bucket = client.storage.from('property-images')
+
     for (const file of files) {
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${tenant.value?.slug || 'tenant'}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await client.storage.from('property-images').upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
-      if (error) throw error
-      const { data } = client.storage.from('property-images').getPublicUrl(path)
+      const base = `${slug}/${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+      // Formato que o canvas não abre (SVG, HEIC): sobe como veio, sem derivada.
+      if (!isResizableImage(file)) {
+        const ext = file.name.split('.').pop() || 'jpg'
+        const path = `${base}.${ext}`
+        const { error } = await bucket.upload(path, file, { cacheControl: '31536000', upsert: false })
+        if (error) throw error
+        model.value.push({
+          url: bucket.getPublicUrl(path).data.publicUrl,
+          urlSm: null,
+          alt: '',
+          isCover: model.value.length === 0,
+          position: model.value.length,
+        })
+        continue
+      }
+
+      // Duas derivadas WebP: 1600px (galeria) e 640px (card/thumb, via srcset).
+      const [lg, sm] = await Promise.all([
+        resizeToWebp(file, IMAGE_SIZE_LG),
+        resizeToWebp(file, IMAGE_SIZE_SM),
+      ])
+      const pathLg = `${base}.webp`
+      const pathSm = `${base}@sm.webp`
+
+      const [resLg, resSm] = await Promise.all([
+        bucket.upload(pathLg, lg, { cacheControl: '31536000', upsert: false, contentType: 'image/webp' }),
+        bucket.upload(pathSm, sm, { cacheControl: '31536000', upsert: false, contentType: 'image/webp' }),
+      ])
+      if (resLg.error) throw resLg.error
+      if (resSm.error) throw resSm.error
+
       model.value.push({
-        url: data.publicUrl,
+        url: bucket.getPublicUrl(pathLg).data.publicUrl,
+        urlSm: bucket.getPublicUrl(pathSm).data.publicUrl,
         alt: '',
         isCover: model.value.length === 0,
         position: model.value.length,
@@ -48,7 +82,8 @@ async function onFiles(e: Event) {
 function addByUrl() {
   const u = urlInput.value.trim()
   if (!u) return
-  model.value.push({ url: u, alt: '', isCover: model.value.length === 0, position: model.value.length })
+  // URL externa não tem derivada nossa — urlSm null, o front cai na url original.
+  model.value.push({ url: u, urlSm: null, alt: '', isCover: model.value.length === 0, position: model.value.length })
   urlInput.value = ''
 }
 
