@@ -5,6 +5,21 @@ import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 const props = defineProps<{ filters: CatalogFilters }>()
 const emit = defineEmits<{ search: [] }>()
 
+const route = useRoute()
+
+/**
+ * A pretensão vive na URL (`/?purpose=aluguel`), não só em memória: assim a
+ * listagem de locação vira uma página indexável e os imóveis de aluguel ganham
+ * link interno — antes só existiam no sitemap, sem nenhum link no HTML.
+ * "venda" é o padrão, então sai da query pra manter a home limpa em "/".
+ */
+function purposeLink(p: 'venda' | 'aluguel') {
+  const query = { ...route.query }
+  if (p === 'venda') delete query.purpose
+  else query.purpose = p
+  return { path: route.path, query }
+}
+
 const priceOptions = computed(() =>
   props.filters.purpose === 'aluguel'
     ? [
@@ -22,22 +37,26 @@ const priceOptions = computed(() =>
       ],
 )
 
-function setPurpose(p: 'venda' | 'aluguel') {
-  props.filters.purpose = p
-  props.filters.maxPrice = 0
-}
 </script>
 
 <template>
   <div class="search-card">
-    <div class="seg" role="tablist" aria-label="Pretensão">
-      <button role="tab" :class="{ on: filters.purpose === 'venda' }" @click="setPurpose('venda')">
+    <nav class="seg" aria-label="Pretensão">
+      <NuxtLink
+        :to="purposeLink('venda')"
+        :class="{ on: filters.purpose === 'venda' }"
+        :aria-current="filters.purpose === 'venda' ? 'page' : undefined"
+      >
         Comprar
-      </button>
-      <button role="tab" :class="{ on: filters.purpose === 'aluguel' }" @click="setPurpose('aluguel')">
+      </NuxtLink>
+      <NuxtLink
+        :to="purposeLink('aluguel')"
+        :class="{ on: filters.purpose === 'aluguel' }"
+        :aria-current="filters.purpose === 'aluguel' ? 'page' : undefined"
+      >
         Alugar
-      </button>
-    </div>
+      </NuxtLink>
+    </nav>
 
     <div class="fields">
       <div class="field">
