@@ -115,15 +115,16 @@ useSeoMeta({
 .moradi {
   --m-ink: #0b1220;
   --m-ink-2: #1b2436;
-  --m-soft: #55617a;
+  --m-soft: #64748b;
   --m-line: #e6e9f0;
   --m-paper: #ffffff;
   --m-surface: #f6f8fc;
-  --m-accent: #0f766e;
-  --m-accent-2: #0b5a54;
+  --m-accent: #2563eb;
+  --m-accent-2: #1d4ed8;
+  --m-accent-tint: #dbeafe;
   background: var(--m-paper);
   color: var(--m-ink);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Montserrat', system-ui, sans-serif;
 }
 .m-wrap {
   max-width: 1080px;
@@ -147,8 +148,8 @@ useSeoMeta({
   justify-content: space-between;
 }
 .m-logo {
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
   font-size: 22px;
   letter-spacing: -0.03em;
   color: var(--m-ink);
@@ -170,7 +171,7 @@ useSeoMeta({
   border-radius: 10px;
 }
 .m-hero {
-  background: radial-gradient(1200px 400px at 50% -10%, #eafaf6, transparent), var(--m-paper);
+  background: radial-gradient(1200px 400px at 50% -10%, var(--m-accent-tint), transparent), var(--m-paper);
   padding: 64px 0 48px;
   text-align: center;
 }
@@ -181,12 +182,13 @@ useSeoMeta({
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--m-accent-2);
-  background: #dff3ef;
+  background: var(--m-accent-tint);
   padding: 7px 14px;
   border-radius: 100px;
 }
 .m-hero h1 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
   font-size: clamp(34px, 6vw, 58px);
   line-height: 1.05;
   letter-spacing: -0.03em;
@@ -253,7 +255,8 @@ useSeoMeta({
 }
 .m-section h2,
 .m-band h2 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
   font-size: clamp(24px, 4vw, 34px);
   letter-spacing: -0.02em;
   text-align: center;
@@ -276,7 +279,7 @@ useSeoMeta({
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  background: #dff3ef;
+  background: var(--m-accent-tint);
   color: var(--m-accent-2);
   margin-bottom: 13px;
 }
@@ -286,7 +289,8 @@ useSeoMeta({
 }
 .m-card h3,
 .m-step h3 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
   font-size: 18px;
   margin-bottom: 6px;
 }
@@ -309,8 +313,8 @@ useSeoMeta({
   border-radius: 50%;
   background: var(--m-ink);
   color: #fff;
-  font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
   margin-bottom: 12px;
 }
 .m-band {

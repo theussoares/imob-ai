@@ -6,9 +6,33 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights'],
+  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts'],
 
   css: ['~/assets/css/main.css'],
+
+  fonts: {
+    // Self-hosta os .woff2 (corta 2 hops pro Google) e gera @font-face com
+    // size-adjust/ascent-override calculados — sem isso o layout salta na troca
+    // da fonte fallback pela real, porque os max-width em `ch` mudam de largura.
+    families: [
+      { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700] },
+      { name: 'Space Grotesk', provider: 'google', weights: [400, 500, 600, 700] },
+      { name: 'Montserrat', provider: 'google', weights: [400, 500, 600, 700] },
+    ],
+  },
+
+  icon: {
+    // Coleção "tabler" bundlada localmente (só os ícones usados no app).
+    // Sem @iconify-json/tabler nem chamada em runtime pra API do Iconify.
+    customCollections: [{ prefix: 'tabler', dir: './app/assets/icons/tabler' }],
+    // mode 'svg' (o default do módulo é 'css', que renderiza <span> com
+    // mask-image): o CSS do projeto dimensiona e colore os ícones por seletores
+    // `... svg`, que ficariam mortos — ícones sairiam a 1em e sem var(--brand).
+    mode: 'svg',
+    // provider: 'server' já embute os ícones no SSR, mas o client (hidratação)
+    // só puxa custom collections pro bundle se pedirmos explicitamente.
+    clientBundle: { includeCustomCollections: true },
+  },
 
   vite: {
     plugins: [tailwindcss()],
@@ -41,7 +65,11 @@ export default defineNuxtConfig({
     preset: 'vercel',
     routeRules: {
       // Painel é SPA (sem SSR) — mantém o bundle do Supabase fora das páginas públicas.
-      '/admin/**': { ssr: false },
+      // X-Robots-Tag: o Disallow do robots.txt impede o crawl, mas não a indexação
+      // da URL (que apareceria "sem descrição" se linkada em algum lugar).
+      // '/admin/**' não cobre '/admin' exato, por isso as duas regras.
+      '/admin': { ssr: false, headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+      '/admin/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
       // Cabeçalhos de segurança (Best Practices): anti-clickjacking + isolamento de origem.
       '/**': {
         headers: {
@@ -63,28 +91,8 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'theme-color', content: '#0f3d38' },
       ],
-      link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        // Fonts fora do caminho crítico: preload + troca de media no onload (não bloqueia render).
-        {
-          rel: 'preload',
-          as: 'style',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap',
-        },
-        {
-          rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap',
-          media: 'print',
-          onload: "this.media='all'",
-        },
-      ],
-      noscript: [
-        {
-          innerHTML:
-            '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">',
-        },
-      ],
+      // As fontes são resolvidas pelo @nuxt/fonts (self-hosted + size-adjust),
+      // não por <link> pro Google Fonts — ver a chave `fonts` acima.
     },
   },
 })
