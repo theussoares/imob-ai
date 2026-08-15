@@ -6,6 +6,8 @@ declare module 'h3' {
   interface H3EventContext {
     tenant?: Tenant | null
     platformRoot?: boolean
+    /** Host que não é tenant nem o domínio-raiz da plataforma (ex.: *.vercel.app). */
+    unknownHost?: boolean
   }
 }
 
@@ -69,14 +71,23 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
   // 1) Domínio próprio cadastrado em tenant_domains
   let tenant = await getTenantByDomain(client, hostname)
 
-  // 2) Subdomínio da plataforma (slug)
+  // 2) Mesmo domínio sem "www." — só o apex costuma estar cadastrado, e sem isto
+  //    www.dominio.com.br não casa e acabaria servindo outro tenant pelo fallback.
+  if (!tenant && hostname.startsWith('www.')) {
+    tenant = await getTenantByDomain(client, hostname.slice(4))
+  }
+
+  // 3) Subdomínio da plataforma (slug)
   if (!tenant) {
     const slug = subdomainSlug(hostname)
     if (slug) tenant = await getTenantBySlug(client, slug)
   }
 
-  // 3) Fallback (dev / domínio não cadastrado)
-  if (!tenant) {
+  // 4) Fallback APENAS em dev. Em produção, host não reconhecido não pode servir
+  //    o catálogo de um tenant qualquer: isso publicaria o site inteiro dele
+  //    duplicado e auto-canonicalizado em domínios como <projeto>.vercel.app.
+  //    Quem trata o host desconhecido é o middleware (cai na landing).
+  if (!tenant && import.meta.dev) {
     const fallback = useRuntimeConfig().defaultTenant || 'tres-lagoas'
     tenant = await getTenantBySlug(client, fallback)
   }

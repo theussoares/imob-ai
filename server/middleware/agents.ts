@@ -13,6 +13,11 @@ export default defineEventHandler(async (event) => {
   const isProperty = path.startsWith('/imovel/')
   if (!isHome && !isProperty) return
 
+  // Domínio-raiz da plataforma não tem catálogo. Sem este guard, o fallback de
+  // tenant lá embaixo serviria o catálogo do tenant padrão como se fosse a
+  // landing da Moradi (e o Link header apontaria pra um /llms.txt que dá 404).
+  if (event.context.platformRoot) return
+
   const origin = getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
 
   // RFC 8288 — Link headers para descoberta
