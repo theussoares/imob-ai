@@ -54,6 +54,10 @@ export default defineNuxtConfig({
     // Atalho ?tenant=slug: habilitado fora de produção (dev + previews da Vercel),
     // para testar tenants sem subdomínio. Nunca em produção.
     allowTenantSwitch: process.env.VERCEL_ENV !== 'production',
+    // service_role do Supabase: ignora RLS, usada só nas escritas públicas feitas
+    // pelo servidor (ver serviceSupabase). Fica FORA de `public` de propósito —
+    // em `public` ela seria embutida no bundle do navegador.
+    supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     public: {
       // Não existe URL canônica global: cada tenant se auto-canonicaliza no
       // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.
