@@ -3,7 +3,9 @@ import type { Property } from '~~/shared/models/property'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
-const { data: properties, pending } = await useAsyncData(
+// Lazy (sem `await`): abre a tela na hora e mostra "Carregando" em vez de segurar
+// a navegação até a requisição terminar.
+const { data: properties, pending } = useLazyAsyncData(
   'admin:properties',
   () => adminFetch<Property[]>('/api/admin/properties'),
   { server: false, default: () => [] as Property[] },

@@ -1,4 +1,5 @@
 import type { LeadInput } from '~~/shared/models/lead'
+import { isValidBrPhone, onlyDigits } from '~~/shared/utils/phone'
 import { createLead } from '~~/server/repositories/lead.repository'
 import { getPropertyByCode } from '~~/server/repositories/property.repository'
 
@@ -8,9 +9,12 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<LeadInput>(event)
 
   const name = (body?.name || '').trim()
-  const phone = (body?.phone || '').trim()
-  if (!name || !phone) {
-    throw createError({ statusCode: 422, statusMessage: 'Nome e telefone são obrigatórios.' })
+  const phone = onlyDigits(body?.phone)
+  if (!name) {
+    throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+  }
+  if (!isValidBrPhone(phone)) {
+    throw createError({ statusCode: 422, statusMessage: 'Telefone inválido.' })
   }
 
   const client = publicSupabase()

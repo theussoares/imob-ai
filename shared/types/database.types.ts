@@ -94,6 +94,7 @@ export type Database = {
           area: number
           bathrooms: number
           bedrooms: number
+          suites: number
           broker_id: string | null
           city: string | null
           code: string
@@ -121,6 +122,7 @@ export type Database = {
           area?: number
           bathrooms?: number
           bedrooms?: number
+          suites?: number
           broker_id?: string | null
           location?: string | null
           owner_name?: string | null
@@ -148,6 +150,7 @@ export type Database = {
           area?: number
           bathrooms?: number
           bedrooms?: number
+          suites?: number
           broker_id?: string | null
           location?: string | null
           owner_name?: string | null

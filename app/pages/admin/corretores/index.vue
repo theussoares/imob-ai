@@ -3,7 +3,9 @@ import type { Broker, BrokerInput } from '~~/shared/models/broker'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
-const { data: brokers, refresh, pending } = await useAsyncData(
+// Lazy (sem `await`): abre a tela na hora e mostra "Carregando" em vez de segurar
+// a navegação até a requisição terminar.
+const { data: brokers, refresh, pending } = useLazyAsyncData(
   'admin:brokers',
   () => adminFetch<Broker[]>('/api/admin/brokers'),
   { server: false, default: () => [] as Broker[] },
@@ -15,6 +17,10 @@ const editingId = ref<string | null>(null)
 const saving = ref(false)
 const error = ref('')
 const formEl = ref<HTMLElement | null>(null)
+
+// Campo exibe +55 (67) 99217-1768; o model guarda os dígitos com DDI.
+const { display: phoneDisplay, onInput: onPhoneInput, isValid: phoneValid } =
+  usePhoneInput(toRef(form, 'phone'), 'whatsapp')
 
 function edit(b: Broker) {
   editingId.value = b.id
@@ -29,6 +35,10 @@ function cancel() {
 async function save() {
   if (!form.name.trim()) {
     error.value = 'Informe o nome do corretor.'
+    return
+  }
+  if (!phoneValid.value) {
+    error.value = 'WhatsApp/telefone inválido (com DDD).'
     return
   }
   saving.value = true
@@ -84,7 +94,15 @@ useHead({ title: 'Corretores · Painel' })
         </div>
         <div>
           <label class="admin-label">WhatsApp / telefone</label>
-          <input v-model="form.phone" class="admin-input" placeholder="5567999999999" />
+          <input
+            :value="phoneDisplay"
+            class="admin-input"
+            type="tel"
+            inputmode="numeric"
+            placeholder="+55 (67) 99217-1768"
+            @input="onPhoneInput"
+          />
+          <p v-if="!phoneValid" class="field-err">Número inválido (com DDD).</p>
         </div>
         <div>
           <label class="admin-label">E-mail</label>
@@ -167,6 +185,11 @@ useHead({ title: 'Corretores · Painel' })
   font-size: 13px;
   margin: 0;
   grid-column: 1 / -1;
+}
+.field-err {
+  color: #b91c1c;
+  font-size: 12.5px;
+  margin: 4px 0 0;
 }
 .broker-list {
   list-style: none;

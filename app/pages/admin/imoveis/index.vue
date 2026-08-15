@@ -10,17 +10,20 @@ import type { Broker } from "~~/shared/models/broker";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
+// useLazyAsyncData (não `await`): não suspende a navegação — a tela abre na hora
+// e mostra o skeleton enquanto `pending`. Com `await`, o painel só trocava de
+// tela depois que a requisição terminava.
 const {
   data: properties,
   refresh,
   pending,
-} = await useAsyncData(
+} = useLazyAsyncData(
   "admin:properties:list",
   () => adminFetch<Property[]>("/api/admin/properties"),
   { server: false, default: () => [] as Property[] },
 );
 
-const { data: brokers } = await useAsyncData(
+const { data: brokers } = useLazyAsyncData(
   "admin:brokers:list",
   () => adminFetch<Broker[]>("/api/admin/brokers"),
   { server: false, default: () => [] as Broker[] },
@@ -206,7 +209,34 @@ useHead({ title: "Imóveis · Painel" });
       </div>
     </div>
 
-    <p v-if="pending" class="admin-card muted-block">Carregando...</p>
+    <template v-if="pending && !properties?.length">
+      <!-- Skeleton mobile (cards) -->
+      <div class="cards" aria-hidden="true">
+        <article v-for="i in 5" :key="i" class="admin-card row-card">
+          <div class="row-thumb skel"></div>
+          <div class="row-info skel-info">
+            <div class="skel skel-line w-30"></div>
+            <div class="skel skel-line w-70"></div>
+            <div class="skel skel-line w-50"></div>
+            <div class="skel-btns">
+              <div class="skel"></div>
+              <div class="skel"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+      <!-- Skeleton desktop (tabela) -->
+      <div class="admin-card table-wrap" aria-hidden="true">
+        <table class="admin-table">
+          <tbody>
+            <tr v-for="i in 6" :key="i">
+              <td v-for="j in 8" :key="j"><div class="skel skel-line"></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <span class="sr-only" role="status">Carregando imóveis...</span>
+    </template>
     <p v-else-if="!properties?.length" class="admin-card muted-block">
       Nenhum imóvel cadastrado ainda. Clique em “Novo imóvel”.
     </p>
@@ -382,6 +412,74 @@ useHead({ title: "Imóveis · Painel" });
 </template>
 
 <style scoped>
+/* ---- Skeleton de carregamento ---- */
+.skel {
+  position: relative;
+  overflow: hidden;
+  background: var(--line);
+  border-radius: 6px;
+}
+.skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  animation: skel-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes skel-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skel-line {
+  height: 12px;
+  margin: 6px 0;
+}
+.skel-info {
+  justify-content: center;
+}
+.w-30 {
+  width: 30%;
+}
+.w-50 {
+  width: 50%;
+}
+.w-70 {
+  width: 70%;
+}
+.skel-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.skel-btns .skel {
+  height: 30px;
+  flex: 1;
+}
+.row-thumb.skel {
+  background: var(--line);
+}
+.table-wrap .skel-line {
+  margin: 0;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel::after {
+    animation: none;
+  }
+}
+
 .page-head {
   display: flex;
   align-items: center;

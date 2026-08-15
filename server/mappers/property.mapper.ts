@@ -30,6 +30,7 @@ export type PublicPropertyRow = Pick<
   | 'city'
   | 'state'
   | 'bedrooms'
+  | 'suites'
   | 'bathrooms'
   | 'parking'
   | 'area'
@@ -74,6 +75,7 @@ export function toPropertyModel(
     city: row.city,
     state: row.state,
     bedrooms: row.bedrooms,
+    suites: row.suites,
     bathrooms: row.bathrooms,
     parking: row.parking,
     area: Number(row.area),
@@ -100,6 +102,7 @@ export type PublicPropertyCardRow = Pick<
   | 'neighborhood'
   | 'city'
   | 'bedrooms'
+  | 'suites'
   | 'bathrooms'
   | 'parking'
   | 'area'
@@ -126,6 +129,7 @@ export function toPropertyCardModel(
     neighborhood: row.neighborhood,
     city: row.city,
     bedrooms: row.bedrooms,
+    suites: row.suites,
     bathrooms: row.bathrooms,
     parking: row.parking,
     area: Number(row.area),
@@ -164,6 +168,7 @@ export function toPropertyRow(input: PropertyInput, tenantId: string): PropertyI
     city: input.city ?? null,
     state: input.state ?? null,
     bedrooms: input.bedrooms ?? 0,
+    suites: input.suites ?? 0,
     bathrooms: input.bathrooms ?? 0,
     parking: input.parking ?? 0,
     area: input.area ?? 0,

@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
   const body = await readBody<BrokerInput>(event)
-  if (!body?.name?.trim()) throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+  assertBrokerInput(body)
   return updateBroker(client, tenant.id, id, body)
 })

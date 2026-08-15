@@ -6,6 +6,7 @@ const icons: Record<string, string> = {
   wa: 'tabler:brand-whatsapp',
   search: 'tabler:search',
   bed: 'tabler:bed',
+  suite: 'tabler:door',
   bath: 'tabler:bath',
   car: 'tabler:car',
   area: 'tabler:ruler-2',
@@ -13,6 +14,9 @@ const icons: Record<string, string> = {
   close: 'tabler:x',
   phone: 'tabler:phone',
   mail: 'tabler:mail',
+  'chevron-left': 'tabler:chevron-left',
+  'chevron-right': 'tabler:chevron-right',
+  expand: 'tabler:arrows-maximize',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

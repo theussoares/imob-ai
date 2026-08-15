@@ -27,6 +27,7 @@ export interface Property {
   city: string | null
   state: string | null
   bedrooms: number
+  suites: number
   bathrooms: number
   parking: number
   area: number
@@ -62,6 +63,7 @@ export interface PropertyCard {
   neighborhood: string | null
   city: string | null
   bedrooms: number
+  suites: number
   bathrooms: number
   parking: number
   area: number
@@ -90,6 +92,7 @@ export interface PropertyInput {
   city?: string | null
   state?: string | null
   bedrooms?: number
+  suites?: number
   bathrooms?: number
   parking?: number
   area?: number
