@@ -61,6 +61,20 @@ button {
   font-family: inherit;
   cursor: pointer;
 }
+
+/* Dois toques rápidos num controle davam zoom no mobile em vez de acionar duas
+   vezes. `manipulation` desliga o duplo-toque-para-zoom mantendo o pinça-zoom e
+   o scroll — de propósito, em vez de `user-scalable=no` no viewport, que
+   impediria de ampliar a página e é falha de acessibilidade. */
+a,
+button,
+label,
+select,
+summary,
+[role="button"],
+[role="tab"] {
+  touch-action: manipulation;
+}
 :focus-visible {
   outline: 3px solid var(--brand);
   outline-offset: 2px;
@@ -99,8 +113,8 @@ button {
   color: var(--ink);
 }
 .brand .mark {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 11px;
   flex: none;
   background: var(--brand);
