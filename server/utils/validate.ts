@@ -1,12 +1,14 @@
 import type { PropertyInput } from '~~/shared/models/property'
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
 import type { BrokerInput } from '~~/shared/models/broker'
+import type { LeadCreateInput, LeadUpdateInput } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 
 const TYPES = ['casa', 'apartamento', 'sobrado', 'terreno']
 const PURPOSES = ['venda', 'aluguel']
 const STATUSES = ['active', 'draft', 'sold', 'rented']
 const HERO_POSITIONS = ['left', 'right', 'background']
+const LEAD_STAGES = ['novo', 'contato', 'visita', 'proposta', 'fechado', 'perdido']
 
 /** Valida o payload de configurações do tenant vindo do painel. */
 export function assertTenantSettingsInput(input: unknown): asserts input is TenantSettingsInput {
@@ -60,6 +62,42 @@ export function assertPropertyInput(input: unknown): asserts input is PropertyIn
   if (p.ownerPhone !== undefined && p.ownerPhone !== null && String(p.ownerPhone).trim() && !isValidWhatsapp(String(p.ownerPhone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp do proprietário inválido.' })
   }
+}
+
+/** Um valor de data opcional precisa ser ISO parseável (ou vazio/null). */
+function assertOptionalDate(v: unknown, label: string) {
+  if (v === undefined || v === null || String(v).trim() === '') return
+  if (Number.isNaN(new Date(String(v)).getTime())) {
+    throw createError({ statusCode: 422, statusMessage: `${label} inválida.` })
+  }
+}
+
+/** Valida o cadastro manual de um lead pelo painel. */
+export function assertLeadCreateInput(input: unknown): asserts input is LeadCreateInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const l = input as Record<string, unknown>
+  if (!String(l.name ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+  if (l.stage !== undefined && !LEAD_STAGES.includes(l.stage as string)) {
+    throw createError({ statusCode: 422, statusMessage: 'Etapa inválida.' })
+  }
+  assertOptionalDate(l.nextContactAt, 'Data de retorno')
+}
+
+/** Valida a edição de um lead (mover no funil, anotar, agendar). */
+export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpdateInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const l = input as Record<string, unknown>
+  if (l.stage !== undefined && !LEAD_STAGES.includes(l.stage as string)) {
+    throw createError({ statusCode: 422, statusMessage: 'Etapa inválida.' })
+  }
+  if (l.name !== undefined && l.name !== null && !String(l.name).trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Nome não pode ficar vazio.' })
+  }
+  assertOptionalDate(l.nextContactAt, 'Data de retorno')
 }
 
 /** Valida o payload de corretor vindo do painel. */
