@@ -25,7 +25,14 @@ async function logout() {
   <aside class="admin-sidebar">
     <div class="flex justify-between items-center">
       <NuxtLink class="brand" to="/admin" style="color: #fff">
-        <span class="mark"><AppIcon name="home" /></span>
+        <span class="mark" :class="{ 'has-logo': tenant?.logoUrl }">
+          <img
+            v-if="tenant?.logoUrl"
+            :src="tenant.logoUrl"
+            :alt="tenant?.name || 'Logo'"
+          />
+          <AppIcon v-else name="home" />
+        </span>
         <span>
           <b style="color: #fff">{{ tenant?.name || "Painel" }}</b>
           <small style="color: #cfe3dd">Painel administrativo</small>
@@ -52,5 +59,19 @@ async function logout() {
 .admin-nav a.active {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
+}
+
+/* A sidebar tem fundo var(--brand), o mesmo do .mark: uma logo com fundo
+   transparente e traço escuro desapareceria. Fundo branco garante contraste
+   para qualquer logo. */
+.brand .mark.has-logo {
+  background: transparent;
+  border-radius: 2px;
+  width: 100%;
+  height: 100%;
+}
+/* `contain` em vez do `cover` global: logo não pode ser cortada. */
+.brand .mark.has-logo img {
+  object-fit: contain;
 }
 </style>
