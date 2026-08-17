@@ -77,11 +77,12 @@ const builtByLink = computed(() => {
    escuro: logo com traço escuro e fundo transparente sumiria. */
 .foot-brand .mark.has-logo {
   overflow: hidden;
+  background: transparent;
 }
 .foot-brand .mark.has-logo img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* logo não pode ser cortada */
+  object-fit: contain;
 }
 
 .dev-credit a {

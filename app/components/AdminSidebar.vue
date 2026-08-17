@@ -66,7 +66,6 @@ async function logout() {
    para qualquer logo. */
 .brand .mark.has-logo {
   background: transparent;
-  border-radius: 2px;
 }
 /* `contain` em vez do `cover` global: logo não pode ser cortada. */
 .brand .mark.has-logo img {
