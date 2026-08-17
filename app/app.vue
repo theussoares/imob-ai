@@ -71,7 +71,12 @@ useSeoMeta({
 })
 
 useHead(() => ({
-  link: [{ rel: 'canonical', href: canonicalUrl.value }],
+  link: [
+    { rel: 'canonical', href: canonicalUrl.value },
+    // Gerado por tenant em server/routes/favicon.svg.get.ts (inicial + cor da
+    // marca). Não é arquivo estático porque precisa variar por host.
+    { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+  ],
 }))
 </script>
 
