@@ -167,6 +167,25 @@ const previewTenant = computed<Tenant | null>(() => {
   }
 })
 
+// URL do feed de imóveis para os portais (ZAP/VivaReal/OLX via Canal Pro).
+// Deriva do domínio público do cliente: no host de painel (painel.<dominio>)
+// remove o prefixo para apontar o feed ao site, não ao admin.
+const feedUrl = ref('')
+const feedCopied = ref(false)
+onMounted(() => {
+  const host = window.location.host.replace(/^(painel|admin)\./, '')
+  feedUrl.value = `${window.location.protocol}//${host}/feed/imoveis.xml`
+})
+async function copyFeed() {
+  try {
+    await navigator.clipboard.writeText(feedUrl.value)
+    feedCopied.value = true
+    setTimeout(() => (feedCopied.value = false), 2000)
+  } catch {
+    /* clipboard indisponível: o usuário copia manualmente do link */
+  }
+}
+
 const saving = ref(false)
 const saved = ref(false)
 const error = ref('')
@@ -406,6 +425,22 @@ useHead({ title: 'Configurações · Painel' })
         />
       </div>
 
+      <h3 class="section-t">Integrações · Portais (ZAP, VivaReal, OLX)</h3>
+      <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
+        Cole o link abaixo no seu painel do Canal Pro (Grupo OLX / ZAP). Os imóveis
+        publicados aqui aparecem e se atualizam sozinhos nos portais.
+      </p>
+      <div class="feed-row">
+        <a class="feed-url" :href="feedUrl" target="_blank" rel="noopener">{{ feedUrl }}</a>
+        <button type="button" class="admin-btn ghost" @click="copyFeed">
+          {{ feedCopied ? 'Copiado! ✅' : 'Copiar link' }}
+        </button>
+      </div>
+      <p class="hint-text">
+        Só entram no feed os imóveis com status <strong>Publicado</strong>. O portal
+        cobra o plano de anúncios à parte — a integração em si não tem custo.
+      </p>
+
       <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p v-if="saved" style="color: var(--wa-dark); margin-top: 14px; font-weight: 600">
         Configurações salvas! ✅
@@ -520,6 +555,24 @@ useHead({ title: 'Configurações · Painel' })
   font-size: 12.5px;
   color: var(--ink-soft);
   margin: 6px 0 0;
+}
+.feed-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.feed-url {
+  flex: 1;
+  min-width: 220px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--brand);
+  font-size: 13.5px;
+  word-break: break-all;
+  text-decoration: none;
 }
 .pos-toggle {
   display: flex;
