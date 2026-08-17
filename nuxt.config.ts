@@ -65,7 +65,7 @@ export default defineNuxtConfig({
       supabaseUrl: process.env.SUPABASE_URL || '',
       supabaseKey: process.env.SUPABASE_KEY || '',
       // Crédito do desenvolvedor no rodapé (fixo em todos os tenants).
-      builtByName: process.env.NUXT_PUBLIC_BUILT_BY_NAME || 'Matheus Soares',
+      builtByName: process.env.NUXT_PUBLIC_BUILT_BY_NAME || 'MA Tech',
       builtByWhatsapp: process.env.NUXT_PUBLIC_BUILT_BY_WHATSAPP || '5567992171768',
       // Link da demonstração (usado na landing da Moradi).
       demoUrl: process.env.NUXT_PUBLIC_DEMO_URL || 'https://demo.usemoradi.com.br',
