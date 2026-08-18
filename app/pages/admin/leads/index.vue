@@ -6,6 +6,7 @@ import type {
   LeadCreateInput,
 } from "~~/shared/models/lead";
 import type { Broker } from "~~/shared/models/broker";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
@@ -15,6 +16,8 @@ import {
 } from "~~/shared/models/lead";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
+
+const tenant = useTenant();
 
 const {
   data: leads,
@@ -165,6 +168,78 @@ function onDrop(stage: LeadStage) {
   const l = list.value.find((x) => x.id === id);
   if (l) move(l, stage);
 }
+
+// ---- Tempo real: só INSERT ----
+//
+// UPDATE e DELETE ficam de fora de propósito. O quadro faz atualização otimista
+// (move o card antes da confirmação do servidor); um evento de UPDATE chegando
+// no meio disso sobrescreveria o estado local e o card piscaria — ou voltaria
+// pra coluna anterior por um instante. INSERT não tem esse conflito: é linha
+// que ainda não existe na tela.
+const liveIds = ref<string[]>([]);
+// Chegou contato novo que o filtro de tipo está escondendo? Aí o aviso precisa
+// oferecer saída, senão a corretora vê "1 novo contato" e não acha o card.
+const hiddenByFilter = computed(() =>
+  liveIds.value.some((id) => !list.value.some((l) => l.id === id)),
+);
+
+// O payload do Realtime traz a linha crua, sem o imóvel embutido — então em vez
+// de montar o Lead na mão, refaz a busca. Contato é evento raro; uma requisição
+// a mais não pesa e evita card com dado pela metade.
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    refreshTimer = null;
+    // Adia enquanto há mudança otimista em voo: refetch no meio dela faria o
+    // card voltar ao estado antigo até o servidor responder.
+    if (busy.value) return scheduleRefresh();
+    await refresh();
+  }, 400);
+}
+
+// Se a assinatura cair, a tela fica parada parecendo atualizada — que é pior do
+// que não ter tempo real. Então o estado é visível em vez de silencioso.
+const liveStatus = ref<"conectando" | "on" | "off">("conectando");
+let channel: RealtimeChannel | null = null;
+onMounted(async () => {
+  const tenantId = tenant.value?.id;
+  if (!tenantId) return;
+  const client = await getAdminSupabase();
+  channel = client
+    .channel(`leads-${tenantId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "leads",
+        filter: `tenant_id=eq.${tenantId}`,
+      },
+      (payload) => {
+        const id = (payload.new as { id?: string })?.id;
+        if (!id) return;
+        // Já está na tela: é o cadastro manual feito nesta aba, ou um refetch
+        // que chegou antes do evento. Avisar seria avisar do próprio clique.
+        if (leads.value?.some((l) => l.id === id)) return;
+        if (!liveIds.value.includes(id)) liveIds.value = [...liveIds.value, id];
+        scheduleRefresh();
+      },
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") liveStatus.value = "on";
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
+        liveStatus.value = "off";
+    });
+});
+
+onBeforeUnmount(async () => {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  if (!channel) return;
+  const client = await getAdminSupabase();
+  await client.removeChannel(channel);
+  channel = null;
+});
 
 // ---- Editor inline ----
 const editingId = ref<string | null>(null);
@@ -407,6 +482,28 @@ useHead({ title: "Contatos · Painel" });
       </div>
     </div>
 
+    <p v-if="liveStatus === 'off'" class="live-off">
+      Atualização automática indisponível agora — recarregue a página para ver
+      contatos novos.
+    </p>
+
+    <!-- Chegou contato agora (assinatura de INSERT) -->
+    <div v-if="liveIds.length" class="live">
+      <span class="live-dot" aria-hidden="true" />
+      <strong>{{ liveIds.length }}</strong>
+      <span>{{
+        liveIds.length === 1 ? "novo contato" : "novos contatos"
+      }}</span>
+      <button
+        v-if="hiddenByFilter"
+        class="link-btn"
+        @click="typeFilter = 'todos'"
+      >
+        o filtro está escondendo — ver todos
+      </button>
+      <button class="link-btn live-ok" @click="liveIds = []">ok</button>
+    </div>
+
     <!-- Resumo -->
     <div v-if="list.length" class="summary">
       <div class="s-card">
@@ -486,7 +583,11 @@ useHead({ title: "Contatos · Painel" });
           v-for="l in byStage[s]"
           :key="l.id"
           class="card"
-          :class="{ over: isOverdue(l), busy: busy === l.id }"
+          :class="{
+            over: isOverdue(l),
+            busy: busy === l.id,
+            fresh: liveIds.includes(l.id),
+          }"
           draggable="true"
           @dragstart="dragId = l.id"
           @dragend="dragId = null"
@@ -836,6 +937,62 @@ useHead({ title: "Contatos · Painel" });
   background: var(--surface);
   color: var(--brand);
   box-shadow: var(--shadow);
+}
+
+.live-off {
+  margin-bottom: 14px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 13.5px;
+}
+
+/* Aviso de contato chegando em tempo real. */
+.live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 14px;
+}
+.live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+.live-ok {
+  margin-left: auto;
+}
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+/* Quem tem "prefiro menos animação" no sistema não precisa de ponto piscando. */
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
+/* Card que acabou de chegar: destaque some quando o aviso é dispensado. */
+.card.fresh {
+  border-color: #6ee7b7;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
 /* Etiqueta do tipo de contato.
