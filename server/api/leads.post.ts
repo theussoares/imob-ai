@@ -47,14 +47,28 @@ export default defineEventHandler(async (event) => {
     propertyId = property?.id ?? null
   }
 
-  await createLead(service, {
-    tenantId: tenant.id,
-    propertyId,
-    name,
-    phone,
-    message,
-    source: body.source || 'form',
-  })
+  try {
+    await createLead(service, {
+      tenantId: tenant.id,
+      propertyId,
+      name,
+      phone,
+      message,
+      source: body.source || 'form',
+    })
+  } catch (e) {
+    // Sem isto o lead some calado: o visitante vê erro e ninguém fica sabendo.
+    // Nada de nome/telefone/mensagem no log — é dado pessoal de terceiro.
+    logError('lead.create_failed', {
+      tenant: tenant.slug,
+      propertyCode: body.propertyCode ?? null,
+      reason: errMessage(e),
+    })
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Não foi possível registrar seu contato. Tente novamente.',
+    })
+  }
 
   return { ok: true }
 })

@@ -17,14 +17,14 @@ const builtByLink = computed(() => {
     <div class="foot-in">
       <div>
         <div class="foot-brand">
-          <span class="mark" :class="{ 'has-logo': tenant?.logoUrl }">
+          <!-- <span class="mark" :class="{ 'has-logo': tenant?.logoUrl }">
             <img
               v-if="tenant?.logoUrl"
               :src="tenant.logoUrl"
               :alt="tenant?.name || 'Logo'"
             />
             <AppIcon v-else name="home" />
-          </span>
+          </span> -->
           {{ tenant?.name || "Imóveis" }}
         </div>
         <p>
@@ -77,11 +77,12 @@ const builtByLink = computed(() => {
    escuro: logo com traço escuro e fundo transparente sumiria. */
 .foot-brand .mark.has-logo {
   overflow: hidden;
+  background: transparent;
 }
 .foot-brand .mark.has-logo img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* logo não pode ser cortada */
+  object-fit: contain;
 }
 
 .dev-credit a {

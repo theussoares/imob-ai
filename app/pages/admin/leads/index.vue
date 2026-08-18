@@ -1,121 +1,161 @@
 <script setup lang="ts">
-import type { Lead, LeadStage, LeadCreateInput } from '~~/shared/models/lead'
-import type { Broker } from '~~/shared/models/broker'
-import { LEAD_STAGES, LEAD_STAGE_LABELS } from '~~/shared/models/lead'
+import type { Lead, LeadStage, LeadCreateInput } from "~~/shared/models/lead";
+import type { Broker } from "~~/shared/models/broker";
+import { LEAD_STAGES, LEAD_STAGE_LABELS } from "~~/shared/models/lead";
 
-definePageMeta({ layout: 'admin', middleware: 'admin' })
+definePageMeta({ layout: "admin", middleware: "admin" });
 
-const { data: leads, pending, refresh } = await useAsyncData(
-  'admin:leads',
-  () => adminFetch<Lead[]>('/api/admin/leads'),
+const {
+  data: leads,
+  pending,
+  refresh,
+} = await useAsyncData(
+  "admin:leads",
+  () => adminFetch<Lead[]>("/api/admin/leads"),
   { server: false, default: () => [] as Lead[] },
-)
+);
 
 // Corretores para atribuir o responsável (opcional, carregado sob demanda).
 const { data: brokers } = useLazyAsyncData(
-  'admin:leads:brokers',
-  () => adminFetch<Broker[]>('/api/admin/brokers'),
+  "admin:leads:brokers",
+  () => adminFetch<Broker[]>("/api/admin/brokers"),
   { server: false, default: () => [] as Broker[] },
-)
-const brokerName = (id: string | null) => (id ? brokers.value?.find((b) => b.id === id)?.name ?? '' : '')
+);
+const brokerName = (id: string | null) =>
+  id ? (brokers.value?.find((b) => b.id === id)?.name ?? "") : "";
 
-const view = ref<'funil' | 'lista'>('funil')
-const showLost = ref(false)
+const view = ref<"funil" | "lista">("funil");
+const showLost = ref(false);
 
-const list = computed(() => leads.value ?? [])
+const list = computed(() => leads.value ?? []);
 
 function isActive(l: Lead) {
-  return l.stage !== 'perdido' && l.stage !== 'fechado'
+  return l.stage !== "perdido" && l.stage !== "fechado";
 }
 function isOverdue(l: Lead) {
-  return !!l.nextContactAt && isActive(l) && new Date(l.nextContactAt).getTime() <= Date.now()
+  return (
+    !!l.nextContactAt &&
+    isActive(l) &&
+    new Date(l.nextContactAt).getTime() <= Date.now()
+  );
 }
 
 // Dentro de cada coluna: retornos vencidos primeiro (mais atrasado no topo),
 // depois com retorno agendado, e por fim os mais recentes.
 function sortColumn(a: Lead, b: Lead) {
-  const ao = isOverdue(a), bo = isOverdue(b)
-  if (ao !== bo) return ao ? -1 : 1
+  const ao = isOverdue(a),
+    bo = isOverdue(b);
+  if (ao !== bo) return ao ? -1 : 1;
   if (a.nextContactAt && b.nextContactAt) {
-    return new Date(a.nextContactAt).getTime() - new Date(b.nextContactAt).getTime()
+    return (
+      new Date(a.nextContactAt).getTime() - new Date(b.nextContactAt).getTime()
+    );
   }
-  if (a.nextContactAt !== b.nextContactAt) return a.nextContactAt ? -1 : 1
-  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  if (a.nextContactAt !== b.nextContactAt) return a.nextContactAt ? -1 : 1;
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
 const byStage = computed<Record<LeadStage, Lead[]>>(() => {
-  const map = { novo: [], contato: [], visita: [], proposta: [], fechado: [], perdido: [] } as Record<LeadStage, Lead[]>
-  for (const l of list.value) (map[l.stage] ?? map.novo).push(l)
-  for (const s of LEAD_STAGES) map[s].sort(sortColumn)
-  return map
-})
-const lostLeads = computed(() => byStage.value.perdido.slice().sort(sortColumn))
+  const map = {
+    novo: [],
+    contato: [],
+    visita: [],
+    proposta: [],
+    fechado: [],
+    perdido: [],
+  } as Record<LeadStage, Lead[]>;
+  for (const l of list.value) (map[l.stage] ?? map.novo).push(l);
+  for (const s of LEAD_STAGES) map[s].sort(sortColumn);
+  return map;
+});
+const lostLeads = computed(() =>
+  byStage.value.perdido.slice().sort(sortColumn),
+);
 
 const summary = computed(() => {
-  const l = list.value
+  const l = list.value;
   return {
-    novos: l.filter((x) => x.stage === 'novo').length,
+    novos: l.filter((x) => x.stage === "novo").length,
     atrasados: l.filter(isOverdue).length,
-    andamento: l.filter((x) => ['contato', 'visita', 'proposta'].includes(x.stage)).length,
-    fechados: l.filter((x) => x.stage === 'fechado').length,
-  }
-})
+    andamento: l.filter((x) =>
+      ["contato", "visita", "proposta"].includes(x.stage),
+    ).length,
+    fechados: l.filter((x) => x.stage === "fechado").length,
+  };
+});
 
 // ---- Mutations (otimistas: mexe local e confirma no servidor) ----
-const busy = ref<string | null>(null)
+const busy = ref<string | null>(null);
 
 // Reatribui a lista (não muta índice/propriedade): a ref do useAsyncData não é
 // reativa em profundidade, então só a reatribuição atualiza funil e contadores.
-async function patchLead(id: string, body: Partial<Lead> & { nextContactAt?: string | null }) {
-  busy.value = id
+async function patchLead(
+  id: string,
+  body: Partial<Lead> & { nextContactAt?: string | null },
+) {
+  busy.value = id;
   try {
-    const updated = await adminFetch<Lead>(`/api/admin/leads/${id}`, { method: 'PUT', body })
-    if (leads.value) leads.value = leads.value.map((x) => (x.id === id ? updated : x))
+    const updated = await adminFetch<Lead>(`/api/admin/leads/${id}`, {
+      method: "PUT",
+      body,
+    });
+    if (leads.value)
+      leads.value = leads.value.map((x) => (x.id === id ? updated : x));
   } catch {
-    await refresh() // desfaz o otimista voltando ao estado do servidor
-    alert('Não foi possível salvar. Tente de novo.')
+    await refresh(); // desfaz o otimista voltando ao estado do servidor
+    alert("Não foi possível salvar. Tente de novo.");
   } finally {
-    busy.value = null
+    busy.value = null;
   }
 }
 
 function move(l: Lead, stage: LeadStage) {
-  if (l.stage === stage) return
-  if (leads.value) leads.value = leads.value.map((x) => (x.id === l.id ? { ...x, stage } : x)) // otimista
-  patchLead(l.id, { stage })
+  if (l.stage === stage) return;
+  if (leads.value)
+    leads.value = leads.value.map((x) => (x.id === l.id ? { ...x, stage } : x)); // otimista
+  patchLead(l.id, { stage });
 }
 
 async function remove(l: Lead) {
-  if (!confirm(`Excluir o contato ${l.name || 'sem nome'}? Esta ação não volta.`)) return
+  if (
+    !confirm(`Excluir o contato ${l.name || "sem nome"}? Esta ação não volta.`)
+  )
+    return;
   try {
-    await adminFetch(`/api/admin/leads/${l.id}`, { method: 'DELETE' })
-    if (leads.value) leads.value = leads.value.filter((x) => x.id !== l.id)
-    if (editingId.value === l.id) editingId.value = null
+    await adminFetch(`/api/admin/leads/${l.id}`, { method: "DELETE" });
+    if (leads.value) leads.value = leads.value.filter((x) => x.id !== l.id);
+    if (editingId.value === l.id) editingId.value = null;
   } catch {
-    alert('Não foi possível excluir.')
+    alert("Não foi possível excluir.");
   }
 }
 
 // ---- Drag & drop (desktop) ----
-const dragId = ref<string | null>(null)
+const dragId = ref<string | null>(null);
 function onDrop(stage: LeadStage) {
-  const id = dragId.value
-  dragId.value = null
-  const l = list.value.find((x) => x.id === id)
-  if (l) move(l, stage)
+  const id = dragId.value;
+  dragId.value = null;
+  const l = list.value.find((x) => x.id === id);
+  if (l) move(l, stage);
 }
 
 // ---- Editor inline ----
-const editingId = ref<string | null>(null)
-const edit = reactive({ name: '', phone: '', notes: '', nextContactAt: '', brokerId: '' })
+const editingId = ref<string | null>(null);
+const edit = reactive({
+  name: "",
+  phone: "",
+  notes: "",
+  nextContactAt: "",
+  brokerId: "",
+});
 function openEditor(l: Lead) {
-  editingId.value = editingId.value === l.id ? null : l.id
+  editingId.value = editingId.value === l.id ? null : l.id;
   if (editingId.value) {
-    edit.name = l.name || ''
-    edit.phone = l.phone || ''
-    edit.notes = l.notes || ''
-    edit.nextContactAt = dateToInput(l.nextContactAt)
-    edit.brokerId = l.brokerId || ''
+    edit.name = l.name || "";
+    edit.phone = l.phone || "";
+    edit.notes = l.notes || "";
+    edit.nextContactAt = dateToInput(l.nextContactAt);
+    edit.brokerId = l.brokerId || "";
   }
 }
 async function saveEditor(l: Lead) {
@@ -125,91 +165,112 @@ async function saveEditor(l: Lead) {
     notes: edit.notes.trim() || null,
     nextContactAt: inputToIso(edit.nextContactAt),
     brokerId: edit.brokerId || null,
-  })
-  editingId.value = null
+  });
+  editingId.value = null;
 }
 
 // ---- Novo contato manual ----
-const showNew = ref(false)
-const saving = ref(false)
-const newErr = ref('')
-const newForm = reactive<LeadCreateInput>({ name: '', phone: '', message: '', stage: 'novo', nextContactAt: '', brokerId: '' })
+const showNew = ref(false);
+const saving = ref(false);
+const newErr = ref("");
+const newForm = reactive<LeadCreateInput>({
+  name: "",
+  phone: "",
+  message: "",
+  stage: "novo",
+  nextContactAt: "",
+  brokerId: "",
+});
 function resetNew() {
-  Object.assign(newForm, { name: '', phone: '', message: '', stage: 'novo', nextContactAt: '', brokerId: '' })
-  newErr.value = ''
+  Object.assign(newForm, {
+    name: "",
+    phone: "",
+    message: "",
+    stage: "novo",
+    nextContactAt: "",
+    brokerId: "",
+  });
+  newErr.value = "";
 }
 async function createNew() {
   if (!newForm.name.trim()) {
-    newErr.value = 'Informe ao menos o nome.'
-    return
+    newErr.value = "Informe ao menos o nome.";
+    return;
   }
-  saving.value = true
-  newErr.value = ''
+  saving.value = true;
+  newErr.value = "";
   try {
-    const created = await adminFetch<Lead>('/api/admin/leads', {
-      method: 'POST',
+    const created = await adminFetch<Lead>("/api/admin/leads", {
+      method: "POST",
       body: {
         name: newForm.name.trim(),
-        phone: (newForm.phone || '').trim() || null,
-        message: (newForm.message || '').trim() || null,
+        phone: (newForm.phone || "").trim() || null,
+        message: (newForm.message || "").trim() || null,
         stage: newForm.stage,
-        nextContactAt: inputToIso(newForm.nextContactAt || ''),
+        nextContactAt: inputToIso(newForm.nextContactAt || ""),
         brokerId: newForm.brokerId || null,
-        source: 'manual',
+        source: "manual",
       },
-    })
-    if (leads.value) leads.value = [created, ...leads.value]
-    resetNew()
-    showNew.value = false
+    });
+    if (leads.value) leads.value = [created, ...leads.value];
+    resetNew();
+    showNew.value = false;
   } catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string } }
-    newErr.value = err?.data?.statusMessage || 'Não foi possível salvar.'
+    const err = e as { data?: { statusMessage?: string } };
+    newErr.value = err?.data?.statusMessage || "Não foi possível salvar.";
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 // ---- Helpers ----
 function waHref(phone?: string | null) {
-  const d = (phone || '').replace(/\D/g, '')
-  return d ? `https://wa.me/${d}` : ''
+  const d = (phone || "").replace(/\D/g, "");
+  return d ? `https://wa.me/${d}` : "";
 }
 function whenLabel(iso: string) {
-  const then = new Date(iso)
-  const diffMin = Math.round((Date.now() - then.getTime()) / 60000)
-  if (diffMin < 1) return 'agora'
-  if (diffMin < 60) return `há ${diffMin} min`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `há ${diffH} h`
-  const diffD = Math.round(diffH / 24)
-  if (diffD === 1) return 'ontem'
-  if (diffD < 7) return `há ${diffD} dias`
-  return then.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  const then = new Date(iso);
+  const diffMin = Math.round((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return "agora";
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `há ${diffH} h`;
+  const diffD = Math.round(diffH / 24);
+  if (diffD === 1) return "ontem";
+  if (diffD < 7) return `há ${diffD} dias`;
+  return then.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
 }
 function returnLabel(iso: string) {
-  const d = new Date(iso)
-  const days = Math.round((d.getTime() - Date.now()) / 86400000)
-  const date = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
-  if (days < 0) return `retorno atrasado (${date})`
-  if (days === 0) return `retornar hoje`
-  if (days === 1) return `retornar amanhã (${date})`
-  return `retornar ${date}`
+  const d = new Date(iso);
+  const days = Math.round((d.getTime() - Date.now()) / 86400000);
+  const date = d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+  if (days < 0) return `retorno atrasado (${date})`;
+  if (days === 0) return `retornar hoje`;
+  if (days === 1) return `retornar amanhã (${date})`;
+  return `retornar ${date}`;
 }
 // timestamptz <-> <input type="date">. Ancora ao meio-dia local pra não pular
 // de dia por causa de fuso ao converter para ISO.
 function dateToInput(iso: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const off = d.getTimezoneOffset() * 60000
-  return new Date(d.getTime() - off).toISOString().slice(0, 10)
+  if (!iso) return "";
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
 }
 function inputToIso(day: string): string | null {
-  if (!day) return null
-  const d = new Date(`${day}T12:00:00`)
-  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+  if (!day) return null;
+  const d = new Date(`${day}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-useHead({ title: 'Contatos · Painel' })
+useHead({ title: "Contatos · Painel" });
 </script>
 
 <template>
@@ -217,70 +278,129 @@ useHead({ title: 'Contatos · Painel' })
     <div class="page-head">
       <div>
         <h1>Contatos</h1>
-        <p class="sub">Seu funil de atendimento. Mova o contato conforme ele avança e agende o próximo retorno.</p>
+        <p class="sub">
+          Seu funil de atendimento. Mova o contato conforme ele avança e agende
+          o próximo retorno.
+        </p>
       </div>
-      <button class="admin-btn" @click="showNew = !showNew">{{ showNew ? 'Fechar' : '+ Novo contato' }}</button>
+      <button class="admin-btn" @click="showNew = !showNew">
+        {{ showNew ? "Fechar" : "+ Novo contato" }}
+      </button>
     </div>
 
     <!-- Novo contato manual -->
     <div v-if="showNew" class="admin-card new-card">
       <h3 class="section-t">Novo contato</h3>
-      <p class="hint">Registre aqui o lead que chegou por WhatsApp, indicação ou ligação — assim ele não se perde.</p>
+      <p class="hint">
+        Registre aqui o lead que chegou por WhatsApp, indicação ou ligação —
+        assim ele não se perde.
+      </p>
       <div class="new-grid">
         <div>
           <label class="admin-label">Nome *</label>
-          <input v-model="newForm.name" class="admin-input" placeholder="Nome do interessado" />
+          <input
+            v-model="newForm.name"
+            class="admin-input"
+            placeholder="Nome do interessado"
+          />
         </div>
         <div>
           <label class="admin-label">WhatsApp / telefone</label>
-          <input v-model="newForm.phone" class="admin-input" type="tel" inputmode="numeric" placeholder="(67) 99999-9999" />
+          <input
+            v-model="newForm.phone"
+            class="admin-input"
+            type="tel"
+            inputmode="numeric"
+            placeholder="(67) 99999-9999"
+          />
         </div>
         <div>
           <label class="admin-label">Etapa</label>
           <select v-model="newForm.stage" class="admin-input">
-            <option v-for="s in LEAD_STAGES" :key="s" :value="s">{{ LEAD_STAGE_LABELS[s] }}</option>
+            <option v-for="s in LEAD_STAGES" :key="s" :value="s">
+              {{ LEAD_STAGE_LABELS[s] }}
+            </option>
           </select>
         </div>
         <div>
           <label class="admin-label">Próximo retorno</label>
-          <input v-model="newForm.nextContactAt" class="admin-input" type="date" />
+          <input
+            v-model="newForm.nextContactAt"
+            class="admin-input"
+            type="date"
+          />
         </div>
         <div v-if="brokers?.length">
           <label class="admin-label">Corretor responsável</label>
           <select v-model="newForm.brokerId" class="admin-input">
             <option value="">— ninguém —</option>
-            <option v-for="b in brokers" :key="b.id" :value="b.id">{{ b.name }}</option>
+            <option v-for="b in brokers" :key="b.id" :value="b.id">
+              {{ b.name }}
+            </option>
           </select>
         </div>
         <div class="new-msg">
           <label class="admin-label">O que ele procura / observação</label>
-          <textarea v-model="newForm.message" class="admin-textarea" rows="2" placeholder="Ex.: casa 3 quartos até 400 mil no centro" />
+          <textarea
+            v-model="newForm.message"
+            class="admin-textarea"
+            rows="2"
+            placeholder="Ex.: casa 3 quartos até 400 mil no centro"
+          />
         </div>
       </div>
       <p v-if="newErr" class="err">{{ newErr }}</p>
       <div class="new-actions">
-        <button class="admin-btn" :disabled="saving" @click="createNew">{{ saving ? 'Salvando...' : 'Adicionar ao funil' }}</button>
-        <button class="admin-btn ghost" @click="showNew = false; resetNew()">Cancelar</button>
+        <button class="admin-btn" :disabled="saving" @click="createNew">
+          {{ saving ? "Salvando..." : "Adicionar ao funil" }}
+        </button>
+        <button
+          class="admin-btn ghost"
+          @click="
+            showNew = false;
+            resetNew();
+          "
+        >
+          Cancelar
+        </button>
       </div>
     </div>
 
     <!-- Resumo -->
     <div v-if="list.length" class="summary">
-      <div class="s-card"><span class="s-n">{{ summary.novos }}</span><small>Novos</small></div>
-      <div class="s-card" :class="{ alert: summary.atrasados }"><span class="s-n">{{ summary.atrasados }}</span><small>Retornos atrasados</small></div>
-      <div class="s-card"><span class="s-n">{{ summary.andamento }}</span><small>Em andamento</small></div>
-      <div class="s-card"><span class="s-n">{{ summary.fechados }}</span><small>Fechados</small></div>
+      <div class="s-card">
+        <span class="s-n">{{ summary.novos }}</span
+        ><small>Novos</small>
+      </div>
+      <div class="s-card" :class="{ alert: summary.atrasados }">
+        <span class="s-n">{{ summary.atrasados }}</span
+        ><small>Retornos atrasados</small>
+      </div>
+      <div class="s-card">
+        <span class="s-n">{{ summary.andamento }}</span
+        ><small>Em andamento</small>
+      </div>
+      <div class="s-card">
+        <span class="s-n">{{ summary.fechados }}</span
+        ><small>Fechados</small>
+      </div>
     </div>
 
     <div v-if="list.length" class="view-toggle">
-      <button :class="{ on: view === 'funil' }" @click="view = 'funil'">Funil</button>
-      <button :class="{ on: view === 'lista' }" @click="view = 'lista'">Lista</button>
+      <button :class="{ on: view === 'funil' }" @click="view = 'funil'">
+        Funil
+      </button>
+      <button :class="{ on: view === 'lista' }" @click="view = 'lista'">
+        Lista
+      </button>
     </div>
 
     <p v-if="pending" class="admin-card muted-block">Carregando...</p>
     <p v-else-if="!list.length" class="admin-card muted-block">
-      Nenhum contato ainda. Quando alguém preencher o formulário no site ele aparece aqui — ou use
-      <strong>“+ Novo contato”</strong> para registrar um lead que chegou por outro canal.
+      Nenhum contato ainda. Quando alguém preencher o formulário no site ele
+      aparece aqui — ou use
+      <strong>“+ Novo contato”</strong> para registrar um lead que chegou por
+      outro canal.
     </p>
 
     <!-- FUNIL -->
@@ -309,58 +429,136 @@ useHead({ title: 'Contatos · Painel' })
           @dragend="dragId = null"
         >
           <div class="card-top">
-            <strong class="c-name">{{ l.name || 'Sem nome' }}</strong>
-            <time class="c-when" :title="new Date(l.createdAt).toLocaleString('pt-BR')">{{ whenLabel(l.createdAt) }}</time>
+            <strong class="c-name">{{ l.name || "Sem nome" }}</strong>
+            <time
+              class="c-when"
+              :title="new Date(l.createdAt).toLocaleString('pt-BR')"
+              >{{ whenLabel(l.createdAt) }}</time
+            >
           </div>
 
-          <NuxtLink v-if="l.property" class="c-prop" :to="`/imovel/${l.property.code}`" target="_blank">
+          <NuxtLink
+            v-if="l.property"
+            class="c-prop"
+            :to="`/imovel/${l.property.code}`"
+            target="_blank"
+          >
             🏠 {{ l.property.code }} · {{ l.property.title }}
           </NuxtLink>
 
           <p v-if="l.message" class="c-msg">{{ l.message }}</p>
           <p v-if="l.notes" class="c-notes">📝 {{ l.notes }}</p>
 
-          <div v-if="l.nextContactAt" class="c-return" :class="{ over: isOverdue(l) }">
+          <div
+            v-if="l.nextContactAt"
+            class="c-return"
+            :class="{ over: isOverdue(l) }"
+          >
             ⏰ {{ returnLabel(l.nextContactAt) }}
           </div>
-          <div v-if="brokerName(l.brokerId)" class="c-broker">👤 {{ brokerName(l.brokerId) }}</div>
+          <div v-if="brokerName(l.brokerId)" class="c-broker">
+            👤 {{ brokerName(l.brokerId) }}
+          </div>
 
           <div class="c-actions">
-            <a v-if="waHref(l.phone)" class="admin-btn sm" :href="waHref(l.phone)" target="_blank" rel="noopener">
+            <a
+              v-if="waHref(l.phone)"
+              class="admin-btn sm"
+              :href="waHref(l.phone)"
+              target="_blank"
+              rel="noopener"
+            >
               <AppIcon name="wa" /> WhatsApp
             </a>
-            <button class="admin-btn ghost sm" @click="openEditor(l)">{{ editingId === l.id ? 'Fechar' : 'Detalhes' }}</button>
+            <button class="admin-btn ghost sm" @click="openEditor(l)">
+              {{ editingId === l.id ? "Fechar" : "Detalhes" }}
+            </button>
           </div>
 
           <!-- Editor -->
           <div v-if="editingId === l.id" class="editor">
             <div class="ed-row">
-              <div><label class="admin-label">Nome</label><input v-model="edit.name" class="admin-input" /></div>
-              <div><label class="admin-label">WhatsApp / telefone</label><input v-model="edit.phone" class="admin-input" type="tel" inputmode="numeric" /></div>
+              <div>
+                <label class="admin-label">Nome</label
+                ><input v-model="edit.name" class="admin-input" />
+              </div>
+              <div>
+                <label class="admin-label">WhatsApp / telefone</label
+                ><input
+                  v-model="edit.phone"
+                  class="admin-input"
+                  type="tel"
+                  inputmode="numeric"
+                />
+              </div>
             </div>
-            <label class="admin-label">Anotações (histórico do atendimento)</label>
-            <textarea v-model="edit.notes" class="admin-textarea" rows="3" placeholder="O que foi conversado, objeções, imóveis mostrados..." />
+            <label class="admin-label"
+              >Anotações (histórico do atendimento)</label
+            >
+            <textarea
+              v-model="edit.notes"
+              class="admin-textarea"
+              rows="3"
+              placeholder="O que foi conversado, objeções, imóveis mostrados..."
+            />
             <div class="ed-row">
-              <div><label class="admin-label">Próximo retorno</label><input v-model="edit.nextContactAt" class="admin-input" type="date" /></div>
+              <div>
+                <label class="admin-label">Próximo retorno</label
+                ><input
+                  v-model="edit.nextContactAt"
+                  class="admin-input"
+                  type="date"
+                />
+              </div>
               <div v-if="brokers?.length">
                 <label class="admin-label">Corretor</label>
                 <select v-model="edit.brokerId" class="admin-input">
                   <option value="">— ninguém —</option>
-                  <option v-for="b in brokers" :key="b.id" :value="b.id">{{ b.name }}</option>
+                  <option v-for="b in brokers" :key="b.id" :value="b.id">
+                    {{ b.name }}
+                  </option>
                 </select>
               </div>
             </div>
             <div>
               <label class="admin-label">Mover para</label>
-              <select :value="l.stage" class="admin-input" @change="move(l, ($event.target as HTMLSelectElement).value as LeadStage)">
-                <option v-for="opt in (['novo','contato','visita','proposta','fechado','perdido'] as LeadStage[])" :key="opt" :value="opt">
+              <select
+                :value="l.stage"
+                class="admin-input"
+                @change="
+                  move(
+                    l,
+                    ($event.target as HTMLSelectElement).value as LeadStage,
+                  )
+                "
+              >
+                <option
+                  v-for="opt in [
+                    'novo',
+                    'contato',
+                    'visita',
+                    'proposta',
+                    'fechado',
+                    'perdido',
+                  ] as LeadStage[]"
+                  :key="opt"
+                  :value="opt"
+                >
                   {{ LEAD_STAGE_LABELS[opt] }}
                 </option>
               </select>
             </div>
             <div class="ed-actions">
-              <button class="admin-btn" :disabled="busy === l.id" @click="saveEditor(l)">Salvar</button>
-              <button class="admin-btn danger sm" @click="remove(l)">Excluir</button>
+              <button
+                class="admin-btn"
+                :disabled="busy === l.id"
+                @click="saveEditor(l)"
+              >
+                Salvar
+              </button>
+              <button class="admin-btn danger sm" @click="remove(l)">
+                Excluir
+              </button>
             </div>
           </div>
         </article>
@@ -369,16 +567,33 @@ useHead({ title: 'Contatos · Painel' })
 
     <!-- LISTA (fallback simples) -->
     <div v-else class="lead-list">
-      <article v-for="l in [...list].filter((x) => x.stage !== 'perdido').sort(sortColumn)" :key="l.id" class="admin-card lead">
+      <article
+        v-for="l in [...list]
+          .filter((x) => x.stage !== 'perdido')
+          .sort(sortColumn)"
+        :key="l.id"
+        class="admin-card lead"
+      >
         <div class="lead-head">
-          <strong>{{ l.name || 'Sem nome' }}</strong>
+          <strong>{{ l.name || "Sem nome" }}</strong>
           <span class="pill">{{ LEAD_STAGE_LABELS[l.stage] }}</span>
         </div>
         <p v-if="l.message" class="c-msg">{{ l.message }}</p>
-        <div v-if="isOverdue(l)" class="c-return over">⏰ {{ returnLabel(l.nextContactAt!) }}</div>
+        <div v-if="isOverdue(l)" class="c-return over">
+          ⏰ {{ returnLabel(l.nextContactAt!) }}
+        </div>
         <div class="c-actions">
-          <a v-if="waHref(l.phone)" class="admin-btn sm" :href="waHref(l.phone)" target="_blank" rel="noopener"><AppIcon name="wa" /> WhatsApp</a>
-          <button class="admin-btn ghost sm" @click="openEditor(l)">Detalhes</button>
+          <a
+            v-if="waHref(l.phone)"
+            class="admin-btn sm"
+            :href="waHref(l.phone)"
+            target="_blank"
+            rel="noopener"
+            ><AppIcon name="wa" /> WhatsApp</a
+          >
+          <button class="admin-btn ghost sm" @click="openEditor(l)">
+            Detalhes
+          </button>
         </div>
       </article>
     </div>
@@ -386,14 +601,23 @@ useHead({ title: 'Contatos · Painel' })
     <!-- Perdidos -->
     <div v-if="lostLeads.length" class="lost">
       <button class="lost-toggle" @click="showLost = !showLost">
-        {{ showLost ? '▾' : '▸' }} Perdidos ({{ lostLeads.length }})
+        {{ showLost ? "▾" : "▸" }} Perdidos ({{ lostLeads.length }})
       </button>
       <div v-if="showLost" class="lost-list">
         <div v-for="l in lostLeads" :key="l.id" class="lost-item">
-          <span>{{ l.name || 'Sem nome' }}<template v-if="l.property"> · {{ l.property.code }}</template></span>
+          <span
+            >{{ l.name || "Sem nome"
+            }}<template v-if="l.property">
+              · {{ l.property.code }}</template
+            ></span
+          >
           <div class="lost-actions">
-            <button class="admin-btn ghost sm" @click="move(l, 'novo')">Reabrir</button>
-            <button class="admin-btn danger sm" @click="remove(l)">Excluir</button>
+            <button class="admin-btn ghost sm" @click="move(l, 'novo')">
+              Reabrir
+            </button>
+            <button class="admin-btn danger sm" @click="remove(l)">
+              Excluir
+            </button>
           </div>
         </div>
       </div>
@@ -420,7 +644,7 @@ useHead({ title: 'Contatos · Painel' })
   color: var(--ink-soft);
 }
 .section-t {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 15px;
   margin: 0 0 4px;
 }
@@ -479,7 +703,7 @@ useHead({ title: 'Contatos · Painel' })
   background: #fbf0ef;
 }
 .s-n {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 26px;
   font-weight: 700;
   color: var(--brand);
@@ -522,7 +746,7 @@ useHead({ title: 'Contatos · Painel' })
 .board {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(230px, 1fr);
+  grid-auto-columns: minmax(280px, 1fr);
   gap: 14px;
   overflow-x: auto;
   padding-bottom: 8px;
@@ -544,7 +768,7 @@ useHead({ title: 'Contatos · Painel' })
   justify-content: space-between;
 }
 .col-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
   font-size: 14px;
 }
