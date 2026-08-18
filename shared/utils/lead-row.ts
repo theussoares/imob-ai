@@ -44,6 +44,7 @@ export function leadFromRealtimeRow(row: RawLeadRow, existing?: Lead, expectedTe
     brokerId: nullable(row.broker_id),
     createdAt: str(row.created_at),
     updatedAt: str(row.updated_at),
+    updatedBy: nullable(row.updated_by),
     property: existing?.property ?? null,
   }
 }

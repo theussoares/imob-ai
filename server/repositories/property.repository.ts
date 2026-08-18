@@ -56,7 +56,7 @@ async function attachBrokersAdmin(client: Client, tenantId: string, rows: AdminR
     return toPropertyAdminModel(
       rest as PropertyRow,
       images ?? [],
-      r.broker_id ? brokers.get(r.broker_id) ?? null : null,
+      r.broker_id ? (brokers.get(r.broker_id) ?? null) : null,
     )
   })
 }
@@ -154,10 +154,17 @@ async function replaceImages(client: Client, propertyId: string, input: Property
   if (error) throw error
 }
 
-export async function createProperty(client: Client, tenantId: string, input: PropertyInput): Promise<Property> {
+export async function createProperty(
+  client: Client,
+  tenantId: string,
+  input: PropertyInput,
+  createdBy?: string,
+): Promise<Property> {
   const { data, error } = await client
     .from('properties')
-    .insert(toPropertyRow(input, tenantId))
+    // Já grava o autor na criação: sem isso um imóvel nunca editado apareceria
+    // sem responsável, que é justamente quando a pergunta costuma surgir.
+    .insert({ ...toPropertyRow(input, tenantId), updated_by: createdBy ?? null })
     .select('*')
     .single()
   if (error) throw error
@@ -188,8 +195,11 @@ export async function updateProperty(
   id: string,
   input: PropertyInput,
   expectedUpdatedAt?: string | null,
+  updatedBy?: string,
 ): Promise<Property> {
-  const row = toPropertyRow(input, tenantId)
+  // Quem editou por último. Vem do usuário autenticado no endpoint, nunca do
+  // payload — o cliente poderia dizer que foi outra pessoa.
+  const row = { ...toPropertyRow(input, tenantId), updated_by: updatedBy ?? null }
   let query = client.from('properties').update(row).eq('tenant_id', tenantId).eq('id', id)
   if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt)
   const { data, error } = await query.select('id')

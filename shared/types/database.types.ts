@@ -74,6 +74,7 @@ export type Database = {
           stage: string
           tenant_id: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           broker_id?: string | null
@@ -90,6 +91,7 @@ export type Database = {
           stage?: string
           tenant_id: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           broker_id?: string | null
@@ -106,6 +108,7 @@ export type Database = {
           stage?: string
           tenant_id?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -159,6 +162,7 @@ export type Database = {
           title: string
           type: Database["public"]["Enums"]["property_type"]
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           area?: number
@@ -187,6 +191,7 @@ export type Database = {
           title: string
           type: Database["public"]["Enums"]["property_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           area?: number
@@ -215,6 +220,7 @@ export type Database = {
           title?: string
           type?: Database["public"]["Enums"]["property_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -363,6 +369,7 @@ export type Database = {
           state: string | null
           tagline: string | null
           updated_at: string
+          updated_by: string | null
           website: string | null
           whatsapp: string | null
         }
@@ -390,6 +397,7 @@ export type Database = {
           state?: string | null
           tagline?: string | null
           updated_at?: string
+          updated_by?: string | null
           website?: string | null
           whatsapp?: string | null
         }
@@ -417,6 +425,7 @@ export type Database = {
           state?: string | null
           tagline?: string | null
           updated_at?: string
+          updated_by?: string | null
           website?: string | null
           whatsapp?: string | null
         }

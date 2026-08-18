@@ -27,10 +27,11 @@ export async function updateTenantSettings(
   client: Client,
   tenantId: string,
   input: TenantSettingsInput,
+  updatedBy?: string,
 ): Promise<Tenant> {
   const { data, error } = await client
     .from('tenants')
-    .update(toTenantUpdateRow(input))
+    .update({ ...toTenantUpdateRow(input), updated_by: updatedBy ?? null })
     .eq('id', tenantId)
     .select('*')
     .single()

@@ -20,6 +20,8 @@ definePageMeta({ layout: "admin", middleware: "admin" });
 
 const tenant = useTenant();
 const toast = useToast();
+const { load: loadMembers, nameFor } = useMemberNames();
+onMounted(loadMembers);
 const { askConfirm } = useConfirm();
 
 const {
@@ -737,7 +739,14 @@ useHead({ title: "Contatos · Painel" });
               </div>
               <div>
                 <label class="admin-label">Origem</label>
-                <p class="ed-static">{{ LEAD_SOURCE_LABELS[l.source] }}</p>
+                <p class="ed-static">
+                  {{ LEAD_SOURCE_LABELS[l.source] }}
+                  <!-- Fica no editor, não no card: com seis pessoas mexendo, um
+                       "alterado por" em cada card viraria ruído no quadro. -->
+                  <small v-if="nameFor(l.updatedBy)" class="ed-who"
+                    >Última alteração por {{ nameFor(l.updatedBy) }}</small
+                  >
+                </p>
               </div>
             </div>
             <p v-if="changedWhileEditing" class="ed-warn">
@@ -1116,6 +1125,12 @@ useHead({ title: "Contatos · Painel" });
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
+}
+
+.ed-who {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
 }
 
 /* Aviso de edição concorrente dentro do editor. */
