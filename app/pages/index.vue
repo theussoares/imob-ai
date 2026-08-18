@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { PropertyCard } from "~~/shared/models/property";
 import { createCatalogFilters } from "~/composables/useCatalog";
+import {
+  qualifyingCategories,
+  categorySlug,
+  categoryLabel,
+} from "~~/shared/utils/category";
 
 const tenant = useTenant();
 const requestFetch = useRequestFetch();
@@ -42,6 +47,15 @@ watchEffect(() => {
     filters.maxPrice = 0; // faixas de preço de venda e aluguel não são comparáveis
   }
 });
+
+// Categorias com inventário suficiente viram link aqui. Sem esses links as
+// páginas existiriam mas ninguém — nem o rastreador — chegaria até elas.
+const catLinks = computed(() =>
+  qualifyingCategories(list.value).map((c) => ({
+    href: `/imoveis/${categorySlug(c)}`,
+    label: `${categoryLabel(c)}${tenant.value?.city ? " em " + tenant.value.city : ""}`,
+  })),
+);
 
 const resultsEl = ref<HTMLElement | null>(null);
 function scrollToResults() {
@@ -159,6 +173,12 @@ useHead(() => ({
       </div>
 
       <TypeChips :filters="filters" />
+
+      <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
+           um caminho até elas. Só aparecem as que têm imóveis suficientes. -->
+      <nav v-if="catLinks.length" class="cat-links" aria-label="Categorias de imóveis">
+        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{ c.label }}</NuxtLink>
+      </nav>
 
       <div v-if="filtered.length" class="grid">
         <!-- stagger limitado a 8 cards: sem o teto, 50 imóveis deixam o último
