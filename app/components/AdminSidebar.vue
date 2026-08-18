@@ -8,6 +8,9 @@ const links = [
   { to: "/admin/imoveis", label: "Imóveis", exact: false },
   { to: "/admin/leads", label: "Contatos", exact: false },
   { to: "/admin/corretores", label: "Corretores", exact: false },
+  // "Meu site" (edição do dia a dia) antes de "Configurações" (setup técnico):
+  // a ordem do menu é a frequência de uso, não a hierarquia conceitual.
+  { to: "/admin/site", label: "Meu site", exact: false },
   { to: "/admin/config", label: "Configurações", exact: false },
 ];
 
@@ -66,7 +69,6 @@ async function logout() {
    para qualquer logo. */
 .brand .mark.has-logo {
   background: transparent;
-  border-radius: 2px;
 }
 /* `contain` em vez do `cover` global: logo não pode ser cortada. */
 .brand .mark.has-logo img {

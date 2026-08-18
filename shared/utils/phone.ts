@@ -42,7 +42,10 @@ export function formatBrPhone(value?: string | null): string {
 export function normalizeWhatsapp(value?: string | null): string {
   let d = onlyDigits(value)
   if (!d) return ''
-  if (!d.startsWith('55')) d = '55' + d
+  // Só força o "55" quando já há dígitos além dele — com `d.length < 2` o "5"/"55"
+  // restante pode ser o próprio DDI sendo apagado; reinjetar aqui trava o campo
+  // num "+55" que nunca esvazia (backspace vira +55 -> +55 (5 -> +55 -> ... infinito).
+  if (d.length >= 2 && !d.startsWith('55')) d = '55' + d
   return d.slice(0, 13)
 }
 
