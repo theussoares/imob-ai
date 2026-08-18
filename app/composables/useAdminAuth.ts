@@ -79,7 +79,19 @@ export function useAdminAuth() {
 
   async function signOut() {
     const sb = await getAdminSupabase()
-    await sb.auth.signOut()
+    // `scope: 'local'` NÃO é opcional aqui. O padrão do Supabase é 'global', que
+    // revoga os refresh tokens do usuário em TODOS os dispositivos — não só
+    // nesta aba.
+    //
+    // Isso derrubou uma cliente em produção: entramos na conta dela em outra
+    // máquina para dar suporte e, ao sair, a sessão que ela tinha aberta no
+    // próprio computador morreu junto. Ela só descobriu na hora de salvar um
+    // imóvel, com "sessão inválida ou expirada" e nenhuma pista do motivo.
+    //
+    // Com várias pessoas por imobiliária e cada uma usando celular e
+    // computador, o padrão global significa que sair num aparelho derruba o
+    // outro. Sair é sair daqui.
+    await sb.auth.signOut({ scope: 'local' })
     user.value = null
   }
 
