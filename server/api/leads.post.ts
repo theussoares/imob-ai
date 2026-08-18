@@ -1,4 +1,5 @@
 import type { LeadInput } from '~~/shared/models/lead'
+import { seekingTypeFor, toLeadSource, toLeadType } from '~~/shared/models/lead'
 import { isValidBrPhone, onlyDigits } from '~~/shared/utils/phone'
 import { createLead } from '~~/server/repositories/lead.repository'
 import { getPropertyByCode } from '~~/server/repositories/property.repository'
@@ -20,7 +21,10 @@ export default defineEventHandler(async (event) => {
   const message = body?.message?.trim() || null
 
   if (!name) {
-    throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Nome é obrigatório.',
+    })
   }
   if (!isValidBrPhone(phone)) {
     throw createError({ statusCode: 422, statusMessage: 'Telefone inválido.' })
@@ -42,10 +46,21 @@ export default defineEventHandler(async (event) => {
   // Leitura segue pelo client público: RLS garante que só imóvel ativo do tenant
   // resolve, e não há motivo pra usar a chave privilegiada aqui.
   let propertyId: string | null = null
+  let propertyPurpose: 'venda' | 'aluguel' | null = null
   if (body.propertyCode) {
     const property = await getPropertyByCode(publicSupabase(), tenant.id, body.propertyCode)
     propertyId = property?.id ?? null
+    propertyPurpose = property?.purpose ?? null
   }
+
+  // Origem e tipo entram por lista fechada: este handler é público, e sem
+  // whitelist qualquer um poderia inventar valores e sujar a métrica de
+  // aquisição que o painel mostra pro cliente.
+  const source = toLeadSource(body.source)
+  // Quando o contato parte de um imóvel, o tipo não é palpite: quem escreve na
+  // página de uma casa à venda quer comprar; na de aluguel, quer alugar. O
+  // formulário só decide quando não há imóvel (ex.: "quero vender o meu").
+  const leadType = propertyPurpose ? seekingTypeFor(propertyPurpose) : toLeadType(body.leadType)
 
   try {
     await createLead(service, {
@@ -54,7 +69,8 @@ export default defineEventHandler(async (event) => {
       name,
       phone,
       message,
-      source: body.source || 'form',
+      source,
+      leadType,
     })
   } catch (e) {
     // Sem isto o lead some calado: o visitante vê erro e ninguém fica sabendo.
@@ -62,6 +78,7 @@ export default defineEventHandler(async (event) => {
     logError('lead.create_failed', {
       tenant: tenant.slug,
       propertyCode: body.propertyCode ?? null,
+      source,
       reason: errMessage(e),
     })
     throw createError({

@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import { isValidBrPhone } from '~~/shared/utils/phone'
+import type { LeadSource, LeadType } from '~~/shared/models/lead'
 
-const props = defineProps<{ propertyCode?: string }>()
+const props = withDefaults(
+  defineProps<{
+    propertyCode?: string
+    /** De onde este formulário está sendo enviado — vira métrica de aquisição. */
+    source?: LeadSource
+    /**
+     * O que a pessoa quer. Ignorado quando há `propertyCode`: nesse caso o
+     * servidor deriva do `purpose` do imóvel, que é mais confiável que o
+     * formulário.
+     */
+    leadType?: LeadType
+  }>(),
+  { propertyCode: undefined, source: 'outro', leadType: 'indefinido' },
+)
 
 const name = ref('')
 const phone = ref('')
@@ -31,7 +45,8 @@ async function submit() {
         phone: phone.value,
         message: message.value,
         propertyCode: props.propertyCode,
-        source: 'form',
+        source: props.source,
+        leadType: props.leadType,
       },
     })
     status.value = 'ok'

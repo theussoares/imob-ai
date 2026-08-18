@@ -288,7 +288,7 @@ useHead(() => ({
               <AppIcon name="phone" /> Ligar para o corretor
             </a>
             <hr class="side-sep" />
-            <LeadForm :property-code="p.code" />
+            <LeadForm :property-code="p.code" source="property_page" />
           </div>
         </aside>
       </div>

@@ -1,14 +1,14 @@
 import type { PropertyInput } from '~~/shared/models/property'
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
 import type { BrokerInput } from '~~/shared/models/broker'
-import type { LeadCreateInput, LeadUpdateInput } from '~~/shared/models/lead'
+import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
+import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 
 const TYPES = ['casa', 'apartamento', 'sobrado', 'terreno']
 const PURPOSES = ['venda', 'aluguel']
 const STATUSES = ['active', 'draft', 'sold', 'rented']
 const HERO_POSITIONS = ['left', 'right', 'background']
-const LEAD_STAGES = ['novo', 'contato', 'visita', 'proposta', 'fechado', 'perdido']
 
 /** Valida o payload de configurações do tenant vindo do painel. */
 export function assertTenantSettingsInput(input: unknown): asserts input is TenantSettingsInput {
@@ -79,8 +79,11 @@ export function assertLeadCreateInput(input: unknown): asserts input is LeadCrea
   }
   const l = input as Record<string, unknown>
   if (!String(l.name ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
-  if (l.stage !== undefined && !LEAD_STAGES.includes(l.stage as string)) {
+  if (l.stage !== undefined && !ALL_LEAD_STAGES.includes(l.stage as LeadStage)) {
     throw createError({ statusCode: 422, statusMessage: 'Etapa inválida.' })
+  }
+  if (l.leadType !== undefined && !LEAD_TYPES.includes(l.leadType as LeadType)) {
+    throw createError({ statusCode: 422, statusMessage: 'Tipo de contato inválido.' })
   }
   assertOptionalDate(l.nextContactAt, 'Data de retorno')
 }
@@ -91,8 +94,11 @@ export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpda
     throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
   }
   const l = input as Record<string, unknown>
-  if (l.stage !== undefined && !LEAD_STAGES.includes(l.stage as string)) {
+  if (l.stage !== undefined && !ALL_LEAD_STAGES.includes(l.stage as LeadStage)) {
     throw createError({ statusCode: 422, statusMessage: 'Etapa inválida.' })
+  }
+  if (l.leadType !== undefined && !LEAD_TYPES.includes(l.leadType as LeadType)) {
+    throw createError({ statusCode: 422, statusMessage: 'Tipo de contato inválido.' })
   }
   if (l.name !== undefined && l.name !== null && !String(l.name).trim()) {
     throw createError({ statusCode: 422, statusMessage: 'Nome não pode ficar vazio.' })

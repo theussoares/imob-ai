@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import type { Lead, LeadStage, LeadCreateInput } from "~~/shared/models/lead";
+import type {
+  Lead,
+  LeadStage,
+  LeadType,
+  LeadCreateInput,
+} from "~~/shared/models/lead";
 import type { Broker } from "~~/shared/models/broker";
-import { LEAD_STAGES, LEAD_STAGE_LABELS } from "~~/shared/models/lead";
+import {
+  LEAD_STAGES,
+  LEAD_STAGE_LABELS,
+  LEAD_TYPES,
+  LEAD_TYPE_LABELS,
+  LEAD_SOURCE_LABELS,
+} from "~~/shared/models/lead";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -27,7 +38,23 @@ const brokerName = (id: string | null) =>
 const view = ref<"funil" | "lista">("funil");
 const showLost = ref(false);
 
-const list = computed(() => leads.value ?? []);
+// Filtro por tipo. Vale para o quadro E para os contadores: um resumo que
+// ignora o filtro faria os números contradizerem as colunas na tela.
+const typeFilter = ref<LeadType | "todos">("todos");
+const allLeads = computed(() => leads.value ?? []);
+const typeCounts = computed(() => {
+  const c = Object.fromEntries(LEAD_TYPES.map((t) => [t, 0])) as Record<
+    LeadType,
+    number
+  >;
+  for (const l of allLeads.value) c[l.leadType] = (c[l.leadType] ?? 0) + 1;
+  return c;
+});
+const list = computed(() =>
+  typeFilter.value === "todos"
+    ? allLeads.value
+    : allLeads.value.filter((l) => l.leadType === typeFilter.value),
+);
 
 function isActive(l: Lead) {
   return l.stage !== "perdido" && l.stage !== "fechado";
@@ -147,6 +174,7 @@ const edit = reactive({
   notes: "",
   nextContactAt: "",
   brokerId: "",
+  leadType: "indefinido" as LeadType,
 });
 function openEditor(l: Lead) {
   editingId.value = editingId.value === l.id ? null : l.id;
@@ -156,6 +184,7 @@ function openEditor(l: Lead) {
     edit.notes = l.notes || "";
     edit.nextContactAt = dateToInput(l.nextContactAt);
     edit.brokerId = l.brokerId || "";
+    edit.leadType = l.leadType;
   }
 }
 async function saveEditor(l: Lead) {
@@ -165,6 +194,7 @@ async function saveEditor(l: Lead) {
     notes: edit.notes.trim() || null,
     nextContactAt: inputToIso(edit.nextContactAt),
     brokerId: edit.brokerId || null,
+    leadType: edit.leadType,
   });
   editingId.value = null;
 }
@@ -178,6 +208,7 @@ const newForm = reactive<LeadCreateInput>({
   phone: "",
   message: "",
   stage: "novo",
+  leadType: "indefinido",
   nextContactAt: "",
   brokerId: "",
 });
@@ -187,6 +218,7 @@ function resetNew() {
     phone: "",
     message: "",
     stage: "novo",
+    leadType: "indefinido",
     nextContactAt: "",
     brokerId: "",
   });
@@ -207,6 +239,7 @@ async function createNew() {
         phone: (newForm.phone || "").trim() || null,
         message: (newForm.message || "").trim() || null,
         stage: newForm.stage,
+        leadType: newForm.leadType,
         nextContactAt: inputToIso(newForm.nextContactAt || ""),
         brokerId: newForm.brokerId || null,
         source: "manual",
@@ -315,6 +348,14 @@ useHead({ title: "Contatos · Painel" });
           />
         </div>
         <div>
+          <label class="admin-label">Tipo de contato</label>
+          <select v-model="newForm.leadType" class="admin-input">
+            <option v-for="t in LEAD_TYPES" :key="t" :value="t">
+              {{ LEAD_TYPE_LABELS[t] }}
+            </option>
+          </select>
+        </div>
+        <div>
           <label class="admin-label">Etapa</label>
           <select v-model="newForm.stage" class="admin-input">
             <option v-for="s in LEAD_STAGES" :key="s" :value="s">
@@ -386,16 +427,38 @@ useHead({ title: "Contatos · Painel" });
       </div>
     </div>
 
-    <div v-if="list.length" class="view-toggle">
-      <button :class="{ on: view === 'funil' }" @click="view = 'funil'">
-        Funil
-      </button>
-      <button :class="{ on: view === 'lista' }" @click="view = 'lista'">
-        Lista
-      </button>
+    <div v-if="allLeads.length" class="toolbar">
+      <div class="view-toggle">
+        <button :class="{ on: view === 'funil' }" @click="view = 'funil'">
+          Funil
+        </button>
+        <button :class="{ on: view === 'lista' }" @click="view = 'lista'">
+          Lista
+        </button>
+      </div>
+      <select v-model="typeFilter" class="admin-input type-filter">
+        <option value="todos">Todos os tipos ({{ allLeads.length }})</option>
+        <option
+          v-for="t in LEAD_TYPES"
+          :key="t"
+          :value="t"
+          :disabled="!typeCounts[t]"
+        >
+          {{ LEAD_TYPE_LABELS[t] }} ({{ typeCounts[t] }})
+        </option>
+      </select>
     </div>
 
     <p v-if="pending" class="admin-card muted-block">Carregando...</p>
+    <p
+      v-else-if="!list.length && allLeads.length"
+      class="admin-card muted-block"
+    >
+      Nenhum contato deste tipo.
+      <button class="link-btn" @click="typeFilter = 'todos'">
+        Ver todos os contatos
+      </button>
+    </p>
     <p v-else-if="!list.length" class="admin-card muted-block">
       Nenhum contato ainda. Quando alguém preencher o formulário no site ele
       aparece aqui — ou use
@@ -436,6 +499,10 @@ useHead({ title: "Contatos · Painel" });
               >{{ whenLabel(l.createdAt) }}</time
             >
           </div>
+
+          <span class="ltype" :class="`t-${l.leadType}`">{{
+            LEAD_TYPE_LABELS[l.leadType]
+          }}</span>
 
           <NuxtLink
             v-if="l.property"
@@ -490,6 +557,20 @@ useHead({ title: "Contatos · Painel" });
                   type="tel"
                   inputmode="numeric"
                 />
+              </div>
+            </div>
+            <div class="ed-row">
+              <div>
+                <label class="admin-label">Tipo de contato</label>
+                <select v-model="edit.leadType" class="admin-input">
+                  <option v-for="t in LEAD_TYPES" :key="t" :value="t">
+                    {{ LEAD_TYPE_LABELS[t] }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="admin-label">Origem</label>
+                <p class="ed-static">{{ LEAD_SOURCE_LABELS[l.source] }}</p>
               </div>
             </div>
             <label class="admin-label"
@@ -576,6 +657,9 @@ useHead({ title: "Contatos · Painel" });
       >
         <div class="lead-head">
           <strong>{{ l.name || "Sem nome" }}</strong>
+          <span class="ltype" :class="`t-${l.leadType}`">{{
+            LEAD_TYPE_LABELS[l.leadType]
+          }}</span>
           <span class="pill">{{ LEAD_STAGE_LABELS[l.stage] }}</span>
         </div>
         <p v-if="l.message" class="c-msg">{{ l.message }}</p>
@@ -717,6 +801,19 @@ useHead({ title: "Contatos · Painel" });
 }
 
 /* Toggle */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.type-filter {
+  width: auto;
+  max-width: 100%;
+  font-size: 13.5px;
+}
 .view-toggle {
   display: inline-flex;
   gap: 4px;
@@ -724,7 +821,6 @@ useHead({ title: "Contatos · Painel" });
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 10px;
-  margin-bottom: 16px;
 }
 .view-toggle button {
   border: none;
@@ -740,6 +836,66 @@ useHead({ title: "Contatos · Painel" });
   background: var(--surface);
   color: var(--brand);
   box-shadow: var(--shadow);
+}
+
+/* Etiqueta do tipo de contato.
+   Verde = a pessoa PROCURA imóvel; azul = a pessoa TEM imóvel e está ofertando.
+   A cor separa os dois lados do balcão antes da leitura do texto — que é a
+   informação que muda o atendimento. Cinza = ainda não classificado. */
+.ltype {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.6;
+  border: 1px solid transparent;
+}
+.ltype.t-busca_compra {
+  background: #dcfce7;
+  color: #14532d;
+  border-color: #bbf7d0;
+}
+.ltype.t-busca_aluguel {
+  background: #ecfdf5;
+  color: #166534;
+  border-color: #d1fae5;
+}
+.ltype.t-oferta_venda {
+  background: #dbeafe;
+  color: #1e3a8a;
+  border-color: #bfdbfe;
+}
+.ltype.t-oferta_aluguel {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #dbeafe;
+}
+.ltype.t-indefinido {
+  background: var(--paper);
+  color: var(--ink-soft);
+  border-color: var(--line);
+}
+
+/* Botão que se parece com link (limpar filtro). */
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Campo só de leitura no editor (origem do lead). */
+.ed-static {
+  margin: 0;
+  padding: 9px 0;
+  color: var(--ink-soft);
+  font-size: 14px;
 }
 
 /* Board */

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
-import type { Lead, LeadCreateInput, LeadUpdateInput } from '~~/shared/models/lead'
+import type { Lead, LeadCreateInput, LeadSource, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
 import { toLeadModel } from '~~/server/mappers/lead.mapper'
+import { toLeadSource } from '~~/shared/models/lead'
 
 type Client = SupabaseClient<Database>
 type LeadUpdateRow = Database['public']['Tables']['leads']['Update']
@@ -30,7 +31,8 @@ export interface CreateLeadArgs {
   name: string
   phone: string
   message: string | null
-  source: string
+  source: LeadSource
+  leadType: LeadType
 }
 
 export async function createLead(client: Client, args: CreateLeadArgs): Promise<void> {
@@ -41,6 +43,7 @@ export async function createLead(client: Client, args: CreateLeadArgs): Promise<
     phone: args.phone,
     message: args.message,
     source: args.source,
+    lead_type: args.leadType,
   })
   if (error) throw error
 }
@@ -58,7 +61,8 @@ export async function createManualLead(client: Client, tenantId: string, input: 
       notes: input.notes ?? null,
       next_contact_at: input.nextContactAt ?? null,
       broker_id: input.brokerId ?? null,
-      source: input.source ?? 'manual',
+      source: toLeadSource(input.source ?? 'manual'),
+      lead_type: input.leadType ?? 'indefinido',
     })
     .select('*, properties(code, title)')
     .single()
@@ -73,6 +77,7 @@ export async function updateLead(client: Client, tenantId: string, id: string, i
   if (input.name !== undefined) patch.name = input.name
   if (input.phone !== undefined) patch.phone = input.phone
   if (input.stage !== undefined) patch.stage = input.stage
+  if (input.leadType !== undefined) patch.lead_type = input.leadType
   if (input.notes !== undefined) patch.notes = input.notes
   if (input.nextContactAt !== undefined) patch.next_contact_at = input.nextContactAt
   if (input.brokerId !== undefined) patch.broker_id = input.brokerId
