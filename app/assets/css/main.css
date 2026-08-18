@@ -595,6 +595,29 @@ select.ctl {
   font-weight: 600;
   font-size: 14px;
 }
+/* Captura de quem filtrou e não achou. Alinhado à esquerda: o bloco acima é
+   aviso e pode ser centralizado, mas formulário centralizado dificulta a
+   leitura dos rótulos. */
+.empty-lead {
+  max-width: 460px;
+  margin: 32px auto 0;
+  padding: 20px;
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.empty-lead .lead h4 {
+  font-size: 17px;
+  color: var(--ink);
+}
+/* O botão do formulário não pode herdar o estilo de `.empty button`, que é do
+   "Limpar filtros" — herdaria a margem de topo e o tamanho errado. */
+.empty-lead button {
+  margin-top: 0;
+  font-size: 15px;
+}
 
 /* ---------- Footer ---------- */
 .site-footer {

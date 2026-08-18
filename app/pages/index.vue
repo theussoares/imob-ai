@@ -2,6 +2,11 @@
 import type { PropertyCard } from "~~/shared/models/property";
 import { createCatalogFilters } from "~/composables/useCatalog";
 import {
+  buildSearchLeadMessage,
+  searchCriteriaParts,
+} from "~~/shared/utils/search-lead";
+import { seekingTypeFor } from "~~/shared/models/lead";
+import {
   qualifyingCategories,
   categorySlug,
   categoryLabel,
@@ -34,6 +39,23 @@ const list = computed(() => properties.value ?? []);
 // requisição, ao contrário de um objeto solto no escopo do módulo).
 const filters = useState("catalog-filters", createCatalogFilters).value;
 const { filtered, reset } = useCatalog(list, filters);
+
+// ---- Captura de quem filtrou e não achou nada ----
+// Devolve os critérios em voz para a pessoa: mostrar que entendemos o pedido é o
+// que faz ela confiar que vale deixar o contato.
+const searchEcho = computed(() => {
+  const partes = searchCriteriaParts(filters);
+  const verbo = filters.purpose === "aluguel" ? "alugar" : "comprar";
+  // A intenção vem ANTES da lista: jogada no fim, ela caía depois do termo entre
+  // aspas e a frase ficava ilegível justamente onde precisa convencer.
+  return partes.length
+    ? `Já sabemos o que você procura para ${verbo}: ${partes.join(", ")}. Deixe seu contato que a gente avisa quando aparecer.`
+    : `Deixe seu contato e conte o que procura — a gente avisa quando aparecer algo para ${verbo}.`;
+});
+
+// Passado ao LeadForm para que o formato da mensagem viva num lugar só.
+const composeSearchMessage = (note: string) =>
+  buildSearchLeadMessage(filters, note);
 
 // A pretensão é a única parte do filtro que vive na URL (/?purpose=aluguel), pra
 // que a listagem de locação seja indexável e os imóveis de aluguel tenham link
@@ -83,7 +105,10 @@ useHead(() => ({
   link: [
     {
       rel: "canonical",
-      href: requestUrl.origin + route.path + (isRent.value ? "?purpose=aluguel" : ""),
+      href:
+        requestUrl.origin +
+        route.path +
+        (isRent.value ? "?purpose=aluguel" : ""),
     },
   ],
 }));
@@ -176,8 +201,14 @@ useHead(() => ({
 
       <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
            um caminho até elas. Só aparecem as que têm imóveis suficientes. -->
-      <nav v-if="catLinks.length" class="cat-links" aria-label="Categorias de imóveis">
-        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{ c.label }}</NuxtLink>
+      <nav
+        v-if="catLinks.length"
+        class="cat-links"
+        aria-label="Categorias de imóveis"
+      >
+        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{
+          c.label
+        }}</NuxtLink>
       </nav>
 
       <div v-if="filtered.length" class="grid">
@@ -197,6 +228,22 @@ useHead(() => ({
         <h3>Nenhum imóvel com esses filtros</h3>
         <p>Tente ampliar a faixa de valor ou remover algum filtro.</p>
         <button @click="reset()">Limpar filtros</button>
+
+        <!-- Momento de maior intenção do catálogo: a pessoa disse exatamente o
+             que quer e não achou. Os filtros já são a resposta — pedir de novo
+             num formulário em branco seria jogar fora o que ela informou. -->
+        <div class="empty-lead">
+          <LeadForm
+            source="catalog_empty"
+            :lead-type="seekingTypeFor(filters.purpose)"
+            title="Não encontrou? A gente procura pra você"
+            :intro="searchEcho"
+            note-placeholder="Algo mais que ajude na busca? (opcional)"
+            submit-label="Quero que procurem pra mim"
+            ok-message="Recebemos! Assim que aparecer algo com esse perfil, a gente te chama. ✅"
+            :build-message="composeSearchMessage"
+          />
+        </div>
       </div>
     </main>
   </div>

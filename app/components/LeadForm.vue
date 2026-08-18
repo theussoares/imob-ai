@@ -13,8 +13,34 @@ const props = withDefaults(
      * formulário.
      */
     leadType?: LeadType
+    /** Título do bloco. Muda conforme onde o formulário aparece. */
+    title?: string
+    /** Linha de contexto acima dos campos. Omitida quando vazia. */
+    intro?: string
+    notePlaceholder?: string
+    submitLabel?: string
+    okMessage?: string
+    /**
+     * Monta a mensagem final a partir do que a pessoa escreveu.
+     *
+     * É função, e não um prefixo de texto, para que o formato viva num lugar só.
+     * A captura do catálogo, por exemplo, precisa juntar os filtros ativos à
+     * observação — se o formulário também soubesse juntar, existiriam duas
+     * regras de formatação para o mesmo campo, e elas divergiriam.
+     */
+    buildMessage?: (note: string) => string
   }>(),
-  { propertyCode: undefined, source: 'outro', leadType: 'indefinido' },
+  {
+    propertyCode: undefined,
+    source: 'outro',
+    leadType: 'indefinido',
+    title: 'Fale com o corretor',
+    intro: '',
+    notePlaceholder: 'Mensagem (opcional)',
+    submitLabel: 'Enviar contato',
+    okMessage: 'Recebemos seu contato! Retornaremos em breve. ✅',
+    buildMessage: (note: string) => note,
+  },
 )
 
 const name = ref('')
@@ -43,7 +69,7 @@ async function submit() {
       body: {
         name: name.value,
         phone: phone.value,
-        message: message.value,
+        message: props.buildMessage(message.value),
         propertyCode: props.propertyCode,
         source: props.source,
         leadType: props.leadType,
@@ -63,9 +89,10 @@ async function submit() {
 
 <template>
   <form class="lead" @submit.prevent="submit">
-    <h4>Fale com o corretor</h4>
-    <p v-if="status === 'ok'" class="lead-ok">Recebemos seu contato! Retornaremos em breve. ✅</p>
+    <h4>{{ title }}</h4>
+    <p v-if="status === 'ok'" class="lead-ok">{{ okMessage }}</p>
     <template v-else>
+      <p v-if="intro" class="lead-intro">{{ intro }}</p>
       <input v-model="name" class="admin-input" type="text" placeholder="Seu nome" />
       <input
         :value="phoneDisplay"
@@ -75,10 +102,10 @@ async function submit() {
         placeholder="(67) 99217-1768"
         @input="onPhoneInput"
       />
-      <textarea v-model="message" class="admin-textarea" rows="3" placeholder="Mensagem (opcional)" />
+      <textarea v-model="message" class="admin-textarea" rows="3" :placeholder="notePlaceholder" />
       <p v-if="error" class="lead-err">{{ error }}</p>
       <button class="admin-btn" type="submit" :disabled="status === 'sending'">
-        {{ status === 'sending' ? 'Enviando...' : 'Enviar contato' }}
+        {{ status === 'sending' ? 'Enviando...' : submitLabel }}
       </button>
     </template>
   </form>
@@ -98,6 +125,12 @@ async function submit() {
 .lead-ok {
   color: var(--wa-dark);
   font-weight: 600;
+}
+.lead-intro {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-soft);
 }
 .lead-err {
   color: #b91c1c;
