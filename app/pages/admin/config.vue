@@ -1,74 +1,19 @@
 <script setup lang="ts">
-import type { Tenant, TenantSettingsInput } from "~~/shared/models/tenant";
-
 definePageMeta({ layout: "admin", middleware: "admin" });
 
-const tenant = useTenant();
-
-const form = reactive<TenantSettingsInput>({
-  name: "",
-  tagline: "",
-  heroTitle: "",
-  heroSubtitle: "",
-  heroImage: "",
-  heroImagePosition: "right",
-  heroCtaLabel: "",
-  heroCtaHref: "",
-  whatsapp: "",
-  phone: "",
-  email: "",
-  creci: "",
-  city: "",
-  state: "",
-  brandPrimary: "#0f3d38",
-  brandAccent: "#c2410c",
-  logoUrl: "",
-  instagram: "",
-  website: "",
-});
-const alternateNamesText = ref("");
-
-// Campos exibem +55 (67) 99217-1768; o model guarda os dígitos com DDI (o que os
-// links wa.me/tel: já consomem).
-const {
-  display: whatsappDisplay,
-  onInput: onWhatsappInput,
-  isValid: whatsappValid,
-} = usePhoneInput(toRef(form, "whatsapp"), "whatsapp");
-const {
-  display: phoneDisplay,
-  onInput: onPhoneInput,
-  isValid: phoneValid,
-} = usePhoneInput(toRef(form, "phone"), "whatsapp");
-
-let inited = false;
-watchEffect(() => {
-  if (tenant.value && !inited) {
-    inited = true;
-    Object.assign(form, {
-      name: tenant.value.name,
-      tagline: tenant.value.tagline || "",
-      heroTitle: tenant.value.heroTitle || "",
-      heroSubtitle: tenant.value.heroSubtitle || "",
-      heroImage: tenant.value.heroImage || "",
-      heroImagePosition: tenant.value.heroImagePosition,
-      heroCtaLabel: tenant.value.heroCtaLabel || "",
-      heroCtaHref: tenant.value.heroCtaHref || "",
-      whatsapp: tenant.value.whatsapp || "",
-      phone: tenant.value.phone || "",
-      email: tenant.value.email || "",
-      creci: tenant.value.creci || "",
-      city: tenant.value.city || "",
-      state: tenant.value.state || "",
-      brandPrimary: tenant.value.brandPrimary,
-      brandAccent: tenant.value.brandAccent,
-      logoUrl: tenant.value.logoUrl || "",
-      instagram: tenant.value.instagram || "",
-      website: tenant.value.website || "",
-    });
-    alternateNamesText.value = (tenant.value.alternateNames || []).join("\n");
-  }
-});
+// Setup e ajustes técnicos: mexe-se uma vez, no onboarding. O que a cliente
+// edita no dia a dia (hero, contato, logo) fica em /admin/site.
+const { form, alternateNamesText, saving, saved, error, save } =
+  useTenantSettings([
+    "name",
+    "tagline",
+    "creci",
+    "brandPrimary",
+    "brandAccent",
+    "instagram",
+    "website",
+    "alternateNames",
+  ]);
 
 // Preview ao vivo das cores
 watch(
@@ -81,107 +26,8 @@ watch(
   },
 );
 
-const uploadingLogo = ref(false);
-async function onLogo(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const slug = tenant.value?.slug;
-  if (!slug) {
-    alert("Não foi possível identificar a imobiliária. Recarregue a página.");
-    input.value = "";
-    return;
-  }
-  uploadingLogo.value = true;
-  try {
-    const client = await getAdminSupabase();
-    // Logo é exibido a 40px — 256px de WebP sobra e evita subir PNG de vários MB.
-    const resizable = isResizableImage(file);
-    const body: Blob = resizable ? await resizeToWebp(file, 256) : file;
-    const ext = resizable ? "webp" : file.name.split(".").pop() || "png";
-    const path = `${slug}/logo-${Date.now()}.${ext}`;
-    // upsert:false — o path já é único (timestamp); upsert exigiria uma policy de
-    // SELECT em storage.objects (Supabase checa existência antes de sobrescrever),
-    // que não temos configurada, e falharia com "row-level security policy".
-    const { error } = await client.storage
-      .from("tenant-logos")
-      .upload(path, body, {
-        upsert: false,
-        cacheControl: "31536000",
-        contentType: resizable ? "image/webp" : file.type,
-      });
-    if (error) throw error;
-    const { data } = client.storage.from("tenant-logos").getPublicUrl(path);
-    form.logoUrl = data.publicUrl;
-  } catch (err: unknown) {
-    const m = err as { message?: string };
-    alert("Falha no upload do logo: " + (m?.message || "erro"));
-  } finally {
-    uploadingLogo.value = false;
-    input.value = "";
-  }
-}
-
-const uploadingHeroImage = ref(false);
-async function onHeroImage(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const slug = tenant.value?.slug;
-  if (!slug) {
-    alert("Não foi possível identificar a imobiliária. Recarregue a página.");
-    input.value = "";
-    return;
-  }
-  uploadingHeroImage.value = true;
-  try {
-    const client = await getAdminSupabase();
-    // Hero é full-bleed: 1600px de WebP cobre telas grandes com uma fração dos bytes.
-    const resizable = isResizableImage(file);
-    const body: Blob = resizable
-      ? await resizeToWebp(file, IMAGE_SIZE_LG)
-      : file;
-    const ext = resizable ? "webp" : file.name.split(".").pop() || "jpg";
-    const path = `${slug}/hero-${Date.now()}.${ext}`;
-    const { error } = await client.storage
-      .from("tenant-hero")
-      .upload(path, body, {
-        upsert: false,
-        cacheControl: "31536000",
-        contentType: resizable ? "image/webp" : file.type,
-      });
-    if (error) throw error;
-    const { data } = client.storage.from("tenant-hero").getPublicUrl(path);
-    form.heroImage = data.publicUrl;
-  } catch (err: unknown) {
-    const m = err as { message?: string };
-    alert("Falha no upload da foto: " + (m?.message || "erro"));
-  } finally {
-    uploadingHeroImage.value = false;
-    input.value = "";
-  }
-}
-
-// Preview ao vivo do hero — reaproveita o próprio componente público, alimentado
-// pelo form em edição (não pelo tenant salvo).
-const previewTenant = computed<Tenant | null>(() => {
-  if (!tenant.value) return null;
-  return {
-    ...tenant.value,
-    name: form.name || tenant.value.name,
-    tagline: form.tagline || null,
-    heroTitle: form.heroTitle || null,
-    heroSubtitle: form.heroSubtitle || null,
-    heroImage: form.heroImage || null,
-    heroImagePosition: form.heroImagePosition || "right",
-    heroCtaLabel: form.heroCtaLabel || null,
-    heroCtaHref: form.heroCtaHref || null,
-  };
-});
-
-// URL do feed de imóveis para os portais (ZAP/VivaReal/OLX via Canal Pro).
-// Deriva do domínio público do cliente: no host de painel (painel.<dominio>)
-// remove o prefixo para apontar o feed ao site, não ao admin.
+// URL do feed para os portais. Deriva do domínio público: no host de painel
+// (painel.<dominio>) remove o prefixo para apontar ao site, não ao admin.
 const feedUrl = ref("");
 const feedCopied = ref(false);
 onMounted(() => {
@@ -198,37 +44,6 @@ async function copyFeed() {
   }
 }
 
-const saving = ref(false);
-const saved = ref(false);
-const error = ref("");
-
-async function save() {
-  if (!whatsappValid.value || !phoneValid.value) {
-    error.value = "Confira os números de contato (com DDD).";
-    return;
-  }
-  saving.value = true;
-  saved.value = false;
-  error.value = "";
-  form.alternateNames = alternateNamesText.value
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  try {
-    const updated = await adminFetch<Tenant>("/api/admin/tenant", {
-      method: "PUT",
-      body: form,
-    });
-    tenant.value = updated;
-    saved.value = true;
-  } catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string } };
-    error.value = err?.data?.statusMessage || "Não foi possível salvar.";
-  } finally {
-    saving.value = false;
-  }
-}
-
 useHead({ title: "Configurações · Painel" });
 </script>
 
@@ -236,10 +51,14 @@ useHead({ title: "Configurações · Painel" });
   <div>
     <h1>Configurações</h1>
     <p style="color: var(--ink-soft); margin-bottom: 18px">
-      Tudo aqui reflete automaticamente no site público.
+      Identidade, marca e integrações. Normalmente se ajusta uma vez — o que você
+      edita com frequência está em
+      <NuxtLink to="/admin/site" style="color: var(--brand); font-weight: 600"
+        >Meu site</NuxtLink
+      >.
     </p>
 
-    <form class="admin-card" @submit.prevent="save">
+    <form class="admin-card" @submit.prevent="save()">
       <h3 class="section-t">Identidade</h3>
       <div class="form-grid">
         <div>
@@ -255,6 +74,7 @@ useHead({ title: "Configurações · Painel" });
           <input v-model="form.creci" class="admin-input" />
         </div>
       </div>
+
 
       <h3 class="section-t">Cores da marca</h3>
       <div class="form-grid">
@@ -287,188 +107,6 @@ useHead({ title: "Configurações · Painel" });
         </div>
       </div>
 
-      <h3 class="section-t">Logo</h3>
-      <div class="logo-row">
-        <div class="logo-preview">
-          <img v-if="form.logoUrl" :src="form.logoUrl" alt="Logo" />
-          <AppIcon v-else name="home" />
-        </div>
-        <label class="admin-btn ghost file-btn">
-          {{ uploadingLogo ? "Enviando..." : "Enviar logo" }}
-          <input type="file" accept="image/*" hidden @change="onLogo" />
-        </label>
-        <button
-          v-if="form.logoUrl"
-          type="button"
-          class="admin-btn ghost"
-          @click="form.logoUrl = ''"
-        >
-          Remover
-        </button>
-      </div>
-
-      <h3 class="section-t">Hero (topo da home)</h3>
-      <div>
-        <label class="admin-label">Título principal</label>
-        <input v-model="form.heroTitle" class="admin-input" />
-      </div>
-      <div style="margin-top: 12px">
-        <label class="admin-label">Subtítulo</label>
-        <textarea v-model="form.heroSubtitle" class="admin-textarea" rows="2" />
-      </div>
-
-      <div class="form-grid" style="margin-top: 14px">
-        <div>
-          <label class="admin-label"
-            >Foto (institucional, da equipe, de um imóvel...)</label
-          >
-          <div class="logo-row">
-            <div class="hero-img-preview">
-              <img
-                v-if="form.heroImage"
-                :src="form.heroImage"
-                alt="Foto do hero"
-              />
-              <AppIcon v-else name="home" />
-            </div>
-            <label class="admin-btn ghost file-btn">
-              {{ uploadingHeroImage ? "Enviando..." : "Enviar foto" }}
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                @change="onHeroImage"
-              />
-            </label>
-            <button
-              v-if="form.heroImage"
-              type="button"
-              class="admin-btn ghost"
-              @click="form.heroImage = ''"
-            >
-              Remover
-            </button>
-          </div>
-          <p class="hint-text">
-            Sem foto, o hero aparece só com texto (como hoje). Com foto, vira um
-            layout dividido — recomendado: retrato ou quadrada, mínimo
-            800×1000px.
-          </p>
-        </div>
-        <div v-if="form.heroImage">
-          <label class="admin-label">Posição da foto</label>
-          <div
-            class="pos-toggle"
-            role="radiogroup"
-            aria-label="Posição da foto no hero"
-          >
-            <button
-              type="button"
-              class="pos-btn"
-              :class="{ on: form.heroImagePosition === 'right' }"
-              @click="form.heroImagePosition = 'right'"
-            >
-              <span class="pos-mock"
-                ><span class="pos-text" /><span class="pos-img"
-              /></span>
-              Foto à direita
-            </button>
-            <button
-              type="button"
-              class="pos-btn"
-              :class="{ on: form.heroImagePosition === 'left' }"
-              @click="form.heroImagePosition = 'left'"
-            >
-              <span class="pos-mock"
-                ><span class="pos-img" /><span class="pos-text"
-              /></span>
-              Foto à esquerda
-            </button>
-            <button
-              type="button"
-              class="pos-btn"
-              :class="{ on: form.heroImagePosition === 'background' }"
-              @click="form.heroImagePosition = 'background'"
-            >
-              <span class="pos-mock pos-mock-bg"
-                ><span class="pos-text"
-              /></span>
-              Foto de fundo
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-grid" style="margin-top: 14px">
-        <div>
-          <label class="admin-label">Botão do hero — texto (opcional)</label>
-          <input
-            v-model="form.heroCtaLabel"
-            class="admin-input"
-            placeholder="Ex.: Conheça nossa história"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Botão do hero — link (opcional)</label>
-          <input
-            v-model="form.heroCtaHref"
-            class="admin-input"
-            placeholder="/sobre ou https://..."
-          />
-        </div>
-      </div>
-      <p class="hint-text">
-        O botão só aparece se texto e link estiverem preenchidos.
-      </p>
-
-      <div class="hero-preview-wrap">
-        <span class="hero-preview-label">Pré-visualização</span>
-        <div class="hero-preview-box">
-          <Hero :tenant="previewTenant" />
-        </div>
-      </div>
-
-      <h3 class="section-t">Contato</h3>
-      <div class="form-grid">
-        <div>
-          <label class="admin-label">WhatsApp</label>
-          <input
-            :value="whatsappDisplay"
-            class="admin-input"
-            type="tel"
-            inputmode="numeric"
-            placeholder="+55 (67) 99217-1768"
-            @input="onWhatsappInput"
-          />
-          <p v-if="!whatsappValid" class="field-err">
-            Número inválido (com DDD).
-          </p>
-        </div>
-        <div>
-          <label class="admin-label">Telefone</label>
-          <input
-            :value="phoneDisplay"
-            class="admin-input"
-            type="tel"
-            inputmode="numeric"
-            placeholder="+55 (67) 3521-1234"
-            @input="onPhoneInput"
-          />
-          <p v-if="!phoneValid" class="field-err">Número inválido (com DDD).</p>
-        </div>
-        <div>
-          <label class="admin-label">E-mail</label>
-          <input v-model="form.email" class="admin-input" type="email" />
-        </div>
-        <div>
-          <label class="admin-label">Cidade</label>
-          <input v-model="form.city" class="admin-input" />
-        </div>
-        <div>
-          <label class="admin-label">UF</label>
-          <input v-model="form.state" class="admin-input" maxlength="2" />
-        </div>
-      </div>
 
       <h3 class="section-t">SEO e redes sociais</h3>
       <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
@@ -500,6 +138,7 @@ useHead({ title: "Configurações · Painel" });
         />
       </div>
 
+
       <h3 class="section-t">Integrações · Portais (ZAP, VivaReal, OLX)</h3>
       <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
         Cole o link abaixo no seu painel do Canal Pro (Grupo OLX / ZAP). Os
@@ -519,7 +158,7 @@ useHead({ title: "Configurações · Painel" });
         custo.
       </p>
 
-      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+            <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
         v-if="saved"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
@@ -731,3 +370,4 @@ useHead({ title: "Configurações · Painel" });
   }
 }
 </style>
+

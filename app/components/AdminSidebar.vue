@@ -8,6 +8,9 @@ const links = [
   { to: "/admin/imoveis", label: "Imóveis", exact: false },
   { to: "/admin/leads", label: "Contatos", exact: false },
   { to: "/admin/corretores", label: "Corretores", exact: false },
+  // "Meu site" (edição do dia a dia) antes de "Configurações" (setup técnico):
+  // a ordem do menu é a frequência de uso, não a hierarquia conceitual.
+  { to: "/admin/site", label: "Meu site", exact: false },
   { to: "/admin/config", label: "Configurações", exact: false },
 ];
 
