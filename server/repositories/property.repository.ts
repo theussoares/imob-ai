@@ -165,14 +165,57 @@ export async function createProperty(client: Client, tenantId: string, input: Pr
   return (await getPropertyById(client, tenantId, data.id))!
 }
 
-export async function updateProperty(client: Client, tenantId: string, id: string, input: PropertyInput): Promise<Property> {
+/**
+ * Atualiza um imóvel.
+ *
+ * `expectedUpdatedAt` é a versão que a tela carregou. Com ela o update só
+ * aplica se a linha ainda estiver nessa versão — sem isso o salvamento é
+ * last-write-wins silencioso, e com várias pessoas no mesmo painel alguém perde
+ * trabalho sem ver erro nenhum.
+ *
+ * O estrago maior não é o texto sobrescrito: `replaceImages` apaga TODAS as
+ * imagens antes de reinserir as do payload, então salvar com a tela velha
+ * apagaria as fotos que outra pessoa acabou de subir. Por isso a verificação
+ * vem antes e nada encosta em `property_images` num salvamento recusado.
+ *
+ * Quando a versão não vem, salva sem trava: aba já aberta continua mandando o
+ * payload antigo depois de um deploy, e exigir o campo derrubaria quem está no
+ * meio de um cadastro. A trava aperta sozinha conforme as abas recarregam.
+ */
+export async function updateProperty(
+  client: Client,
+  tenantId: string,
+  id: string,
+  input: PropertyInput,
+  expectedUpdatedAt?: string | null,
+): Promise<Property> {
   const row = toPropertyRow(input, tenantId)
-  const { error } = await client
-    .from('properties')
-    .update(row)
-    .eq('tenant_id', tenantId)
-    .eq('id', id)
+  let query = client.from('properties').update(row).eq('tenant_id', tenantId).eq('id', id)
+  if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt)
+  const { data, error } = await query.select('id')
   if (error) throw error
+
+  if (expectedUpdatedAt && !(data ?? []).length) {
+    // Zero linhas tem duas causas: a versão mudou, ou o imóvel sumiu. Dizer
+    // "não encontrado" para um conflito mandaria a pessoa procurar o problema
+    // no lugar errado.
+    const { data: existing } = await client
+      .from('properties')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('id', id)
+      .maybeSingle()
+    throw createError(
+      existing
+        ? {
+            statusCode: 409,
+            statusMessage:
+              'Alguém alterou este imóvel enquanto você editava. Recarregue a página para ver a versão atual.',
+          }
+        : { statusCode: 404, statusMessage: 'Imóvel não encontrado.' },
+    )
+  }
+
   await replaceImages(client, id, input)
   return (await getPropertyById(client, tenantId, id))!
 }

@@ -117,7 +117,14 @@ async function save() {
     if (isNew.value) {
       await adminFetch('/api/admin/properties', { method: 'POST', body: payload })
     } else {
-      await adminFetch(`/api/admin/properties/${id.value}`, { method: 'PUT', body: payload })
+      // Manda de volta a versão que esta tela carregou. Se outra pessoa salvou
+      // nesse meio-tempo, o servidor recusa com 409 em vez de sobrescrever — e
+      // o erro cai no `error.value` abaixo, sem sair da página, então o que foi
+      // digitado continua na tela.
+      await adminFetch(`/api/admin/properties/${id.value}`, {
+        method: 'PUT',
+        body: { ...payload, expectedUpdatedAt: existing.value?.updatedAt ?? null },
+      })
     }
     await navigateTo('/admin/imoveis')
   } catch (e: unknown) {

@@ -9,7 +9,9 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@nuxt/icon": "^2.5.0",
@@ -28,6 +30,7 @@
     "@types/node": "^22.10.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.3",
+    "vitest": "^4.1.11",
     "vue-tsc": "^2.2.0"
   }
 }
