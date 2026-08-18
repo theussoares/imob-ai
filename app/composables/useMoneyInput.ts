@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { parsePriceInput } from '~~/shared/utils/price'
 
 /** Exibe um inteiro em reais como "R$ 350.000" (sem centavos, como o resto do app). */
 export function formatBRLInput(value: number): string {
@@ -23,8 +24,9 @@ export function useMoneyInput(model: Ref<number>) {
 
   function onInput(e: Event) {
     const el = e.target as HTMLInputElement
-    const digits = el.value.replace(/\D/g, '')
-    const num = digits ? parseInt(digits, 10) : 0
+    // Não é `replace(/\D/g,'')`: isso apagava a vírgula e transformava os
+    // centavos em reais (350000,50 -> R$ 35.000.050). Ver shared/utils/price.
+    const num = parsePriceInput(el.value)
     model.value = num
     const formatted = formatBRLInput(num)
     display.value = formatted

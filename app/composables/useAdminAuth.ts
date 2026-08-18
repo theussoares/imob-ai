@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
+import { isSessionExpiredError } from '~~/shared/utils/session-error'
 
 let _client: SupabaseClient | null = null
 
@@ -110,5 +111,13 @@ export async function adminFetch<T>(url: string, opts: Record<string, unknown> =
   const token = await accessToken()
   const headers = { ...((opts.headers as Record<string, string>) || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
-  return (await $fetch(url, { ...opts, headers })) as T
+  try {
+    return (await $fetch(url, { ...opts, headers })) as T
+  } catch (e) {
+    // Marca a sessão como caída e RELANÇA: quem chamou continua mostrando o
+    // próprio erro na tela onde está. O aviso global explica a causa; o erro
+    // local diz o que não aconteceu.
+    if (isSessionExpiredError(e)) useSessionExpired().flag()
+    throw e
+  }
 }
