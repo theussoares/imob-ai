@@ -7,6 +7,7 @@ import type {
 } from "~~/shared/models/lead";
 import type { Broker } from "~~/shared/models/broker";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { leadFromRealtimeRow } from "~~/shared/utils/lead-row";
 import {
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
@@ -121,11 +122,21 @@ const busy = ref<string | null>(null);
 
 // Reatribui a lista (não muta índice/propriedade): a ref do useAsyncData não é
 // reativa em profundidade, então só a reatribuição atualiza funil e contadores.
+/**
+ * Ids com alteração local ainda não confirmada pelo servidor.
+ *
+ * `busy` guarda uma só (é o que desabilita o card na tela); a guarda do tempo
+ * real precisa cobrir todas, senão um evento chegando no meio de uma segunda
+ * alteração sobrescreveria o que a pessoa acabou de fazer.
+ */
+const inFlight = ref(new Set<string>());
+
 async function patchLead(
   id: string,
   body: Partial<Lead> & { nextContactAt?: string | null },
 ) {
   busy.value = id;
+  inFlight.value.add(id);
   try {
     const updated = await adminFetch<Lead>(`/api/admin/leads/${id}`, {
       method: "PUT",
@@ -138,6 +149,7 @@ async function patchLead(
     toast.error("Não foi possível salvar. Tente de novo.");
   } finally {
     busy.value = null;
+    inFlight.value.delete(id);
   }
 }
 
@@ -175,13 +187,27 @@ function onDrop(stage: LeadStage) {
   if (l) move(l, stage);
 }
 
-// ---- Tempo real: só INSERT ----
+// ---- Tempo real ----
 //
-// UPDATE e DELETE ficam de fora de propósito. O quadro faz atualização otimista
-// (move o card antes da confirmação do servidor); um evento de UPDATE chegando
-// no meio disso sobrescreveria o estado local e o card piscaria — ou voltaria
-// pra coluna anterior por um instante. INSERT não tem esse conflito: é linha
-// que ainda não existe na tela.
+// INSERT, UPDATE e DELETE. O UPDATE ficou de fora na primeira versão porque o
+// quadro faz alteração otimista e um evento chegando no meio dela sobrescreveria
+// o estado local — card piscando, ou voltando de coluna. Era a decisão certa
+// para uma corretora sozinha.
+//
+// Com 4 a 6 pessoas no mesmo funil ela deixou de valer: sem sincronizar, o
+// quadro de cada uma envelhece e a próxima que arrastar sobrescreve a anterior
+// sem ninguém ver. O conflito continua real, mas se resolve com guarda: evento
+// de linha com alteração local em voo é ignorado, porque a resposta do servidor
+// já vai trazer o estado final.
+//
+// DELETE fica de fora, e não por esquecimento. Com a replica identity padrão o
+// payload de exclusão traz só a chave primária, então o Supabase não tem
+// `tenant_id` para avaliar a RLS — a assinatura receberia ids de contatos
+// apagados de OUTROS clientes. Não vaza conteúdo (a leitura segue bloqueada),
+// mas é exposição entre tenants. A alternativa seria `replica identity full`,
+// recusada na 0019 porque joga nome, telefone e mensagem de cada lead no WAL.
+// Excluir contato é raro; um card velho que some no próximo refetch custa menos
+// que qualquer uma das duas.
 const liveIds = ref<string[]>([]);
 // Chegou contato novo que o filtro de tipo está escondendo? Aí o aviso precisa
 // oferecer saída, senão a corretora vê "1 novo contato" e não acha o card.
@@ -232,6 +258,37 @@ onMounted(async () => {
         scheduleRefresh();
       },
     )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "leads",
+        filter: `tenant_id=eq.${tenantId}`,
+      },
+      (payload) => {
+        const row = payload.new as Record<string, unknown>;
+        const id = typeof row?.id === "string" ? row.id : "";
+        // Alteração nossa em voo: a resposta do PUT traz o estado final, e
+        // aplicar o evento agora desfaria o que a pessoa acabou de fazer.
+        if (!id || inFlight.value.has(id)) return;
+
+        const atual = leads.value?.find((l) => l.id === id);
+        const atualizado = leadFromRealtimeRow(row, atual, tenantId);
+        if (!atualizado) return;
+
+        // Contato que ainda não está na tela: deixa o refetch trazer, que vem
+        // com o imóvel embutido.
+        if (!atual) return scheduleRefresh();
+
+        leads.value = (leads.value ?? []).map((l) =>
+          l.id === id ? atualizado : l,
+        );
+        // Se a pessoa está com esse contato aberto, o que ela digitou continua
+        // no editor — mas salvar agora sobrescreveria a alteração da outra.
+        if (editingId.value === id) changedWhileEditing.value = true;
+      },
+    )
     .subscribe((status) => {
       if (status === "SUBSCRIBED") liveStatus.value = "on";
       else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
@@ -249,6 +306,8 @@ onBeforeUnmount(async () => {
 
 // ---- Editor inline ----
 const editingId = ref<string | null>(null);
+/** Outra pessoa alterou este contato enquanto ele está aberto para edição. */
+const changedWhileEditing = ref(false);
 const edit = reactive({
   name: "",
   phone: "",
@@ -259,6 +318,7 @@ const edit = reactive({
 });
 function openEditor(l: Lead) {
   editingId.value = editingId.value === l.id ? null : l.id;
+  changedWhileEditing.value = false;
   if (editingId.value) {
     edit.name = l.name || "";
     edit.phone = l.phone || "";
@@ -680,6 +740,11 @@ useHead({ title: "Contatos · Painel" });
                 <p class="ed-static">{{ LEAD_SOURCE_LABELS[l.source] }}</p>
               </div>
             </div>
+            <p v-if="changedWhileEditing" class="ed-warn">
+              Outra pessoa alterou este contato agora. O que você digitou
+              continua aqui, mas salvar vai sobrescrever a alteração dela —
+              feche e reabra para ver o estado atual.
+            </p>
             <label class="admin-label"
               >Anotações (histórico do atendimento)</label
             >
@@ -1051,6 +1116,18 @@ useHead({ title: "Contatos · Painel" });
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* Aviso de edição concorrente dentro do editor. */
+.ed-warn {
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* Campo só de leitura no editor (origem do lead). */
