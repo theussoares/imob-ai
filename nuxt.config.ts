@@ -109,7 +109,11 @@ export default defineNuxtConfig({
             "style-src 'self' 'unsafe-inline'", // <style id="tenant-theme"> + style= nos cards
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:", // fontes são self-hosted pelo @nuxt/fonts
-            "connect-src 'self' https://*.supabase.co",
+            // wss:// precisa vir explícito. Pela spec do CSP, um source com
+            // esquema `https` casa só com `https` — não com `wss` — então o
+            // WebSocket do Realtime (contato novo aparecendo no funil na hora)
+            // era bloqueado mesmo com o mesmo domínio já liberado acima.
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
             "frame-ancestors 'self'", // sucessor do X-Frame-Options
             "base-uri 'self'", // bloqueia injeção de <base> pra sequestrar URLs relativas
             "form-action 'self'",
