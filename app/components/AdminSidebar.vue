@@ -11,6 +11,7 @@ const links = [
   // "Meu site" (edição do dia a dia) antes de "Configurações" (setup técnico):
   // a ordem do menu é a frequência de uso, não a hierarquia conceitual.
   { to: "/admin/site", label: "Meu site", exact: false },
+  { to: "/admin/usuarios", label: "Usuários", exact: false },
   { to: "/admin/config", label: "Configurações", exact: false },
 ];
 

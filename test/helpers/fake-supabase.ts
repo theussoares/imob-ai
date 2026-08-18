@@ -35,18 +35,7 @@ export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]
 
   function from(table: string) {
     const chain: Record<string, unknown> = {}
-    const methods = [
-      'select',
-      'update',
-      'insert',
-      'delete',
-      'eq',
-      'in',
-      'order',
-      'limit',
-      'maybeSingle',
-      'single',
-    ]
+    const methods = ['select', 'update', 'insert', 'delete', 'eq', 'in', 'order', 'limit', 'maybeSingle', 'single']
     for (const m of methods) {
       chain[m] = (...args: unknown[]) => {
         calls.push({ table, method: m, args })
@@ -60,6 +49,52 @@ export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { client: { from } as any, calls }
+}
+
+export interface FakeAuthUser {
+  id: string
+  email: string
+  email_confirmed_at?: string | null
+}
+
+/**
+ * Igual ao `fakeSupabase`, mais o `auth.admin` que o convite usa.
+ *
+ * `generateLink` recusa e-mail já cadastrado, do mesmo jeito que o GoTrue —
+ * é justamente esse caminho que o código precisa tratar sem parecer erro.
+ */
+export function fakeSupabaseWithAuth(opts: {
+  results?: Record<string, QueryResult | QueryResult[]>
+  users?: FakeAuthUser[]
+  link?: string
+}) {
+  const { client, calls } = fakeSupabase(opts.results ?? {})
+  const users = opts.users ?? []
+  const authCalls: { method: string; args: unknown[] }[] = []
+
+  client.auth = {
+    admin: {
+      listUsers: async () => {
+        authCalls.push({ method: 'listUsers', args: [] })
+        return { data: { users }, error: null }
+      },
+      generateLink: async (params: { type: string; email: string }) => {
+        authCalls.push({ method: 'generateLink', args: [params] })
+        const existing = users.find((u) => u.email === params.email)
+        if (existing) {
+          return { data: { user: null, properties: null }, error: { message: 'User already registered' } }
+        }
+        const user: FakeAuthUser = { id: 'novo-user', email: params.email, email_confirmed_at: null }
+        users.push(user)
+        return {
+          data: { user, properties: { action_link: opts.link ?? 'https://exemplo/convite' } },
+          error: null,
+        }
+      },
+    },
+  }
+
+  return { client, calls, authCalls, users }
 }
 
 /** A cadeia enviada para uma tabela incluiu `.eq(coluna, valor)`? */

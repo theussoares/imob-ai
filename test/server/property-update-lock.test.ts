@@ -28,9 +28,9 @@ describe('updateProperty — conflito de edição simultânea', () => {
       ],
     })
 
-    await expect(
-      updateProperty(client, 't1', 'p1', input(), VERSAO_CARREGADA),
-    ).rejects.toMatchObject({ statusCode: 409 })
+    await expect(updateProperty(client, 't1', 'p1', input(), VERSAO_CARREGADA)).rejects.toMatchObject({
+      statusCode: 409,
+    })
   })
 
   test('não encosta nas fotos quando o salvamento é recusado', async () => {
@@ -45,9 +45,7 @@ describe('updateProperty — conflito de edição simultânea', () => {
       ],
     })
 
-    await expect(
-      updateProperty(client, 't1', 'p1', input(), VERSAO_CARREGADA),
-    ).rejects.toThrow()
+    await expect(updateProperty(client, 't1', 'p1', input(), VERSAO_CARREGADA)).rejects.toThrow()
 
     expect(touched(calls, 'property_images')).toBe(false)
   })
@@ -60,9 +58,7 @@ describe('updateProperty — conflito de edição simultânea', () => {
       ],
     })
 
-    await expect(
-      updateProperty(client, 't1', 'p1', input(), VERSAO_CARREGADA),
-    ).rejects.toThrow()
+    await expect(updateProperty(client, 't1', 'p1', input(), VERSAO_CARREGADA)).rejects.toThrow()
 
     expect(hadEq(calls, 'properties', 'updated_at')).toBe(true)
   })
