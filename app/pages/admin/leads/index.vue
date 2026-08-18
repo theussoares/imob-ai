@@ -18,6 +18,8 @@ import {
 definePageMeta({ layout: "admin", middleware: "admin" });
 
 const tenant = useTenant();
+const toast = useToast();
+const { askConfirm } = useConfirm();
 
 const {
   data: leads,
@@ -133,7 +135,7 @@ async function patchLead(
       leads.value = leads.value.map((x) => (x.id === id ? updated : x));
   } catch {
     await refresh(); // desfaz o otimista voltando ao estado do servidor
-    alert("Não foi possível salvar. Tente de novo.");
+    toast.error("Não foi possível salvar. Tente de novo.");
   } finally {
     busy.value = null;
   }
@@ -147,16 +149,20 @@ function move(l: Lead, stage: LeadStage) {
 }
 
 async function remove(l: Lead) {
-  if (
-    !confirm(`Excluir o contato ${l.name || "sem nome"}? Esta ação não volta.`)
-  )
-    return;
+  const ok = await askConfirm({
+    title: `Excluir o contato ${l.name || "sem nome"}?`,
+    description: "O histórico de atendimento vai junto. Esta ação não volta.",
+    confirmLabel: "Excluir",
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await adminFetch(`/api/admin/leads/${l.id}`, { method: "DELETE" });
     if (leads.value) leads.value = leads.value.filter((x) => x.id !== l.id);
     if (editingId.value === l.id) editingId.value = null;
+    toast.success("Contato excluído.");
   } catch {
-    alert("Não foi possível excluir.");
+    toast.error("Não foi possível excluir o contato.");
   }
 }
 

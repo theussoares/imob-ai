@@ -3,6 +3,9 @@ import type { Broker, BrokerInput } from '~~/shared/models/broker'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
+const toast = useToast()
+const { askConfirm } = useConfirm()
+
 // Lazy (sem `await`): abre a tela na hora e mostra "Carregando" em vez de segurar
 // a navegação até a requisição terminar.
 const { data: brokers, refresh, pending } = useLazyAsyncData(
@@ -60,13 +63,20 @@ async function save() {
 }
 
 async function remove(b: Broker) {
-  if (!confirm(`Excluir o corretor ${b.name}?`)) return
+  const ok = await askConfirm({
+    title: `Excluir o corretor ${b.name}?`,
+    description: 'Os contatos atribuídos a ele ficam sem responsável.',
+    confirmLabel: 'Excluir',
+    danger: true,
+  })
+  if (!ok) return
   try {
     await adminFetch(`/api/admin/brokers/${b.id}`, { method: 'DELETE' })
     if (editingId.value === b.id) cancel()
     await refresh()
+    toast.success('Corretor excluído.')
   } catch {
-    alert('Não foi possível excluir.')
+    toast.error('Não foi possível excluir o corretor.')
   }
 }
 

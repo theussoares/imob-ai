@@ -10,6 +10,9 @@ import type { Broker } from "~~/shared/models/broker";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
+const toast = useToast();
+const { askConfirm } = useConfirm();
+
 // useLazyAsyncData (não `await`): não suspende a navegação — a tela abre na hora
 // e mostra o skeleton enquanto `pending`. Com `await`, o painel só trocava de
 // tela depois que a requisição terminava.
@@ -96,14 +99,20 @@ function waHref(phone?: string | null) {
 }
 
 async function remove(p: Property) {
-  if (!confirm(`Excluir o imóvel ${p.code}? Esta ação não pode ser desfeita.`))
-    return;
+  const ok = await askConfirm({
+    title: `Excluir o imóvel ${p.code}?`,
+    description: "As fotos e o histórico dele vão junto. Esta ação não volta.",
+    confirmLabel: "Excluir",
+    danger: true,
+  });
+  if (!ok) return;
   deleting.value = p.id;
   try {
     await adminFetch(`/api/admin/properties/${p.id}`, { method: "DELETE" });
     await refresh();
+    toast.success(`Imóvel ${p.code} excluído.`);
   } catch {
-    alert("Não foi possível excluir.");
+    toast.error("Não foi possível excluir o imóvel.");
   } finally {
     deleting.value = null;
   }

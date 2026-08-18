@@ -4,6 +4,7 @@ import type { PropertyImageInput } from '~~/shared/models/property'
 const model = defineModel<PropertyImageInput[]>({ default: () => [] })
 
 const tenant = useTenant()
+const toast = useToast()
 const uploading = ref(false)
 const urlInput = ref('')
 
@@ -19,7 +20,7 @@ async function onFiles(e: Event) {
   if (!files.length) return
   const slug = tenant.value?.slug
   if (!slug) {
-    alert('Não foi possível identificar a imobiliária. Recarregue a página.')
+    toast.error('Não foi possível identificar a imobiliária. Recarregue a página.')
     input.value = ''
     return
   }
@@ -72,7 +73,7 @@ async function onFiles(e: Event) {
     }
   } catch (err: unknown) {
     const m = err as { message?: string }
-    alert('Falha no upload: ' + (m?.message || 'erro desconhecido'))
+    toast.error('Falha no upload: ' + (m?.message || 'erro desconhecido'))
   } finally {
     uploading.value = false
     input.value = ''

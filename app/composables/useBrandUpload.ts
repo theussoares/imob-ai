@@ -19,6 +19,7 @@ export function useBrandUpload(opts: {
   onDone: (publicUrl: string) => void
 }) {
   const tenant = useTenant()
+  const toast = useToast()
   const uploading = ref(false)
 
   async function onFile(e: Event) {
@@ -28,7 +29,7 @@ export function useBrandUpload(opts: {
 
     const slug = tenant.value?.slug
     if (!slug) {
-      alert('Não foi possível identificar a imobiliária. Recarregue a página.')
+      toast.error('Não foi possível identificar a imobiliária. Recarregue a página.')
       input.value = ''
       return
     }
@@ -52,7 +53,7 @@ export function useBrandUpload(opts: {
       opts.onDone(client.storage.from(opts.bucket).getPublicUrl(path).data.publicUrl)
     } catch (err: unknown) {
       const m = err as { message?: string }
-      alert('Falha no upload: ' + (m?.message || 'erro'))
+      toast.error('Falha no upload da imagem: ' + (m?.message || 'erro'))
     } finally {
       uploading.value = false
       input.value = ''
