@@ -962,3 +962,24 @@ select.ctl {
     margin-top: 18px;
   }
 }
+
+/* ---------- Links de categoria (home) ---------- */
+.cat-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.cat-links a {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--brand-ghost);
+  border-radius: 100px;
+  padding: 7px 14px;
+  text-decoration: none;
+}
+.cat-links a:hover {
+  background: var(--brand);
+  color: #fff;
+}

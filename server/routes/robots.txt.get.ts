@@ -18,9 +18,10 @@ export default defineEventHandler(async (event) => {
   if (!blocked && !event.context.tenant && !isPlatformRootHost(hostname)) {
     try {
       blocked = !(await resolveTenantForHost(hostname))
-    } catch {
+    } catch (e) {
       // Banco fora: melhor permitir do que arriscar servir Disallow para o
       // Googlebot no site de um cliente real e derrubar a indexação dele.
+      logWarn('robots.tenant_lookup_failed', { host: hostname, reason: errMessage(e) })
       blocked = false
     }
   }

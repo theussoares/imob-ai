@@ -1,4 +1,5 @@
 import { listActiveProperties } from '~~/server/repositories/property.repository'
+import { qualifyingCategories, categorySlug } from '~~/shared/utils/category'
 
 /** Sitemap dinâmico por host (tenant). */
 export default defineEventHandler(async (event) => {
@@ -20,8 +21,17 @@ export default defineEventHandler(async (event) => {
     listActiveProperties(publicSupabase(), tenant.id),
   )
 
+  // Categorias entram antes dos imóveis: são páginas de nível intermediário e
+  // só existem quando passam do piso de conteúdo — a mesma regra da página, pra
+  // não publicar no sitemap URL que responde 404.
+  const categories = qualifyingCategories(list).map((c) => ({
+    loc: `${origin}/imoveis/${categorySlug(c)}`,
+    priority: '0.9',
+  }))
+
   const urls: { loc: string; lastmod?: string; priority: string }[] = [
     { loc: `${origin}/`, priority: '1.0' },
+    ...categories,
     ...list.map((p) => ({
       loc: `${origin}/imovel/${encodeURIComponent(p.code)}`,
       lastmod: p.updatedAt,

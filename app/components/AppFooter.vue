@@ -17,14 +17,14 @@ const builtByLink = computed(() => {
     <div class="foot-in">
       <div>
         <div class="foot-brand">
-          <span class="mark" :class="{ 'has-logo': tenant?.logoUrl }">
+          <!-- <span class="mark" :class="{ 'has-logo': tenant?.logoUrl }">
             <img
               v-if="tenant?.logoUrl"
               :src="tenant.logoUrl"
               :alt="tenant?.name || 'Logo'"
             />
             <AppIcon v-else name="home" />
-          </span>
+          </span> -->
           {{ tenant?.name || "Imóveis" }}
         </div>
         <p>

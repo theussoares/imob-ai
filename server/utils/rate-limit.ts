@@ -42,8 +42,16 @@ export async function assertSubmitRateLimit(
     .gte('created_at', since)
 
   // Falha na checagem não pode derrubar o formulário do cliente: na dúvida,
-  // deixa passar (o limite é anti-abuso, não um controle de acesso).
-  if (error) return
+  // deixa passar (o limite é anti-abuso, não um controle de acesso). Mas fica
+  // registrado — senão a proteção pode estar desligada há semanas sem ninguém ver.
+  if (error) {
+    logWarn('ratelimit.check_failed', {
+      table: opts.table,
+      tenant: opts.tenantId,
+      reason: error.message,
+    })
+    return
+  }
   if ((count ?? 0) >= max) {
     throw createError({
       statusCode: 429,

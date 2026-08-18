@@ -42,6 +42,9 @@ export function serviceSupabase(): SupabaseClient<Database> {
   const url = config.public.supabaseUrl
   const key = config.supabaseServiceKey
   if (!url || !key) {
+    // Config faltando derruba toda escrita pública (formulários). Precisa gritar
+    // no log — o sintoma que chega é "o formulário parou", sem causa aparente.
+    logError('config.service_key_missing', { hasUrl: !!url })
     throw createError({
       statusCode: 500,
       statusMessage: 'Supabase não configurado (SUPABASE_SERVICE_ROLE_KEY ausente).',

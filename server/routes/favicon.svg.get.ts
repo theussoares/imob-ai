@@ -50,9 +50,10 @@ export default defineEventHandler(async (event) => {
         letter = initialOf(tenant.name)
         color = safeColor(tenant.brandPrimary, DEFAULT_COLOR)
       }
-    } catch {
+    } catch (e) {
       // Banco fora: devolve o ícone neutro em vez de estourar erro numa rota
       // que o navegador pede em toda página.
+      logWarn('favicon.tenant_lookup_failed', { host: hostname, reason: errMessage(e) })
     }
   }
 
