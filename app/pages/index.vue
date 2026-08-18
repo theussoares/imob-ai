@@ -57,6 +57,15 @@ const searchEcho = computed(() => {
 const composeSearchMessage = (note: string) =>
   buildSearchLeadMessage(filters, note);
 
+// Mesma captura, outra situação: aqui a pessoa VIU imóveis e nenhum serviu.
+// Não cabe dizer "já sabemos o que você procura" — ela pode nem ter filtrado.
+const browseEcho = computed(() => {
+  const partes = searchCriteriaParts(filters);
+  return partes.length
+    ? `Se aparecer ${partes.join(", ")}, a gente te avisa.`
+    : "Conte o que você procura e a gente avisa quando aparecer.";
+});
+
 // A pretensão é a única parte do filtro que vive na URL (/?purpose=aluguel), pra
 // que a listagem de locação seja indexável e os imóveis de aluguel tenham link
 // interno. Os demais filtros seguem em memória (instantâneos, sem requisição).
@@ -244,6 +253,21 @@ useHead(() => ({
             :build-message="composeSearchMessage"
           />
         </div>
+      </div>
+
+      <!-- Quem viu a lista inteira e não gostou de nada não passa pelo estado
+           vazio, então essa saída não existiria para ela. -->
+      <div v-if="filtered.length" class="browse-lead">
+        <LeadForm
+          source="catalog_footer"
+          :lead-type="seekingTypeFor(filters.purpose)"
+          title="Ainda não encontrou o imóvel ideal?"
+          :intro="browseEcho"
+          note-placeholder="O que você procura? (opcional)"
+          submit-label="Quero que procurem pra mim"
+          ok-message="Recebemos! Assim que aparecer algo com esse perfil, a gente te chama. ✅"
+          :build-message="composeSearchMessage"
+        />
       </div>
     </main>
   </div>

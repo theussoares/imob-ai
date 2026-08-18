@@ -619,6 +619,21 @@ select.ctl {
   font-size: 15px;
 }
 
+/* Captura no fim do catálogo, para quem percorreu a lista e não gostou.
+   Mais discreta que a do estado vazio: ali o formulário É a saída da tela,
+   aqui ele fecha uma página que já cumpriu o trabalho dela. */
+.browse-lead {
+  max-width: 460px;
+  margin: 40px auto 0;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.browse-lead .lead h4 {
+  font-size: 17px;
+}
+
 /* ---------- Footer ---------- */
 .site-footer {
   background: var(--brand);
