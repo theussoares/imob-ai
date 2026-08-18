@@ -31,6 +31,9 @@ export default defineEventHandler(async (event) => {
 
   const urls: { loc: string; lastmod?: string; priority: string }[] = [
     { loc: `${origin}/`, priority: '1.0' },
+    // Página de conteúdo próprio, não gerada a partir do catálogo: entra sempre,
+    // sem piso de conteúdo, porque não depende de haver imóvel cadastrado.
+    { loc: `${origin}/quero-vender`, priority: '0.9' },
     ...categories,
     ...list.map((p) => ({
       loc: `${origin}/imovel/${encodeURIComponent(p.code)}`,

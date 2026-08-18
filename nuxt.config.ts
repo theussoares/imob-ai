@@ -64,6 +64,10 @@ export default defineNuxtConfig({
       // Anon key + URL (públicas) — usadas só pelo painel /admin, sob demanda.
       supabaseUrl: process.env.SUPABASE_URL || '',
       supabaseKey: process.env.SUPABASE_KEY || '',
+      // Espelho PÚBLICO de `allowTenantSwitch`, só para o middleware de rota
+      // preservar `?tenant=` ao navegar. Não concede nada: quem decide o tenant
+      // é o servidor, que checa a versão privada.
+      allowTenantSwitch: process.env.VERCEL_ENV !== 'production',
       // Crédito do desenvolvedor no rodapé (fixo em todos os tenants).
       builtByName: process.env.NUXT_PUBLIC_BUILT_BY_NAME || 'MA Tech',
       builtByWhatsapp: process.env.NUXT_PUBLIC_BUILT_BY_WHATSAPP || '5567992171768',

@@ -15,15 +15,31 @@ export default defineEventHandler(async (event) => {
 
   // Atalho ?tenant=slug (dev + previews da Vercel, nunca em produção): troca o
   // tenant e grava cookie. (?tenant= vazio limpa).
+  //
+  // A query SEMPRE vence o cookie, e é isso que permite abrir dois tenants no
+  // mesmo navegador: o cookie é compartilhado entre abas, a URL não. Cada aba
+  // que carrega o parâmetro fica presa no seu tenant, independente do que outra
+  // aba gravou. O cookie fica só como conveniência para navegação que perde a
+  // query.
   if (import.meta.dev || useRuntimeConfig().allowTenantSwitch) {
     const q = getQuery(event)
-    let devSlug = getCookie(event, 'dev_tenant') || undefined
+    let devSlug = getCookie(event, DEV_TENANT_COOKIE) || undefined
     if (typeof q.tenant === 'string') {
       if (q.tenant.trim()) {
         devSlug = q.tenant.trim()
-        setCookie(event, 'dev_tenant', devSlug, { path: '/', sameSite: 'lax' })
+        setCookie(event, DEV_TENANT_COOKIE, devSlug, { path: '/', sameSite: 'lax' })
+        // `setCookie` escreve só na resposta. O app.vue busca /api/tenant por
+        // requestFetch, que repassa os cabeçalhos de ENTRADA — sem isto a
+        // primeira visita com ?tenant= renderizava a landing da plataforma, e só
+        // a segunda (já com o cookie no navegador) mostrava o tenant certo.
+        event.node.req.headers.cookie = withDevTenantCookie(event.node.req.headers.cookie, devSlug)
       } else {
-        deleteCookie(event, 'dev_tenant')
+        deleteCookie(event, DEV_TENANT_COOKIE)
+        event.node.req.headers.cookie = (event.node.req.headers.cookie || '')
+          .split(';')
+          .map((c) => c.trim())
+          .filter((c) => c && c.split('=')[0]?.trim() !== DEV_TENANT_COOKIE)
+          .join('; ')
         devSlug = undefined
       }
     }
