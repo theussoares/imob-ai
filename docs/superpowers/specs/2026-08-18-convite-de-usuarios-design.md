@@ -67,14 +67,40 @@ Estas são as regras que não podem cair. Cada uma tem teste.
 
 ## Passo manual necessário (dashboard do Supabase)
 
-**Sem isto o convite não funciona.** O Supabase só redireciona para URLs
-presentes na allowlist de *Redirect URLs* (Authentication → URL Configuration).
-Como cada cliente tem seu próprio domínio de painel, a lista precisa cobrir os
-padrões em uso, incluindo os subdomínios `painel.` dos domínios de cliente e o
-domínio da plataforma.
+**Sem isto o convite não funciona** — e falha em silêncio. Duas configurações em
+Authentication → URL Configuration:
 
-Se faltar, o link do convite redireciona para o lugar errado e a pessoa não
-consegue definir a senha — falha silenciosa do ponto de vista do painel.
+**Site URL** — não aceita curinga (a própria tela avisa). Domínio real:
+
+```
+https://usemoradi.com.br
+```
+
+**Redirect URLs** — precisa terminar em `/**`:
+
+```
+https://*.tpimobiliaria.com.br/**
+https://*.usemoradi.com.br/**
+https://tpimobiliaria.com.br/**
+https://usemoradi.com.br/**
+http://localhost:3000/**
+```
+
+O `/**` não é enfeite. Na regra do Supabase, `*` casa com "qualquer sequência de
+caracteres que não sejam separadores", e os separadores são `.` e `/`. Logo
+`https://*.tpimobiliaria.com.br` casa só com a URL SEM caminho — e o
+`redirect_to` que enviamos é `.../admin/definir-senha`. Sem o `/**` ele não casa,
+o Supabase descarta e manda a pessoa para o Site URL.
+
+Foi exatamente o que aconteceu no primeiro teste: o convite gerado a partir de
+`painel.tpimobiliaria.com.br` foi parar em `localhost:3000` (o Site URL da
+época), com o token no fragmento de uma página que o ignora.
+
+Mitigação em código: o plugin `auth-hash-rescue.client.ts` detecta token de
+convite/recuperação chegando em qualquer página do app e encaminha para
+`/admin/definir-senha` preservando o fragmento. Isso impede o beco sem saída,
+mas não substitui a allowlist correta — com ela errada, o convite gerado em um
+cliente pode aterrissar no domínio de outro.
 
 ## Caso que vai acontecer
 
