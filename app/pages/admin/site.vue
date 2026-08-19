@@ -34,6 +34,11 @@ const {
   "footerText",
   "footerLinks",
   "footerPages",
+  // Vieram de "Configurações": alimentam o sameAs do JSON-LD, mas o que a pessoa
+  // vê é o ícone no rodapé — que se configura nesta tela. O campo mora onde a
+  // consequência aparece.
+  "instagram",
+  "website",
 ]);
 
 // ---- Páginas do site no rodapé ----
@@ -342,7 +347,29 @@ useHead({ title: "Meu site · Painel" });
         </p>
       </div>
 
-      <label class="admin-label">Páginas do seu site</label>
+      <div class="form-grid">
+        <div>
+          <label class="admin-label">Instagram</label>
+          <input
+            v-model="form.instagram"
+            class="admin-input"
+            placeholder="https://instagram.com/seuperfil"
+          />
+        </div>
+        <div>
+          <label class="admin-label">Outro site seu (opcional)</label>
+          <input
+            v-model="form.website"
+            class="admin-input"
+            placeholder="https://..."
+          />
+        </div>
+      </div>
+      <p class="hint">
+        Preenchidos, aparecem como ícone no rodapé. Vazios, não aparecem.
+      </p>
+
+      <label class="admin-label fp-sep">Páginas do seu site</label>
       <p class="hint">
         Escolha quais aparecem no rodapé e com que nome. A lista cresce sozinha
         quando novas páginas ficam disponíveis.
@@ -451,6 +478,10 @@ useHead({ title: "Meu site · Painel" });
   gap: 10px;
   align-items: center;
   margin-top: 8px;
+}
+.fp-sep {
+  display: block;
+  margin-top: 20px;
 }
 .fp-path {
   font-size: 12.5px;
