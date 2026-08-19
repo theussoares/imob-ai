@@ -38,7 +38,6 @@ const {
   // vê é o ícone no rodapé — que se configura nesta tela. O campo mora onde a
   // consequência aparece.
   "instagram",
-  "website",
 ]);
 
 // ---- Páginas do site no rodapé ----
@@ -354,14 +353,6 @@ useHead({ title: "Meu site · Painel" });
             v-model="form.instagram"
             class="admin-input"
             placeholder="https://instagram.com/seuperfil"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Outro site seu (opcional)</label>
-          <input
-            v-model="form.website"
-            class="admin-input"
-            placeholder="https://..."
           />
         </div>
       </div>
