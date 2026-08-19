@@ -1,4 +1,5 @@
 import type { FooterLink } from '~~/shared/utils/footer-links'
+import type { FooterPageOverrides } from '~~/shared/utils/footer-pages'
 
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
@@ -30,6 +31,8 @@ export interface Tenant {
   footerText: string | null
   /** Links extras do rodapé, na ordem em que aparecem. */
   footerLinks: FooterLink[]
+  /** Ajustes do cliente sobre as páginas internas — só o que ele mudou. */
+  footerPages: FooterPageOverrides
   active: boolean
 }
 
@@ -57,4 +60,5 @@ export interface TenantSettingsInput {
   alternateNames?: string[]
   footerText?: string | null
   footerLinks?: FooterLink[]
+  footerPages?: FooterPageOverrides
 }

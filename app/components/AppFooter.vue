@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  resolveFooterPages,
+  STATIC_FOOTER_PAGES,
+} from "~~/shared/utils/footer-pages";
 const tenant = useTenant();
 const { whatsappLink } = useContact();
 
@@ -29,6 +33,15 @@ const profiles = computed(() =>
     { icon: "instagram", label: "Instagram", href: tenant.value?.instagram },
     { icon: "world", label: "Site", href: tenant.value?.website },
   ].filter((p): p is { icon: string; label: string; href: string } => !!p.href),
+);
+
+/**
+ * Páginas do próprio site. Vêm do registro do código, com o rótulo e a
+ * visibilidade que o cliente escolheu — ele não digita caminho, então não há
+ * link interno quebrado no rodapé de todas as páginas.
+ */
+const pages = computed(() =>
+  resolveFooterPages(STATIC_FOOTER_PAGES, tenant.value?.footerPages ?? {}),
 );
 
 const links = computed(() => tenant.value?.footerLinks ?? []);
@@ -85,7 +98,14 @@ const builtByLink = computed(() => {
         </a>
       </div>
 
-      <nav v-if="links.length" class="foot-links" aria-label="Links do rodapé">
+      <nav
+        v-if="pages.length || links.length"
+        class="foot-links"
+        aria-label="Links do rodapé"
+      >
+        <NuxtLink v-for="p in pages" :key="p.path" :to="p.path">{{
+          p.label
+        }}</NuxtLink>
         <template v-for="l in links" :key="l.href + l.label">
           <NuxtLink v-if="isInternal(l.href)" :to="l.href">{{
             l.label

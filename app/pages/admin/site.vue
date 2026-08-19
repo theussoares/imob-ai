@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { STATIC_FOOTER_PAGES } from "~~/shared/utils/footer-pages";
 import {
   FOOTER_LINKS_MAX,
   isSafeFooterHref,
@@ -32,7 +33,29 @@ const {
   "state",
   "footerText",
   "footerLinks",
+  "footerPages",
 ]);
+
+// ---- Páginas do site no rodapé ----
+// A lista vem do código; o cliente só ajusta rótulo e visibilidade. Assim ele
+// descobre que a página existe — nunca a digitaria — e não há caminho quebrado.
+const sitePages = STATIC_FOOTER_PAGES;
+function pageOverride(path: string) {
+  const atual = form.footerPages ?? {};
+  if (!atual[path]) form.footerPages = { ...atual, [path]: {} };
+  return form.footerPages![path]!;
+}
+function pageVisible(path: string) {
+  return form.footerPages?.[path]?.visible !== false;
+}
+function setPageVisible(path: string, on: boolean) {
+  pageOverride(path).visible = on;
+  form.footerPages = { ...form.footerPages };
+}
+function setPageLabel(path: string, label: string) {
+  pageOverride(path).label = label;
+  form.footerPages = { ...form.footerPages };
+}
 
 // ---- Rodapé ----
 const FOOTER_LINKS_MAX_UI = FOOTER_LINKS_MAX;
@@ -319,8 +342,38 @@ useHead({ title: "Meu site · Painel" });
         </p>
       </div>
 
+      <label class="admin-label">Páginas do seu site</label>
+      <p class="hint">
+        Escolha quais aparecem no rodapé e com que nome. A lista cresce sozinha
+        quando novas páginas ficam disponíveis.
+      </p>
+      <div v-for="p in sitePages" :key="p.path" class="fp-row">
+        <input
+          class="admin-input"
+          :value="form.footerPages?.[p.path]?.label ?? ''"
+          :placeholder="p.label"
+          @input="
+            setPageLabel(p.path, ($event.target as HTMLInputElement).value)
+          "
+        />
+        <code class="fp-path">{{ p.path }}</code>
+        <label class="fp-toggle">
+          <input
+            type="checkbox"
+            :checked="pageVisible(p.path)"
+            @change="
+              setPageVisible(
+                p.path,
+                ($event.target as HTMLInputElement).checked,
+              )
+            "
+          />
+          <span>Mostrar</span>
+        </label>
+      </div>
+
       <div class="fl-head">
-        <label class="admin-label">Links do rodapé</label>
+        <label class="admin-label">Outros links</label>
         <button
           type="button"
           class="admin-btn ghost sm"
@@ -331,9 +384,8 @@ useHead({ title: "Meu site · Painel" });
         </button>
       </div>
       <p class="hint">
-        Para páginas do próprio site use o caminho, como
-        <code>/quero-vender</code>. Para fora, o endereço completo. Seu
-        Instagram e seu site já aparecem sozinhos — não precisa repetir aqui.
+        Endereços que não são páginas do seu site. Seu Instagram e seu site já
+        aparecem sozinhos — não precisa repetir aqui.
       </p>
 
       <div v-for="(l, i) in form.footerLinks ?? []" :key="i" class="fl-row">
@@ -393,6 +445,35 @@ useHead({ title: "Meu site · Painel" });
 </template>
 
 <style scoped>
+.fp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+.fp-path {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.fp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .fp-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
 .fl-head {
   display: flex;
   align-items: center;

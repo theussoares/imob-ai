@@ -1,6 +1,7 @@
 import type { Database } from '~~/shared/types/database.types'
 import type { HeroImagePosition, Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import { sanitizeFooterLinks } from '~~/shared/utils/footer-links'
+import { sanitizeFooterPageOverrides } from '~~/shared/utils/footer-pages'
 
 type TenantRow = Database['public']['Tables']['tenants']['Row']
 type TenantUpdate = Database['public']['Tables']['tenants']['Update']
@@ -34,6 +35,7 @@ export function toTenantModel(row: TenantRow): Tenant {
     // linha gravada antes desta validação existir (ou por SQL direto) não pode
     // colocar um href arbitrário no rodapé público.
     footerLinks: sanitizeFooterLinks(row.footer_links),
+    footerPages: sanitizeFooterPageOverrides(row.footer_pages),
     active: row.active,
   }
 }
@@ -63,5 +65,6 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.alternateNames !== undefined) row.alternate_names = input.alternateNames
   if (input.footerText !== undefined) row.footer_text = input.footerText
   if (input.footerLinks !== undefined) row.footer_links = sanitizeFooterLinks(input.footerLinks)
+  if (input.footerPages !== undefined) row.footer_pages = sanitizeFooterPageOverrides(input.footerPages)
   return row
 }

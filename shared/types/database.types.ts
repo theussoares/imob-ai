@@ -361,6 +361,7 @@ export type Database = {
           hero_subtitle: string | null
           hero_title: string | null
           footer_links: Json
+          footer_pages: Json
           footer_text: string | null
           id: string
           instagram: string | null
@@ -391,6 +392,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           footer_links?: Json
+          footer_pages?: Json
           footer_text?: string | null
           id?: string
           instagram?: string | null
@@ -421,6 +423,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           footer_links?: Json
+          footer_pages?: Json
           footer_text?: string | null
           id?: string
           instagram?: string | null
