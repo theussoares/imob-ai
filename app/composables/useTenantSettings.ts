@@ -36,6 +36,8 @@ export function useTenantSettings(fields: Field[]) {
     logoUrl: '',
     instagram: '',
     website: '',
+    footerText: '',
+    footerLinks: [],
   })
   const alternateNamesText = ref('')
 
@@ -65,6 +67,10 @@ export function useTenantSettings(fields: Field[]) {
       logoUrl: tenant.value.logoUrl || '',
       instagram: tenant.value.instagram || '',
       website: tenant.value.website || '',
+      footerText: tenant.value.footerText || '',
+      // Cópia: editar a lista na tela não pode alterar o tenant carregado antes
+      // de salvar, senão cancelar deixaria o estado sujo.
+      footerLinks: (tenant.value.footerLinks || []).map((l) => ({ ...l })),
     })
     alternateNamesText.value = (tenant.value.alternateNames || []).join('\n')
   })

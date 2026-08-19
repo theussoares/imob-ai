@@ -360,6 +360,8 @@ export type Database = {
           hero_image_position: string
           hero_subtitle: string | null
           hero_title: string | null
+          footer_links: Json
+          footer_text: string | null
           id: string
           instagram: string | null
           logo_url: string | null
@@ -388,6 +390,8 @@ export type Database = {
           hero_image_position?: string
           hero_subtitle?: string | null
           hero_title?: string | null
+          footer_links?: Json
+          footer_text?: string | null
           id?: string
           instagram?: string | null
           logo_url?: string | null
@@ -416,6 +420,8 @@ export type Database = {
           hero_image_position?: string
           hero_subtitle?: string | null
           hero_title?: string | null
+          footer_links?: Json
+          footer_text?: string | null
           id?: string
           instagram?: string | null
           logo_url?: string | null

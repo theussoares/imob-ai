@@ -571,6 +571,9 @@ select.ctl {
   text-align: center;
   padding: 60px 20px;
   color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .empty svg {
   width: 46px;

@@ -1,5 +1,6 @@
 import type { Database } from '~~/shared/types/database.types'
 import type { HeroImagePosition, Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
+import { sanitizeFooterLinks } from '~~/shared/utils/footer-links'
 
 type TenantRow = Database['public']['Tables']['tenants']['Row']
 type TenantUpdate = Database['public']['Tables']['tenants']['Update']
@@ -28,6 +29,11 @@ export function toTenantModel(row: TenantRow): Tenant {
     instagram: row.instagram,
     website: row.website,
     alternateNames: row.alternate_names ?? [],
+    footerText: row.footer_text ?? null,
+    // Passa pelo saneador na LEITURA também: a coluna é JSONB sem CHECK, então
+    // linha gravada antes desta validação existir (ou por SQL direto) não pode
+    // colocar um href arbitrário no rodapé público.
+    footerLinks: sanitizeFooterLinks(row.footer_links),
     active: row.active,
   }
 }
@@ -55,5 +61,7 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.instagram !== undefined) row.instagram = input.instagram
   if (input.website !== undefined) row.website = input.website
   if (input.alternateNames !== undefined) row.alternate_names = input.alternateNames
+  if (input.footerText !== undefined) row.footer_text = input.footerText
+  if (input.footerLinks !== undefined) row.footer_links = sanitizeFooterLinks(input.footerLinks)
   return row
 }

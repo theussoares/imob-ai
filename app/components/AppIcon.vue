@@ -17,6 +17,9 @@ const icons: Record<string, string> = {
   'chevron-left': 'tabler:chevron-left',
   'chevron-right': 'tabler:chevron-right',
   expand: 'tabler:arrows-maximize',
+  instagram: 'tabler:brand-instagram',
+  world: 'tabler:world',
+  link: 'tabler:link',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

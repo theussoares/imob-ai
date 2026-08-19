@@ -1,3 +1,5 @@
+import type { FooterLink } from '~~/shared/utils/footer-links'
+
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
 /** Modelo de domínio do tenant (imobiliária/corretor). */
@@ -24,6 +26,10 @@ export interface Tenant {
   instagram: string | null
   website: string | null
   alternateNames: string[]
+  /** Texto do rodapé. Vazio cai numa frase gerada com a cidade. */
+  footerText: string | null
+  /** Links extras do rodapé, na ordem em que aparecem. */
+  footerLinks: FooterLink[]
   active: boolean
 }
 
@@ -49,4 +55,6 @@ export interface TenantSettingsInput {
   instagram?: string | null
   website?: string | null
   alternateNames?: string[]
+  footerText?: string | null
+  footerLinks?: FooterLink[]
 }
