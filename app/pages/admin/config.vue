@@ -10,8 +10,6 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "creci",
     "brandPrimary",
     "brandAccent",
-    "instagram",
-    "website",
     "alternateNames",
   ]);
 
@@ -51,8 +49,8 @@ useHead({ title: "Configurações · Painel" });
   <div>
     <h1>Configurações</h1>
     <p style="color: var(--ink-soft); margin-bottom: 18px">
-      Identidade, marca e integrações. Normalmente se ajusta uma vez — o que você
-      edita com frequência está em
+      Identidade, marca e integrações. Normalmente se ajusta uma vez — o que
+      você edita com frequência está em
       <NuxtLink to="/admin/site" style="color: var(--brand); font-weight: 600"
         >Meu site</NuxtLink
       >.
@@ -74,7 +72,6 @@ useHead({ title: "Configurações · Painel" });
           <input v-model="form.creci" class="admin-input" />
         </div>
       </div>
-
 
       <h3 class="section-t">Cores da marca</h3>
       <div class="form-grid">
@@ -107,26 +104,14 @@ useHead({ title: "Configurações · Painel" });
         </div>
       </div>
 
-
-      <h3 class="section-t">SEO e redes sociais</h3>
+      <!-- Instagram e site saíram daqui para "Meu site", junto do rodapé onde
+           aparecem. Estavam nesta tela por raciocínio de implementação (alimentam
+           o sameAs do JSON-LD), não pelo que a pessoa vê. -->
+      <h3 class="section-t">Como te encontram no Google</h3>
       <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
-        Ajuda o Google a encontrar você pelo nome e conectar suas redes.
+        Ajuda o Google a ligar buscas pelo seu nome ao seu site.
       </p>
-      <div class="form-grid">
-        <div>
-          <label class="admin-label">Instagram (URL)</label>
-          <input
-            v-model="form.instagram"
-            class="admin-input"
-            placeholder="https://instagram.com/seuperfil"
-          />
-        </div>
-        <!-- <div>
-          <label class="admin-label">Site (URL, opcional)</label>
-          <input v-model="form.website" class="admin-input" placeholder="https://..." />
-        </div> -->
-      </div>
-      <div style="margin-top: 12px">
+      <div>
         <label class="admin-label"
           >Nomes alternativos / como te buscam (um por linha)</label
         >
@@ -137,7 +122,6 @@ useHead({ title: "Configurações · Painel" });
           placeholder="TP Imobiliária&#10;Imóveis Pacheco&#10;Tatiane Imóveis"
         />
       </div>
-
 
       <h3 class="section-t">Integrações · Portais (ZAP, VivaReal, OLX)</h3>
       <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
@@ -158,7 +142,7 @@ useHead({ title: "Configurações · Painel" });
         custo.
       </p>
 
-            <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
         v-if="saved"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
@@ -370,4 +354,3 @@ useHead({ title: "Configurações · Painel" });
   }
 }
 </style>
-

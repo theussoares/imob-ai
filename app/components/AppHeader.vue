@@ -1,6 +1,6 @@
 <script setup lang="ts">
-const tenant = useTenant()
-const { whatsappLink } = useContact()
+const tenant = useTenant();
+const { whatsappLink } = useContact();
 </script>
 
 <template>
@@ -8,11 +8,15 @@ const { whatsappLink } = useContact()
     <div class="bar-in">
       <NuxtLink class="brand" to="/">
         <span class="mark" aria-hidden="true">
-          <img v-if="tenant?.logoUrl" :src="tenant.logoUrl" :alt="tenant?.name || 'Logo'" />
+          <img
+            v-if="tenant?.logoUrl"
+            :src="tenant.logoUrl"
+            :alt="tenant?.name || 'Logo'"
+          />
           <AppIcon v-else name="home" />
         </span>
         <span>
-          <b>{{ tenant?.name || 'Imóveis' }}</b>
+          <b class="hidden md:flex">{{ tenant?.name || "Imóveis" }}</b>
           <small v-if="tenant?.tagline">{{ tenant.tagline }}</small>
         </span>
       </NuxtLink>

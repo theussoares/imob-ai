@@ -39,6 +39,11 @@ export interface Property {
   images: PropertyImage[]
   createdAt: string
   updatedAt: string
+  /**
+   * Quem editou por último. Só vem nas leituras do painel — o catálogo público
+   * não tem por que saber, e a coluna não é exposta ao papel `anon`.
+   */
+  updatedBy?: string | null
   // Campos privados (somente painel/admin) — nunca expostos no site público.
   location?: string | null
   brokerId?: string | null

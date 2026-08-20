@@ -72,8 +72,15 @@ export async function createManualLead(client: Client, tenantId: string, input: 
 }
 
 /** Atualiza um lead (mover no funil, anotar, agendar retorno). Só os campos enviados. */
-export async function updateLead(client: Client, tenantId: string, id: string, input: LeadUpdateInput): Promise<Lead> {
-  const patch: LeadUpdateRow = {}
+export async function updateLead(
+  client: Client,
+  tenantId: string,
+  id: string,
+  input: LeadUpdateInput,
+  updatedBy?: string,
+): Promise<Lead> {
+  // Autor da última alteração, do usuário autenticado — não do payload.
+  const patch: LeadUpdateRow = { updated_by: updatedBy ?? null }
   if (input.name !== undefined) patch.name = input.name
   if (input.phone !== undefined) patch.phone = input.phone
   if (input.stage !== undefined) patch.stage = input.stage

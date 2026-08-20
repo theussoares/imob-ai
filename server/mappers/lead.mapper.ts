@@ -26,6 +26,7 @@ export function toLeadModel(row: LeadRow, property: LeadPropertyFields = null): 
     brokerId: row.broker_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    updatedBy: row.updated_by,
     property: property ? { code: property.code, title: property.title } : null,
   }
 }

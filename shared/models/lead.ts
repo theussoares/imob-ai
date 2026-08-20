@@ -113,6 +113,8 @@ export interface Lead {
   brokerId: string | null
   createdAt: string
   updatedAt: string
+  /** Quem alterou por último. Null em contato nunca editado no painel. */
+  updatedBy: string | null
   /** Imóvel de origem do contato (null quando veio da home ou foi excluído). */
   property?: { code: string; title: string } | null
 }

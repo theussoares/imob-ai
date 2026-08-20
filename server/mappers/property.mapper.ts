@@ -87,6 +87,10 @@ export function toPropertyModel(
     images: sorted.map(toPropertyImageModel),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    // Só no modelo do painel: as leituras públicas usam lista de colunas
+    // explícita e não trazem esta.
+    updatedBy:
+      'updated_by' in row ? ((row as { updated_by?: string | null }).updated_by ?? null) : null,
   }
 }
 

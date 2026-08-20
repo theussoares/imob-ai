@@ -123,10 +123,7 @@ useHead(() => ({
 }));
 
 const sameAs = computed(
-  () =>
-    [tenant.value?.instagram, tenant.value?.website].filter(
-      Boolean,
-    ) as string[],
+  () => [tenant.value?.instagram].filter(Boolean) as string[],
 );
 
 const orgJsonLd = computed(() => ({

@@ -36,6 +36,9 @@ export function useTenantSettings(fields: Field[]) {
     logoUrl: '',
     instagram: '',
     website: '',
+    footerText: '',
+    footerLinks: [],
+    footerPages: {},
   })
   const alternateNamesText = ref('')
 
@@ -65,6 +68,13 @@ export function useTenantSettings(fields: Field[]) {
       logoUrl: tenant.value.logoUrl || '',
       instagram: tenant.value.instagram || '',
       website: tenant.value.website || '',
+      footerText: tenant.value.footerText || '',
+      // Cópia: editar a lista na tela não pode alterar o tenant carregado antes
+      // de salvar, senão cancelar deixaria o estado sujo.
+      footerLinks: (tenant.value.footerLinks || []).map((l) => ({ ...l })),
+      // Cópia rasa por chave, pelo mesmo motivo dos links: editar na tela não
+      // pode sujar o tenant carregado antes de salvar.
+      footerPages: Object.fromEntries(Object.entries(tenant.value.footerPages || {}).map(([k, v]) => [k, { ...v }])),
     })
     alternateNamesText.value = (tenant.value.alternateNames || []).join('\n')
   })

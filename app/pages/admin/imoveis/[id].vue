@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import type { Property, PropertyInput, PropertyImageInput } from '~~/shared/models/property'
 import type { Broker } from '~~/shared/models/broker'
-import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, PROPERTY_STATUSES, PROPERTY_STATUS_LABELS } from '~~/shared/models/property'
+import {
+  PROPERTY_TYPES,
+  PROPERTY_TYPE_LABELS,
+  PROPERTY_STATUSES,
+  PROPERTY_STATUS_LABELS,
+} from '~~/shared/models/property'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -40,14 +45,19 @@ const featuresText = ref('')
 // Preço: campo exibe "R$ 350.000", model guarda o inteiro 350000.
 const { display: priceDisplay, onInput: onPriceInput } = useMoneyInput(toRef(form, 'price'))
 // Proprietário: exibe +55 (67) 99217-1768, model guarda dígitos com DDI.
-const { display: ownerPhoneDisplay, onInput: onOwnerPhoneInput, isValid: ownerPhoneValid } =
-  usePhoneInput(toRef(form, 'ownerPhone'), 'whatsapp')
+const {
+  display: ownerPhoneDisplay,
+  onInput: onOwnerPhoneInput,
+  isValid: ownerPhoneValid,
+} = usePhoneInput(toRef(form, 'ownerPhone'), 'whatsapp')
 
-const { data: brokers } = await useAsyncData(
-  'admin:brokers:list',
-  () => adminFetch<Broker[]>('/api/admin/brokers'),
-  { server: false, default: () => [] as Broker[] },
-)
+const { data: brokers } = await useAsyncData('admin:brokers:list', () => adminFetch<Broker[]>('/api/admin/brokers'), {
+  server: false,
+  default: () => [] as Broker[],
+})
+
+const { load: loadMembers, nameFor } = useMemberNames()
+onMounted(loadMembers)
 
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
@@ -111,7 +121,10 @@ async function save() {
   const payload: PropertyInput = {
     ...form,
     brokerId: form.brokerId || null,
-    features: featuresText.value.split('\n').map((s) => s.trim()).filter(Boolean),
+    features: featuresText.value
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
   }
   try {
     if (isNew.value) {
@@ -142,6 +155,12 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
   <div>
     <NuxtLink to="/admin/imoveis" class="back-link">← Voltar</NuxtLink>
     <h1>{{ isNew ? 'Novo imóvel' : 'Editar imóvel' }}</h1>
+    <!-- Só aparece quando dá para dizer QUEM: "alterado por alguém" não ajuda
+         ninguém, e imóvel antigo não tem autor registrado. -->
+    <p v-if="!isNew && nameFor(existing?.updatedBy)" class="last-edit">
+      Última alteração por {{ nameFor(existing?.updatedBy) }}
+      <template v-if="existing?.updatedAt"> em {{ new Date(existing.updatedAt).toLocaleString('pt-BR') }} </template>
+    </p>
 
     <form class="admin-card" style="margin-top: 16px" @submit.prevent="save">
       <div class="form-grid">
@@ -226,7 +245,12 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
       <textarea v-model="form.description" class="admin-textarea" rows="4" />
 
       <label class="admin-label" style="margin-top: 14px">Diferenciais (um por linha)</label>
-      <textarea v-model="featuresText" class="admin-textarea" rows="4" placeholder="Piscina&#10;Churrasqueira&#10;Portão eletrônico" />
+      <textarea
+        v-model="featuresText"
+        class="admin-textarea"
+        rows="4"
+        placeholder="Piscina&#10;Churrasqueira&#10;Portão eletrônico"
+      />
 
       <label class="admin-label" style="margin-top: 14px">Imagens</label>
       <AdminImageUploader v-model="form.images" />
@@ -276,6 +300,12 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
 </template>
 
 <style scoped>
+.last-edit {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 .back-link {
   display: inline-block;
   color: var(--ink-soft);

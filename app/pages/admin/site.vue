@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { STATIC_FOOTER_PAGES } from "~~/shared/utils/footer-pages";
+import {
+  FOOTER_LINKS_MAX,
+  isSafeFooterHref,
+} from "~~/shared/utils/footer-links";
 import type { Tenant } from "~~/shared/models/tenant";
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -26,7 +31,62 @@ const {
   "email",
   "city",
   "state",
+  "footerText",
+  "footerLinks",
+  "footerPages",
+  // Vieram de "Configurações": alimentam o sameAs do JSON-LD, mas o que a pessoa
+  // vê é o ícone no rodapé — que se configura nesta tela. O campo mora onde a
+  // consequência aparece.
+  "instagram",
 ]);
+
+// ---- Páginas do site no rodapé ----
+// A lista vem do código; o cliente só ajusta rótulo e visibilidade. Assim ele
+// descobre que a página existe — nunca a digitaria — e não há caminho quebrado.
+const sitePages = STATIC_FOOTER_PAGES;
+function pageOverride(path: string) {
+  const atual = form.footerPages ?? {};
+  if (!atual[path]) form.footerPages = { ...atual, [path]: {} };
+  return form.footerPages![path]!;
+}
+function pageVisible(path: string) {
+  return form.footerPages?.[path]?.visible !== false;
+}
+function setPageVisible(path: string, on: boolean) {
+  pageOverride(path).visible = on;
+  form.footerPages = { ...form.footerPages };
+}
+function setPageLabel(path: string, label: string) {
+  pageOverride(path).label = label;
+  form.footerPages = { ...form.footerPages };
+}
+
+// ---- Rodapé ----
+const FOOTER_LINKS_MAX_UI = FOOTER_LINKS_MAX;
+function addLink() {
+  if ((form.footerLinks?.length ?? 0) >= FOOTER_LINKS_MAX_UI) return;
+  form.footerLinks = [...(form.footerLinks ?? []), { label: "", href: "" }];
+}
+function removeLink(i: number) {
+  form.footerLinks = (form.footerLinks ?? []).filter((_, n) => n !== i);
+}
+/** Setas em vez de arrastar: com até 8 itens resolve por uma fração do código. */
+function moveLink(i: number, delta: number) {
+  const arr = [...(form.footerLinks ?? [])];
+  const j = i + delta;
+  if (j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  form.footerLinks = arr;
+}
+/** Avisa na tela o que o servidor descartaria em silêncio ao salvar. */
+function linkProblem(l: { label: string; href: string }): string {
+  if (!l.label.trim() && !l.href.trim()) return "";
+  if (!l.label.trim()) return "Falta o texto do link.";
+  if (!l.href.trim()) return "Falta o endereço.";
+  if (!isSafeFooterHref(l.href))
+    return "Endereço inválido. Use /pagina, https://..., mailto: ou tel:";
+  return "";
+}
 
 // Campos exibem +55 (67) 99217-1768; o model guarda os dígitos com DDI.
 const {
@@ -107,7 +167,6 @@ useHead({ title: "Meu site · Painel" });
           Remover
         </button>
       </div>
-
 
       <h3 class="section-t">Hero (topo da home)</h3>
       <div>
@@ -230,7 +289,6 @@ useHead({ title: "Meu site · Painel" });
         </div>
       </div>
 
-
       <h3 class="section-t">Contato</h3>
       <div class="form-grid">
         <div>
@@ -273,6 +331,119 @@ useHead({ title: "Meu site · Painel" });
         </div>
       </div>
 
+      <h2 class="section-t">Rodapé</h2>
+      <div>
+        <label class="admin-label">Texto do rodapé</label>
+        <textarea
+          v-model="form.footerText"
+          class="admin-textarea"
+          rows="2"
+          :placeholder="`Atendimento personalizado para compra, venda e locação de imóveis em ${form.city || 'sua cidade'} e região.`"
+        />
+        <p class="hint">
+          Deixe em branco para usar o texto acima. Vale escrever o seu: o padrão
+          é igual em todos os sites que fazemos.
+        </p>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label class="admin-label">Instagram</label>
+          <input
+            v-model="form.instagram"
+            class="admin-input"
+            placeholder="https://instagram.com/seuperfil"
+          />
+        </div>
+      </div>
+      <p class="hint">
+        Preenchidos, aparecem como ícone no rodapé. Vazios, não aparecem.
+      </p>
+
+      <label class="admin-label fp-sep">Páginas do seu site</label>
+      <p class="hint">
+        Escolha quais aparecem no rodapé e com que nome. A lista cresce sozinha
+        quando novas páginas ficam disponíveis.
+      </p>
+      <div v-for="p in sitePages" :key="p.path" class="fp-row">
+        <input
+          class="admin-input"
+          :value="form.footerPages?.[p.path]?.label ?? ''"
+          :placeholder="p.label"
+          @input="
+            setPageLabel(p.path, ($event.target as HTMLInputElement).value)
+          "
+        />
+        <code class="fp-path">{{ p.path }}</code>
+        <label class="fp-toggle">
+          <input
+            type="checkbox"
+            :checked="pageVisible(p.path)"
+            @change="
+              setPageVisible(
+                p.path,
+                ($event.target as HTMLInputElement).checked,
+              )
+            "
+          />
+          <span>Mostrar</span>
+        </label>
+      </div>
+
+      <div class="fl-head">
+        <label class="admin-label">Outros links</label>
+        <button
+          type="button"
+          class="admin-btn ghost sm"
+          :disabled="(form.footerLinks?.length ?? 0) >= FOOTER_LINKS_MAX_UI"
+          @click="addLink"
+        >
+          + Adicionar link
+        </button>
+      </div>
+      <p class="hint">
+        Endereços que não são páginas do seu site. Seu Instagram e seu site já
+        aparecem sozinhos — não precisa repetir aqui.
+      </p>
+
+      <div v-for="(l, i) in form.footerLinks ?? []" :key="i" class="fl-row">
+        <input
+          v-model="l.label"
+          class="admin-input"
+          placeholder="Texto (ex.: Política de privacidade)"
+        />
+        <input
+          v-model="l.href"
+          class="admin-input"
+          placeholder="/privacidade ou https://..."
+        />
+        <div class="fl-actions">
+          <button
+            type="button"
+            class="admin-btn ghost sm"
+            :disabled="i === 0"
+            @click="moveLink(i, -1)"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            class="admin-btn ghost sm"
+            :disabled="i === (form.footerLinks?.length ?? 0) - 1"
+            @click="moveLink(i, 1)"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            class="admin-btn danger sm"
+            @click="removeLink(i)"
+          >
+            Remover
+          </button>
+        </div>
+        <p v-if="linkProblem(l)" class="fl-err">{{ linkProblem(l) }}</p>
+      </div>
 
       <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
@@ -292,6 +463,69 @@ useHead({ title: "Meu site · Painel" });
 </template>
 
 <style scoped>
+.fp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+.fp-sep {
+  display: block;
+  margin-top: 20px;
+}
+.fp-path {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.fp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .fp-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
+.fl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.fl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: 8px;
+  align-items: start;
+  margin-top: 8px;
+}
+.fl-actions {
+  display: flex;
+  gap: 4px;
+}
+.fl-err {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12.5px;
+  color: #b91c1c;
+}
+@media (max-width: 700px) {
+  .fl-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .field-err {
   color: #b91c1c;
   font-size: 12.5px;
@@ -486,4 +720,3 @@ useHead({ title: "Meu site · Painel" });
   }
 }
 </style>
-
