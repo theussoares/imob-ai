@@ -1,39 +1,72 @@
 <script setup lang="ts">
-const config = useRuntimeConfig()
-const builtByName = config.public.builtByName || 'Matheus Soares'
-const demoUrl = config.public.demoUrl || 'https://demo.usemoradi.com.br'
-const waDigits = (config.public.builtByWhatsapp || '').replace(/\D/g, '')
+const config = useRuntimeConfig();
+const builtByName = config.public.builtByName || "Matheus Soares";
+const demoUrl = config.public.demoUrl || "https://demo.usemoradi.com.br";
+const waDigits = (config.public.builtByWhatsapp || "").replace(/\D/g, "");
 const waLink = computed(() => {
-  const msg = 'Olá! Quero um site de imóveis pela Moradi. Pode me passar mais informações?'
-  return waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(msg)}` : '#'
-})
-const year = new Date().getFullYear()
+  const msg =
+    "Olá! Quero um site de imóveis pela Moradi. Pode me passar mais informações?";
+  return waDigits
+    ? `https://wa.me/${waDigits}?text=${encodeURIComponent(msg)}`
+    : "#";
+});
+const year = new Date().getFullYear();
 
 const features = [
-  { t: 'Catálogo com busca', d: 'Imóveis com filtros por tipo, bairro, preço e quartos — rápido e sem recarregar a página.' },
-  { t: 'Encontrado no Google e na IA', d: 'SEO técnico pronto: dados estruturados, sitemap, títulos e páginas otimizadas para buscas.' },
-  { t: 'WhatsApp integrado', d: 'Cada imóvel com botão de contato direto no WhatsApp, com mensagem já preenchida.' },
-  { t: 'Painel próprio', d: 'O corretor cadastra e edita imóveis, sobe fotos e muda cores e textos — sem depender de ninguém.' },
-  { t: 'Domínio ou subdomínio', d: 'Seu site no seu domínio (ou em seunome.usemoradi.com.br), com identidade e cores próprias.' },
-  { t: 'Rápido e mobile-first', d: 'Feito para carregar rápido no celular, onde a maioria dos clientes procura imóveis.' },
-]
+  {
+    t: "Catálogo com busca",
+    d: "Imóveis com filtros por tipo, bairro, preço e quartos — rápido e sem recarregar a página.",
+  },
+  {
+    t: "Encontrado no Google e na IA",
+    d: "SEO técnico pronto: dados estruturados, sitemap, títulos e páginas otimizadas para buscas.",
+  },
+  {
+    t: "WhatsApp integrado",
+    d: "Cada imóvel com botão de contato direto no WhatsApp, com mensagem já preenchida.",
+  },
+  {
+    t: "Painel próprio",
+    d: "O corretor cadastra e edita imóveis, sobe fotos e muda cores e textos — sem depender de ninguém.",
+  },
+  {
+    t: "Domínio ou subdomínio",
+    d: "Seu site no seu domínio (ou em seunome.usemoradi.com.br), com identidade e cores próprias.",
+  },
+  {
+    t: "Rápido e mobile-first",
+    d: "Feito para carregar rápido no celular, onde a maioria dos clientes procura imóveis.",
+  },
+];
 
 const steps = [
-  { n: '1', t: 'Fale com a gente', d: 'Você entra em contato e conta sobre o seu trabalho.' },
-  { n: '2', t: 'Montamos seu site', d: 'Configuramos o site, as cores, o domínio e publicamos.' },
-  { n: '3', t: 'Você gerencia', d: 'Cadastra os imóveis no painel e começa a receber contatos.' },
-]
+  {
+    n: "1",
+    t: "Fale com a gente",
+    d: "Você entra em contato e conta sobre o seu trabalho.",
+  },
+  {
+    n: "2",
+    t: "Montamos seu site",
+    d: "Configuramos o site, as cores, o domínio e publicamos.",
+  },
+  {
+    n: "3",
+    t: "Você gerencia",
+    d: "Cadastra os imóveis no painel e começa a receber contatos.",
+  },
+];
 
 useSeoMeta({
-  title: 'Sites de imóveis para corretores e imobiliárias',
+  title: "Sites de imóveis para corretores e imobiliárias",
   description:
-    'A Moradi cria sites de imóveis rápidos, otimizados para o Google e com painel próprio para o corretor. Cada cliente com seu site e domínio.',
-  ogTitle: 'Moradi — Sites de imóveis para corretores',
+    "A Moradi cria sites de imóveis rápidos, otimizados para o Google e com painel próprio para o corretor. Cada cliente com seu site e domínio.",
+  ogTitle: "Moradi — Sites de imóveis para corretores",
   ogDescription:
-    'Sites de imóveis rápidos, encontrados no Google e com painel próprio. Cada corretor com seu site e domínio.',
-  ogSiteName: 'Moradi',
-  ogType: 'website',
-})
+    "Sites de imóveis rápidos, encontrados no Google e com painel próprio. Cada corretor com seu site e domínio.",
+  ogSiteName: "Moradi",
+  ogType: "website",
+});
 </script>
 
 <template>
@@ -41,22 +74,53 @@ useSeoMeta({
     <header class="m-bar">
       <div class="m-bar-in">
         <a class="m-logo" href="/">moradi<span>.</span></a>
-        <a class="m-cta-sm" :href="waLink" target="_blank" rel="noopener">Fale conosco</a>
+        <a class="m-cta-sm" :href="waLink" target="_blank" rel="noopener"
+          >Fale conosco</a
+        >
       </div>
     </header>
 
     <section class="m-hero">
+      <MoradiPixelField />
       <div class="m-wrap">
         <span class="m-badge">Plataforma para corretores e imobiliárias</span>
         <h1>Seu site de imóveis, pronto para <em>vender</em>.</h1>
         <p class="m-sub">
-          Um catálogo online rápido, otimizado para o Google e com painel próprio.
-          Cada corretor com o seu site, o seu domínio e a sua marca.
+          Um catálogo online rápido, otimizado para o Google e com painel
+          próprio. Cada corretor com o seu site, o seu domínio e a sua marca.
         </p>
         <div class="m-actions">
-          <a class="m-btn" :href="waLink" target="_blank" rel="noopener">Quero meu site</a>
-          <a class="m-btn ghost" :href="demoUrl" target="_blank" rel="noopener">Ver demonstração</a>
+          <a class="m-btn" :href="waLink" target="_blank" rel="noopener"
+            >Quero meu site</a
+          >
+          <a class="m-btn ghost" :href="demoUrl" target="_blank" rel="noopener"
+            >Ver demonstração</a
+          >
         </div>
+
+        <!-- A landing dizia o que entrega sem mostrar. Isto é ilustração do
+             produto, não captura de tela: nada aqui afirma número nem
+             resultado. O endereço na barra é a demo de verdade, logo acima. -->
+        <a class="m-shot" :href="demoUrl" target="_blank" rel="noopener">
+          <span class="m-shot-bar" aria-hidden="true">
+            <i /><i /><i />
+            <span class="m-shot-url">demo.usemoradi.com.br</span>
+          </span>
+          <span class="m-shot-body" aria-hidden="true">
+            <span class="m-shot-nav">
+              <span class="m-shot-logo" />
+              <span class="m-shot-pills"><i /><i /><i /></span>
+            </span>
+            <span class="m-shot-grid">
+              <span v-for="n in 3" :key="n" class="m-shot-card">
+                <span class="m-shot-img" />
+                <span class="m-shot-line w70" />
+                <span class="m-shot-line w40" />
+              </span>
+            </span>
+          </span>
+          <span class="m-shot-cap">Ver a demonstração de verdade →</span>
+        </a>
       </div>
     </section>
 
@@ -66,7 +130,15 @@ useSeoMeta({
         <div class="m-grid">
           <div v-for="f in features" :key="f.t" class="m-card">
             <span class="m-check" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M20 6 9 17l-5-5"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </span>
             <h3>{{ f.t }}</h3>
             <p>{{ f.d }}</p>
@@ -91,10 +163,20 @@ useSeoMeta({
     <section class="m-band">
       <div class="m-wrap">
         <h2>Quer um site assim para a sua imobiliária?</h2>
-        <p>Veja a demonstração ou fale agora no WhatsApp e receba uma proposta.</p>
+        <p>
+          Veja a demonstração ou fale agora no WhatsApp e receba uma proposta.
+        </p>
         <div class="m-actions">
-          <a class="m-btn light" :href="waLink" target="_blank" rel="noopener">Falar no WhatsApp</a>
-          <a class="m-btn band-ghost" :href="demoUrl" target="_blank" rel="noopener">Ver demonstração</a>
+          <a class="m-btn light" :href="waLink" target="_blank" rel="noopener"
+            >Falar no WhatsApp</a
+          >
+          <a
+            class="m-btn band-ghost"
+            :href="demoUrl"
+            target="_blank"
+            rel="noopener"
+            >Ver demonstração</a
+          >
         </div>
       </div>
     </section>
@@ -124,7 +206,7 @@ useSeoMeta({
   --m-accent-tint: #dbeafe;
   background: var(--m-paper);
   color: var(--m-ink);
-  font-family: 'Montserrat', system-ui, sans-serif;
+  font-family: "Montserrat", system-ui, sans-serif;
 }
 .m-wrap {
   max-width: 1080px;
@@ -148,7 +230,7 @@ useSeoMeta({
   justify-content: space-between;
 }
 .m-logo {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
   font-size: 22px;
   letter-spacing: -0.03em;
@@ -170,11 +252,165 @@ useSeoMeta({
   padding: 10px 16px;
   border-radius: 10px;
 }
+/* Hero escuro sobre uma página clara: o contraste dá ao topo o peso de capa e
+   deixa a malha de blocos legível — sobre fundo claro ela sumiria. */
 .m-hero {
-  background: radial-gradient(1200px 400px at 50% -10%, var(--m-accent-tint), transparent), var(--m-paper);
-  padding: 64px 0 48px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      900px 420px at 70% 0%,
+      rgba(37, 99, 235, 0.22),
+      transparent 70%
+    ),
+    #0a1020;
+  color: #e8edf7;
+  padding: 72px 0 56px;
   text-align: center;
 }
+.m-hero .m-wrap {
+  position: relative;
+  z-index: 1;
+}
+.m-hero .m-badge {
+  color: #bfd4ff;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+.m-hero .m-sub {
+  color: #aebbd4;
+}
+/* O botão fantasma era pensado para fundo claro: borda escura sumiria aqui. */
+.m-hero .m-btn.ghost {
+  color: #e8edf7;
+  border-color: rgba(232, 237, 247, 0.35);
+  background: transparent;
+}
+.m-hero .m-btn.ghost:hover {
+  border-color: #e8edf7;
+}
+/* Ilustração do produto dentro do hero. */
+.m-shot {
+  display: block;
+  max-width: 720px;
+  margin: 40px auto 0;
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  border: 1px solid rgba(146, 174, 224, 0.28);
+  background: #0e1526;
+  box-shadow: 0 30px 70px rgba(2, 6, 20, 0.55);
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease;
+}
+.m-shot:hover {
+  transform: translateY(-3px);
+  border-color: rgba(96, 165, 250, 0.55);
+}
+.m-shot-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #131c31;
+  border-bottom: 1px solid rgba(146, 174, 224, 0.18);
+}
+.m-shot-bar i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(174, 187, 212, 0.35);
+}
+.m-shot-url {
+  margin-left: 12px;
+  font-size: 12px;
+  color: #9fb0cf;
+  letter-spacing: 0.01em;
+}
+.m-shot-body {
+  display: block;
+  padding: 16px;
+}
+.m-shot-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.m-shot-logo {
+  width: 78px;
+  height: 12px;
+  border-radius: 4px;
+  background: rgba(96, 165, 250, 0.55);
+}
+.m-shot-pills {
+  display: flex;
+  gap: 6px;
+}
+.m-shot-pills i {
+  width: 34px;
+  height: 9px;
+  border-radius: 100px;
+  background: rgba(174, 187, 212, 0.22);
+}
+.m-shot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.m-shot-card {
+  display: block;
+  border-radius: 9px;
+  padding: 8px;
+  background: #16203a;
+}
+.m-shot-img {
+  display: block;
+  height: 62px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: linear-gradient(
+    135deg,
+    rgba(96, 165, 250, 0.35),
+    rgba(37, 99, 235, 0.14)
+  );
+}
+.m-shot-line {
+  display: block;
+  height: 7px;
+  border-radius: 4px;
+  margin-top: 5px;
+  background: rgba(174, 187, 212, 0.28);
+}
+.m-shot-line.w70 {
+  width: 70%;
+}
+.m-shot-line.w40 {
+  width: 40%;
+}
+.m-shot-cap {
+  display: block;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9fb0cf;
+  border-top: 1px solid rgba(146, 174, 224, 0.18);
+}
+.m-shot:hover .m-shot-cap {
+  color: #e8edf7;
+}
+@media (max-width: 560px) {
+  /* Três cartões viram tiras ilegíveis em tela estreita. */
+  .m-shot-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .m-shot-card:last-child {
+    display: none;
+  }
+}
+
 .m-badge {
   display: inline-block;
   font-size: 12.5px;
@@ -187,7 +423,7 @@ useSeoMeta({
   border-radius: 100px;
 }
 .m-hero h1 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
   font-size: clamp(34px, 6vw, 58px);
   line-height: 1.05;
@@ -221,7 +457,9 @@ useSeoMeta({
   font-size: 15.5px;
   padding: 14px 24px;
   border-radius: 12px;
-  transition: background 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.15s;
 }
 .m-btn:hover {
   background: var(--m-accent-2);
@@ -255,7 +493,7 @@ useSeoMeta({
 }
 .m-section h2,
 .m-band h2 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
   font-size: clamp(24px, 4vw, 34px);
   letter-spacing: -0.02em;
@@ -289,7 +527,7 @@ useSeoMeta({
 }
 .m-card h3,
 .m-step h3 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
   font-size: 18px;
   margin-bottom: 6px;
@@ -313,7 +551,7 @@ useSeoMeta({
   border-radius: 50%;
   background: var(--m-ink);
   color: #fff;
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: 600;
   margin-bottom: 12px;
 }

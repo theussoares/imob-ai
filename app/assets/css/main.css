@@ -100,7 +100,7 @@ summary,
 .bar-in {
   max-width: 1140px;
   margin: 0 auto;
-  padding: 12px 18px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -113,14 +113,20 @@ summary,
   color: var(--ink);
 }
 .brand .mark {
-  width: 36px;
-  height: 36px;
+  width: 140px;
+  height: 65px;
   border-radius: 11px;
   flex: none;
   display: grid;
   place-items: center;
   color: #fff;
   overflow: hidden;
+}
+@media (min-width: 768px) {
+  .brand .mark {
+    width: 180px;
+    height: 85px;
+  }
 }
 .brand .mark svg {
   width: 22px;
