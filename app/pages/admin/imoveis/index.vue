@@ -82,8 +82,7 @@ const filtered = computed(() => {
     );
   }
   if (filters.type) list = list.filter((p) => p.type === filters.type);
-  if (filters.purpose)
-    list = list.filter((p) => p.purpose === filters.purpose);
+  if (filters.purpose) list = list.filter((p) => p.purpose === filters.purpose);
   if (filters.status) list = list.filter((p) => p.status === filters.status);
   if (filters.brokerId)
     list = list.filter((p) => p.brokerId === filters.brokerId);
@@ -239,7 +238,9 @@ useHead({ title: "Imóveis · Painel" });
         <table class="admin-table">
           <tbody>
             <tr v-for="i in 6" :key="i">
-              <td v-for="j in 8" :key="j"><div class="skel skel-line"></div></td>
+              <td v-for="j in 8" :key="j">
+                <div class="skel skel-line"></div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -256,11 +257,7 @@ useHead({ title: "Imóveis · Painel" });
     <template v-else>
       <!-- Mobile: cards -->
       <div class="cards">
-        <article
-          v-for="p in filtered"
-          :key="p.id"
-          class="admin-card row-card"
-        >
+        <article v-for="p in filtered" :key="p.id" class="admin-card row-card">
           <div class="row-info">
             <div class="flex gap-2">
               <div class="row-thumb">
@@ -433,7 +430,12 @@ useHead({ title: "Imóveis · Painel" });
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.5),
+    transparent
+  );
   animation: skel-shimmer 1.3s ease-in-out infinite;
 }
 @keyframes skel-shimmer {
