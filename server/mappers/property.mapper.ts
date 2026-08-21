@@ -87,10 +87,6 @@ export function toPropertyModel(
     images: sorted.map(toPropertyImageModel),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    // Só no modelo do painel: as leituras públicas usam lista de colunas
-    // explícita e não trazem esta.
-    updatedBy:
-      'updated_by' in row ? ((row as { updated_by?: string | null }).updated_by ?? null) : null,
   }
 }
 
@@ -118,6 +114,7 @@ export type PublicPropertyCardRow = Pick<
 export function toPropertyCardModel(
   row: PublicPropertyCardRow,
   images: PropertyImageFields[] = [],
+  brokerPhone: string | null = null,
 ): PropertyCard {
   const cover = [...images].sort((a, b) => {
     if (a.is_cover !== b.is_cover) return a.is_cover ? -1 : 1
@@ -139,11 +136,19 @@ export function toPropertyCardModel(
     area: Number(row.area),
     highStandard: row.high_standard,
     featured: row.featured,
+    brokerPhone,
     cover: cover ? toPropertyImageModel(cover) : null,
   }
 }
 
-/** Modelo com os campos privados (uso interno do painel) + corretor captador. */
+/**
+ * Modelo com os campos privados (uso interno do painel) + corretor captador.
+ *
+ * `updatedBy` mora AQUI, e não em `toPropertyModel`: enquanto o modelo público
+ * lia a coluna quando ela aparecia na row, a garantia de não vazar o id do
+ * funcionário dependia de cada query pública ter listado as colunas certas —
+ * um `select('*')` numa leitura pública bastava para publicá-lo.
+ */
 export function toPropertyAdminModel(
   row: PropertyRow,
   images: PropertyImageFields[] = [],
@@ -151,6 +156,7 @@ export function toPropertyAdminModel(
 ): Property {
   return {
     ...toPropertyModel(row, images),
+    updatedBy: row.updated_by,
     location: row.location,
     brokerId: row.broker_id,
     broker,

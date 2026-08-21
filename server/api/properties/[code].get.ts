@@ -1,4 +1,4 @@
-import { getPropertyByCode } from '~~/server/repositories/property.repository'
+import { getPropertyByCodeWithBrokerPhone } from '~~/server/repositories/property.repository'
 
 /**
  * Detalhe de um imóvel por código — query direta, com cache próprio.
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   const property = await cached(
     tenantCacheKey(tenant.id, `property:${code.toLowerCase()}`),
-    () => getPropertyByCode(publicSupabase(), tenant.id, code),
+    () => getPropertyByCodeWithBrokerPhone(serviceSupabase(), tenant.id, code),
   )
   if (!property) throw createError({ statusCode: 404, statusMessage: 'Imóvel não encontrado.' })
   return property

@@ -7,6 +7,7 @@ import {
   toPropertyAdminModel,
   toPropertyCardModel,
   toPropertyRow,
+  type PublicPropertyRow,
   type PropertyImageFields,
 } from '~~/server/mappers/property.mapper'
 import { toBrokerModel } from '~~/server/mappers/broker.mapper'
@@ -27,7 +28,7 @@ const PUBLIC_PROPERTY_COLUMNS =
 
 /** Colunas mínimas do card (o catálogo não precisa de description/features). */
 const PUBLIC_CARD_COLUMNS =
-  'id, code, title, type, purpose, price, neighborhood, city, bedrooms, suites, bathrooms, parking, area, high_standard, featured'
+  'id, code, title, type, purpose, price, neighborhood, city, bedrooms, suites, bathrooms, parking, area, high_standard, featured, broker_id'
 
 /**
  * Imagens via embed do PostgREST, numa query só. A alternativa (buscar os ids e
@@ -45,6 +46,22 @@ async function fetchBrokersById(client: Client, tenantId: string, ids: string[])
   if (error) throw error
   for (const b of data ?? []) map.set(b.id, toBrokerModel(b))
   return map
+}
+
+/**
+ * Telefone do captador para uso PÚBLICO. Corretor inativo não pode seguir
+ * recebendo os leads do site: quem saiu da imobiliária é desmarcado no painel,
+ * mas os imóveis que captou continuam publicados. Sem telefone aqui, o link do
+ * WhatsApp cai no número da imobiliária.
+ *
+ * Separado de `fetchBrokersById` de propósito: o painel precisa ver o corretor
+ * inativo (é o que desenha o selo "Inativo"), só o site é que não.
+ */
+function publicBrokerPhone(brokers: Map<string, Broker>, brokerId: string | null): string | null {
+  if (!brokerId) return null
+  const broker = brokers.get(brokerId)
+  if (!broker?.active) return null
+  return broker.phone ?? null
 }
 
 /** Monta o modelo admin (campos privados + corretor) a partir das rows já com imagens embutidas. */
@@ -91,9 +108,14 @@ export async function listActivePropertyCards(client: Client, tenantId: string):
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
+  const brokers = await fetchBrokersById(
+    client,
+    tenantId,
+    (data ?? []).map((row) => row.broker_id ?? '').filter(Boolean),
+  )
   return (data ?? []).map((row) => {
-    const { property_images: images, ...rest } = row
-    return toPropertyCardModel(rest, images ?? [])
+    const { property_images: images, broker_id, ...rest } = row
+    return toPropertyCardModel(rest, images ?? [], publicBrokerPhone(brokers, broker_id))
   })
 }
 
@@ -123,6 +145,42 @@ export async function getPropertyByCode(client: Client, tenantId: string, code: 
   if (!row) return null
   const { property_images: images, ...rest } = row
   return toPropertyModel(rest, images ?? [])
+}
+
+/**
+ * Versão do detalhe com telefone do corretor captador (quando existir).
+ *
+ * Mesma lista de colunas públicas do `getPropertyByCode` + `broker_id`: nada de
+ * `select('*')` aqui, que arrastaria as colunas internas (owner_name,
+ * owner_phone, location, updated_by) para dentro de uma leitura pública.
+ */
+export async function getPropertyByCodeWithBrokerPhone(
+  client: Client,
+  tenantId: string,
+  code: string,
+): Promise<Property | null> {
+  // `%` e `_` são curingas no ilike: sem escapar, /imovel/% casaria com tudo.
+  const safeCode = code.replace(/[\\%_]/g, '\\$&')
+  const { data, error } = await client
+    .from('properties')
+    .select(`${PUBLIC_PROPERTY_COLUMNS}, broker_id, ${IMAGES_EMBED}`)
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .ilike('code', safeCode)
+    .limit(1)
+  if (error) throw error
+  const row = data?.[0]
+  if (!row) return null
+
+  const { property_images: images, broker_id, ...rest } = row
+  const model = toPropertyModel(rest as PublicPropertyRow, images ?? [])
+  if (!broker_id) return model
+
+  const brokers = await fetchBrokersById(client, tenantId, [broker_id])
+  return {
+    ...model,
+    brokerPhone: publicBrokerPhone(brokers, broker_id),
+  }
 }
 
 export async function getPropertyById(client: Client, tenantId: string, id: string): Promise<Property | null> {

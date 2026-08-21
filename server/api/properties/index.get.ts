@@ -4,6 +4,6 @@ import { listActivePropertyCards } from '~~/server/repositories/property.reposit
 export default defineEventHandler(async (event) => {
   const tenant = useTenantContext(event)
   return cached(tenantCacheKey(tenant.id, 'properties:cards'), () =>
-    listActivePropertyCards(publicSupabase(), tenant.id),
+    listActivePropertyCards(serviceSupabase(), tenant.id),
   )
 })

@@ -48,6 +48,8 @@ export interface Property {
   location?: string | null
   brokerId?: string | null
   broker?: Broker | null
+  // Telefone do corretor para contato público no detalhe (quando houver captador).
+  brokerPhone?: string | null
   ownerName?: string | null
   ownerPhone?: string | null
 }
@@ -74,6 +76,7 @@ export interface PropertyCard {
   area: number
   highStandard: boolean
   featured: boolean
+  brokerPhone?: string | null
   cover: PropertyImage | null
 }
 
