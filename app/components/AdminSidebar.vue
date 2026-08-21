@@ -27,7 +27,7 @@ async function logout() {
 
 <template>
   <aside class="admin-sidebar">
-    <div class="flex justify-between items-center">
+    <div class="admin-sidebar-head">
       <NuxtLink class="brand" to="/admin" style="color: #fff">
         <span class="mark" :class="{ 'has-logo': tenant?.logoUrl }">
           <img

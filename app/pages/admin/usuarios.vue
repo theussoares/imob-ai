@@ -10,7 +10,7 @@ const {
   data: members,
   pending,
   refresh,
-} = await useAsyncData(
+} = useLazyAsyncData(
   "admin:members",
   () => adminFetch<MemberView[]>("/api/admin/members"),
   { server: false, default: () => [] as MemberView[] },
