@@ -1,89 +1,104 @@
 <script setup lang="ts">
-import type { Property, PropertyInput, PropertyImageInput } from '~~/shared/models/property'
-import type { Broker } from '~~/shared/models/broker'
+import type {
+  Property,
+  PropertyInput,
+  PropertyImageInput,
+} from "~~/shared/models/property";
+import type { Broker } from "~~/shared/models/broker";
 import {
   PROPERTY_TYPES,
   PROPERTY_TYPE_LABELS,
   PROPERTY_STATUSES,
   PROPERTY_STATUS_LABELS,
-} from '~~/shared/models/property'
+} from "~~/shared/models/property";
 
-definePageMeta({ layout: 'admin', middleware: 'admin' })
+definePageMeta({ layout: "admin", middleware: "admin" });
 
-const route = useRoute()
-const tenant = useTenant()
-const id = computed(() => String(route.params.id))
-const isNew = computed(() => id.value === 'novo')
+const route = useRoute();
+const tenant = useTenant();
+const id = computed(() => String(route.params.id));
+const isNew = computed(() => id.value === "novo");
 
-const form = reactive<Required<Omit<PropertyInput, 'images'>> & { images: PropertyImageInput[] }>({
-  code: '',
-  title: '',
-  type: 'casa',
-  purpose: 'venda',
+const form = reactive<
+  Required<Omit<PropertyInput, "images">> & { images: PropertyImageInput[] }
+>({
+  code: "",
+  title: "",
+  type: "casa",
+  purpose: "venda",
   price: 0,
-  neighborhood: '',
-  city: tenant.value?.city || '',
-  state: tenant.value?.state || '',
+  neighborhood: "",
+  city: tenant.value?.city || "",
+  state: tenant.value?.state || "",
   bedrooms: 0,
   suites: 0,
   bathrooms: 0,
   parking: 0,
   area: 0,
   highStandard: false,
-  description: '',
+  description: "",
   features: [],
-  status: 'active',
+  status: "active",
   featured: false,
   images: [],
-  location: '',
-  brokerId: '',
-  ownerName: '',
-  ownerPhone: '',
-})
-const featuresText = ref('')
+  location: "",
+  brokerId: "",
+  ownerName: "",
+  ownerPhone: "",
+});
+const featuresText = ref("");
 
 // Preço: campo exibe "R$ 350.000", model guarda o inteiro 350000.
-const { display: priceDisplay, onInput: onPriceInput } = useMoneyInput(toRef(form, 'price'))
+const { display: priceDisplay, onInput: onPriceInput } = useMoneyInput(
+  toRef(form, "price"),
+);
 // Proprietário: exibe +55 (67) 99217-1768, model guarda dígitos com DDI.
 const {
   display: ownerPhoneDisplay,
   onInput: onOwnerPhoneInput,
   isValid: ownerPhoneValid,
-} = usePhoneInput(toRef(form, 'ownerPhone'), 'whatsapp')
+} = usePhoneInput(toRef(form, "ownerPhone"), "whatsapp");
 
-const { data: brokers } = await useAsyncData('admin:brokers:list', () => adminFetch<Broker[]>('/api/admin/brokers'), {
-  server: false,
-  default: () => [] as Broker[],
-})
+const { data: brokers } = await useAsyncData(
+  "admin:brokers:list",
+  () => adminFetch<Broker[]>("/api/admin/brokers"),
+  {
+    server: false,
+    default: () => [] as Broker[],
+  },
+);
 
-const { load: loadMembers, nameFor } = useMemberNames()
-onMounted(loadMembers)
+const { load: loadMembers, nameFor } = useMemberNames();
+onMounted(loadMembers);
 
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
-  async () => (isNew.value ? null : await adminFetch<Property>(`/api/admin/properties/${id.value}`)),
+  async () =>
+    isNew.value
+      ? null
+      : await adminFetch<Property>(`/api/admin/properties/${id.value}`),
   { server: false },
-)
+);
 
 watchEffect(() => {
-  const p = existing.value
-  if (!p) return
+  const p = existing.value;
+  if (!p) return;
   Object.assign(form, {
     code: p.code,
     title: p.title,
     type: p.type,
     purpose: p.purpose,
     price: p.price,
-    neighborhood: p.neighborhood || '',
-    city: p.city || '',
-    state: p.state || '',
+    neighborhood: p.neighborhood || "",
+    city: p.city || "",
+    state: p.state || "",
     bedrooms: p.bedrooms,
     suites: p.suites,
     bathrooms: p.bathrooms,
     parking: p.parking,
     area: p.area,
     highStandard: p.highStandard,
-    description: p.description || '',
+    description: p.description || "",
     features: p.features,
     status: p.status,
     featured: p.featured,
@@ -96,86 +111,110 @@ watchEffect(() => {
       isCover: i.isCover,
       position: i.position,
     })),
-    location: p.location || '',
-    brokerId: p.brokerId || '',
-    ownerName: p.ownerName || '',
-    ownerPhone: p.ownerPhone || '',
-  })
-  featuresText.value = p.features.join('\n')
-})
+    location: p.location || "",
+    brokerId: p.brokerId || "",
+    ownerName: p.ownerName || "",
+    ownerPhone: p.ownerPhone || "",
+  });
+  featuresText.value = p.features.join("\n");
+});
 
-const saving = ref(false)
-const error = ref('')
+const saving = ref(false);
+const error = ref("");
 
 async function save() {
   if (form.price <= 0) {
-    error.value = 'Informe o preço do imóvel.'
-    return
+    error.value = "Informe o preço do imóvel.";
+    return;
   }
   if (!ownerPhoneValid.value) {
-    error.value = 'WhatsApp do proprietário inválido (com DDD).'
-    return
+    error.value = "WhatsApp do proprietário inválido (com DDD).";
+    return;
   }
-  saving.value = true
-  error.value = ''
+  saving.value = true;
+  error.value = "";
   const payload: PropertyInput = {
     ...form,
     brokerId: form.brokerId || null,
     features: featuresText.value
-      .split('\n')
+      .split("\n")
       .map((s) => s.trim())
       .filter(Boolean),
-  }
+  };
   try {
     if (isNew.value) {
-      await adminFetch('/api/admin/properties', { method: 'POST', body: payload })
+      await adminFetch("/api/admin/properties", {
+        method: "POST",
+        body: payload,
+      });
     } else {
       // Manda de volta a versão que esta tela carregou. Se outra pessoa salvou
       // nesse meio-tempo, o servidor recusa com 409 em vez de sobrescrever — e
       // o erro cai no `error.value` abaixo, sem sair da página, então o que foi
       // digitado continua na tela.
       await adminFetch(`/api/admin/properties/${id.value}`, {
-        method: 'PUT',
-        body: { ...payload, expectedUpdatedAt: existing.value?.updatedAt ?? null },
-      })
+        method: "PUT",
+        body: {
+          ...payload,
+          expectedUpdatedAt: existing.value?.updatedAt ?? null,
+        },
+      });
     }
-    await navigateTo('/admin/imoveis')
+    await navigateTo("/admin/imoveis");
   } catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string } }
-    error.value = err?.data?.statusMessage || 'Não foi possível salvar. Verifique os campos.'
+    const err = e as { data?: { statusMessage?: string } };
+    error.value =
+      err?.data?.statusMessage ||
+      "Não foi possível salvar. Verifique os campos.";
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
-useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' · Painel' }))
+useHead(() => ({
+  title: (isNew.value ? "Novo imóvel" : "Editar imóvel") + " · Painel",
+}));
 </script>
 
 <template>
   <div>
     <NuxtLink to="/admin/imoveis" class="back-link">← Voltar</NuxtLink>
-    <h1>{{ isNew ? 'Novo imóvel' : 'Editar imóvel' }}</h1>
+    <h1>{{ isNew ? "Novo imóvel" : "Editar imóvel" }}</h1>
     <!-- Só aparece quando dá para dizer QUEM: "alterado por alguém" não ajuda
          ninguém, e imóvel antigo não tem autor registrado. -->
     <p v-if="!isNew && nameFor(existing?.updatedBy)" class="last-edit">
       Última alteração por {{ nameFor(existing?.updatedBy) }}
-      <template v-if="existing?.updatedAt"> em {{ new Date(existing.updatedAt).toLocaleString('pt-BR') }} </template>
+      <template v-if="existing?.updatedAt">
+        em {{ new Date(existing.updatedAt).toLocaleString("pt-BR") }}
+      </template>
     </p>
 
     <form class="admin-card" style="margin-top: 16px" @submit.prevent="save">
       <div class="form-grid">
         <div>
           <label class="admin-label">Código *</label>
-          <input v-model="form.code" class="admin-input" placeholder="Ex.: NC-0231" required />
+          <input
+            v-model="form.code"
+            class="admin-input"
+            placeholder="Ex.: NC-0231"
+            required
+          />
         </div>
         <div>
           <label class="admin-label">Título *</label>
-          <input v-model="form.title" class="admin-input" placeholder="Ex.: Casa no Jardim Alvorada" required />
+          <input
+            v-model="form.title"
+            class="admin-input"
+            placeholder="Ex.: Casa no Jardim Alvorada"
+            required
+          />
         </div>
         <div>
           <label class="admin-label">Tipo *</label>
           <select v-model="form.type" class="admin-select">
-            <option v-for="t in PROPERTY_TYPES" :key="t" :value="t">{{ PROPERTY_TYPE_LABELS[t] }}</option>
+            <option v-for="t in PROPERTY_TYPES" :key="t" :value="t">
+              {{ PROPERTY_TYPE_LABELS[t] }}
+            </option>
           </select>
         </div>
         <div>
@@ -199,7 +238,9 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
         <div>
           <label class="admin-label">Status</label>
           <select v-model="form.status" class="admin-select">
-            <option v-for="s in PROPERTY_STATUSES" :key="s" :value="s">{{ PROPERTY_STATUS_LABELS[s] }}</option>
+            <option v-for="s in PROPERTY_STATUSES" :key="s" :value="s">
+              {{ PROPERTY_STATUS_LABELS[s] }}
+            </option>
           </select>
         </div>
         <div>
@@ -216,35 +257,68 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
         </div>
         <div>
           <label class="admin-label">Quartos</label>
-          <input v-model.number="form.bedrooms" class="admin-input" type="number" min="0" />
+          <input
+            v-model.number="form.bedrooms"
+            class="admin-input"
+            type="number"
+            min="0"
+          />
         </div>
         <div>
           <label class="admin-label">Suítes</label>
-          <input v-model.number="form.suites" class="admin-input" type="number" min="0" />
+          <input
+            v-model.number="form.suites"
+            class="admin-input"
+            type="number"
+            min="0"
+          />
         </div>
         <div>
           <label class="admin-label">Banheiros</label>
-          <input v-model.number="form.bathrooms" class="admin-input" type="number" min="0" />
+          <input
+            v-model.number="form.bathrooms"
+            class="admin-input"
+            type="number"
+            min="0"
+          />
         </div>
         <div>
           <label class="admin-label">Vagas</label>
-          <input v-model.number="form.parking" class="admin-input" type="number" min="0" />
+          <input
+            v-model.number="form.parking"
+            class="admin-input"
+            type="number"
+            min="0"
+          />
         </div>
         <div>
           <label class="admin-label">Área (m²)</label>
-          <input v-model.number="form.area" class="admin-input" type="number" min="0" step="0.01" />
+          <input
+            v-model.number="form.area"
+            class="admin-input"
+            type="number"
+            min="0"
+            step="0.01"
+          />
         </div>
       </div>
 
       <div class="checks">
-        <label><input v-model="form.highStandard" type="checkbox" /> Alto padrão</label>
-        <label><input v-model="form.featured" type="checkbox" /> Destaque</label>
+        <label
+          ><input v-model="form.highStandard" type="checkbox" /> Alto
+          padrão</label
+        >
+        <label
+          ><input v-model="form.featured" type="checkbox" /> Destaque</label
+        >
       </div>
 
       <label class="admin-label" style="margin-top: 14px">Descrição</label>
       <textarea v-model="form.description" class="admin-textarea" rows="4" />
 
-      <label class="admin-label" style="margin-top: 14px">Diferenciais (um por linha)</label>
+      <label class="admin-label" style="margin-top: 14px"
+        >Diferenciais (um por linha)</label
+      >
       <textarea
         v-model="featuresText"
         class="admin-textarea"
@@ -255,19 +329,30 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
       <label class="admin-label" style="margin-top: 14px">Imagens</label>
       <AdminImageUploader v-model="form.images" />
 
-      <h3 class="int-title">🔒 Informações internas <span>(só no painel, não aparecem no site)</span></h3>
+      <h3 class="int-title">
+        🔒 Informações internas
+        <span>(só no painel, não aparecem no site)</span>
+      </h3>
       <div class="form-grid">
         <div style="grid-column: 1 / -1">
           <label class="admin-label">Localização (endereço / referência)</label>
-          <input v-model="form.location" class="admin-input" placeholder="Rua, nº, bairro, ponto de referência..." />
+          <input
+            v-model="form.location"
+            class="admin-input"
+            placeholder="Rua, nº, bairro, ponto de referência..."
+          />
         </div>
         <div>
           <label class="admin-label">Corretor que captou</label>
           <select v-model="form.brokerId" class="admin-select">
             <option value="">— Nenhum —</option>
-            <option v-for="b in brokers" :key="b.id" :value="b.id">{{ b.name }}</option>
+            <option v-for="b in brokers" :key="b.id" :value="b.id">
+              {{ b.name }}
+            </option>
           </select>
-          <NuxtLink to="/admin/corretores" class="hint-link">Gerenciar corretores →</NuxtLink>
+          <NuxtLink to="/admin/corretores" class="hint-link"
+            >Gerenciar corretores →</NuxtLink
+          >
         </div>
         <div>
           <label class="admin-label">Proprietário — nome</label>
@@ -283,7 +368,9 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
             placeholder="+55 (67) 99217-1768"
             @input="onOwnerPhoneInput"
           />
-          <p v-if="!ownerPhoneValid" class="field-err">Número inválido (com DDD).</p>
+          <p v-if="!ownerPhoneValid" class="field-err">
+            Número inválido (com DDD).
+          </p>
         </div>
       </div>
 
@@ -291,9 +378,11 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
 
       <div style="margin-top: 18px; display: flex; gap: 10px">
         <button class="admin-btn" type="submit" :disabled="saving">
-          {{ saving ? 'Salvando...' : 'Salvar imóvel' }}
+          {{ saving ? "Salvando..." : "Salvar imóvel" }}
         </button>
-        <NuxtLink class="admin-btn ghost" to="/admin/imoveis">Cancelar</NuxtLink>
+        <NuxtLink class="admin-btn ghost" to="/admin/imoveis"
+          >Cancelar</NuxtLink
+        >
       </div>
     </form>
   </div>
@@ -325,14 +414,14 @@ useHead(() => ({ title: (isNew.value ? 'Novo imóvel' : 'Editar imóvel') + ' ·
   }
 }
 .int-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 15px;
   margin: 24px 0 12px;
   padding-top: 16px;
   border-top: 1px dashed var(--line-2);
 }
 .int-title span {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-weight: 500;
   font-size: 12.5px;
   color: var(--ink-soft);

@@ -2,6 +2,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { isSessionExpiredError } from '~~/shared/utils/session-error'
 
 let _client: SupabaseClient | null = null
+const _inflightAdminGet = new Map<string, Promise<unknown>>()
 
 /**
  * Client Supabase do painel, carregado SOB DEMANDA (import dinâmico) apenas nas
@@ -111,13 +112,33 @@ export async function adminFetch<T>(url: string, opts: Record<string, unknown> =
   const token = await accessToken()
   const headers = { ...((opts.headers as Record<string, string>) || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
-  try {
-    return (await $fetch(url, { ...opts, headers })) as T
-  } catch (e) {
-    // Marca a sessão como caída e RELANÇA: quem chamou continua mostrando o
-    // próprio erro na tela onde está. O aviso global explica a causa; o erro
-    // local diz o que não aconteceu.
-    if (isSessionExpiredError(e)) useSessionExpired().flag()
-    throw e
+
+  const method = String((opts.method as string | undefined) ?? 'GET').toUpperCase()
+  const run = async (): Promise<T> => {
+    try {
+      return (await $fetch(url, { ...opts, headers })) as T
+    } catch (e) {
+      // Marca a sessão como caída e RELANÇA: quem chamou continua mostrando o
+      // próprio erro na tela onde está. O aviso global explica a causa; o erro
+      // local diz o que não aconteceu.
+      if (isSessionExpiredError(e)) useSessionExpired().flag()
+      throw e
+    }
   }
+
+  // Evita chamadas GET idênticas em paralelo (efeito típico na troca de abas).
+  if (method === 'GET') {
+    const key = `${method}:${url}:${headers.Authorization ?? ''}`
+    const pending = _inflightAdminGet.get(key) as Promise<T> | undefined
+    if (pending) return pending
+    const req = run() as Promise<unknown>
+    _inflightAdminGet.set(key, req)
+    try {
+      return (await req) as T
+    } finally {
+      _inflightAdminGet.delete(key)
+    }
+  }
+
+  return run()
 }

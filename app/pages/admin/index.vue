@@ -9,8 +9,12 @@ definePageMeta({ layout: "admin", middleware: "admin" });
 
 const tenant = useTenant();
 
-const { data: properties, pending } = await useAsyncData(
-  "admin:dashboard:properties",
+const { data: properties, pending } = useLazyAsyncData(
+  // Mesma chave da listagem de imóveis: compartilha a entrada em vez de manter
+  // duas cópias do mesmo GET. Não é cache entre navegações — sem `getCachedData`
+  // o Nuxt refaz a requisição a cada visita, que é o que se quer aqui (contagem
+  // velha no dashboard seria pior que uma requisição a mais).
+  "admin:properties:list",
   () => adminFetch<Property[]>("/api/admin/properties"),
   { server: false, default: () => [] as Property[] },
 );
@@ -168,11 +172,9 @@ useHead({ title: "Dashboard · Painel" });
               <tbody>
                 <tr v-for="p in recent" :key="p.id">
                   <td>
-                    <NuxtLink
-                      :to="`/admin/imoveis/${p.id}`"
-                      class="rec-link"
-                      >{{ p.title }}</NuxtLink
-                    >
+                    <NuxtLink :to="`/admin/imoveis/${p.id}`" class="rec-link">{{
+                      p.title
+                    }}</NuxtLink>
                   </td>
                   <td>{{ PROPERTY_TYPE_LABELS[p.type] }}</td>
                   <td>{{ p.purpose === "aluguel" ? "Aluguel" : "Venda" }}</td>

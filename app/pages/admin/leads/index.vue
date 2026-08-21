@@ -28,7 +28,7 @@ const {
   data: leads,
   pending,
   refresh,
-} = await useAsyncData(
+} = useLazyAsyncData(
   "admin:leads",
   () => adminFetch<Lead[]>("/api/admin/leads"),
   { server: false, default: () => [] as Lead[] },
