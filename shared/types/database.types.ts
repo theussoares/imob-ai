@@ -63,6 +63,7 @@ export type Database = {
           broker_id: string | null
           created_at: string
           id: string
+          ip_hash: string | null
           lead_type: string
           message: string | null
           name: string | null
@@ -80,6 +81,7 @@ export type Database = {
           broker_id?: string | null
           created_at?: string
           id?: string
+          ip_hash?: string | null
           lead_type?: string
           message?: string | null
           name?: string | null
@@ -97,6 +99,7 @@ export type Database = {
           broker_id?: string | null
           created_at?: string
           id?: string
+          ip_hash?: string | null
           lead_type?: string
           message?: string | null
           name?: string | null

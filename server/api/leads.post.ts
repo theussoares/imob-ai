@@ -1,8 +1,36 @@
 import type { LeadInput } from '~~/shared/models/lead'
+import type { H3Event } from 'h3'
+import { createHash } from 'node:crypto'
 import { seekingTypeFor, toLeadSource, toLeadType } from '~~/shared/models/lead'
 import { isValidBrPhone, onlyDigits } from '~~/shared/utils/phone'
 import { createLead } from '~~/server/repositories/lead.repository'
 import { getPropertyByCode } from '~~/server/repositories/property.repository'
+
+/**
+ * Hash do IP para o anti-flood, sem guardar o IP puro.
+ *
+ * Devolve `null` — e a trava por IP simplesmente não roda — em dois casos:
+ *
+ *  - sem header de plataforma, porque identificar errado é pior que não
+ *    identificar (ver `clientIpFrom`);
+ *  - sem `RATE_LIMIT_IP_SALT`. Sem sal isto seria `sha256(ip)`, e o espaço IPv4
+ *    inteiro tem 2^32 endereços: a tabela completa se computa em minutos, então
+ *    o hash não esconderia nada de quem lesse a tabela. Guardar um pseudônimo
+ *    reversível é pior que não guardar — some a proteção E fica o dado.
+ */
+function requestIpHash(event: H3Event): string | null {
+  const ip = clientIpFrom((name) => getHeader(event, name))
+  if (!ip) return null
+
+  const salt = useRuntimeConfig().rateLimitIpSalt || ''
+  if (!salt) {
+    // Precisa gritar: sem isto a segunda trava fica desligada em silêncio.
+    logWarn('ratelimit.ip_salt_missing', {})
+    return null
+  }
+
+  return createHash('sha256').update(`${salt}:${rateLimitIpKey(ip)}`).digest('hex')
+}
 
 /**
  * Registra um lead do formulário de contato público.
@@ -34,6 +62,7 @@ export default defineEventHandler(async (event) => {
   if (message) assertMaxLength(message, 2000, 'Mensagem')
 
   const service = serviceSupabase()
+  const ipHash = requestIpHash(event)
 
   // Anti-flood por telefone dentro do tenant.
   await assertSubmitRateLimit(service, {
@@ -42,6 +71,17 @@ export default defineEventHandler(async (event) => {
     column: 'phone',
     value: phone,
   })
+
+  // Segunda trava: bloqueia rotação de telefone pelo mesmo IP.
+  if (ipHash) {
+    await assertSubmitRateLimit(service, {
+      table: 'leads',
+      tenantId: tenant.id,
+      column: 'ip_hash',
+      value: ipHash,
+      max: 6,
+    })
+  }
 
   // Leitura segue pelo client público: RLS garante que só imóvel ativo do tenant
   // resolve, e não há motivo pra usar a chave privilegiada aqui.
@@ -68,6 +108,7 @@ export default defineEventHandler(async (event) => {
       propertyId,
       name,
       phone,
+      ipHash,
       message,
       source,
       leadType,

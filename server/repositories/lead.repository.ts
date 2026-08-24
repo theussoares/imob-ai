@@ -30,6 +30,7 @@ export interface CreateLeadArgs {
   propertyId: string | null
   name: string
   phone: string
+  ipHash: string | null
   message: string | null
   source: LeadSource
   leadType: LeadType
@@ -41,6 +42,7 @@ export async function createLead(client: Client, args: CreateLeadArgs): Promise<
     property_id: args.propertyId,
     name: args.name,
     phone: args.phone,
+    ip_hash: args.ipHash,
     message: args.message,
     source: args.source,
     lead_type: args.leadType,
