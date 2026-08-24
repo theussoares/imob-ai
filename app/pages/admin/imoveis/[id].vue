@@ -52,7 +52,7 @@ const featuresText = ref("");
 const { display: priceDisplay, onInput: onPriceInput } = useMoneyInput(
   toRef(form, "price"),
 );
-// Proprietário: exibe +55 (67) 99217-1768, model guarda dígitos com DDI.
+// Proprietário: exibe +55 (67) 99123-4567, model guarda dígitos com DDI.
 const {
   display: ownerPhoneDisplay,
   onInput: onOwnerPhoneInput,
@@ -365,7 +365,7 @@ useHead(() => ({
             class="admin-input"
             type="tel"
             inputmode="numeric"
-            placeholder="+55 (67) 99217-1768"
+            placeholder="+55 (67) 99123-4567"
             @input="onOwnerPhoneInput"
           />
           <p v-if="!ownerPhoneValid" class="field-err">

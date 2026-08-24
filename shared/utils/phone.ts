@@ -4,9 +4,9 @@
  *
  * Dois formatos convivem no app:
  *  - "br":       telefone humano sem DDI  → 10 díg. (fixo) ou 11 (celular).
- *                Ex. exibição: (67) 99217-1768. Usado no lead do site.
+ *                Ex. exibição: (67) 99123-4567. Usado no lead do site.
  *  - "whatsapp": número que alimenta links wa.me / tel:, COM DDI 55 →
- *                12 díg. (fixo) ou 13 (celular). Ex.: +55 (67) 99217-1768.
+ *                12 díg. (fixo) ou 13 (celular). Ex.: +55 (67) 99123-4567.
  *                Usado nos campos do painel (tenant, corretor, proprietário).
  */
 
@@ -23,7 +23,7 @@ export function isValidBrPhone(value?: string | null): boolean {
   return d.length === 10 || d.length === 11
 }
 
-/** Formata progressivamente para (67) 3521-1234 / (67) 99217-1768. */
+/** Formata progressivamente para (67) 3521-1234 / (67) 99123-4567. */
 export function formatBrPhone(value?: string | null): string {
   const d = onlyDigits(value).slice(0, 11)
   if (!d) return ''
@@ -55,7 +55,7 @@ export function isValidWhatsapp(value?: string | null): boolean {
   return d.startsWith('55') && (d.length === 12 || d.length === 13)
 }
 
-/** Formata para +55 (67) 99217-1768. */
+/** Formata para +55 (67) 99123-4567. */
 export function formatWhatsapp(value?: string | null): string {
   const d = normalizeWhatsapp(value)
   if (!d) return ''

@@ -88,7 +88,7 @@ function linkProblem(l: { label: string; href: string }): string {
   return "";
 }
 
-// Campos exibem +55 (67) 99217-1768; o model guarda os dígitos com DDI.
+// Campos exibem +55 (67) 99123-4567; o model guarda os dígitos com DDI.
 const {
   display: whatsappDisplay,
   onInput: onWhatsappInput,
@@ -298,7 +298,7 @@ useHead({ title: "Meu site · Painel" });
             class="admin-input"
             type="tel"
             inputmode="numeric"
-            placeholder="+55 (67) 99217-1768"
+            placeholder="+55 (67) 99123-4567"
             @input="onWhatsappInput"
           />
           <p v-if="!whatsappValid" class="field-err">

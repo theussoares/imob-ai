@@ -58,6 +58,8 @@ export default defineNuxtConfig({
     // pelo servidor (ver serviceSupabase). Fica FORA de `public` de propósito —
     // em `public` ela seria embutida no bundle do navegador.
     supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    // Sal opcional para o hash de IP usado no anti-flood do formulário público.
+    rateLimitIpSalt: process.env.RATE_LIMIT_IP_SALT || '',
     public: {
       // Não existe URL canônica global: cada tenant se auto-canonicaliza no
       // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.
@@ -70,7 +72,11 @@ export default defineNuxtConfig({
       allowTenantSwitch: process.env.VERCEL_ENV !== 'production',
       // Crédito do desenvolvedor no rodapé (fixo em todos os tenants).
       builtByName: process.env.NUXT_PUBLIC_BUILT_BY_NAME || 'MA Tech',
-      builtByWhatsapp: process.env.NUXT_PUBLIC_BUILT_BY_WHATSAPP || '5567992171768',
+      // Sem default: um número inventado aqui mandaria os interessados para o
+      // WhatsApp de um desconhecido, e este valor alimenta links reais (crédito
+      // no rodapé de todo tenant e os CTAs da landing da Moradi). Vazio, os
+      // componentes já degradam sozinhos. DEFINA nos ambientes.
+      builtByWhatsapp: process.env.NUXT_PUBLIC_BUILT_BY_WHATSAPP || '',
       // Link da demonstração (usado na landing da Moradi).
       demoUrl: process.env.NUXT_PUBLIC_DEMO_URL || 'https://demo.usemoradi.com.br',
     },

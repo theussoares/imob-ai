@@ -49,7 +49,7 @@ const message = ref('')
 const status = ref<'idle' | 'sending' | 'ok' | 'error'>('idle')
 const error = ref('')
 
-// Campo exibe (67) 99217-1768; `phone` guarda só os dígitos.
+// Campo exibe (67) 99123-4567; `phone` guarda só os dígitos.
 const { display: phoneDisplay, onInput: onPhoneInput } = usePhoneInput(phone, 'br')
 
 async function submit() {
@@ -58,7 +58,7 @@ async function submit() {
     return
   }
   if (!isValidBrPhone(phone.value)) {
-    error.value = 'Telefone inválido. Ex.: (67) 99217-1768'
+    error.value = 'Telefone inválido. Ex.: (67) 99123-4567'
     return
   }
   status.value = 'sending'
@@ -99,7 +99,7 @@ async function submit() {
         class="admin-input"
         type="tel"
         inputmode="numeric"
-        placeholder="(67) 99217-1768"
+        placeholder="(67) 99123-4567"
         @input="onPhoneInput"
       />
       <textarea v-model="message" class="admin-textarea" rows="3" :placeholder="notePlaceholder" />

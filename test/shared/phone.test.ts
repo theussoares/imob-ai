@@ -8,8 +8,8 @@ import { isValidBrPhone, isValidWhatsapp, normalizeWhatsapp, onlyDigits } from '
  */
 describe('onlyDigits', () => {
   test('descarta máscara e espaços', () => {
-    expect(onlyDigits('(67) 99217-1768')).toBe('67992171768')
-    expect(onlyDigits(' 67 9 9217 1768 ')).toBe('67992171768')
+    expect(onlyDigits('(67) 99123-4567')).toBe('67991234567')
+    expect(onlyDigits(' 67 9 9123 4567 ')).toBe('67991234567')
   })
 
   test('tolera ausência de valor', () => {
@@ -20,7 +20,7 @@ describe('onlyDigits', () => {
 
 describe('isValidBrPhone', () => {
   test('aceita celular com DDD', () => {
-    expect(isValidBrPhone('67992171768')).toBe(true)
+    expect(isValidBrPhone('67991234567')).toBe(true)
   })
 
   test('aceita fixo com DDD', () => {
@@ -28,7 +28,7 @@ describe('isValidBrPhone', () => {
   })
 
   test('recusa número sem DDD', () => {
-    expect(isValidBrPhone('992171768')).toBe(false)
+    expect(isValidBrPhone('991234567')).toBe(false)
   })
 
   test('recusa vazio e lixo', () => {
@@ -40,11 +40,11 @@ describe('isValidBrPhone', () => {
 
 describe('normalizeWhatsapp', () => {
   test('põe o DDI 55 quando falta', () => {
-    expect(normalizeWhatsapp('67992171768')).toBe('5567992171768')
+    expect(normalizeWhatsapp('67991234567')).toBe('5567991234567')
   })
 
   test('não duplica o DDI quando já veio', () => {
-    expect(normalizeWhatsapp('5567992171768')).toBe('5567992171768')
+    expect(normalizeWhatsapp('5567991234567')).toBe('5567991234567')
   })
 })
 
@@ -53,12 +53,12 @@ describe('isValidWhatsapp', () => {
   // valor alimenta link wa.me/tel: direto. Quem digita passa antes pelo
   // `normalizeWhatsapp` — validar sem normalizar é erro de quem chama.
   test('aceita número já com DDI', () => {
-    expect(isValidWhatsapp('5567992171768')).toBe(true)
+    expect(isValidWhatsapp('5567991234567')).toBe(true)
     expect(isValidWhatsapp('556733214567')).toBe(true)
   })
 
   test('recusa número sem DDI, mesmo sendo um celular válido', () => {
-    expect(isValidWhatsapp('67992171768')).toBe(false)
+    expect(isValidWhatsapp('67991234567')).toBe(false)
   })
 
   test('recusa curto demais para virar link wa.me', () => {
@@ -66,6 +66,6 @@ describe('isValidWhatsapp', () => {
   })
 
   test('normalizar antes torna o número aceitável', () => {
-    expect(isValidWhatsapp(normalizeWhatsapp('67992171768'))).toBe(true)
+    expect(isValidWhatsapp(normalizeWhatsapp('67991234567'))).toBe(true)
   })
 })

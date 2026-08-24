@@ -11,7 +11,7 @@ describe('isSafeFooterHref', () => {
     expect(isSafeFooterHref('https://instagram.com/imobiliaria')).toBe(true)
     expect(isSafeFooterHref('http://exemplo.com.br')).toBe(true)
     expect(isSafeFooterHref('mailto:contato@imob.com.br')).toBe(true)
-    expect(isSafeFooterHref('tel:+5567992171768')).toBe(true)
+    expect(isSafeFooterHref('tel:+5567991234567')).toBe(true)
   })
 
   test('recusa javascript: — é XSS servido no domínio do cliente', () => {
