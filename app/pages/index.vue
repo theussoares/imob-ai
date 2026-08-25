@@ -10,6 +10,7 @@ import {
   qualifyingCategories,
   categorySlug,
   categoryLabel,
+  allCategories,
 } from "~~/shared/utils/category";
 
 const tenant = useTenant();
@@ -34,7 +35,7 @@ const { data: properties } = await useAsyncData(
 );
 
 const list = computed(() => properties.value ?? []);
-// useState (não reactive local): sobrevive à navegação SPA (voltar do /imovel/[code]
+// useState (não reactive local): sobrevive à navegação SPA (voltar do /{slug}/{codigo}
 // mantém filtro), mas reseta num reload de verdade — e é seguro em SSR (isolado por
 // requisição, ao contrário de um objeto solto no escopo do módulo).
 const filters = useState("catalog-filters", createCatalogFilters).value;
@@ -66,60 +67,39 @@ const browseEcho = computed(() => {
     : "Conte o que você procura e a gente avisa quando aparecer.";
 });
 
-// A pretensão é a única parte do filtro que vive na URL (/?purpose=aluguel), pra
-// que a listagem de locação seja indexável e os imóveis de aluguel tenham link
-// interno. Os demais filtros seguem em memória (instantâneos, sem requisição).
-const route = useRoute();
-const isRent = computed(() => route.query.purpose === "aluguel");
-watchEffect(() => {
-  const next = isRent.value ? "aluguel" : "venda";
-  if (filters.purpose !== next) {
-    filters.purpose = next;
-    filters.maxPrice = 0; // faixas de preço de venda e aluguel não são comparáveis
-  }
-});
-
 // Categorias com inventário suficiente viram link aqui. Sem esses links as
-// páginas existiriam mas ninguém — nem o rastreador — chegaria até elas.
-const catLinks = computed(() =>
-  qualifyingCategories(list.value).map((c) => ({
-    href: `/imoveis/${categorySlug(c)}`,
-    label: `${categoryLabel(c)}${tenant.value?.city ? " em " + tenant.value.city : ""}`,
-  })),
-);
+// páginas existiriam mas ninguém — nem o rastreador — chegaria até elas. As de
+// pretensão (/imoveis/a-venda e /imoveis/para-alugar) entram sempre, inclusive
+// desindexadas: noindex,follow tira do índice, não da navegação.
+const catLinks = computed(() => {
+  const pretensoes = allCategories()
+    .filter((c) => c.type === null)
+    .map((c) => ({
+      href: `/imoveis/${categorySlug(c)}`,
+      label: `${categoryLabel(c)}${tenant.value?.city ? " em " + tenant.value.city : ""}`,
+    }));
+  const tipos = qualifyingCategories(list.value)
+    .filter((c) => c.type !== null)
+    .map((c) => ({
+      href: `/imoveis/${categorySlug(c)}`,
+      label: `${categoryLabel(c)}${tenant.value?.city ? " em " + tenant.value.city : ""}`,
+    }));
+  return [...pretensoes, ...tipos];
+});
 
 const resultsEl = ref<HTMLElement | null>(null);
 function scrollToResults() {
   resultsEl.value?.scrollIntoView({ behavior: "smooth" });
 }
 
-// Título/descrição distintos por pretensão: /?purpose=aluguel é uma página
-// própria, não pode competir com a home como conteúdo duplicado.
 useSeoMeta({
-  title: () =>
-    isRent.value
-      ? `Imóveis para alugar${tenant.value?.city ? " em " + tenant.value.city : ""}`
-      : tenant.value?.heroTitle || "Imóveis à venda e para alugar",
-  description: () =>
-    isRent.value
-      ? `Casas, apartamentos e terrenos para alugar${tenant.value?.city ? " em " + tenant.value.city : ""}. Fale direto com o corretor.`
-      : undefined,
+  title: () => tenant.value?.heroTitle || "Imóveis à venda e para alugar",
   ogTitle: () =>
-    `${tenant.value?.name || "Imóveis"} · ${isRent.value ? "Imóveis para alugar" : "Imóveis à venda e para alugar"}`,
+    `${tenant.value?.name || "Imóveis"} · Imóveis à venda e para alugar`,
 });
 
-// Canonical precisa carregar a query — o global do app.vue usa só route.path, e
-// sem isto /?purpose=aluguel se canonicalizaria para a home de venda.
 useHead(() => ({
-  link: [
-    {
-      rel: "canonical",
-      href:
-        requestUrl.origin +
-        route.path +
-        (isRent.value ? "?purpose=aluguel" : ""),
-    },
-  ],
+  link: [{ rel: "canonical", href: requestUrl.origin + "/" }],
 }));
 
 const sameAs = computed(
@@ -206,7 +186,8 @@ useHead(() => ({
       <TypeChips :filters="filters" />
 
       <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
-           um caminho até elas. Só aparecem as que têm imóveis suficientes. -->
+           um caminho até elas. As de tipo só aparecem com imóveis suficientes;
+           as de pretensão (a-venda/para-alugar) entram sempre. -->
       <nav
         v-if="catLinks.length"
         class="cat-links"
