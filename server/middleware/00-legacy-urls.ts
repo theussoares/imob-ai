@@ -10,19 +10,21 @@ export default defineEventHandler(async (event) => {
   if (event.method !== 'GET') return
   const path = (event.path || '').split('?')[0] || '/'
   if (!path.startsWith('/imovel/') && path !== '/') return
-  // Domínio-raiz da plataforma não tem tenant nem categoria: sem este guard,
-  // `/?purpose=venda` ali redirecionaria para /imoveis/a-venda, página que
-  // exige tenant e quebraria. Não dá pra usar event.context.platformRoot aqui
-  // porque este middleware roda antes do tenant.ts (que é quem o define) na
-  // ordem alfabética — daí checar o host diretamente.
-  if (isPlatformRootHost(getHostname(event))) return
+
+  // Sem tenant não há para onde redirecionar: domínio-raiz da plataforma ou
+  // host desconhecido caem aqui. Comparar host com platformDomain (via
+  // isPlatformRootHost) não bastava — em dev, NUXT_PLATFORM_DOMAIN=localhost
+  // faz esse comparativo "acertar" mesmo com o tenant tres-lagoas semeado em
+  // localhost (supabase/migrations/0004_seed_tres_lagoas.sql), derrubando os
+  // dois redirects abaixo. Resolver o tenant de verdade cobre os dois
+  // ambientes com a mesma linha.
+  const tenant = event.context.tenant ?? (await resolveTenantForHost(getHostname(event)))
+  if (!tenant) return
 
   // A lista ativa do tenant já está cacheada — é o mesmo cache que o agents.ts
   // usa —, então resolver o código aqui não custa consulta extra.
   let lista: PropertyUrlFields[] = []
   if (path.startsWith('/imovel/')) {
-    const tenant = event.context.tenant ?? (await resolveTenantForHost(getHostname(event)))
-    if (!tenant) return
     lista = await cached(tenantCacheKey(tenant.id, 'properties:active'), () =>
       listActiveProperties(publicSupabase(), tenant.id),
     )
