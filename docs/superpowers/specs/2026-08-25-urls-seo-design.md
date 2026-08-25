@@ -13,10 +13,15 @@
    query param que se auto-canonicaliza, mas que ninguém linka como página e que
    perde para um caminho na hora de ranquear por "imóveis para alugar em X".
 
+3. O `<title>` da página de detalhe sai do mesmo campo digitado pelo corretor, e
+   em produção rende `Terreno · Terreno · Tatiane Pacheco`. É a linha clicável
+   do resultado de busca — vale mais que a URL.
+
 ## Escopo
 
-Três frentes: a URL do detalhe, as duas páginas de pretensão, e a superfície de
-SEO que precisa acompanhar as duas (sitemap, feed XML, llms.txt, agentes).
+Quatro frentes: a URL do detalhe, as duas páginas de pretensão, o título do
+detalhe, e a superfície de SEO que precisa acompanhar (sitemap, feed XML,
+llms.txt, agentes).
 
 **Fora do escopo, por decisão:**
 
@@ -29,11 +34,6 @@ SEO que precisa acompanhar as duas (sitemap, feed XML, llms.txt, agentes).
   200, inclusive o que tem espaço (`/imovel/V.D%20005`). Trocar a chave
   resolveria um problema que não está causando dano, ao custo de migration e
   backfill.
-- **Título da página (`<title>`).** Em produção aparecem
-  `Terreno · Terreno · Tatiane Pacheco` e `J.D-Alvorada · Terreno`, porque o
-  title sai do campo digitado pelo corretor. É a mesma raiz do problema da URL e
-  provavelmente vale mais que o slug, já que é a linha clicável no resultado.
-  Fica para uma rodada própria.
 - **Rota por bairro** (`/imoveis/casas-no-centro`). O `[categoria].vue` já monta
   atalhos de bairro como filtro em memória. Virar rota multiplicaria as
   combinações e cairia no mesmo problema de página fina que o piso atual evita.
@@ -124,6 +124,46 @@ qualificadas) passa a incluir as duas páginas de pretensão, sempre — inclusi
 quando desindexadas, porque `noindex,follow` só tira do índice, não da
 navegação.
 
+## D. Título e metadados do detalhe
+
+Mesma raiz do problema da URL: o `<title>` sai do texto digitado pelo corretor
+(`title: ${p.title} · ${PROPERTY_TYPE_LABELS[p.type]}`), então em produção o
+resultado de busca mostra `Terreno · Terreno · Tatiane Pacheco` e
+`J.D-Alvorada · Terreno`. O primeiro duplica porque o corretor digitou o tipo
+como título; o segundo é uma abreviação interna que não é termo de busca de
+ninguém.
+
+**Regra de composição:**
+
+```
+{Tipo} {medida} {à venda|para alugar} {no Bairro}, {Cidade}
+```
+
+- **medida** é `N quartos` para casa/apartamento/sobrado e `Xm²` para terreno,
+  que não tem quartos. Singular quando `N = 1` (hoje sairia "1 quartos").
+- Trechos vazios somem inteiros: sem bairro, não sobra " no ".
+- Bairro passa por `trim` e colapso de espaço — os dados reais têm
+  `"Vila piloto "` com espaço no fim.
+- A marca continua vindo do `titleTemplate` do `app.vue`, no fim, que é a parte
+  descartável quando o Google corta.
+
+`ogTitle` segue a mesma composição, mantendo o preço no fim como já faz hoje.
+
+**Medido contra os 48 imóveis reais**, e não estimado: 1 título duplicado, maior
+com 64 caracteres, e só 1 dos 48 passando de 60. Duas variantes foram testadas e
+descartadas com número: incluir área também nas casas não elimina a duplicata e
+leva 22 dos 48 acima de 60 caracteres; tirar a cidade resolve o comprimento
+(máx. 53) mas abre mão do termo de busca local, que é o mais valioso da frase.
+
+**O que NÃO muda:** o `<h1>` e o texto do card continuam exibindo o título que a
+imobiliária escreveu. O conteúdo visível é dela; só o metadado passa a ser
+composto. É o mesmo limite adotado na URL.
+
+**Risco aceito:** sobra uma duplicata (duas casas de 3 quartos no mesmo bairro,
+em olmi). São imóveis de fato quase idênticos, e resolver exigiria a página de
+detalhe conhecer os irmãos — consulta que ela hoje não faz e que não se paga por
+um caso em 48.
+
 ## Arquivos de rota
 
 O arquivo da página de detalhe **move**, não é duplicado:
@@ -178,6 +218,11 @@ Unitários, no padrão do projeto (vitest Node puro, sem ambiente Nuxt):
   usando os números reais dos quatro tenants.
 - Resolução: código exato, código com caixa diferente, código inexistente (404),
   slug desatualizado (301 com o destino certo).
+- `propertyTitle`: singular em 1 quarto e plural em 2+; terreno usando área em
+  vez de quartos; bairro com espaço sobrando (`"Vila piloto "`); ausência de
+  bairro, de área e de cidade; e um teste de comprimento fixando o teto de 60
+  caracteres antes da marca, para que uma mudança futura na fórmula não volte a
+  estourar o corte do Google sem ninguém notar.
 
 ## Riscos aceitos
 
