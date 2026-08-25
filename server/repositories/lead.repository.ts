@@ -15,7 +15,7 @@ type LeadUpdateRow = Database['public']['Tables']['leads']['Update']
 export async function listLeads(client: Client, tenantId: string): Promise<Lead[]> {
   const { data, error } = await client
     .from('leads')
-    .select('*, properties(code, title)')
+    .select('*, properties(code, title, type, bedrooms, neighborhood)')
     .eq('tenant_id', tenantId)
     .order('created_at', { ascending: false })
   if (error) throw error
@@ -66,7 +66,7 @@ export async function createManualLead(client: Client, tenantId: string, input: 
       source: toLeadSource(input.source ?? 'manual'),
       lead_type: input.leadType ?? 'indefinido',
     })
-    .select('*, properties(code, title)')
+    .select('*, properties(code, title, type, bedrooms, neighborhood)')
     .single()
   if (error) throw error
   const { properties, ...rest } = data
@@ -96,7 +96,7 @@ export async function updateLead(
     .update(patch)
     .eq('tenant_id', tenantId)
     .eq('id', id)
-    .select('*, properties(code, title)')
+    .select('*, properties(code, title, type, bedrooms, neighborhood)')
     .single()
   if (error) throw error
   const { properties, ...rest } = data

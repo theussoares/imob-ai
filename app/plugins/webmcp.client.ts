@@ -1,4 +1,5 @@
 import type { Property } from '~~/shared/models/property'
+import { propertyPath } from '~~/shared/utils/property-url'
 
 /**
  * WebMCP (progressive enhancement): expõe ferramentas do site a agentes de IA
@@ -54,7 +55,7 @@ export default defineNuxtPlugin(() => {
                   .map(
                     (p) =>
                       `- ${p.title} (${p.code}) — ${brl(p.price)}${p.purpose === 'aluguel' ? '/mês' : ''} · ` +
-                      `${p.neighborhood ?? ''}, ${p.city ?? ''} · ${origin}/imovel/${encodeURIComponent(p.code)}`,
+                      `${p.neighborhood ?? ''}, ${p.city ?? ''} · ${origin}${propertyPath(p)}`,
                   )
                   .join('\n')
               : 'Nenhum imóvel encontrado com esses filtros.'

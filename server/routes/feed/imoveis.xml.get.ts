@@ -1,5 +1,6 @@
 import type { Property } from '~~/shared/models/property'
 import { listActiveProperties } from '~~/server/repositories/property.repository'
+import { propertyPath } from '~~/shared/utils/property-url'
 
 /**
  * Feed de imóveis no padrão VRSync 1.0 (Grupo ZAP / VivaReal / OLX — "Canal Pro").
@@ -122,7 +123,7 @@ function listingXml(
     `<TransactionType>${isRent ? 'For Rent' : 'For Sale'}</TransactionType>` +
     `<ListDate>${new Date(p.createdAt).toISOString()}</ListDate>` +
     `<LastUpdateDate>${new Date(p.updatedAt).toISOString()}</LastUpdateDate>` +
-    `<DetailViewUrl>${esc(origin + '/imovel/' + encodeURIComponent(p.code))}</DetailViewUrl>` +
+    `<DetailViewUrl>${esc(origin + propertyPath(p))}</DetailViewUrl>` +
     `<Details>${details}</Details>` +
     (location ? `<Location displayAddress="Neighborhood">${location}</Location>` : '') +
     (contactTag ? `<ContactInfo>${contactTag}</ContactInfo>` : '') +

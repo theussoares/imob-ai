@@ -1,3 +1,5 @@
+import type { PropertyType } from '~~/shared/models/property'
+
 /** Etapas do funil de atendimento de um lead. */
 export type LeadStage = 'novo' | 'contato' | 'visita' | 'proposta' | 'fechado' | 'perdido'
 
@@ -116,7 +118,13 @@ export interface Lead {
   /** Quem alterou por último. Null em contato nunca editado no painel. */
   updatedBy: string | null
   /** Imóvel de origem do contato (null quando veio da home ou foi excluído). */
-  property?: { code: string; title: string } | null
+  property?: {
+    code: string
+    title: string
+    type: PropertyType
+    bedrooms: number
+    neighborhood: string | null
+  } | null
 }
 
 /** Payload do formulário público. */

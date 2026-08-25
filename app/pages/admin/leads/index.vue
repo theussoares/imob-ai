@@ -8,6 +8,7 @@ import type {
 import type { Broker } from "~~/shared/models/broker";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { leadFromRealtimeRow } from "~~/shared/utils/lead-row";
+import { propertyPath } from "~~/shared/utils/property-url";
 import {
   LEAD_STAGES,
   LEAD_STAGE_LABELS,
@@ -676,7 +677,7 @@ useHead({ title: "Contatos · Painel" });
           <NuxtLink
             v-if="l.property"
             class="c-prop"
-            :to="`/imovel/${l.property.code}`"
+            :to="propertyPath(l.property)"
             target="_blank"
           >
             🏠 {{ l.property.code }} · {{ l.property.title }}

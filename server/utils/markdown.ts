@@ -1,6 +1,7 @@
 import type { Tenant } from '~~/shared/models/tenant'
 import type { Property } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
+import { propertyPath } from '~~/shared/utils/property-url'
 
 function brl(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -51,7 +52,7 @@ export function tenantCatalogMarkdown(tenant: Tenant, properties: Property[], or
       if (p.highStandard) lines.push(`- Alto padrão`)
       if (p.features.length) lines.push(`- Diferenciais: ${p.features.join(', ')}`)
       if (p.description) lines.push(`- ${p.description}`)
-      lines.push(`- Página: ${origin}/imovel/${encodeURIComponent(p.code)}`)
+      lines.push(`- Página: ${origin}${propertyPath(p)}`)
     }
   }
 
@@ -86,7 +87,7 @@ export function buildLlmsTxt(tenant: Tenant, properties: Property[], origin: str
     for (const p of list) {
       const loc = [p.neighborhood, p.city].filter(Boolean).join(', ')
       lines.push(
-        `- [${p.title} — ${priceLabel(p)}](${origin}/imovel/${encodeURIComponent(p.code)}): ` +
+        `- [${p.title} — ${priceLabel(p)}](${origin}${propertyPath(p)}): ` +
           `${PROPERTY_TYPE_LABELS[p.type]}${loc ? ` em ${loc}` : ''}. ${specsLine(p)}.`,
       )
     }
@@ -115,6 +116,6 @@ export function propertyMarkdown(tenant: Tenant, p: Property, origin: string): s
   if (p.features.length) lines.push(`\n## Diferenciais\n\n${p.features.map((f) => `- ${f}`).join('\n')}`)
   const contact = contactBlock(tenant)
   if (contact) lines.push(`\n## Contato\n\n${contact}`)
-  lines.push(`\nPágina: ${origin}/imovel/${encodeURIComponent(p.code)}`)
+  lines.push(`\nPágina: ${origin}${propertyPath(p)}`)
   return lines.join('\n') + '\n'
 }
