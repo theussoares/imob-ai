@@ -1,4 +1,5 @@
 import { listActiveProperties } from '~~/server/repositories/property.repository'
+import { isPropertyPath } from '~~/server/utils/property-path'
 
 /**
  * Descoberta por agentes/IA nas páginas públicas:
@@ -10,11 +11,7 @@ export default defineEventHandler(async (event) => {
   if (event.method !== 'GET') return
   const path = (event.path || '').split('?')[0]
   const isHome = path === '/'
-  // Duas barras e o último segmento sendo um código conhecido: é detalhe de
-  // imóvel. A lista é consultada logo abaixo, então a checagem final é lá.
-  // O guard de /admin evita que o painel (rota de dois segmentos também)
-  // anuncie Link headers de descoberta de agentes numa área privada.
-  const isProperty = /^\/[^/]+\/[^/]+$/.test(path) && !path.startsWith('/imoveis/') && !path.startsWith('/admin')
+  const isProperty = isPropertyPath(path)
   if (!isHome && !isProperty) return
 
   // Domínio-raiz da plataforma não tem catálogo. Sem este guard, o fallback de
