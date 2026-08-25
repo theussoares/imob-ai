@@ -45,4 +45,22 @@ describe('legacyRedirectFor', () => {
     expect(legacyRedirectFor('/imoveis/a-venda', {}, lookup)).toBeNull()
     expect(legacyRedirectFor('/casa-3-quartos-centro/NC-0231', {}, lookup)).toBeNull()
   })
+
+  // fbclid/gclid vêm de Instagram, Facebook e Google Ads em todo link de saída:
+  // perder o parâmetro no 301 apaga a atribuição de tráfego pago.
+  test('/imovel/{codigo}?fbclid=... preserva o fbclid no destino', () => {
+    expect(legacyRedirectFor('/imovel/NC-0231', { fbclid: 'abc' }, lookup)).toBe(
+      '/casa-3-quartos-centro/NC-0231?fbclid=abc',
+    )
+  })
+
+  test('?purpose=aluguel&fbclid=... vira a categoria com fbclid, sem o purpose', () => {
+    const destino = legacyRedirectFor('/', { purpose: 'aluguel', fbclid: 'abc' }, lookup)
+    expect(destino).toBe('/imoveis/para-alugar?fbclid=abc')
+  })
+
+  test('sem query nenhuma, o destino não sobra com "?" no fim', () => {
+    expect(legacyRedirectFor('/imovel/NC-0231', {}, lookup)).toBe('/casa-3-quartos-centro/NC-0231')
+    expect(legacyRedirectFor('/', { purpose: 'venda' }, lookup)).toBe('/imoveis/a-venda')
+  })
 })

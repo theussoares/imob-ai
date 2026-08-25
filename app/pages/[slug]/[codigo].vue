@@ -89,9 +89,14 @@ onBeforeUnmount(() => {
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true });
 // O primeiro segmento é decorativo e envelhece quando o imóvel é editado. Em vez
 // de 404, manda para o canônico atual — link já divulgado continua valendo.
+// A query (fbclid, gclid, ...) vai junto: é o mesmo link de anúncio, só com o
+// slug desatualizado.
 const slugCanonico = propertySlug(p);
 if (String(route.params.slug) !== slugCanonico) {
-  await navigateTo(propertyPath(p), { redirectCode: 301, replace: true });
+  await navigateTo(
+    { path: propertyPath(p), query: route.query },
+    { redirectCode: 301, replace: true },
+  );
 }
 
 const canonical = `${url.origin}${propertyPath(p)}`;

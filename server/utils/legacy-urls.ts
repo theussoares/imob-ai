@@ -17,15 +17,25 @@ export function legacyRedirectFor(
   if (path.startsWith('/imovel/')) {
     const code = decodeURIComponent(path.slice('/imovel/'.length))
     const p = lookup(code)
-    return p ? propertyPath(p) : null
+    // Preserva o resto da query (fbclid, gclid, ...): Instagram e Facebook Ads
+    // acrescentam esses parâmetros a todo link de saída, e é exatamente o
+    // tráfego que esta migração existe para proteger.
+    return p ? withQuery(propertyPath(p), query) : null
   }
 
   if (path === '/') {
-    const purpose = query.purpose
+    // `purpose` já foi consumido pelo redirect — o resto (fbclid, gclid, ...)
+    // segue para o destino.
+    const { purpose, ...resto } = query
     if (purpose === 'aluguel' || purpose === 'venda') {
-      return `/imoveis/${categorySlug({ type: null, purpose })}`
+      return withQuery(`/imoveis/${categorySlug({ type: null, purpose })}`, resto)
     }
   }
 
   return null
+}
+
+function withQuery(base: string, query: Record<string, string>): string {
+  const qs = new URLSearchParams(query).toString()
+  return qs ? `${base}?${qs}` : base
 }
