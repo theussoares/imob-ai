@@ -6,6 +6,7 @@ import {
   searchCriteriaParts,
 } from "~~/shared/utils/search-lead";
 import { seekingTypeFor } from "~~/shared/models/lead";
+import { homeOgImage } from "~~/shared/utils/og-image";
 import {
   qualifyingCategories,
   categorySlug,
@@ -96,6 +97,9 @@ useSeoMeta({
   title: () => tenant.value?.heroTitle || "Imóveis à venda e para alugar",
   ogTitle: () =>
     `${tenant.value?.name || "Imóveis"} · Imóveis à venda e para alugar`,
+  // Sem isto, colar o link da home no WhatsApp não mostrava imagem nenhuma — a
+  // página de detalhe já anunciava a capa do imóvel, a home não anunciava nada.
+  ogImage: () => homeOgImage(tenant.value?.logoUrl, list.value),
 });
 
 useHead(() => ({
