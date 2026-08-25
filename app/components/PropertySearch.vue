@@ -5,19 +5,16 @@ import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 const props = defineProps<{ filters: CatalogFilters }>()
 const emit = defineEmits<{ search: [] }>()
 
-const route = useRoute()
-
 /**
- * A pretensão vive na URL (`/?purpose=aluguel`), não só em memória: assim a
- * listagem de locação vira uma página indexável e os imóveis de aluguel ganham
- * link interno — antes só existiam no sitemap, sem nenhum link no HTML.
- * "venda" é o padrão, então sai da query pra manter a home limpa em "/".
+ * A pretensão canônica vive em `/imoveis/a-venda` e `/imoveis/para-alugar` —
+ * são essas páginas que o Google indexa e que recebem link interno (via
+ * `catLinks` na home). Aqui na home o toggle é só filtro de tela, em memória:
+ * não escreve na URL.
  */
-function purposeLink(p: 'venda' | 'aluguel') {
-  const query = { ...route.query }
-  if (p === 'venda') delete query.purpose
-  else query.purpose = p
-  return { path: route.path, query }
+function setPurpose(p: 'venda' | 'aluguel') {
+  if (props.filters.purpose === p) return
+  props.filters.purpose = p
+  props.filters.maxPrice = 0 // faixas de preço de venda e aluguel não são comparáveis
 }
 
 const priceOptions = computed(() =>
@@ -42,20 +39,22 @@ const priceOptions = computed(() =>
 <template>
   <div class="search-card">
     <nav class="seg" aria-label="Pretensão">
-      <NuxtLink
-        :to="purposeLink('venda')"
+      <button
+        type="button"
         :class="{ on: filters.purpose === 'venda' }"
-        :aria-current="filters.purpose === 'venda' ? 'page' : undefined"
+        :aria-pressed="filters.purpose === 'venda'"
+        @click="setPurpose('venda')"
       >
         Comprar
-      </NuxtLink>
-      <NuxtLink
-        :to="purposeLink('aluguel')"
+      </button>
+      <button
+        type="button"
         :class="{ on: filters.purpose === 'aluguel' }"
-        :aria-current="filters.purpose === 'aluguel' ? 'page' : undefined"
+        :aria-pressed="filters.purpose === 'aluguel'"
+        @click="setPurpose('aluguel')"
       >
         Alugar
-      </NuxtLink>
+      </button>
     </nav>
 
     <div class="fields">

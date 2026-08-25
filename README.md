@@ -20,7 +20,7 @@ atende vários clientes, resolvidos pelo domínio. O primeiro tenant é a **Imó
 app/            # Frontend SSR (páginas públicas + painel /admin)
   components/    # UI pública + components/admin
   composables/   # useTenant, useCatalog (filtro em memória), useContact, useFavorites
-  pages/         # index, imovel/[code], admin/*
+  pages/         # index, [slug]/[codigo], admin/*
 server/
   models/  →  (em shared/models) modelos de domínio camelCase
   mappers/       # row do banco  <->  modelo de domínio (snake_case <-> camelCase)
@@ -132,7 +132,7 @@ Além do SEO tradicional, o site expõe metadados para agentes de IA:
 - **Link headers (RFC 8288)** na home e nas páginas de imóvel, apontando para o
   `api-catalog` e o `sitemap.xml` (`server/middleware/agents.ts`).
 - **Markdown for Agents**: requisições com `Accept: text/markdown` em `/` e
-  `/imovel/[code]` recebem uma versão em Markdown (HTML segue padrão para navegadores).
+  `/{slug}/{codigo}` recebem uma versão em Markdown (HTML segue padrão para navegadores).
 - **API catalog (RFC 9727)** em `/.well-known/api-catalog` (`application/linkset+json`)
   descrevendo os endpoints públicos.
 - **Content Signals** no `robots.txt`: `search=yes, ai-input=yes, ai-train=no`.

@@ -24,6 +24,8 @@ export interface Tenant {
   brandPrimary: string
   brandAccent: string
   logoUrl: string | null
+  /** Ícone do site. Vazio cai no /favicon.svg gerado (inicial + cor da marca). */
+  faviconUrl: string | null
   instagram: string | null
   /**
    * NÃO USADO. Ficou de uma época em que a imobiliária tinha site próprio antes
@@ -65,6 +67,7 @@ export interface TenantSettingsInput {
   brandPrimary?: string
   brandAccent?: string
   logoUrl?: string | null
+  faviconUrl?: string | null
   instagram?: string | null
   website?: string | null
   alternateNames?: string[]

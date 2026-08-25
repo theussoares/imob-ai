@@ -1,5 +1,6 @@
 import { listActiveProperties } from '~~/server/repositories/property.repository'
 import { qualifyingCategories, categorySlug } from '~~/shared/utils/category'
+import { propertyPath } from '~~/shared/utils/property-url'
 
 /** Sitemap dinâmico por host (tenant). */
 export default defineEventHandler(async (event) => {
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
     { loc: `${origin}/quero-vender`, priority: '0.9' },
     ...categories,
     ...list.map((p) => ({
-      loc: `${origin}/imovel/${encodeURIComponent(p.code)}`,
+      loc: `${origin}${propertyPath(p)}`,
       lastmod: p.updatedAt,
       priority: '0.8',
     })),

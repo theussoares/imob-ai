@@ -1,8 +1,8 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { isSessionExpiredError } from '~~/shared/utils/session-error'
+import { clearInflight, dedupeInflight, stableKeyPart } from '~~/shared/utils/inflight'
 
 let _client: SupabaseClient | null = null
-const _inflightAdminGet = new Map<string, Promise<unknown>>()
 
 /**
  * Client Supabase do painel, carregado SOB DEMANDA (import dinâmico) apenas nas
@@ -127,18 +127,25 @@ export async function adminFetch<T>(url: string, opts: Record<string, unknown> =
   }
 
   // Evita chamadas GET idênticas em paralelo (efeito típico na troca de abas).
+  // A chave inclui `opts` porque duas URLs iguais com query/body diferentes são
+  // requisições diferentes — colapsá-las devolveria a resposta errada.
   if (method === 'GET') {
-    const key = `${method}:${url}:${headers.Authorization ?? ''}`
-    const pending = _inflightAdminGet.get(key) as Promise<T> | undefined
-    if (pending) return pending
-    const req = run() as Promise<unknown>
-    _inflightAdminGet.set(key, req)
-    try {
-      return (await req) as T
-    } finally {
-      _inflightAdminGet.delete(key)
-    }
+    const key = `${method}:${url}:${headers.Authorization ?? ''}:${stableOpts(opts)}`
+    return dedupeInflight(key, run)
   }
 
-  return run()
+  // Depois de escrever, nenhuma leitura pode ser servida por um GET que começou
+  // ANTES: ele retrata o estado anterior. Sem isto, apagar um registro e chamar
+  // refresh() na sequência podia devolver a lista com ele ainda lá.
+  try {
+    return await run()
+  } finally {
+    clearInflight()
+  }
+}
+
+/** Serializa `opts` para a chave, sem `headers` (o token já entra separado). */
+function stableOpts(opts: Record<string, unknown>): string {
+  const { headers: _headers, ...resto } = opts
+  return Object.keys(resto).length ? stableKeyPart(resto) : ''
 }

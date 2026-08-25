@@ -39,36 +39,36 @@ const PURPOSE_LABEL: Record<PropertyPurpose, string> = {
 }
 
 export interface PropertyCategory {
-  type: PropertyType
+  /** `null` = todos os tipos: /imoveis/a-venda e /imoveis/para-alugar. */
+  type: PropertyType | null
   purpose: PropertyPurpose
 }
 
 export function categorySlug(c: PropertyCategory): string {
-  return `${TYPE_SLUGS[c.type]}-${PURPOSE_SLUGS[c.purpose]}`
+  const pretensao = PURPOSE_SLUGS[c.purpose]
+  return c.type ? `${TYPE_SLUGS[c.type]}-${pretensao}` : pretensao
 }
 
-/** "Casas à venda" — usado no h1, no title e no breadcrumb. */
+/** "Casas à venda" / "Imóveis à venda" — usado no h1, no title e no breadcrumb. */
 export function categoryLabel(c: PropertyCategory): string {
-  return `${TYPE_PLURAL[c.type]} ${PURPOSE_LABEL[c.purpose]}`
+  const plural = c.type ? TYPE_PLURAL[c.type] : 'Imóveis'
+  return `${plural} ${PURPOSE_LABEL[c.purpose]}`
 }
 
 /** Slug -> categoria. null quando não corresponde a nenhuma combinação válida. */
 export function parseCategorySlug(slug: string): PropertyCategory | null {
-  for (const type of PROPERTY_TYPES) {
-    for (const purpose of ['venda', 'aluguel'] as PropertyPurpose[]) {
-      if (categorySlug({ type, purpose }) === slug) return { type, purpose }
-    }
+  for (const c of allCategories()) {
+    if (categorySlug(c) === slug) return c
   }
   return null
 }
 
-/** Todas as combinações possíveis (8). Nem todas viram página — ver o piso acima. */
+/** Todas as combinações: 8 de tipo + 2 só de pretensão. */
 export function allCategories(): PropertyCategory[] {
   const out: PropertyCategory[] = []
-  for (const type of PROPERTY_TYPES) {
-    for (const purpose of ['venda', 'aluguel'] as PropertyPurpose[]) {
-      out.push({ type, purpose })
-    }
+  for (const purpose of ['venda', 'aluguel'] as PropertyPurpose[]) {
+    out.push({ type: null, purpose })
+    for (const type of PROPERTY_TYPES) out.push({ type, purpose })
   }
   return out
 }
@@ -85,7 +85,7 @@ export function qualifyingCategories(
 ): PropertyCategory[] {
   return allCategories().filter(
     (c) =>
-      items.filter((i) => i.type === c.type && i.purpose === c.purpose).length >=
-      CATEGORY_MIN_PROPERTIES,
+      items.filter((i) => i.purpose === c.purpose && (c.type === null || i.type === c.type))
+        .length >= CATEGORY_MIN_PROPERTIES,
   )
 }

@@ -1,11 +1,18 @@
 import type { Database } from '~~/shared/types/database.types'
 import type { Lead, LeadStage } from '~~/shared/models/lead'
+import type { PropertyType } from '~~/shared/models/property'
 import { toLeadSource, toLeadType } from '~~/shared/models/lead'
 
 type LeadRow = Database['public']['Tables']['leads']['Row']
 
-/** Imóvel embutido na query de leads (só o necessário pra identificar). */
-export type LeadPropertyFields = { code: string; title: string } | null
+/** Imóvel embutido na query de leads (só o necessário pra identificar e montar a URL). */
+export type LeadPropertyFields = {
+  code: string
+  title: string
+  type: PropertyType
+  bedrooms: number
+  neighborhood: string | null
+} | null
 
 export function toLeadModel(row: LeadRow, property: LeadPropertyFields = null): Lead {
   return {
@@ -27,6 +34,14 @@ export function toLeadModel(row: LeadRow, property: LeadPropertyFields = null): 
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,
-    property: property ? { code: property.code, title: property.title } : null,
+    property: property
+      ? {
+          code: property.code,
+          title: property.title,
+          type: property.type,
+          bedrooms: property.bedrooms,
+          neighborhood: property.neighborhood,
+        }
+      : null,
   }
 }

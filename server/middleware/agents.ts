@@ -1,4 +1,5 @@
 import { listActiveProperties } from '~~/server/repositories/property.repository'
+import { isPropertyPath } from '~~/server/utils/property-path'
 
 /**
  * Descoberta por agentes/IA nas páginas públicas:
@@ -10,7 +11,7 @@ export default defineEventHandler(async (event) => {
   if (event.method !== 'GET') return
   const path = (event.path || '').split('?')[0]
   const isHome = path === '/'
-  const isProperty = path.startsWith('/imovel/')
+  const isProperty = isPropertyPath(path)
   if (!isHome && !isProperty) return
 
   // Domínio-raiz da plataforma não tem catálogo. Sem este guard, o fallback de
@@ -39,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
   let md: string
   if (isProperty) {
-    const code = decodeURIComponent(path.slice('/imovel/'.length))
+    const code = decodeURIComponent(path.slice(path.lastIndexOf('/') + 1))
     const property = list.find((p) => p.code.toLowerCase() === code.toLowerCase())
     if (!property) return // deixa o fluxo normal responder (404)
     md = propertyMarkdown(tenant, property, origin)

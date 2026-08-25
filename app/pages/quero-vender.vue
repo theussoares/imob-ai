@@ -42,7 +42,7 @@ async function submit() {
     return
   }
   if (!isValidBrPhone(form.phone)) {
-    error.value = 'Telefone inválido. Ex.: (67) 99217-1768'
+    error.value = 'Telefone inválido. Ex.: (67) 99123-4567'
     return
   }
   status.value = 'sending'
@@ -197,7 +197,7 @@ useHead(() => ({
                 class="admin-input"
                 type="tel"
                 inputmode="numeric"
-                placeholder="(67) 99217-1768"
+                placeholder="(67) 99123-4567"
                 @input="onPhoneInput"
               />
             </div>

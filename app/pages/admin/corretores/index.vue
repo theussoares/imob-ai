@@ -21,7 +21,7 @@ const saving = ref(false)
 const error = ref('')
 const formEl = ref<HTMLElement | null>(null)
 
-// Campo exibe +55 (67) 99217-1768; o model guarda os dígitos com DDI.
+// Campo exibe +55 (67) 99123-4567; o model guarda os dígitos com DDI.
 const { display: phoneDisplay, onInput: onPhoneInput, isValid: phoneValid } =
   usePhoneInput(toRef(form, 'phone'), 'whatsapp')
 
@@ -109,7 +109,7 @@ useHead({ title: 'Corretores · Painel' })
             class="admin-input"
             type="tel"
             inputmode="numeric"
-            placeholder="+55 (67) 99217-1768"
+            placeholder="+55 (67) 99123-4567"
             @input="onPhoneInput"
           />
           <p v-if="!phoneValid" class="field-err">Número inválido (com DDD).</p>

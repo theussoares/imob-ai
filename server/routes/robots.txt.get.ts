@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   return [
     'User-agent: *',
     'Allow: /',
-    'Disallow: /admin',
+    // 'Disallow: /admin',
     // Content Signals (contentsignals.org): permitir busca e respostas de IA
     // com atribuição; não permitir uso para treinamento de modelos.
     'Content-Signal: search=yes, ai-input=yes, ai-train=no',

@@ -27,6 +27,7 @@ export function toTenantModel(row: TenantRow): Tenant {
     brandPrimary: row.brand_primary,
     brandAccent: row.brand_accent,
     logoUrl: row.logo_url,
+    faviconUrl: row.favicon_url,
     instagram: row.instagram,
     website: row.website,
     alternateNames: row.alternate_names ?? [],
@@ -60,6 +61,7 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.brandPrimary !== undefined) row.brand_primary = input.brandPrimary
   if (input.brandAccent !== undefined) row.brand_accent = input.brandAccent
   if (input.logoUrl !== undefined) row.logo_url = input.logoUrl
+  if (input.faviconUrl !== undefined) row.favicon_url = input.faviconUrl
   if (input.instagram !== undefined) row.instagram = input.instagram
   if (input.website !== undefined) row.website = input.website
   if (input.alternateNames !== undefined) row.alternate_names = input.alternateNames

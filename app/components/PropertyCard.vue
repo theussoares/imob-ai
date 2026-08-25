@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PropertyCard } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
+import { propertyPath } from '~~/shared/utils/property-url'
 
 const props = withDefaults(defineProps<{ property: PropertyCard; index?: number }>(), { index: 99 })
 
@@ -42,7 +43,7 @@ const isAboveFold = computed(() => props.index < 3)
       <div class="price">
         {{ formatBRL(property.price) }}<span v-if="isRent"> /mês</span>
       </div>
-      <NuxtLink class="ttl" :to="`/imovel/${property.code}`">
+      <NuxtLink class="ttl" :to="propertyPath(property)">
         {{ PROPERTY_TYPE_LABELS[property.type] }} ·
         {{ property.bedrooms ? property.bedrooms + ' quartos' : property.area + ' m²' }}
       </NuxtLink>
@@ -64,7 +65,7 @@ const isAboveFold = computed(() => props.index < 3)
       </div>
 
       <div class="actions">
-        <NuxtLink class="btn-detail" :to="`/imovel/${property.code}`">Ver detalhes</NuxtLink>
+        <NuxtLink class="btn-detail" :to="propertyPath(property)">Ver detalhes</NuxtLink>
         <a class="btn-wa" :href="whatsappLink(property)" target="_blank" rel="noopener">
           <AppIcon name="wa" /> WhatsApp
         </a>
