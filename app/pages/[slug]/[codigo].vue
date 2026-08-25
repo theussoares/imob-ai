@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import type { Property } from "~~/shared/models/property";
 import { PROPERTY_TYPE_LABELS } from "~~/shared/models/property";
+import { propertyPath, propertySlug } from "~~/shared/utils/property-url";
+import { propertyTitle } from "~~/shared/utils/property-title";
 
 const route = useRoute();
 const router = useRouter();
 const tenant = useTenant();
 const requestFetch = useRequestFetch();
 const { whatsappLink, telLink } = useContact();
-const code = computed(() => String(route.params.code));
+const code = computed(() => String(route.params.codigo));
 
 // Se houver histórico (veio do catálogo), volta de verdade — o Nuxt só restaura a
 // posição do scroll em navegações de "voltar" reais, não num push novo pra "/".
@@ -85,10 +87,14 @@ onBeforeUnmount(() => {
   if (import.meta.client) document.documentElement.style.overflow = "";
 });
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true });
-// Usa sempre o código canônico do banco: a busca por código é case-insensitive,
-// então /imovel/nc-0231 e /imovel/NC-0231 servem a mesma página — sem isso cada
-// variação se auto-canonicaliza e vira conteúdo duplicado.
-const canonical = `${url.origin}/imovel/${p.code}`;
+// O primeiro segmento é decorativo e envelhece quando o imóvel é editado. Em vez
+// de 404, manda para o canônico atual — link já divulgado continua valendo.
+const slugCanonico = propertySlug(p);
+if (String(route.params.slug) !== slugCanonico) {
+  await navigateTo(propertyPath(p), { redirectCode: 301, replace: true });
+}
+
+const canonical = `${url.origin}${propertyPath(p)}`;
 
 // Localidade sem "null": neighborhood e city são opcionais no modelo.
 const locality = [p.neighborhood, p.city].filter(Boolean).join(", ");
@@ -96,11 +102,11 @@ const locality = [p.neighborhood, p.city].filter(Boolean).join(", ");
 const priceLabel = computed(() => formatBRL(p.price) + (isRent ? "/mês" : ""));
 
 useSeoMeta({
-  title: `${p.title} · ${PROPERTY_TYPE_LABELS[p.type]}`,
+  title: propertyTitle(p),
   description:
     p.description ||
     `${PROPERTY_TYPE_LABELS[p.type]} ${isRent ? "para alugar" : "à venda"}${locality ? " em " + locality : ""}. ${priceLabel.value}.`,
-  ogTitle: `${p.title} — ${priceLabel.value}`,
+  ogTitle: `${propertyTitle(p)} — ${priceLabel.value}`,
   ogDescription: p.description || undefined,
   ogImage: p.images[0]?.url,
   ogType: "website",
