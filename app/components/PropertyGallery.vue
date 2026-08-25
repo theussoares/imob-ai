@@ -26,6 +26,7 @@ const active = computed(() => props.images[activeIndex.value]?.url || "");
 const hasMany = computed(() => props.images.length > 1);
 
 const thumbStrip = ref<HTMLElement | null>(null);
+const lbStrip = ref<HTMLElement | null>(null);
 
 function go(delta: number) {
   const n = props.images.length;
@@ -40,9 +41,20 @@ function go(delta: number) {
  */
 watch(activeIndex, async (i) => {
   await nextTick();
-  thumbStrip.value
-    ?.querySelectorAll<HTMLElement>(".thumb")
-    [i]?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+  // As duas tiras: a da página e a da tela cheia. Quem navega pelo teclado
+  // dentro do overlay precisa ver a miniatura ativa acompanhar ali também.
+  //
+  // O alinhamento tem que casar com o `scroll-snap-align` de cada tira, senão os
+  // dois brigam: o scroll põe a miniatura na borda e o snap a empurra de volta
+  // para fora. Na página o snap é `start`; no overlay é `center`.
+  for (const [strip, sel, inline] of [
+    [thumbStrip.value, ".thumb", "nearest"],
+    [lbStrip.value, ".lb-thumb", "center"],
+  ] as const) {
+    strip
+      ?.querySelectorAll<HTMLElement>(sel)
+      [i]?.scrollIntoView({ block: "nearest", inline, behavior: "smooth" });
+  }
 });
 
 // Tela cheia
@@ -54,6 +66,11 @@ async function openLightbox() {
   lightboxOpen.value = true;
   await nextTick();
   closeBtn.value?.focus(); // acessibilidade: foco vai pro overlay
+  // A tira do overlay acabou de nascer: se a pessoa abriu na foto 12, ela
+  // precisa já aparecer destacada e visível, não lá no começo da fila.
+  lbStrip.value
+    ?.querySelectorAll<HTMLElement>(".lb-thumb")
+    [activeIndex.value]?.scrollIntoView({ block: "nearest", inline: "center" });
 }
 function closeLightbox() {
   lightboxOpen.value = false;
@@ -148,33 +165,52 @@ onBeforeUnmount(() => {
             <AppIcon name="close" />
           </button>
 
-          <button
-            v-if="hasMany"
-            type="button"
-            class="lb-nav lb-prev"
-            aria-label="Imagem anterior"
-            @click="go(-1)"
-          >
-            <AppIcon name="chevron-left" />
-          </button>
+          <!-- A imagem vive num palco próprio para que a tira de miniaturas
+               abaixo tire altura dela, em vez de cobri-la — e para que as setas
+               centralizem na imagem, não na tela inteira. -->
+          <div class="lb-stage" @click.self="closeLightbox">
+            <button
+              v-if="hasMany"
+              type="button"
+              class="lb-nav lb-prev"
+              aria-label="Imagem anterior"
+              @click="go(-1)"
+            >
+              <AppIcon name="chevron-left" />
+            </button>
 
-          <img
-            ref="lbImage"
-            :src="active"
-            :alt="title"
-            class="lb-img"
-            draggable="false"
-          />
+            <img
+              ref="lbImage"
+              :src="active"
+              :alt="title"
+              class="lb-img"
+              draggable="false"
+            />
 
-          <button
-            v-if="hasMany"
-            type="button"
-            class="lb-nav lb-next"
-            aria-label="Próxima imagem"
-            @click="go(1)"
-          >
-            <AppIcon name="chevron-right" />
-          </button>
+            <button
+              v-if="hasMany"
+              type="button"
+              class="lb-nav lb-next"
+              aria-label="Próxima imagem"
+              @click="go(1)"
+            >
+              <AppIcon name="chevron-right" />
+            </button>
+          </div>
+
+          <div v-if="hasMany" ref="lbStrip" class="lb-thumbs">
+            <button
+              v-for="(img, i) in images"
+              :key="img.id"
+              class="lb-thumb"
+              :class="{ on: activeIndex === i }"
+              :aria-label="`Foto ${i + 1} de ${images.length}`"
+              :aria-current="activeIndex === i ? 'true' : undefined"
+              @click="activeIndex = i"
+            >
+              <img :src="img.urlSm || img.url" :alt="img.alt || title" loading="lazy" />
+            </button>
+          </div>
 
           <div v-if="hasMany" class="lb-count">
             {{ activeIndex + 1 }} / {{ images.length }}
@@ -330,10 +366,22 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: grid;
-  place-items: center;
+  /* Coluna: o palco ocupa o que sobra e a tira fica embaixo, tirando altura da
+     imagem em vez de cobri-la. */
+  display: flex;
+  flex-direction: column;
   background: rgba(0, 0, 0, 0.92);
   padding: 24px;
+  gap: 14px;
+}
+.lb-stage {
+  position: relative;
+  flex: 1;
+  /* min-height 0 é o que permite o flex encolher o palco abaixo do tamanho
+     natural da imagem — sem isto a tira é empurrada para fora da tela. */
+  min-height: 0;
+  display: grid;
+  place-items: center;
 }
 .lb-img {
   max-width: 100%;
@@ -388,18 +436,79 @@ onBeforeUnmount(() => {
 .lb-next {
   right: 16px;
 }
+/* Sobe para o topo: o rodapé agora é da tira de miniaturas. Fica à esquerda
+   porque o botão de fechar já ocupa a direita — mover o "fechar" de lugar
+   quebraria o hábito de quem já usa a galeria. */
 .lb-count {
   position: absolute;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 26px;
+  left: 24px;
   padding: 5px 12px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
   font-size: 13px;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+}
+
+/* ---- Tira de miniaturas dentro da tela cheia ---- */
+.lb-thumbs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  justify-content: safe center; /* centraliza quando cabem; alinha à esquerda quando não */
+  padding: 2px;
+  scrollbar-width: thin;
+}
+.lb-thumb {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0.55;
+  scroll-snap-align: center;
+  transition:
+    opacity 0.16s ease,
+    border-color 0.16s ease,
+    scale 0.16s ease;
+}
+.lb-thumb:hover {
+  opacity: 0.85;
+}
+.lb-thumb:active {
+  scale: 0.96;
+}
+/* Escurecer as inativas em vez de só marcar a ativa: no fundo preto do overlay
+   uma borda fina some, mas diferença de brilho se lê de relance. */
+.lb-thumb.on {
+  opacity: 1;
+  border-color: #fff;
+}
+.lb-thumb:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  opacity: 1;
+}
+.lb-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px; /* concêntrico: 8px do botão menos a borda de 2px */
+}
+/* Telas baixas (celular deitado): a tira come altura demais da foto. */
+@media (max-height: 460px) {
+  .lb-thumbs {
+    display: none;
+  }
 }
 /* Fade de entrada e saída do overlay. */
 .lb-enter-active,
@@ -415,15 +524,18 @@ onBeforeUnmount(() => {
   .gallery:hover .gallery-main,
   .thumb,
   .see-all,
+  .lb-thumb,
   .lb-enter-active,
   .lb-leave-active {
     transition: none;
   }
   .thumb:active,
-  .see-all:active {
+  .see-all:active,
+  .lb-thumb:active {
     scale: 1;
   }
-  .thumbs {
+  .thumbs,
+  .lb-thumbs {
     scroll-behavior: auto;
   }
 }
