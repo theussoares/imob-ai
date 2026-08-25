@@ -30,20 +30,33 @@ const { data: properties } = await useAsyncData(
 )
 
 const inCategory = computed(() =>
-  (properties.value ?? []).filter((p) => p.type === category.type && p.purpose === category.purpose),
+  (properties.value ?? []).filter(
+    (p) => p.purpose === category.purpose && (category.type === null || p.type === category.type),
+  ),
 )
 
 // Piso de conteúdo: categoria magra não vira página. Evita publicar dezenas de
 // rotas quase vazias, que o Google trata como conteúdo fino gerado em massa.
-if (inCategory.value.length < CATEGORY_MIN_PROPERTIES) {
+// As páginas de pretensão ficam linkadas na home, então 404 apareceria na cara
+// do visitante. Elas respondem 200 e saem do índice; as de tipo+pretensão,
+// que ninguém alcança pelo menu, seguem com 404.
+const abaixoDoPiso = computed(() => inCategory.value.length < CATEGORY_MIN_PROPERTIES)
+if (abaixoDoPiso.value && category.type !== null) {
   throw createError({ statusCode: 404, statusMessage: 'Categoria sem imóveis suficientes.' })
 }
+
+useHead(() => ({
+  meta: abaixoDoPiso.value ? [{ name: 'robots', content: 'noindex,follow' }] : [],
+}))
 
 // Tipo e pretensão já vêm da própria rota; os demais filtros seguem em memória,
 // como na home — instantâneos e sem requisição.
 const filters = reactive(createCatalogFilters())
 filters.purpose = category.purpose
+if (category.type) filters.type = category.type
 const { filtered } = useCatalog(inCategory, filters)
+
+const { whatsappLink } = useContact()
 
 const cityLabel = computed(() => (tenant.value?.city ? ` em ${tenant.value.city}` : ''))
 const heading = computed(() => `${categoryLabel(category)}${cityLabel.value}`)
@@ -134,10 +147,14 @@ useHead(() => ({
           :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
         />
       </div>
-      <div v-else class="empty">
-        <AppIcon name="home" />
-        <h3>Nenhum imóvel nesse bairro</h3>
-        <button @click="filters.q = ''">Ver todos</button>
+      <div v-else class="cat-vazio">
+        <p>
+          Ainda não temos {{ categoryLabel(category).toLowerCase() }}{{ cityLabel }} publicados no
+          momento.
+        </p>
+        <a class="btn-wa" :href="whatsappLink()" target="_blank" rel="noopener">
+          Avise-me quando aparecer
+        </a>
       </div>
     </main>
   </div>
@@ -207,5 +224,17 @@ useHead(() => ({
 }
 .hood.on small {
   color: rgba(255, 255, 255, 0.75);
+}
+.cat-vazio {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.cat-vazio .btn-wa {
+  flex: none;
 }
 </style>
