@@ -20,6 +20,7 @@ const {
   save: persist,
 } = useTenantSettings([
   "logoUrl",
+  "faviconUrl",
   "heroTitle",
   "heroSubtitle",
   "heroImage",
@@ -106,6 +107,12 @@ const { uploading: uploadingLogo, onFile: onLogo } = useBrandUpload({
   maxEdge: 256, // logo aparece a ~36px; 256 sobra
   onDone: (url) => (form.logoUrl = url),
 });
+const { uploading: uploadingFavicon, onFile: onFavicon } = useBrandUpload({
+  bucket: "tenant-logos",
+  prefix: "favicon",
+  maxEdge: 256, // favicon renderiza a 16-32px; 256 cobre telas retina e atalhos
+  onDone: (url) => (form.faviconUrl = url),
+});
 const { uploading: uploadingHeroImage, onFile: onHeroImage } = useBrandUpload({
   bucket: "tenant-hero",
   prefix: "hero",
@@ -163,6 +170,33 @@ useHead({ title: "Meu site · Painel" });
           type="button"
           class="admin-btn ghost"
           @click="form.logoUrl = ''"
+        >
+          Remover
+        </button>
+      </div>
+
+      <h3 class="section-t">
+        Ícone do site <span class="section-hint">(favicon, quadrado)</span>
+      </h3>
+      <p class="fav-help">
+        Aparece na aba do navegador, a 16px. Use uma marca quadrada — a logo
+        horizontal fica ilegível nesse tamanho. Sem ícone, geramos um com a
+        inicial do nome sobre a cor da marca.
+      </p>
+      <div class="logo-row">
+        <div class="logo-preview fav-preview">
+          <img v-if="form.faviconUrl" :src="form.faviconUrl" alt="Ícone do site" />
+          <AppIcon v-else name="home" />
+        </div>
+        <label class="admin-btn ghost file-btn">
+          {{ uploadingFavicon ? "Enviando..." : "Enviar ícone" }}
+          <input type="file" accept="image/*" hidden @change="onFavicon" />
+        </label>
+        <button
+          v-if="form.faviconUrl"
+          type="button"
+          class="admin-btn ghost"
+          @click="form.faviconUrl = ''"
         >
           Remover
         </button>
@@ -537,6 +571,25 @@ useHead({ title: "Meu site · Painel" });
   margin: 22px 0 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
+}
+/* Complemento do título, em peso e cor menores — "(favicon, quadrado)". */
+.section-hint {
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+/* A explicação de por que a logo horizontal não serve aqui. */
+.fav-help {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: -4px 0 12px;
+  max-width: 52ch;
+}
+/* Quadrado, ao contrário do preview da logo: é o formato que o ícone precisa ter. */
+.fav-preview {
+  aspect-ratio: 1;
+  width: 56px;
 }
 .section-t:first-of-type {
   border-top: none;

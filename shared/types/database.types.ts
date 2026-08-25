@@ -368,6 +368,7 @@ export type Database = {
           footer_text: string | null
           id: string
           instagram: string | null
+          favicon_url: string | null
           logo_url: string | null
           name: string
           phone: string | null
@@ -399,6 +400,7 @@ export type Database = {
           footer_text?: string | null
           id?: string
           instagram?: string | null
+          favicon_url?: string | null
           logo_url?: string | null
           name: string
           phone?: string | null
@@ -430,6 +432,7 @@ export type Database = {
           footer_text?: string | null
           id?: string
           instagram?: string | null
+          favicon_url?: string | null
           logo_url?: string | null
           name?: string
           phone?: string | null

@@ -73,9 +73,15 @@ useSeoMeta({
 useHead(() => ({
   link: [
     { rel: 'canonical', href: canonicalUrl.value },
-    // Gerado por tenant em server/routes/favicon.svg.get.ts (inicial + cor da
-    // marca). Não é arquivo estático porque precisa variar por host.
-    { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+    // Ícone cadastrado no painel tem prioridade; sem ele, o gerado por tenant em
+    // server/routes/favicon.svg.get.ts (inicial + cor da marca). Nenhum dos dois
+    // é arquivo estático porque precisam variar por host.
+    //
+    // Sem `type` no caso do upload: o arquivo pode ser png ou webp, e declarar o
+    // tipo errado faz o navegador descartar o ícone.
+    tenantState.value?.faviconUrl
+      ? { rel: 'icon', href: tenantState.value.faviconUrl }
+      : { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
   ],
 }))
 </script>
