@@ -10,7 +10,12 @@ export default defineEventHandler(async (event) => {
   if (event.method !== 'GET') return
   const path = (event.path || '').split('?')[0] || '/'
   if (!path.startsWith('/imovel/') && path !== '/') return
-  if (event.context.platformRoot) return
+  // Domínio-raiz da plataforma não tem tenant nem categoria: sem este guard,
+  // `/?purpose=venda` ali redirecionaria para /imoveis/a-venda, página que
+  // exige tenant e quebraria. Não dá pra usar event.context.platformRoot aqui
+  // porque este middleware roda antes do tenant.ts (que é quem o define) na
+  // ordem alfabética — daí checar o host diretamente.
+  if (isPlatformRootHost(getHostname(event))) return
 
   // A lista ativa do tenant já está cacheada — é o mesmo cache que o agents.ts
   // usa —, então resolver o código aqui não custa consulta extra.

@@ -131,7 +131,7 @@ export async function listAllProperties(client: Client, tenantId: string): Promi
 }
 
 export async function getPropertyByCode(client: Client, tenantId: string, code: string): Promise<Property | null> {
-  // `%` e `_` são curingas no ilike: sem escapar, /imovel/% casaria com tudo.
+  // `%` e `_` são curingas no ilike: sem escapar, /casa-3-quartos-centro/% casaria com tudo.
   const safeCode = code.replace(/[\\%_]/g, '\\$&')
   const { data, error } = await client
     .from('properties')
@@ -159,7 +159,7 @@ export async function getPropertyByCodeWithBrokerPhone(
   tenantId: string,
   code: string,
 ): Promise<Property | null> {
-  // `%` e `_` são curingas no ilike: sem escapar, /imovel/% casaria com tudo.
+  // `%` e `_` são curingas no ilike: sem escapar, /casa-3-quartos-centro/% casaria com tudo.
   const safeCode = code.replace(/[\\%_]/g, '\\$&')
   const { data, error } = await client
     .from('properties')
