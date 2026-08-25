@@ -1,7 +1,9 @@
 # URLs de SEO: slug no detalhe e páginas de pretensão
 
 **Data:** 2026-08-25
-**Motivo:** dois buracos de SEO no site público.
+**Motivo:** três buracos de SEO no site público, com a mesma raiz nos itens 1 e
+3 — a página se descreve para a busca usando texto que o corretor digitou para
+uso interno.
 
 1. A página de detalhe é `/imovel/NC-0231`. A URL não diz o que a página é, e
    URL é um dos poucos sinais que aparece inteiro no resultado de busca. O
@@ -12,6 +14,7 @@
    caminho. A de aluguel existe só como `/?purpose=aluguel` — uma variante de
    query param que se auto-canonicaliza, mas que ninguém linka como página e que
    perde para um caminho na hora de ranquear por "imóveis para alugar em X".
+
 
 3. O `<title>` da página de detalhe sai do mesmo campo digitado pelo corretor, e
    em produção rende `Terreno · Terreno · Tatiane Pacheco`. É a linha clicável
@@ -124,7 +127,7 @@ qualificadas) passa a incluir as duas páginas de pretensão, sempre — inclusi
 quando desindexadas, porque `noindex,follow` só tira do índice, não da
 navegação.
 
-## D. Título e metadados do detalhe
+## C. Título e metadados do detalhe
 
 Mesma raiz do problema da URL: o `<title>` sai do texto digitado pelo corretor
 (`title: ${p.title} · ${PROPERTY_TYPE_LABELS[p.type]}`), então em produção o
