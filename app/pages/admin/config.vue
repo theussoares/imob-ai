@@ -107,20 +107,27 @@ useHead({ title: "Configurações · Painel" });
       <!-- Instagram e site saíram daqui para "Meu site", junto do rodapé onde
            aparecem. Estavam nesta tela por raciocínio de implementação (alimentam
            o sameAs do JSON-LD), não pelo que a pessoa vê. -->
-      <h3 class="section-t">Como te encontram no Google</h3>
+      <!-- O rótulo anterior ("como te buscam") convidava ao erro: as pessoas
+           preenchiam com frases de busca ("casas para alugar"), que o Google
+           ignora, porque a propriedade `alternateName` do JSON-LD serve para
+           OUTRO NOME da empresa, não para o que se digita na busca. -->
+      <h3 class="section-t">Outros nomes da imobiliária</h3>
       <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
-        Ajuda o Google a ligar buscas pelo seu nome ao seu site.
+        Como sua imobiliária também é chamada: apelido, sigla ou nome antigo.
+        Serve para o Google entender que é tudo a mesma empresa.
       </p>
       <div>
-        <label class="admin-label"
-          >Nomes alternativos / como te buscam (um por linha)</label
-        >
+        <label class="admin-label">Um nome por linha</label>
         <textarea
           v-model="alternateNamesText"
           class="admin-textarea"
           rows="3"
           placeholder="TP Imobiliária&#10;Imóveis Pacheco&#10;Tatiane Imóveis"
         />
+        <p class="field-hint">
+          Só nomes. Não coloque o que as pessoas digitam no Google — "casas para
+          alugar" não é um nome, e o Google descarta.
+        </p>
       </div>
 
       <h3 class="section-t">Integrações · Portais (ZAP, VivaReal, OLX)</h3>
@@ -171,6 +178,15 @@ useHead({ title: "Configurações · Painel" });
   margin: 22px 0 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
+}
+/* Aviso abaixo do campo, para o erro que a instrução antiga induzia. Fica
+   depois do textarea de propósito: quem já começou a digitar frase de busca lê
+   isto sem precisar voltar ao topo. */
+.field-hint {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 6px 0 0;
+  max-width: 56ch;
 }
 .section-t:first-of-type {
   border-top: none;
