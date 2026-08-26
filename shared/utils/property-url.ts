@@ -1,4 +1,5 @@
 import type { PropertyType } from '~~/shared/models/property'
+import { temQuartos } from '~~/shared/models/property'
 
 /**
  * URL pública do imóvel: /{slug-descritivo}/{codigo}.
@@ -31,7 +32,7 @@ export function slugify(text: string): string {
 /** Segmento descritivo. Trecho ausente some inteiro, sem deixar hífen duplo. */
 export function propertySlug(p: PropertyUrlFields): string {
   // Terreno não tem quartos; imóvel construído com 0 também não deve anunciar.
-  const quartos = p.type !== 'terreno' && p.bedrooms > 0 ? `${p.bedrooms}-quartos` : ''
+  const quartos = temQuartos(p.type) && p.bedrooms > 0 ? `${p.bedrooms}-quartos` : ''
   return [p.type, quartos, p.neighborhood ? slugify(p.neighborhood) : ''].filter(Boolean).join('-')
 }
 

@@ -1,6 +1,7 @@
 import type { Tenant } from '~~/shared/models/tenant'
 import type { Property } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
+import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 
 function brl(value: number): string {
@@ -12,7 +13,7 @@ function priceLabel(p: Property): string {
 }
 
 function specsLine(p: Property): string {
-  if (p.type === 'terreno') return `${p.area} m² de área`
+  if (!temQuartos(p.type)) return `${p.area} m² de área`
   return `${p.bedrooms} quartos · ${p.bathrooms} banheiros · ${p.parking} vagas · ${p.area} m²`
 }
 

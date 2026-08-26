@@ -1,5 +1,6 @@
 import type { PropertyType, PropertyPurpose } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
+import { temQuartos } from '~~/shared/models/property'
 
 /**
  * Título da página de detalhe para a busca.
@@ -28,7 +29,7 @@ function limpar(v?: string | null): string {
 
 export function propertyTitle(p: PropertyTitleFields): string {
   const medida =
-    p.type === 'terreno'
+    !temQuartos(p.type)
       ? p.area
         ? `${Math.round(p.area)}m²`
         : ''

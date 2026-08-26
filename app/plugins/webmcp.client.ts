@@ -1,4 +1,5 @@
 import type { Property } from '~~/shared/models/property'
+import { PROPERTY_TYPES } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 
 /**
@@ -28,7 +29,7 @@ export default defineNuxtPlugin(() => {
               pretensao: { type: 'string', enum: ['venda', 'aluguel'], description: 'venda ou aluguel' },
               tipo: {
                 type: 'string',
-                enum: ['casa', 'apartamento', 'sobrado', 'terreno'],
+                enum: PROPERTY_TYPES,
               },
               texto: { type: 'string', description: 'bairro, cidade ou palavra-chave' },
               quartosMin: { type: 'number' },

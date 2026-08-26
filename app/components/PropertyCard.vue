@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PropertyCard } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
+import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 
 const props = withDefaults(defineProps<{ property: PropertyCard; index?: number }>(), { index: 99 })
@@ -52,7 +53,7 @@ const isAboveFold = computed(() => props.index < 3)
       </div>
 
       <div class="specs">
-        <template v-if="property.type === 'terreno'">
+        <template v-if="!temQuartos(property.type)">
           <div class="spec"><AppIcon name="area" />{{ property.area }} m²</div>
         </template>
         <template v-else>

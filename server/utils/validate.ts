@@ -4,8 +4,10 @@ import type { BrokerInput } from '~~/shared/models/broker'
 import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
+import { PROPERTY_TYPES } from '~~/shared/models/property-type'
 
-const TYPES = ['casa', 'apartamento', 'sobrado', 'terreno']
+// Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
+const TYPES = PROPERTY_TYPES as readonly string[]
 const PURPOSES = ['venda', 'aluguel']
 const STATUSES = ['active', 'draft', 'sold', 'rented']
 const HERO_POSITIONS = ['left', 'right', 'background']

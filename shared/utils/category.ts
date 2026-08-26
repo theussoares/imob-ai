@@ -1,5 +1,5 @@
 import type { PropertyType, PropertyPurpose } from '~~/shared/models/property'
-import { PROPERTY_TYPES } from '~~/shared/models/property'
+import { PROPERTY_TYPES, PROPERTY_TYPE_REGISTRY } from '~~/shared/models/property'
 
 /**
  * Categorias do catálogo: /imoveis/casas-a-venda, /imoveis/apartamentos-para-alugar.
@@ -14,24 +14,12 @@ import { PROPERTY_TYPES } from '~~/shared/models/property'
 /** Mínimo de imóveis para a categoria virar página indexada. */
 export const CATEGORY_MIN_PROPERTIES = 3
 
-const TYPE_SLUGS: Record<PropertyType, string> = {
-  casa: 'casas',
-  apartamento: 'apartamentos',
-  sobrado: 'sobrados',
-  terreno: 'terrenos',
-}
 
 const PURPOSE_SLUGS: Record<PropertyPurpose, string> = {
   venda: 'a-venda',
   aluguel: 'para-alugar',
 }
 
-const TYPE_PLURAL: Record<PropertyType, string> = {
-  casa: 'Casas',
-  apartamento: 'Apartamentos',
-  sobrado: 'Sobrados',
-  terreno: 'Terrenos',
-}
 
 const PURPOSE_LABEL: Record<PropertyPurpose, string> = {
   venda: 'à venda',
@@ -46,12 +34,12 @@ export interface PropertyCategory {
 
 export function categorySlug(c: PropertyCategory): string {
   const pretensao = PURPOSE_SLUGS[c.purpose]
-  return c.type ? `${TYPE_SLUGS[c.type]}-${pretensao}` : pretensao
+  return c.type ? `${PROPERTY_TYPE_REGISTRY[c.type].slug}-${pretensao}` : pretensao
 }
 
 /** "Casas à venda" / "Imóveis à venda" — usado no h1, no title e no breadcrumb. */
 export function categoryLabel(c: PropertyCategory): string {
-  const plural = c.type ? TYPE_PLURAL[c.type] : 'Imóveis'
+  const plural = c.type ? PROPERTY_TYPE_REGISTRY[c.type].plural : 'Imóveis'
   return `${plural} ${PURPOSE_LABEL[c.purpose]}`
 }
 

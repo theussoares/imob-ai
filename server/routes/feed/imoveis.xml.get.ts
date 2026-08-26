@@ -1,4 +1,5 @@
 import type { Property } from '~~/shared/models/property'
+import { PROPERTY_TYPE_REGISTRY, temQuartos } from '~~/shared/models/property'
 import { listActiveProperties } from '~~/server/repositories/property.repository'
 import { propertyPath } from '~~/shared/utils/property-url'
 
@@ -26,13 +27,6 @@ const UF_NAMES: Record<string, string> = {
   SE: 'Sergipe', TO: 'Tocantins',
 }
 
-// Nossos tipos -> ontologia de PropertyType do VRSync.
-const PROPERTY_TYPE_MAP: Record<Property['type'], string> = {
-  casa: 'Residential / Home',
-  sobrado: 'Residential / Home',
-  apartamento: 'Residential / Apartment',
-  terreno: 'Residential / Land Lot',
-}
 
 /** Escapa texto para conteúdo/atributo XML. */
 function esc(value: string | number | null | undefined): string {
@@ -54,8 +48,8 @@ function listingXml(
   const isRent = p.purpose === 'aluguel'
   const stateAbbr = (p.state || uf || '').toUpperCase()
   const stateName = UF_NAMES[stateAbbr] || stateAbbr
-  const type = PROPERTY_TYPE_MAP[p.type]
-  const isLand = p.type === 'terreno'
+  const type = PROPERTY_TYPE_REGISTRY[p.type].vrsync
+  const isLand = !temQuartos(p.type)
 
   // Ordena imagens: capa primeiro, depois por posição. A primeira vira primary.
   const images = [...p.images].sort((a, b) => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Property } from "~~/shared/models/property";
 import { PROPERTY_TYPE_LABELS } from "~~/shared/models/property";
+import { temQuartos, PROPERTY_TYPE_REGISTRY } from "~~/shared/models/property";
 import { propertyPath, propertySlug } from "~~/shared/utils/property-url";
 import { propertyTitle } from "~~/shared/utils/property-title";
 
@@ -69,14 +70,7 @@ useSeoMeta({
   twitterCard: "summary_large_image",
 });
 
-const schemaType = (
-  {
-    casa: "House",
-    apartamento: "Apartment",
-    sobrado: "House",
-    terreno: "Place",
-  } as const
-)[p.type];
+const schemaType = PROPERTY_TYPE_REGISTRY[p.type].schema;
 
 const jsonLd = computed(() => [
   {
@@ -164,7 +158,7 @@ useHead(() => ({
             </p>
 
             <div class="m-specs">
-              <template v-if="p.type === 'terreno'">
+              <template v-if="!temQuartos(p.type)">
                 <div class="m-spec">
                   <AppIcon name="area" /><b>{{ p.area }}</b
                   ><small>m² de área</small>

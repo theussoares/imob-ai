@@ -1,6 +1,16 @@
 import type { Broker } from './broker'
 
-export type PropertyType = 'casa' | 'apartamento' | 'sobrado' | 'terreno'
+// O tipo de imóvel mora no próprio arquivo, com tudo que se sabe sobre ele
+// (rótulo, plural, slug, se tem quartos, valor do portal). Reexportado aqui para
+// que os imports existentes continuem funcionando.
+export {
+  PROPERTY_TYPE_REGISTRY,
+  PROPERTY_TYPES,
+  PROPERTY_TYPE_LABELS,
+  temQuartos,
+} from './property-type'
+export type { PropertyType, PropertyTypeInfo } from './property-type'
+import type { PropertyType } from './property-type'
 export type PropertyPurpose = 'venda' | 'aluguel'
 export type PropertyStatus = 'active' | 'sold' | 'rented' | 'draft'
 
@@ -117,15 +127,7 @@ export interface PropertyInput {
   ownerPhone?: string | null
 }
 
-export const PROPERTY_TYPES: PropertyType[] = ['casa', 'apartamento', 'sobrado', 'terreno']
 export const PROPERTY_STATUSES: PropertyStatus[] = ['active', 'draft', 'sold', 'rented']
-
-export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
-  casa: 'Casa',
-  apartamento: 'Apartamento',
-  sobrado: 'Sobrado',
-  terreno: 'Terreno',
-}
 
 export const PROPERTY_STATUS_LABELS: Record<PropertyStatus, string> = {
   active: 'Publicado',

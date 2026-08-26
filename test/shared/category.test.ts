@@ -6,6 +6,7 @@ import {
   allCategories,
   qualifyingCategories,
 } from '~~/shared/utils/category'
+import { PROPERTY_TYPES } from '~~/shared/models/property-type'
 
 describe('categoria só de pretensão', () => {
   test('slug é a pretensão sozinha', () => {
@@ -34,9 +35,11 @@ describe('categoria só de pretensão', () => {
     expect(parseCategorySlug('')).toBeNull()
   })
 
-  test('allCategories inclui as duas de pretensão além das oito de tipo', () => {
+  // Derivado do registro, não fixo: acrescentar um tipo de imóvel não pode
+  // quebrar este teste — é justamente o custo que o registro veio eliminar.
+  test('allCategories cobre toda pretensão, com e sem tipo', () => {
     const todas = allCategories()
-    expect(todas).toHaveLength(10)
+    expect(todas).toHaveLength(2 * (PROPERTY_TYPES.length + 1))
     expect(todas.filter((c) => c.type === null)).toHaveLength(2)
   })
 })

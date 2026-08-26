@@ -458,7 +458,7 @@ export type Database = {
       member_role: "owner" | "admin"
       property_purpose: "venda" | "aluguel"
       property_status: "active" | "sold" | "rented" | "draft"
-      property_type: "casa" | "apartamento" | "sobrado" | "terreno"
+      property_type: "casa" | "apartamento" | "sobrado" | "kitnet" | "chacara" | "rancho" | "terreno" | "barracao" | "sala" | "salao" | "predio"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -589,7 +589,7 @@ export const Constants = {
       member_role: ["owner", "admin"],
       property_purpose: ["venda", "aluguel"],
       property_status: ["active", "sold", "rented", "draft"],
-      property_type: ["casa", "apartamento", "sobrado", "terreno"],
+      property_type: ["casa", "apartamento", "sobrado", "kitnet", "chacara", "rancho", "terreno", "barracao", "sala", "salao", "predio"],
     },
   },
 } as const
