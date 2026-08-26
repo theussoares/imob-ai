@@ -246,6 +246,22 @@ useHead(() => ({
   grid-template-columns: 1fr;
   gap: 22px;
 }
+/**
+ * A trava que impede a tira de miniaturas de estourar a tela.
+ *
+ * Item de grid nasce com `min-width: auto`, que quer dizer "não encolha abaixo
+ * do seu conteúdo". A tira de miniaturas é um flex `nowrap` com rolagem
+ * própria: como conteúdo, ela mede a soma de TODAS as miniaturas. Sem esta
+ * regra esse total virava a largura mínima da coluna, o `1fr` resolvia para
+ * 836px numa tela de 375px, e a página inteira rolava na horizontal —
+ * cabeçalho cortado, foto passando da borda.
+ *
+ * O `overflow-x: auto` da própria tira não resolve: ele zera a largura mínima
+ * DELA, não a do item de grid que a contém.
+ */
+.detail-grid > * {
+  min-width: 0;
+}
 .block {
   margin-top: 22px;
 }
