@@ -380,10 +380,24 @@ onBeforeUnmount(() => {
   /* min-height 0 é o que permite o flex encolher o palco abaixo do tamanho
      natural da imagem — sem isto a tira é empurrada para fora da tela. */
   min-height: 0;
-  display: grid;
-  place-items: center;
 }
+/**
+ * Posicionada em absoluto de propósito, não centralizada por grid.
+ *
+ * Como item de grid com linha de altura automática, o `max-height: 100%` da
+ * imagem resolvia contra uma altura indefinida e era simplesmente ignorado: a
+ * foto renderizava no tamanho natural e vazava para fora do palco. Uma foto de
+ * 1200x1600 estourava 998px num palco de 602px de altura, e o desktop mostrava
+ * só o pedaço de cima. No celular passava batido porque ali a largura
+ * constrange primeiro.
+ *
+ * Com `inset: 0` o bloco recipiente tem dimensões definidas, então as duas
+ * restrições passam a valer; `margin: auto` centraliza nos dois eixos.
+ */
 .lb-img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
