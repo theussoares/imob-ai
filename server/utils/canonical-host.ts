@@ -25,10 +25,34 @@ function normalize(host: string): string {
  * ainda não tem domínio próprio: ele continua atendendo no subdomínio da
  * plataforma, sem redirect nenhum.
  */
+/** O domínio sem o "www." da frente, para comparar apex e www como o mesmo site. */
+function semWww(host: string): string {
+  return host.startsWith("www.") ? host.slice(4) : host
+}
+
 export function canonicalHostFor(host: string, primaryDomain: string | null | undefined): string | null {
   const primary = normalize(primaryDomain || "")
   if (!primary) return null
 
+  const atual = normalize(host)
+
   // Sem esta comparação o redirect apontaria para si mesmo e entraria em laço.
-  return normalize(host) === primary ? null : primary
+  if (atual === primary) return null
+
+  /**
+   * Diferença só no "www." não vira redirect — em nenhuma direção.
+   *
+   * A hospedagem já resolve apex contra www (na Vercel, o apex está configurado
+   * para redirecionar ao www). Se o banco disser que o primário é o apex, este
+   * middleware mandaria www -> apex, a hospedagem mandaria apex -> www, e o site
+   * cairia com "too many redirects" — nos dois clientes que têm domínio próprio.
+   *
+   * O trabalho daqui é outro: levar o subdomínio ANTIGO da plataforma para o
+   * domínio próprio. Deixando apex/www para a hospedagem, um `is_primary`
+   * apontando para o lado errado degrada para "não consolida", nunca para "fora
+   * do ar".
+   */
+  if (semWww(atual) === semWww(primary)) return null
+
+  return primary
 }
