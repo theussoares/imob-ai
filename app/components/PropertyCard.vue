@@ -66,7 +66,16 @@ const isAboveFold = computed(() => props.index < 3)
       </div>
 
       <div class="actions">
-        <NuxtLink class="btn-detail" :to="propertyPath(property)">Ver detalhes</NuxtLink>
+        <!--
+          Afordância visual, não link. Quem abre o detalhe é o título, cujo
+          `::after` cobre o card inteiro — clicar aqui cai nele.
+
+          Antes isto era um segundo NuxtLink para o MESMO destino do título:
+          duas paradas de foco por card fazendo a mesma coisa, 30 numa página
+          de 10 imóveis. `aria-hidden` porque o título já anuncia o destino;
+          repetir vira ruído para quem usa leitor de tela.
+        -->
+        <span class="btn-detail" aria-hidden="true">Ver detalhes</span>
         <a class="btn-wa" :href="whatsappLink(property)" target="_blank" rel="noopener">
           <AppIcon name="wa" /> WhatsApp
         </a>

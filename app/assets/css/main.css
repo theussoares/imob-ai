@@ -388,6 +388,8 @@ select.ctl {
   gap: 18px;
 }
 .prop {
+  /* Referência para a camada de clique do título (ver .prop .ttl::after). */
+  position: relative;
   background: var(--paper);
   border: 1px solid var(--line-2);
   border-radius: var(--r);
@@ -488,6 +490,38 @@ select.ctl {
 .prop .ttl:hover {
   color: var(--brand);
 }
+
+/**
+ * O card inteiro abre o imóvel — sem embrulhar nada num <a>.
+ *
+ * A camada é o `::after` do título, esticada sobre o card. Como pseudo-elemento
+ * do link, ela HERDA o link: clicar em qualquer ponto do card navega, e o
+ * `.ttl:hover` acende de qualquer ponto. E como o nome acessível continua sendo
+ * só o texto do título, o leitor de tela anuncia "Casa · 2 quartos, link" em vez
+ * de recitar preço, bairro e ficha inteira antes de dizer que é um link.
+ *
+ * Embrulhar o card num <a> daria o mesmo alvo e esse desastre de verbosidade.
+ * A técnica é a do Inclusive Components (Heydon Pickering), capítulo Cards.
+ *
+ * Alvo: 339x462 contra os 149x46 do botão — 23x a área. O hover do card já
+ * prometia isso (sobe 4px, sombra, zoom na foto) sem cumprir.
+ *
+ * Custo assumido: selecionar texto do card fica difícil, a camada mascara.
+ */
+.prop .ttl::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+/* O foco do teclado desenha no card, não só nas duas linhas do título. */
+.prop:has(.ttl:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.prop .ttl:focus-visible {
+  outline: none;
+}
 .prop .loc {
   font-size: 13.5px;
   color: var(--ink-soft);
@@ -545,11 +579,22 @@ select.ctl {
   text-decoration: none;
   transition: all 0.16s;
 }
-.btn-detail:hover {
+/* Duas formas de acender, porque `.btn-detail` tem dois usos.
+
+   No card ele é um <span> sob a camada de clique: nunca é o elemento sob o
+   cursor, então `:hover` próprio jamais dispararia — quem acende é o card.
+
+   Na página de detalhe é um <a> de verdade (o link de telefone), fora de
+   qualquer `.prop`. Esse continua acendendo sozinho. */
+.prop:hover .btn-detail,
+a.btn-detail:hover {
   background: var(--surface);
   border-color: var(--brand);
 }
 .btn-wa {
+  /* Acima da camada de clique do card: é o outro destino, tem que ganhar dela. */
+  position: relative;
+  z-index: 2;
   flex: 1;
   background: var(--wa);
   color: #fff;
