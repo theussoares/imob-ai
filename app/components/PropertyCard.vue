@@ -3,10 +3,42 @@ import type { PropertyCard } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
+import { formatArea, formatPropertyCode } from '~~/shared/utils/property-specs'
 
 const props = withDefaults(defineProps<{ property: PropertyCard; index?: number }>(), { index: 99 })
 
 const { whatsappLink } = useContact()
+
+/**
+ * Bairro e cidade só entram quando têm conteúdo de verdade.
+ *
+ * `neighborhood` é `""` em produção (não null), então o `v-if` por truthiness
+ * do valor cru deixava passar: a linha renderizava o alfinete sozinho, sem
+ * texto nenhum, e o `alt` da foto virava "Terreno em ".
+ */
+const bairro = computed(() => (props.property.neighborhood || '').trim())
+const cidade = computed(() => (props.property.city || '').trim())
+const local = computed(() => [bairro.value, cidade.value].filter(Boolean).join(', '))
+
+const tipoLabel = computed(() => PROPERTY_TYPE_LABELS[props.property.type])
+
+/**
+ * A medida do título segue `temQuartos`, igual ao slug da URL e ao título de
+ * SEO. Antes seguia `bedrooms ?`: uma casa cadastrada com 0 quartos (existe em
+ * produção, com 3 suítes) anunciava "Casa · 300 m²" no título e mostrava cama e
+ * banheiro na ficha logo abaixo.
+ */
+const medida = computed(() => {
+  const p = props.property
+  if (temQuartos(p.type)) {
+    if (p.bedrooms > 0) return `${p.bedrooms} ${p.bedrooms === 1 ? 'quarto' : 'quartos'}`
+  }
+  return p.area > 0 ? `${formatArea(p.area)} m²` : ''
+})
+
+const titulo = computed(() => [tipoLabel.value, medida.value].filter(Boolean).join(' · '))
+
+const codigo = computed(() => formatPropertyCode(props.property.code))
 
 const coverImage = computed(() => props.property.cover)
 const cover = computed(() => coverImage.value?.url || '')
@@ -28,7 +60,7 @@ const isAboveFold = computed(() => props.index < 3)
         :src="cover"
         :srcset="coverSrcset"
         sizes="(min-width: 1040px) 360px, (min-width: 820px) 50vw, 100vw"
-        :alt="`${PROPERTY_TYPE_LABELS[property.type]} em ${property.neighborhood}`"
+        :alt="local ? `${tipoLabel} em ${local}` : tipoLabel"
         :loading="isAboveFold ? 'eager' : 'lazy'"
         :fetchpriority="index === 0 ? 'high' : 'auto'"
         decoding="async"
@@ -37,33 +69,19 @@ const isAboveFold = computed(() => props.index < 3)
         <span class="badge" :class="{ rent: isRent }">{{ isRent ? 'Aluguel' : 'Venda' }}</span>
         <span v-if="property.highStandard" class="badge high">Alto padrão</span>
       </div>
-      <span class="code">{{ property.code }}</span>
+      <span class="code">{{ codigo }}</span>
     </div>
 
     <div class="body">
       <div class="price">
         {{ formatBRL(property.price) }}<span v-if="isRent"> /mês</span>
       </div>
-      <NuxtLink class="ttl" :to="propertyPath(property)">
-        {{ PROPERTY_TYPE_LABELS[property.type] }} ·
-        {{ property.bedrooms ? property.bedrooms + ' quartos' : property.area + ' m²' }}
-      </NuxtLink>
-      <div class="loc">
-        <AppIcon name="pin" />{{ property.neighborhood }}<template v-if="property.city">, {{ property.city }}</template>
+      <NuxtLink class="ttl" :to="propertyPath(property)">{{ titulo }}</NuxtLink>
+      <div v-if="local" class="loc">
+        <AppIcon name="pin" />{{ local }}
       </div>
 
-      <div class="specs">
-        <template v-if="!temQuartos(property.type)">
-          <div class="spec"><AppIcon name="area" />{{ property.area }} m²</div>
-        </template>
-        <template v-else>
-          <div class="spec"><AppIcon name="bed" />{{ property.bedrooms }}</div>
-          <div v-if="property.suites" class="spec"><AppIcon name="suite" />{{ property.suites }}</div>
-          <div class="spec"><AppIcon name="bath" />{{ property.bathrooms }}</div>
-          <div class="spec"><AppIcon name="car" />{{ property.parking }}</div>
-          <div class="spec"><AppIcon name="area" />{{ property.area }} m²</div>
-        </template>
-      </div>
+      <PropertySpecs :property="property" variant="card" />
 
       <div class="actions">
         <!--

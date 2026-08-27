@@ -1,4 +1,5 @@
-import type { PropertyInput } from '~~/shared/models/property'
+import type { PropertyInput, PropertyPurpose } from '~~/shared/models/property'
+import { areaRangeError, priceRangeError, roomsRangeError } from '~~/shared/utils/property-limits'
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
 import type { BrokerInput } from '~~/shared/models/broker'
 import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
@@ -57,6 +58,39 @@ export function assertPropertyInput(input: unknown): asserts input is PropertyIn
   if (!PURPOSES.includes(p.purpose as string)) throw createError({ statusCode: 422, statusMessage: 'Pretensão inválida.' })
   if (typeof p.price !== 'number' || Number.isNaN(p.price) || p.price < 0) {
     throw createError({ statusCode: 422, statusMessage: 'Preço inválido.' })
+  }
+  /*
+   * Teto de plausibilidade. Sem isto, `240000000` digitado no lugar de `240000`
+   * era gravado sem uma palavra e a vitrine passava a anunciar um terreno de
+   * 240 m² por R$ 240 milhões. `price >= 0` sozinho não protege de nada que
+   * importe. Ver shared/utils/property-limits.ts para a escolha dos números.
+   */
+  const precoErro = priceRangeError(p.price, p.purpose as PropertyPurpose)
+  if (precoErro) throw createError({ statusCode: 422, statusMessage: precoErro })
+
+  // Mesmo raciocínio para as medidas: em produção há um terreno com `suites:
+  // 400`, que é a metragem digitada no campo de suítes.
+  for (const [campo, label] of [
+    ['bedrooms', 'Quartos'],
+    ['suites', 'Suítes'],
+    ['bathrooms', 'Banheiros'],
+    ['parking', 'Vagas'],
+  ] as const) {
+    const v = p[campo]
+    if (v === undefined || v === null) continue
+    if (typeof v !== 'number' || Number.isNaN(v) || v < 0) {
+      throw createError({ statusCode: 422, statusMessage: `${label}: valor inválido.` })
+    }
+    const erro = roomsRangeError(v, label)
+    if (erro) throw createError({ statusCode: 422, statusMessage: erro })
+  }
+
+  if (p.area !== undefined && p.area !== null) {
+    if (typeof p.area !== 'number' || Number.isNaN(p.area) || p.area < 0) {
+      throw createError({ statusCode: 422, statusMessage: 'Área inválida.' })
+    }
+    const areaErro = areaRangeError(p.area)
+    if (areaErro) throw createError({ statusCode: 422, statusMessage: areaErro })
   }
   if (p.status !== undefined && !STATUSES.includes(p.status as string)) {
     throw createError({ statusCode: 422, statusMessage: 'Status inválido.' })

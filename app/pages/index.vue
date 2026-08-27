@@ -187,7 +187,7 @@ useHead(() => ({
         </div>
       </div>
 
-      <TypeChips :filters="filters" />
+      <TypeChips :filters="filters" :properties="list" />
 
       <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
            um caminho até elas. As de tipo só aparecem com imóveis suficientes;

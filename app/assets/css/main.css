@@ -537,31 +537,7 @@ select.ctl {
   stroke-width: 1.7;
   flex: none;
 }
-.specs {
-  display: flex;
-  gap: 15px;
-  margin: 13px 0 15px;
-  padding-top: 13px;
-  border-top: 1px solid var(--line);
-  flex-wrap: wrap;
-}
-.spec {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--ink);
-  font-weight: 600;
-}
-.spec svg {
-  width: 16px;
-  height: 16px;
-  stroke: var(--brand);
-  fill: none;
-  stroke-width: 1.7;
-  flex: none;
-}
-.prop .actions {
+.actions {
   margin-top: auto;
   display: flex;
   gap: 9px;
@@ -768,38 +744,6 @@ a.btn-detail:hover {
   margin-bottom: 13px;
   flex-wrap: wrap;
 }
-.m-specs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin: 0 0 0 0;
-}
-.m-spec {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 8px 6px;
-  text-align: center;
-}
-.m-spec svg {
-  width: 100%;
-  height: 20px;
-  stroke: var(--brand);
-  fill: none;
-  stroke-width: 1.7;
-  margin-bottom: 6px;
-}
-.m-spec b {
-  display: block;
-  font-size: 16px;
-  color: var(--ink);
-  font-weight: 700;
-  font-family: "Space Grotesk";
-}
-.m-spec small {
-  font-size: 11.5px;
-  color: var(--ink-soft);
-}
 .m-desc {
   color: var(--ink);
   font-size: 15px;
@@ -858,11 +802,6 @@ a.btn-detail:hover {
 @media (min-width: 1040px) {
   .grid {
     grid-template-columns: 1fr 1fr 1fr;
-  }
-}
-@media (max-width: 379px) {
-  .m-specs {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (prefers-reduced-motion: reduce) {

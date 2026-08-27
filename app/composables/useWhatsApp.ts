@@ -1,5 +1,6 @@
 import type { Property, PropertyCard } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
+import { formatPropertyCode } from '~~/shared/utils/property-specs'
 
 /** Gera links de WhatsApp e telefone a partir do tenant atual. */
 export function useContact() {
@@ -15,7 +16,11 @@ export function useContact() {
     if (property) {
       const price = formatBRL(property.price) + (property.purpose === 'aluguel' ? '/mês' : '')
       const local = property.neighborhood ? ` no ${property.neighborhood}` : ''
-      msg = `Olá! Tenho interesse no imóvel ${property.code} — ${PROPERTY_TYPE_LABELS[property.type]}${local} (${property.purpose === 'aluguel' ? 'aluguel' : 'venda'} · ${price}). Ainda está disponível?`
+      // Código na forma normalizada, a MESMA que a pessoa acabou de ler no
+      // card. Mandar a string crua faria ela conferir "V.D- 0010" contra o
+      // "VD-0010" da tela e duvidar se é o mesmo imóvel. A chave que casa o
+      // lead no banco continua sendo `property.code` cru, no LeadForm.
+      msg = `Olá! Tenho interesse no imóvel ${formatPropertyCode(property.code)} — ${PROPERTY_TYPE_LABELS[property.type]}${local} (${property.purpose === 'aluguel' ? 'aluguel' : 'venda'} · ${price}). Ainda está disponível?`
     } else {
       msg = 'Olá! Vi o site e gostaria de mais informações sobre os imóveis.'
     }
