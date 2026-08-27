@@ -11,6 +11,11 @@ import {
   PROPERTY_STATUSES,
   PROPERTY_STATUS_LABELS,
 } from "~~/shared/models/property";
+import {
+  areaRangeError,
+  priceRangeError,
+  roomsRangeError,
+} from "~~/shared/utils/property-limits";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -121,6 +126,69 @@ watchEffect(() => {
 
 const saving = ref(false);
 const error = ref("");
+
+/**
+ * Avisos de plausibilidade, enquanto a pessoa digita.
+ *
+ * O servidor recusa o absurdo (ver property-limits.ts), mas descobrir o erro
+ * só ao clicar em salvar é tarde: a pessoa já preencheu a ficha inteira. Aqui
+ * o aviso aparece no momento em que o número fica estranho.
+ *
+ * São dois níveis. Estes avisos NÃO bloqueiam — eles apontam o que costuma ser
+ * engano de digitação, e quem cadastra é quem sabe se é engano mesmo. O que
+ * bloqueia é o teto do servidor, que é ordens de grandeza acima daqui.
+ */
+const avisos = computed(() => {
+  const out: string[] = [];
+  const p = form.price;
+
+  const limite = priceRangeError(p, form.purpose);
+  if (limite) out.push(limite);
+  else if (form.purpose === "venda" && p > 0 && p < 10000) {
+    out.push(
+      "Preço de venda abaixo de R$ 10.000 — se este for o valor do aluguel, troque a pretensão para Aluguel.",
+    );
+  } else if (form.purpose === "aluguel" && p >= 100000) {
+    out.push(
+      "Aluguel a partir de R$ 100.000/mês — se este for o valor de venda, troque a pretensão para Venda.",
+    );
+  }
+
+  // Preço por m² é o que denuncia o zero a mais quando a área está preenchida:
+  // nenhum metro quadrado no país passa de R$ 100 mil, nem no Leblon.
+  if (p > 0 && form.area > 0 && form.purpose === "venda") {
+    const porM2 = p / form.area;
+    if (porM2 > 100000) {
+      out.push(
+        `Dá R$ ${Math.round(porM2).toLocaleString("pt-BR")} por m² — confira o preço ou a área.`,
+      );
+    }
+  }
+
+  const areaErro = areaRangeError(form.area || 0);
+  if (areaErro) out.push(areaErro);
+
+  // Em produção há um terreno com 400 suítes: é a metragem no campo errado.
+  for (const [v, label] of [
+    [form.bedrooms, "Quartos"],
+    [form.suites, "Suítes"],
+    [form.bathrooms, "Banheiros"],
+    [form.parking, "Vagas"],
+  ] as const) {
+    const erro = roomsRangeError(v || 0, label);
+    if (erro) out.push(erro);
+  }
+
+  // Suíte é quarto com banheiro: no cadastro brasileiro ela é subconjunto dos
+  // quartos, nunca um extra. Mais suítes que quartos é sempre erro de campo.
+  if (form.suites > 0 && form.suites > form.bedrooms) {
+    out.push(
+      `${form.suites} suíte(s) para ${form.bedrooms} quarto(s) — a suíte conta junto com os quartos, então o total de quartos precisa incluí-las.`,
+    );
+  }
+
+  return out;
+});
 
 async function save() {
   if (form.price <= 0) {
@@ -374,6 +442,13 @@ useHead(() => ({
         </div>
       </div>
 
+      <!-- Avisos de conferência: não impedem salvar, apontam o que costuma ser
+           erro de digitação. role="status" para quem usa leitor de tela ouvir
+           o aviso aparecer, sem interromper o que está digitando. -->
+      <ul v-if="avisos.length" class="chk" role="status">
+        <li v-for="a in avisos" :key="a">{{ a }}</li>
+      </ul>
+
       <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
 
       <div style="margin-top: 18px; display: flex; gap: 10px">
@@ -455,5 +530,21 @@ useHead(() => ({
   .form-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* Bloco de avisos de conferência do cadastro. Âmbar, não vermelho: vermelho
+   diz "não dá pra salvar", e dá — é só uma conferência antes de publicar. */
+.chk {
+  margin: 14px 0 0;
+  padding: 12px 14px 12px 30px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  border-radius: 10px;
+  color: #78350f;
+  font-size: 13.5px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 </style>

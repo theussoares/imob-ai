@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Property } from "~~/shared/models/property";
 import { PROPERTY_TYPE_LABELS } from "~~/shared/models/property";
-import { temQuartos, PROPERTY_TYPE_REGISTRY } from "~~/shared/models/property";
+import { PROPERTY_TYPE_REGISTRY } from "~~/shared/models/property";
 import { propertyPath, propertySlug } from "~~/shared/utils/property-url";
 import { propertyTitle } from "~~/shared/utils/property-title";
+import { formatPropertyCode } from "~~/shared/utils/property-specs";
 
 const route = useRoute();
 const router = useRouter();
@@ -57,6 +58,9 @@ const canonical = `${url.origin}${propertyPath(p)}`;
 const locality = [p.neighborhood, p.city].filter(Boolean).join(", ");
 
 const priceLabel = computed(() => formatBRL(p.price) + (isRent ? "/mês" : ""));
+
+/** Passado à barra fixa, que se recolhe enquanto este cartão estiver à vista. */
+const contactCard = ref<HTMLElement | null>(null);
 
 useSeoMeta({
   title: propertyTitle(p),
@@ -138,7 +142,7 @@ useHead(() => ({
               <span class="badge" :class="{ rent: isRent }">{{
                 isRent ? "Para alugar" : "À venda"
               }}</span>
-              <span class="badge high">{{ p.code }}</span>
+              <span class="badge high">{{ formatPropertyCode(p.code) }}</span>
               <span
                 v-if="p.highStandard"
                 class="badge"
@@ -157,36 +161,7 @@ useHead(() => ({
               <template v-if="p.state">· {{ p.state }}</template>
             </p>
 
-            <div class="m-specs">
-              <template v-if="!temQuartos(p.type)">
-                <div class="m-spec">
-                  <AppIcon name="area" /><b>{{ p.area }}</b
-                  ><small>m² de área</small>
-                </div>
-              </template>
-              <template v-else>
-                <div class="m-spec">
-                  <AppIcon name="bed" /><b>{{ p.bedrooms }}</b
-                  ><small>quartos</small>
-                </div>
-                <div v-if="p.suites" class="m-spec">
-                  <AppIcon name="suite" /><b>{{ p.suites }}</b
-                  ><small>{{ p.suites > 1 ? 'suítes' : 'suíte' }}</small>
-                </div>
-                <div class="m-spec">
-                  <AppIcon name="bath" /><b>{{ p.bathrooms }}</b
-                  ><small>banheiros</small>
-                </div>
-                <div class="m-spec">
-                  <AppIcon name="car" /><b>{{ p.parking }}</b
-                  ><small>vagas</small>
-                </div>
-                <div class="m-spec">
-                  <AppIcon name="area" /><b>{{ p.area }}</b
-                  ><small>m²</small>
-                </div>
-              </template>
-            </div>
+            <PropertySpecs :property="p" variant="detail" />
 
             <div v-if="p.description" class="m-desc">
               <h3>Sobre o imóvel</h3>
@@ -204,7 +179,7 @@ useHead(() => ({
         </div>
 
         <aside class="side">
-          <div class="admin-card side-card">
+          <div ref="contactCard" class="admin-card side-card">
             <a
               class="btn-wa side-wa"
               :href="whatsappLink(p)"
@@ -223,12 +198,22 @@ useHead(() => ({
       </div>
     </div>
 
+    <!-- A barra recolhe quando este cartão entra em cena: dois botões de
+         WhatsApp idênticos empilhados fazem duvidar se são a mesma coisa. -->
+    <PropertyStickyCta :property="p" :contact-card="contactCard" />
   </main>
 </template>
 
 <style scoped>
 .detail {
   padding: 22px 0 60px;
+}
+/* Espaço para a barra de contato fixa não cobrir o fim do conteúdo. Só até
+   900px, que é onde ela existe. */
+@media (max-width: 899px) {
+  .detail {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
 }
 .back {
   display: inline-block;
