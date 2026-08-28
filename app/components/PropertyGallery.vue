@@ -93,6 +93,30 @@ useSwipe(lbImage, {
   },
 });
 
+/**
+ * Setas e swipe na foto principal, sem precisar abrir a tela cheia — a
+ * `.gallery` é um `<button>` cujo clique abre a tela cheia, então um arraste
+ * não pode terminar acionando esse clique junto. Mesma trava do carrossel do
+ * card: um swipe marca `justSwiped`, e o clique seguinte (sintetizado pelo
+ * navegador ao soltar o dedo) é engolido em vez de abrir a tela cheia.
+ */
+const mainStage = ref<HTMLElement | null>(null);
+let justSwipedMain = false;
+useSwipe(mainStage, {
+  onSwipeEnd(_e, direction) {
+    justSwipedMain = true;
+    if (direction === "left") go(1);
+    else if (direction === "right") go(-1);
+  },
+});
+function onGalleryClick() {
+  if (justSwipedMain) {
+    justSwipedMain = false;
+    return;
+  }
+  openLightbox();
+}
+
 // Trava o scroll do fundo enquanto o overlay está aberto.
 watch(lightboxOpen, (open) => {
   if (import.meta.client) {
@@ -106,11 +130,21 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="active">
-    <button
-      type="button"
+    <!--
+      Não é mais um <button>: as setas de navegação vivem AQUI DENTRO agora, e
+      <button> dentro de <button> é HTML inválido (conteúdo interativo dentro
+      de conteúdo interativo). `role="button"` + tabindex + Enter/Espaço
+      repõem à mão o que o elemento nativo dava de graça.
+    -->
+    <div
+      ref="mainStage"
       class="gallery"
+      role="button"
+      tabindex="0"
       aria-label="Ampliar imagem em tela cheia"
-      @click="openLightbox"
+      @click="onGalleryClick"
+      @keydown.enter="onGalleryClick"
+      @keydown.space.prevent="onGalleryClick"
     >
       <img
         :ref="bindImg"
@@ -131,7 +165,15 @@ onBeforeUnmount(() => {
       <span v-if="hasMany" class="gallery-count" aria-hidden="true">
         {{ activeIndex + 1 }} / {{ images.length }}
       </span>
-    </button>
+      <template v-if="hasMany">
+        <button type="button" class="gallery-nav gallery-prev" aria-label="Foto anterior" @click.stop="go(-1)">
+          <AppIcon name="chevron-left" />
+        </button>
+        <button type="button" class="gallery-nav gallery-next" aria-label="Próxima foto" @click.stop="go(1)">
+          <AppIcon name="chevron-right" />
+        </button>
+      </template>
+    </div>
 
     <div v-if="hasMany" ref="thumbStrip" class="thumbs">
       <button
@@ -280,6 +322,45 @@ onBeforeUnmount(() => {
   width: 20px;
   height: 20px;
 }
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  /* Explícito, não herdado da ordem no DOM: foi exatamente a falta disso na
+     seta esquerda da tela cheia (`.lb-prev`, que vem ANTES da foto no HTML)
+     que a deixava atrás da imagem em fotos que preenchem a largura toda. */
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.16s ease;
+}
+.gallery:hover .gallery-nav,
+.gallery-nav:focus-visible {
+  opacity: 1;
+}
+.gallery-nav:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+.gallery-nav :deep(svg) {
+  width: 22px;
+  height: 22px;
+}
+.gallery-prev {
+  left: 12px;
+}
+.gallery-next {
+  right: 12px;
+}
 /* Sinal de que a foto ativa ainda não chegou — sem isto, trocar de foto (seta,
    swipe ou miniatura) e ela ainda não ter carregado parece que o toque não fez
    nada, porque o <img> fica em branco até decodificar. O atraso de 0.15s só
@@ -341,7 +422,8 @@ onBeforeUnmount(() => {
 }
 /* Em telas de toque não há hover: mostra a dica de ampliar sempre. */
 @media (hover: none) {
-  .gallery-zoom {
+  .gallery-zoom,
+  .gallery-nav {
     opacity: 1;
   }
 }
@@ -472,6 +554,13 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: background-color 0.16s ease;
 }
+/* `.lb-prev` vem ANTES do `.lb-img` no DOM, e os dois têm z-index automático
+   — nessa disputa, quem vem depois pinta por cima. Numa foto que preenche a
+   largura toda do palco (a maioria em pé no celular), a imagem cobria a seta
+   esquerda por inteiro; a direita só escapava por vir depois dela no HTML. */
+.lb-nav {
+  z-index: 1;
+}
 .lb-close:hover,
 .lb-nav:hover {
   background: rgba(255, 255, 255, 0.26);
@@ -593,6 +682,7 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .gallery-main,
   .gallery:hover .gallery-main,
+  .gallery-nav,
   .thumb,
   .see-all,
   .lb-thumb,
