@@ -187,7 +187,7 @@ useHead(() => ({
         </div>
       </div>
 
-      <TypeChips :filters="filters" :properties="list" />
+      <LazyTypeChips :filters="filters" :properties="list" />
 
       <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
            um caminho até elas. As de tipo só aparecem com imóveis suficientes;
@@ -205,7 +205,7 @@ useHead(() => ({
       <div v-if="filtered.length" class="grid">
         <!-- stagger limitado a 8 cards: sem o teto, 50 imóveis deixam o último
              invisível por ~2s (e 200 imóveis, por 8s) por causa do fill-mode both. -->
-        <PropertyCard
+        <LazyPropertyCard
           v-for="(p, i) in filtered"
           :key="p.id"
           :property="p"
@@ -224,7 +224,7 @@ useHead(() => ({
              que quer e não achou. Os filtros já são a resposta — pedir de novo
              num formulário em branco seria jogar fora o que ela informou. -->
         <div class="empty-lead">
-          <LeadForm
+          <LazyLeadForm
             source="catalog_empty"
             :lead-type="seekingTypeFor(filters.purpose)"
             title="Não encontrou? A gente procura pra você"
@@ -240,7 +240,7 @@ useHead(() => ({
       <!-- Quem viu a lista inteira e não gostou de nada não passa pelo estado
            vazio, então essa saída não existiria para ela. -->
       <div v-if="filtered.length" class="browse-lead">
-        <LeadForm
+        <LazyLeadForm
           source="catalog_footer"
           :lead-type="seekingTypeFor(filters.purpose)"
           title="Ainda não encontrou o imóvel ideal?"
