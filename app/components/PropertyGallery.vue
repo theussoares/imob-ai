@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from "vue";
 import type { PropertyImage } from "~~/shared/models/property";
 
 /**
@@ -21,7 +22,9 @@ const props = defineProps<{
 
 // Galeria controlada por índice (não por URL): é o que permite navegar
 // anterior/próxima na tela cheia e destacar a miniatura certa.
-const { activeIndex, activeImage, activeSrcset, hasMany, go } = useImageCarousel(() => props.images);
+const { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg } = useImageCarousel(
+  () => props.images,
+);
 const active = computed(() => activeImage.value?.url || "");
 
 const thumbStrip = ref<HTMLElement | null>(null);
@@ -76,6 +79,13 @@ onKeyStroke("ArrowLeft", () => lightboxOpen.value && go(-1));
 
 // Arrastar/deslizar no mobile troca a imagem.
 const lbImage = ref<HTMLElement | null>(null);
+// A tela cheia entra/sai via v-if: o elemento é recriado a cada abertura, e
+// `bindImg` precisa rodar de novo em cada uma pra pegar uma foto que já
+// estava em cache (ver comentário em useImageCarousel).
+function bindLbImage(el: Element | ComponentPublicInstance | null) {
+  lbImage.value = el instanceof HTMLElement ? el : null;
+  bindImg(el);
+}
 useSwipe(lbImage, {
   onSwipeEnd(_e, direction) {
     if (direction === "left") go(1);
@@ -103,6 +113,7 @@ onBeforeUnmount(() => {
       @click="openLightbox"
     >
       <img
+        :ref="bindImg"
         :src="active"
         :srcset="activeSrcset"
         sizes="(min-width: 900px) 740px, 100vw"
@@ -110,7 +121,10 @@ onBeforeUnmount(() => {
         class="gallery-main"
         fetchpriority="high"
         decoding="async"
+        @load="onImageLoad"
+        @error="onImageLoad"
       />
+      <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
       <span class="gallery-zoom"><AppIcon name="expand" /></span>
       <!-- aria-hidden: as miniaturas abaixo já dizem quantas são e qual é a
            atual, com rótulo próprio. Repetir aqui só polui o leitor de tela. -->
@@ -175,14 +189,17 @@ onBeforeUnmount(() => {
             </button>
 
             <img
-              ref="lbImage"
+              :ref="bindLbImage"
               :src="active"
               :srcset="activeSrcset"
               sizes="100vw"
               :alt="title"
               class="lb-img"
               draggable="false"
+              @load="onImageLoad"
+              @error="onImageLoad"
             />
+            <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
 
             <button
               v-if="hasMany"
@@ -262,6 +279,49 @@ onBeforeUnmount(() => {
 .gallery-zoom :deep(svg) {
   width: 20px;
   height: 20px;
+}
+/* Sinal de que a foto ativa ainda não chegou — sem isto, trocar de foto (seta,
+   swipe ou miniatura) e ela ainda não ter carregado parece que o toque não fez
+   nada, porque o <img> fica em branco até decodificar. O atraso de 0.15s só
+   entra na ENTRADA (`.on`): uma foto em cache carrega rápido demais pro
+   spinner chegar a aparecer, então ele nunca pisca à toa. */
+.img-spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.img-spinner.on {
+  opacity: 1;
+  transition-delay: 0.15s;
+}
+.img-spinner::after {
+  content: "";
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: img-spin 0.7s linear infinite;
+}
+@keyframes img-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-spinner,
+  .img-spinner.on {
+    transition: none;
+  }
+  .img-spinner::after {
+    animation: none;
+  }
 }
 /* Contador na foto principal, do lado oposto ao ícone de ampliar.
    tabular-nums: sem isso o "1 / 16" muda de largura ao virar "11 / 16" e o

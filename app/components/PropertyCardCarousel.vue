@@ -23,7 +23,9 @@ const props = withDefaults(
   { index: 99 },
 );
 
-const { activeImage, activeSrcset, hasMany, go } = useImageCarousel(() => props.images);
+const { activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg } = useImageCarousel(
+  () => props.images,
+);
 // Cards acima da dobra não podem ser lazy: em tenant sem hero image, a capa do
 // primeiro card É o elemento de LCP, e lazy adia o download pro pós-layout.
 const isAboveFold = computed(() => props.index < 3);
@@ -58,6 +60,7 @@ function onTap() {
 <template>
   <div v-if="activeImage" ref="stage" class="cc" @click="onTap">
     <img
+      :ref="bindImg"
       :src="activeImage.url"
       :srcset="activeSrcset"
       sizes="(min-width: 1040px) 360px, (min-width: 820px) 50vw, 100vw"
@@ -65,7 +68,10 @@ function onTap() {
       :loading="isAboveFold ? 'eager' : 'lazy'"
       :fetchpriority="index === 0 ? 'high' : 'auto'"
       decoding="async"
+      @load="onImageLoad"
+      @error="onImageLoad"
     />
+    <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
     <template v-if="hasMany">
       <button type="button" class="cc-nav cc-prev" aria-label="Foto anterior" @click.stop="go(-1)">
         <AppIcon name="chevron-left" />

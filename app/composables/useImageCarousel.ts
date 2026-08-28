@@ -1,3 +1,4 @@
+import type { ComponentPublicInstance } from "vue";
 import type { PropertyImage } from "~~/shared/models/property";
 
 /**
@@ -32,6 +33,18 @@ export function useImageCarousel(getImages: () => PropertyImage[]) {
   function onImageLoad() {
     imageLoading.value = false;
   }
+  /**
+   * `:ref="bindImg"` no `<img>`, no lugar de `onMounted`: no SSR o `<img>` já
+   * nasce com `src` no HTML, e o navegador pode terminar de baixá-lo (foto
+   * pequena/em cache) ANTES da hidratação ligar o `@load` — perdendo o evento
+   * pra sempre e deixando o spinner girando eternamente na primeira foto.
+   * Function ref roda de novo sempre que o elemento é recriado (a foto da
+   * tela cheia, que entra/sai via `v-if`), então cobre os dois casos com o
+   * mesmo código.
+   */
+  function bindImg(el: Element | ComponentPublicInstance | null) {
+    if (el instanceof HTMLImageElement && el.complete) onImageLoad();
+  }
 
-  return { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad };
+  return { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg };
 }
