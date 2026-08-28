@@ -422,10 +422,123 @@ select.ctl {
 .prop:hover .ph img {
   transform: scale(1.05);
 }
+.cc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Acima do .ttl::after (z-index: 1) que torna o card inteiro clicável: a
+     foto precisa receber o toque/arraste DIRETAMENTE, senão o swipe do
+     carrossel nunca chegaria até ela — só os 30px de cada seta ficariam
+     sensíveis ao gesto. Elevar a foto tira o "clique cai na camada do card"
+     de graça; quem reabre a navegação num toque simples é o `onTap` do
+     componente, não mais o `::after`. */
+  z-index: 2;
+  cursor: pointer;
+}
+.cc-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.16s ease,
+    background-color 0.16s ease;
+}
+/* `.prop:hover`, não `.cc:hover`: a foto é só uma faixa dentro do card, e
+   `card.hover()`/o mouse real centralizam no card inteiro — inclusive fora da
+   foto. É o mesmo motivo do `.btn-detail` logo abaixo: quem revela é o hover
+   no `.prop`, para as setas aparecerem assim que a pessoa se aproxima do
+   card, não só quando o cursor cai exatamente sobre a imagem. */
+.prop:hover .cc-nav,
+.cc-nav:focus-visible {
+  opacity: 1;
+}
+.cc-nav:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+.cc-nav svg {
+  width: 18px;
+  height: 18px;
+}
+.cc-prev {
+  left: 8px;
+}
+.cc-next {
+  right: 8px;
+}
+/* Em telas de toque não há hover: as setas ficam sempre visíveis. */
+@media (hover: none) {
+  .cc-nav {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-nav {
+    transition: none;
+  }
+}
+/* Sinal de que a foto ativa ainda não chegou — sem isto, trocar de foto e
+   ela ainda não ter carregado parece que o toque/swipe não fez nada, porque
+   o <img> fica em branco até decodificar. O atraso de 0.15s só entra na
+   ENTRADA (`.on`): uma foto que já está em cache carrega rápido demais pro
+   spinner chegar a aparecer, então ele nunca pisca à toa. */
+.img-spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.img-spinner.on {
+  opacity: 1;
+  transition-delay: 0.15s;
+}
+.img-spinner::after {
+  content: "";
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: img-spin 0.7s linear infinite;
+}
+@keyframes img-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-spinner,
+  .img-spinner.on {
+    transition: none;
+  }
+  .img-spinner::after {
+    animation: none;
+  }
+}
 .badges {
   position: absolute;
   top: 11px;
   left: 11px;
+  /* Acima do .cc (z-index: 2), senão a foto do carrossel os cobriria.
+     `pointer-events: none` porque são só rótulos — sem isto, tocar bem em
+     cima do selo "Venda" não navegaria nem trocaria de foto, um ponto morto
+     no meio da área da foto. */
+  z-index: 3;
+  pointer-events: none;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -451,6 +564,9 @@ select.ctl {
   position: absolute;
   bottom: 10px;
   right: 11px;
+  /* Mesmo motivo do .badges: acima da foto do carrossel, sem capturar o toque. */
+  z-index: 3;
+  pointer-events: none;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -552,6 +668,10 @@ select.ctl {
   color: var(--ink);
   background: var(--paper);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   text-decoration: none;
   transition: all 0.16s;
 }

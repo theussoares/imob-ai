@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from "vue";
 import type { PropertyImage } from "~~/shared/models/property";
 
 /**
@@ -21,18 +22,13 @@ const props = defineProps<{
 
 // Galeria controlada por índice (não por URL): é o que permite navegar
 // anterior/próxima na tela cheia e destacar a miniatura certa.
-const activeIndex = ref(0);
-const active = computed(() => props.images[activeIndex.value]?.url || "");
-const hasMany = computed(() => props.images.length > 1);
+const { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg } = useImageCarousel(
+  () => props.images,
+);
+const active = computed(() => activeImage.value?.url || "");
 
 const thumbStrip = ref<HTMLElement | null>(null);
 const lbStrip = ref<HTMLElement | null>(null);
-
-function go(delta: number) {
-  const n = props.images.length;
-  if (n < 2) return;
-  activeIndex.value = (activeIndex.value + delta + n) % n; // circular
-}
 
 /**
  * Navegar pelas setas ou pelo swipe move a miniatura ativa junto. Sem isto, na
@@ -83,12 +79,43 @@ onKeyStroke("ArrowLeft", () => lightboxOpen.value && go(-1));
 
 // Arrastar/deslizar no mobile troca a imagem.
 const lbImage = ref<HTMLElement | null>(null);
+// A tela cheia entra/sai via v-if: o elemento é recriado a cada abertura, e
+// `bindImg` precisa rodar de novo em cada uma pra pegar uma foto que já
+// estava em cache (ver comentário em useImageCarousel).
+function bindLbImage(el: Element | ComponentPublicInstance | null) {
+  lbImage.value = el instanceof HTMLElement ? el : null;
+  bindImg(el);
+}
 useSwipe(lbImage, {
   onSwipeEnd(_e, direction) {
     if (direction === "left") go(1);
     else if (direction === "right") go(-1);
   },
 });
+
+/**
+ * Setas e swipe na foto principal, sem precisar abrir a tela cheia — a
+ * `.gallery` é um `<button>` cujo clique abre a tela cheia, então um arraste
+ * não pode terminar acionando esse clique junto. Mesma trava do carrossel do
+ * card: um swipe marca `justSwiped`, e o clique seguinte (sintetizado pelo
+ * navegador ao soltar o dedo) é engolido em vez de abrir a tela cheia.
+ */
+const mainStage = ref<HTMLElement | null>(null);
+let justSwipedMain = false;
+useSwipe(mainStage, {
+  onSwipeEnd(_e, direction) {
+    justSwipedMain = true;
+    if (direction === "left") go(1);
+    else if (direction === "right") go(-1);
+  },
+});
+function onGalleryClick() {
+  if (justSwipedMain) {
+    justSwipedMain = false;
+    return;
+  }
+  openLightbox();
+}
 
 // Trava o scroll do fundo enquanto o overlay está aberto.
 watch(lightboxOpen, (open) => {
@@ -103,26 +130,50 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="active">
-    <button
-      type="button"
+    <!--
+      Não é mais um <button>: as setas de navegação vivem AQUI DENTRO agora, e
+      <button> dentro de <button> é HTML inválido (conteúdo interativo dentro
+      de conteúdo interativo). `role="button"` + tabindex + Enter/Espaço
+      repõem à mão o que o elemento nativo dava de graça.
+    -->
+    <div
+      ref="mainStage"
       class="gallery"
+      role="button"
+      tabindex="0"
       aria-label="Ampliar imagem em tela cheia"
-      @click="openLightbox"
+      @click="onGalleryClick"
+      @keydown.enter="onGalleryClick"
+      @keydown.space.prevent="onGalleryClick"
     >
       <img
+        :ref="bindImg"
         :src="active"
+        :srcset="activeSrcset"
+        sizes="(min-width: 900px) 740px, 100vw"
         :alt="title"
         class="gallery-main"
         fetchpriority="high"
         decoding="async"
+        @load="onImageLoad"
+        @error="onImageLoad"
       />
+      <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
       <span class="gallery-zoom"><AppIcon name="expand" /></span>
       <!-- aria-hidden: as miniaturas abaixo já dizem quantas são e qual é a
            atual, com rótulo próprio. Repetir aqui só polui o leitor de tela. -->
       <span v-if="hasMany" class="gallery-count" aria-hidden="true">
         {{ activeIndex + 1 }} / {{ images.length }}
       </span>
-    </button>
+      <template v-if="hasMany">
+        <button type="button" class="gallery-nav gallery-prev" aria-label="Foto anterior" @click.stop="go(-1)">
+          <AppIcon name="chevron-left" />
+        </button>
+        <button type="button" class="gallery-nav gallery-next" aria-label="Próxima foto" @click.stop="go(1)">
+          <AppIcon name="chevron-right" />
+        </button>
+      </template>
+    </div>
 
     <div v-if="hasMany" ref="thumbStrip" class="thumbs">
       <button
@@ -180,12 +231,17 @@ onBeforeUnmount(() => {
             </button>
 
             <img
-              ref="lbImage"
+              :ref="bindLbImage"
               :src="active"
+              :srcset="activeSrcset"
+              sizes="100vw"
               :alt="title"
               class="lb-img"
               draggable="false"
+              @load="onImageLoad"
+              @error="onImageLoad"
             />
+            <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
 
             <button
               v-if="hasMany"
@@ -266,6 +322,88 @@ onBeforeUnmount(() => {
   width: 20px;
   height: 20px;
 }
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  /* Explícito, não herdado da ordem no DOM: foi exatamente a falta disso na
+     seta esquerda da tela cheia (`.lb-prev`, que vem ANTES da foto no HTML)
+     que a deixava atrás da imagem em fotos que preenchem a largura toda. */
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    background-color 0.16s ease;
+}
+.gallery:hover .gallery-nav,
+.gallery-nav:focus-visible {
+  opacity: 1;
+}
+.gallery-nav:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+.gallery-nav :deep(svg) {
+  width: 22px;
+  height: 22px;
+}
+.gallery-prev {
+  left: 12px;
+}
+.gallery-next {
+  right: 12px;
+}
+/* Sinal de que a foto ativa ainda não chegou — sem isto, trocar de foto (seta,
+   swipe ou miniatura) e ela ainda não ter carregado parece que o toque não fez
+   nada, porque o <img> fica em branco até decodificar. O atraso de 0.15s só
+   entra na ENTRADA (`.on`): uma foto em cache carrega rápido demais pro
+   spinner chegar a aparecer, então ele nunca pisca à toa. */
+.img-spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.img-spinner.on {
+  opacity: 1;
+  transition-delay: 0.15s;
+}
+.img-spinner::after {
+  content: "";
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: img-spin 0.7s linear infinite;
+}
+@keyframes img-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-spinner,
+  .img-spinner.on {
+    transition: none;
+  }
+  .img-spinner::after {
+    animation: none;
+  }
+}
 /* Contador na foto principal, do lado oposto ao ícone de ampliar.
    tabular-nums: sem isso o "1 / 16" muda de largura ao virar "11 / 16" e o
    selo treme a cada troca de foto. */
@@ -284,7 +422,8 @@ onBeforeUnmount(() => {
 }
 /* Em telas de toque não há hover: mostra a dica de ampliar sempre. */
 @media (hover: none) {
-  .gallery-zoom {
+  .gallery-zoom,
+  .gallery-nav {
     opacity: 1;
   }
 }
@@ -415,6 +554,13 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: background-color 0.16s ease;
 }
+/* `.lb-prev` vem ANTES do `.lb-img` no DOM, e os dois têm z-index automático
+   — nessa disputa, quem vem depois pinta por cima. Numa foto que preenche a
+   largura toda do palco (a maioria em pé no celular), a imagem cobria a seta
+   esquerda por inteiro; a direita só escapava por vir depois dela no HTML. */
+.lb-nav {
+  z-index: 1;
+}
 .lb-close:hover,
 .lb-nav:hover {
   background: rgba(255, 255, 255, 0.26);
@@ -536,6 +682,7 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .gallery-main,
   .gallery:hover .gallery-main,
+  .gallery-nav,
   .thumb,
   .see-all,
   .lb-thumb,

@@ -38,6 +38,9 @@ const PUBLIC_CARD_COLUMNS =
  */
 const IMAGES_EMBED = 'property_images(id, url, url_sm, alt, position, is_cover)'
 
+/** Teto de fotos por imóvel no card do catálogo — o carrossel não precisa de mais. */
+const IMAGES_PER_CARD = 5
+
 async function fetchBrokersById(client: Client, tenantId: string, ids: string[]): Promise<Map<string, Broker>> {
   const map = new Map<string, Broker>()
   const unique = [...new Set(ids.filter(Boolean))]
@@ -107,6 +110,13 @@ export async function listActivePropertyCards(client: Client, tenantId: string):
     .eq('status', 'active')
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false })
+    // O card mostra um carrossel, não só a capa — mas sem isto o embed trazia
+    // TODAS as fotos de cada imóvel (um imóvel com 20 fotos mandava 20 linhas
+    // de url/url_sm pro carrossel usar 5), inflando o payload da home
+    // proporcionalmente ao total de fotos do catálogo, não ao que a tela mostra.
+    .order('is_cover', { ascending: false, referencedTable: 'property_images' })
+    .order('position', { referencedTable: 'property_images' })
+    .limit(IMAGES_PER_CARD, { referencedTable: 'property_images' })
   if (error) throw error
   const brokers = await fetchBrokersById(
     client,

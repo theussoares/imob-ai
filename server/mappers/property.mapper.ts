@@ -110,16 +110,21 @@ export type PublicPropertyCardRow = Pick<
   | 'featured'
 >
 
-/** Modelo enxuto do card: só a capa, sem description/features/demais imagens. */
+/** Modelo enxuto do card: até algumas fotos (capa sempre em [0]) para o carrossel da listagem. */
 export function toPropertyCardModel(
   row: PublicPropertyCardRow,
-  images: PropertyImageFields[] = [],
+  imageRows: PropertyImageFields[] = [],
   brokerPhone: string | null = null,
 ): PropertyCard {
-  const cover = [...images].sort((a, b) => {
-    if (a.is_cover !== b.is_cover) return a.is_cover ? -1 : 1
-    return a.position - b.position
-  })[0]
+  // A query já entrega ordenado (capa primeiro, depois posição) e limitado a
+  // `IMAGES_PER_CARD` — o sort aqui é só uma rede de segurança para quem
+  // chamar este mapper sem passar pela query pronta.
+  const images = [...imageRows]
+    .sort((a, b) => {
+      if (a.is_cover !== b.is_cover) return a.is_cover ? -1 : 1
+      return a.position - b.position
+    })
+    .map(toPropertyImageModel)
   return {
     id: row.id,
     code: row.code,
@@ -137,7 +142,7 @@ export function toPropertyCardModel(
     highStandard: row.high_standard,
     featured: row.featured,
     brokerPhone,
-    cover: cover ? toPropertyImageModel(cover) : null,
+    images,
   }
 }
 

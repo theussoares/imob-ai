@@ -36,3 +36,4 @@ pnpm-debug.log*
 
 # Config local de dev do Claude Code (launch.json do preview)
 .claude/
+.env.example

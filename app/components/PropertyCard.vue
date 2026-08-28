@@ -40,30 +40,18 @@ const titulo = computed(() => [tipoLabel.value, medida.value].filter(Boolean).jo
 
 const codigo = computed(() => formatPropertyCode(props.property.code))
 
-const coverImage = computed(() => props.property.cover)
-const cover = computed(() => coverImage.value?.url || '')
-// srcset só quando existe a derivada de 640px; imagem externa/antiga usa a original.
-const coverSrcset = computed(() =>
-  coverImage.value?.urlSm ? `${coverImage.value.urlSm} 640w, ${coverImage.value.url} 1600w` : undefined,
-)
 const isRent = computed(() => props.property.purpose === 'aluguel')
-// Cards acima da dobra não podem ser lazy: em tenant sem hero image, a capa do
-// primeiro card É o elemento de LCP, e lazy adia o download pro pós-layout.
-const isAboveFold = computed(() => props.index < 3)
+const detailPath = computed(() => propertyPath(props.property))
 </script>
 
 <template>
   <article class="prop">
     <div class="ph">
-      <img
-        v-if="cover"
-        :src="cover"
-        :srcset="coverSrcset"
-        sizes="(min-width: 1040px) 360px, (min-width: 820px) 50vw, 100vw"
+      <PropertyCardCarousel
+        :images="property.images"
+        :index="index"
+        :to="detailPath"
         :alt="local ? `${tipoLabel} em ${local}` : tipoLabel"
-        :loading="isAboveFold ? 'eager' : 'lazy'"
-        :fetchpriority="index === 0 ? 'high' : 'auto'"
-        decoding="async"
       />
       <div class="badges">
         <span class="badge" :class="{ rent: isRent }">{{ isRent ? 'Aluguel' : 'Venda' }}</span>
@@ -76,7 +64,7 @@ const isAboveFold = computed(() => props.index < 3)
       <div class="price">
         {{ formatBRL(property.price) }}<span v-if="isRent"> /mês</span>
       </div>
-      <NuxtLink class="ttl" :to="propertyPath(property)">{{ titulo }}</NuxtLink>
+      <NuxtLink class="ttl" :to="detailPath">{{ titulo }}</NuxtLink>
       <div v-if="local" class="loc">
         <AppIcon name="pin" />{{ local }}
       </div>
