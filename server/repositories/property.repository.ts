@@ -212,6 +212,32 @@ async function replaceImages(client: Client, propertyId: string, input: Property
   if (error) throw error
 }
 
+/**
+ * O código é único por imobiliária (`properties_tenant_id_code_key`). Sem esta
+ * tradução o erro cru do Postgres subia pelo `throw error` até o Nitro, que o
+ * registra como 500 "unhandled" e responde sem `statusMessage` — a tela então
+ * caía no texto genérico "Não foi possível salvar. Verifique os campos.".
+ *
+ * O estrago não é o 500 no log: é mandar conferir campo por campo um cadastro
+ * que está inteiro certo, menos o código. Em 28/08 uma cliente tentou três
+ * vezes seguidas em oito segundos, porque nada na tela dizia o que estava
+ * errado. O código dela já existia em outro imóvel.
+ *
+ * Só o 23505 é traduzido. Qualquer outra falha do banco continua subindo como
+ * está: dizer "código repetido" para um erro que não é esse mandaria a pessoa
+ * mexer no campo errado e ainda esconderia o problema de verdade.
+ *
+ * A tabela tem uma única constraint UNIQUE além da chave primária (que é uuid
+ * gerado, nunca colide), então 23505 aqui é sempre o código.
+ */
+function assertCodigoLivre(error: unknown, code: string): void {
+  if ((error as { code?: string } | null)?.code !== '23505') return
+  throw createError({
+    statusCode: 409,
+    statusMessage: `Já existe um imóvel com o código ${code.trim()} nesta imobiliária. Use outro código, ou edite o imóvel que já está cadastrado com ele.`,
+  })
+}
+
 export async function createProperty(
   client: Client,
   tenantId: string,
@@ -225,6 +251,7 @@ export async function createProperty(
     .insert({ ...toPropertyRow(input, tenantId), updated_by: createdBy ?? null })
     .select('*')
     .single()
+  assertCodigoLivre(error, input.code)
   if (error) throw error
   await replaceImages(client, data.id, input)
   return (await getPropertyById(client, tenantId, data.id))!
@@ -261,6 +288,7 @@ export async function updateProperty(
   let query = client.from('properties').update(row).eq('tenant_id', tenantId).eq('id', id)
   if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt)
   const { data, error } = await query.select('id')
+  assertCodigoLivre(error, input.code)
   if (error) throw error
 
   if (expectedUpdatedAt && !(data ?? []).length) {
