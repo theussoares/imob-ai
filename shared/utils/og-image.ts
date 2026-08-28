@@ -14,19 +14,20 @@
  */
 
 /** Só o que este helper precisa do card — mantém a função testável sem o modelo inteiro. */
-interface ComCapa {
-  cover?: { url: string } | null
+interface ComFotos {
+  images?: { url: string }[]
 }
 
 export function homeOgImage(
   logoUrl: string | null | undefined,
-  properties: ComCapa[],
+  properties: ComFotos[],
 ): string | undefined {
   // O tenant `demo` guarda string vazia, não null — `|| null` não bastaria.
   const logo = (logoUrl || '').trim()
   if (logo) return logo
 
-  // Imóvel sem foto cadastrada tem `cover: null`; pular para o próximo é melhor
-  // que desistir quando há foto logo abaixo.
-  return properties.find((p) => p.cover?.url)?.cover?.url
+  // Imóvel sem foto cadastrada tem `images: []`; pular para o próximo é melhor
+  // que desistir quando há foto logo abaixo. A capa é sempre `images[0]`
+  // (ver `toPropertyCardModel`).
+  return properties.find((p) => p.images?.[0]?.url)?.images?.[0]?.url
 }

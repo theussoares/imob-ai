@@ -87,7 +87,8 @@ export interface PropertyCard {
   highStandard: boolean
   featured: boolean
   brokerPhone?: string | null
-  cover: PropertyImage | null
+  /** Até 5 fotos (capa sempre em [0]) para o carrossel do card — ver `IMAGES_PER_CARD`. */
+  images: PropertyImage[]
 }
 
 /** Payload de imagem enviado pelo painel ao criar/editar um imóvel. */

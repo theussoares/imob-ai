@@ -21,18 +21,11 @@ const props = defineProps<{
 
 // Galeria controlada por índice (não por URL): é o que permite navegar
 // anterior/próxima na tela cheia e destacar a miniatura certa.
-const activeIndex = ref(0);
-const active = computed(() => props.images[activeIndex.value]?.url || "");
-const hasMany = computed(() => props.images.length > 1);
+const { activeIndex, activeImage, activeSrcset, hasMany, go } = useImageCarousel(() => props.images);
+const active = computed(() => activeImage.value?.url || "");
 
 const thumbStrip = ref<HTMLElement | null>(null);
 const lbStrip = ref<HTMLElement | null>(null);
-
-function go(delta: number) {
-  const n = props.images.length;
-  if (n < 2) return;
-  activeIndex.value = (activeIndex.value + delta + n) % n; // circular
-}
 
 /**
  * Navegar pelas setas ou pelo swipe move a miniatura ativa junto. Sem isto, na
@@ -111,6 +104,8 @@ onBeforeUnmount(() => {
     >
       <img
         :src="active"
+        :srcset="activeSrcset"
+        sizes="(min-width: 900px) 740px, 100vw"
         :alt="title"
         class="gallery-main"
         fetchpriority="high"
@@ -182,6 +177,8 @@ onBeforeUnmount(() => {
             <img
               ref="lbImage"
               :src="active"
+              :srcset="activeSrcset"
+              sizes="100vw"
               :alt="title"
               class="lb-img"
               draggable="false"
