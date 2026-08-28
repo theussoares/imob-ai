@@ -486,6 +486,49 @@ select.ctl {
     transition: none;
   }
 }
+/* Sinal de que a foto ativa ainda não chegou — sem isto, trocar de foto e
+   ela ainda não ter carregado parece que o toque/swipe não fez nada, porque
+   o <img> fica em branco até decodificar. O atraso de 0.15s só entra na
+   ENTRADA (`.on`): uma foto que já está em cache carrega rápido demais pro
+   spinner chegar a aparecer, então ele nunca pisca à toa. */
+.img-spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.img-spinner.on {
+  opacity: 1;
+  transition-delay: 0.15s;
+}
+.img-spinner::after {
+  content: "";
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: img-spin 0.7s linear infinite;
+}
+@keyframes img-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-spinner,
+  .img-spinner.on {
+    transition: none;
+  }
+  .img-spinner::after {
+    animation: none;
+  }
+}
 .badges {
   position: absolute;
   top: 11px;
@@ -625,6 +668,10 @@ select.ctl {
   color: var(--ink);
   background: var(--paper);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   text-decoration: none;
   transition: all 0.16s;
 }

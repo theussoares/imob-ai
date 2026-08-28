@@ -20,5 +20,18 @@ export function useImageCarousel(getImages: () => PropertyImage[]) {
     activeIndex.value = (activeIndex.value + delta + n) % n; // circular
   }
 
-  return { activeIndex, activeImage, activeSrcset, hasMany, go };
+  /**
+   * Sem isto, trocar de foto (seta, swipe ou miniatura) e ela ainda não ter
+   * chegado dá a impressão de que o toque não fez nada — o `<img>` fica em
+   * branco até decodificar, sem nenhum sinal de que uma troca está em curso.
+   */
+  const imageLoading = ref(true);
+  watch(activeImage, () => {
+    imageLoading.value = true;
+  });
+  function onImageLoad() {
+    imageLoading.value = false;
+  }
+
+  return { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad };
 }
