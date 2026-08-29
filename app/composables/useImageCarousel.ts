@@ -9,7 +9,7 @@ import type { PropertyImage } from "~~/shared/models/property";
  * a galeria da página de detalhe usa outra (maior) — por isso é parâmetro, não
  * uma constante fixa aqui dentro.
  */
-export function useImageCarousel(getImages: () => PropertyImage[], baseWidth = 240) {
+export function useImageCarousel(getImages: () => PropertyImage[], baseWidth = 360) {
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
   const activeSrcset = computed(() => {

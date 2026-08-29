@@ -23,9 +23,15 @@ const props = withDefaults(
   { index: 99 },
 );
 
-const { activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg } = useImageCarousel(
-  () => props.images,
-);
+const {
+  activeImage,
+  activeSrcset,
+  hasMany,
+  go,
+  imageLoading,
+  onImageLoad,
+  bindImg,
+} = useImageCarousel(() => props.images);
 // Cards acima da dobra não podem ser lazy: em tenant sem hero image, a capa do
 // primeiro card É o elemento de LCP, e lazy adia o download pro pós-layout.
 const isAboveFold = computed(() => props.index < 3);
@@ -73,10 +79,20 @@ function onTap() {
     />
     <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
     <template v-if="hasMany">
-      <button type="button" class="cc-nav cc-prev" aria-label="Foto anterior" @click.stop="go(-1)">
+      <button
+        type="button"
+        class="cc-nav cc-prev"
+        aria-label="Foto anterior"
+        @click.stop="go(-1)"
+      >
         <AppIcon name="chevron-left" />
       </button>
-      <button type="button" class="cc-nav cc-next" aria-label="Próxima foto" @click.stop="go(1)">
+      <button
+        type="button"
+        class="cc-nav cc-next"
+        aria-label="Próxima foto"
+        @click.stop="go(1)"
+      >
         <AppIcon name="chevron-right" />
       </button>
     </template>
