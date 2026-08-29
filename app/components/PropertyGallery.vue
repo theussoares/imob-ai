@@ -31,7 +31,7 @@ const {
   imageLoading,
   onImageLoad,
   bindImg,
-} = useImageCarousel(() => props.images);
+} = useImageCarousel(() => props.images, 720);
 const active = computed(() => activeImage.value?.url || "");
 
 const thumbStrip = ref<HTMLElement | null>(null);

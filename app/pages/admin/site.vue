@@ -221,7 +221,7 @@ useHead({ title: "Meu site · Painel" });
             <div class="hero-img-preview">
               <img
                 v-if="form.heroImage"
-                :src="form.heroImage"
+                :src="supabaseRenderImage(form.heroImage, { width: 120, height: 120, quality: 70 })"
                 alt="Foto do hero"
               />
               <AppIcon v-else name="home" />

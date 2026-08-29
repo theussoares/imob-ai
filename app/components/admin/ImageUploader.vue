@@ -1,110 +1,129 @@
 <script setup lang="ts">
-import type { PropertyImageInput } from '~~/shared/models/property'
+import type { PropertyImageInput } from "~~/shared/models/property";
 
-const model = defineModel<PropertyImageInput[]>({ default: () => [] })
+const model = defineModel<PropertyImageInput[]>({ default: () => [] });
 
-const tenant = useTenant()
-const toast = useToast()
-const uploading = ref(false)
-const urlInput = ref('')
+const tenant = useTenant();
+const toast = useToast();
+const uploading = ref(false);
+const urlInput = ref("");
 
 function reindex() {
-  model.value.forEach((m, i) => (m.position = i))
-  const first = model.value[0]
-  if (first && !model.value.some((m) => m.isCover)) first.isCover = true
+  model.value.forEach((m, i) => (m.position = i));
+  const first = model.value[0];
+  if (first && !model.value.some((m) => m.isCover)) first.isCover = true;
 }
 
 async function onFiles(e: Event) {
-  const input = e.target as HTMLInputElement
-  const files = Array.from(input.files || [])
-  if (!files.length) return
-  const slug = tenant.value?.slug
+  const input = e.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const slug = tenant.value?.slug;
   if (!slug) {
-    toast.error('Não foi possível identificar a imobiliária. Recarregue a página.')
-    input.value = ''
-    return
+    toast.error(
+      "Não foi possível identificar a imobiliária. Recarregue a página.",
+    );
+    input.value = "";
+    return;
   }
-  uploading.value = true
+  uploading.value = true;
   try {
-    const client = await getAdminSupabase()
-    const bucket = client.storage.from('property-images')
+    const client = await getAdminSupabase();
+    const bucket = client.storage.from("property-images");
 
     for (const file of files) {
-      const base = `${slug}/${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const base = `${slug}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Formato que o canvas não abre (SVG, HEIC): sobe como veio, sem derivada.
       if (!isResizableImage(file)) {
-        const ext = file.name.split('.').pop() || 'jpg'
-        const path = `${base}.${ext}`
-        const { error } = await bucket.upload(path, file, { cacheControl: '31536000', upsert: false })
-        if (error) throw error
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${base}.${ext}`;
+        const { error } = await bucket.upload(path, file, {
+          cacheControl: "31536000",
+          upsert: false,
+        });
+        if (error) throw error;
         model.value.push({
           url: bucket.getPublicUrl(path).data.publicUrl,
           urlSm: null,
-          alt: '',
+          alt: "",
           isCover: model.value.length === 0,
           position: model.value.length,
-        })
-        continue
+        });
+        continue;
       }
 
       // Duas derivadas WebP: 1600px (galeria) e 640px (card/thumb, via srcset).
       const [lg, sm] = await Promise.all([
         resizeToWebp(file, IMAGE_SIZE_LG),
         resizeToWebp(file, IMAGE_SIZE_SM),
-      ])
-      const pathLg = `${base}.webp`
-      const pathSm = `${base}@sm.webp`
+      ]);
+      const pathLg = `${base}.webp`;
+      const pathSm = `${base}@sm.webp`;
 
       const [resLg, resSm] = await Promise.all([
-        bucket.upload(pathLg, lg, { cacheControl: '31536000', upsert: false, contentType: 'image/webp' }),
-        bucket.upload(pathSm, sm, { cacheControl: '31536000', upsert: false, contentType: 'image/webp' }),
-      ])
-      if (resLg.error) throw resLg.error
-      if (resSm.error) throw resSm.error
+        bucket.upload(pathLg, lg, {
+          cacheControl: "31536000",
+          upsert: false,
+          contentType: "image/webp",
+        }),
+        bucket.upload(pathSm, sm, {
+          cacheControl: "31536000",
+          upsert: false,
+          contentType: "image/webp",
+        }),
+      ]);
+      if (resLg.error) throw resLg.error;
+      if (resSm.error) throw resSm.error;
 
       model.value.push({
         url: bucket.getPublicUrl(pathLg).data.publicUrl,
         urlSm: bucket.getPublicUrl(pathSm).data.publicUrl,
-        alt: '',
+        alt: "",
         isCover: model.value.length === 0,
         position: model.value.length,
-      })
+      });
     }
   } catch (err: unknown) {
-    const m = err as { message?: string }
-    toast.error('Falha no upload: ' + (m?.message || 'erro desconhecido'))
+    const m = err as { message?: string };
+    toast.error("Falha no upload: " + (m?.message || "erro desconhecido"));
   } finally {
-    uploading.value = false
-    input.value = ''
+    uploading.value = false;
+    input.value = "";
   }
 }
 
 function addByUrl() {
-  const u = urlInput.value.trim()
-  if (!u) return
+  const u = urlInput.value.trim();
+  if (!u) return;
   // URL externa não tem derivada nossa — urlSm null, o front cai na url original.
-  model.value.push({ url: u, urlSm: null, alt: '', isCover: model.value.length === 0, position: model.value.length })
-  urlInput.value = ''
+  model.value.push({
+    url: u,
+    urlSm: null,
+    alt: "",
+    isCover: model.value.length === 0,
+    position: model.value.length,
+  });
+  urlInput.value = "";
 }
 
 function remove(i: number) {
-  model.value.splice(i, 1)
-  reindex()
+  model.value.splice(i, 1);
+  reindex();
 }
 function setCover(i: number) {
-  model.value.forEach((m, idx) => (m.isCover = idx === i))
+  model.value.forEach((m, idx) => (m.isCover = idx === i));
 }
 function move(i: number, dir: number) {
-  const j = i + dir
-  if (j < 0 || j >= model.value.length) return
-  const arr = model.value
-  const a = arr[i]
-  const b = arr[j]
-  if (!a || !b) return
-  arr[i] = b
-  arr[j] = a
-  reindex()
+  const j = i + dir;
+  if (j < 0 || j >= model.value.length) return;
+  const arr = model.value;
+  const a = arr[i];
+  const b = arr[j];
+  if (!a || !b) return;
+  arr[i] = b;
+  arr[j] = a;
+  reindex();
 }
 </script>
 
@@ -112,26 +131,58 @@ function move(i: number, dir: number) {
   <div>
     <div class="uploader-actions">
       <label class="admin-btn ghost file-btn">
-        {{ uploading ? 'Enviando...' : '+ Enviar imagens' }}
-        <input type="file" accept="image/*" multiple hidden :disabled="uploading" @change="onFiles" />
+        {{ uploading ? "Enviando..." : "+ Enviar imagens" }}
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          :disabled="uploading"
+          @change="onFiles"
+        />
       </label>
       <div class="url-add">
-        <input v-model="urlInput" class="admin-input" placeholder="ou cole uma URL de imagem" @keydown.enter.prevent="addByUrl" />
-        <button type="button" class="admin-btn ghost" @click="addByUrl">Adicionar</button>
+        <input
+          v-model="urlInput"
+          class="admin-input"
+          placeholder="ou cole uma URL de imagem"
+          @keydown.enter.prevent="addByUrl"
+        />
+        <button type="button" class="admin-btn ghost" @click="addByUrl">
+          Adicionar
+        </button>
       </div>
     </div>
 
-    <p v-if="!model.length" class="muted-note">Nenhuma imagem ainda. A primeira será a capa.</p>
+    <p v-if="!model.length" class="muted-note">
+      Nenhuma imagem ainda. A primeira será a capa.
+    </p>
 
     <div v-else class="thumbs-grid">
-      <div v-for="(img, i) in model" :key="i" class="thumb-item" :class="{ cover: img.isCover }">
-        <img :src="supabaseRenderImage(img.url, { width: 280, height: 210, quality: 70 })" :alt="img.alt || 'Imagem do imóvel'" />
+      <div
+        v-for="(img, i) in model"
+        :key="i"
+        class="thumb-item"
+        :class="{ cover: img.isCover }"
+      >
+        <img
+          :src="supabaseRenderImage(img.url, { width: 280, height: 210, quality: 70 })"
+          :alt="img.alt || 'Imagem do imóvel'"
+        />
         <span v-if="img.isCover" class="cover-tag">Capa</span>
         <div class="thumb-controls">
-          <button type="button" title="Mover para trás" @click="move(i, -1)">←</button>
-          <button type="button" title="Definir como capa" @click="setCover(i)">★</button>
-          <button type="button" title="Mover para frente" @click="move(i, 1)">→</button>
-          <button type="button" class="del" title="Remover" @click="remove(i)">✕</button>
+          <button type="button" title="Mover para trás" @click="move(i, -1)">
+            ←
+          </button>
+          <button type="button" title="Definir como capa" @click="setCover(i)">
+            ★
+          </button>
+          <button type="button" title="Mover para frente" @click="move(i, 1)">
+            →
+          </button>
+          <button type="button" class="del" title="Remover" @click="remove(i)">
+            ✕
+          </button>
         </div>
       </div>
     </div>

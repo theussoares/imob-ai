@@ -2,22 +2,22 @@ import type { ComponentPublicInstance } from "vue";
 import type { PropertyImage } from "~~/shared/models/property";
 
 /**
- * Índice ativo + navegação circular sobre uma lista de fotos do imóvel, com o
- * srcset de 640px/1600px que tanto a galeria da página de detalhe quanto o
- * carrossel do card usam do mesmo jeito.
+ * Índice ativo + navegação circular sobre uma lista de fotos do imóvel. O
+ * srcset (1x/2x) sai sob demanda do endpoint de transformação do Supabase, a
+ * partir da `url` original — sem depender da derivada `urlSm` pré-gerada no
+ * upload. `baseWidth` é a largura 1x: o card da listagem usa uma (pequena) e
+ * a galeria da página de detalhe usa outra (maior) — por isso é parâmetro, não
+ * uma constante fixa aqui dentro.
  */
-export function useImageCarousel(getImages: () => PropertyImage[]) {
+export function useImageCarousel(getImages: () => PropertyImage[], baseWidth = 240) {
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
-  // Testando o endpoint de transformação do Supabase no lugar da derivada
-  // `urlSm` pré-gerada: as duas larguras do srcset saem sob demanda da mesma
-  // `url` original. Imagem externa cai na própria URL, sem transformação.
   const activeSrcset = computed(() => {
     const url = activeImage.value?.url;
     if (!url) return undefined;
     return [
-      `${supabaseRenderImage(url, { width: 280, height: 280, quality: 70 })} 280w`,
-      `${supabaseRenderImage(url, { width: 360, height: 360, quality: 70 })} 360w`,
+      `${supabaseRenderImage(url, { width: baseWidth, height: baseWidth, quality: 70 })} ${baseWidth}w`,
+      `${supabaseRenderImage(url, { width: baseWidth * 2, height: baseWidth * 2, quality: 70 })} ${baseWidth * 2}w`,
     ].join(", ");
   });
   const hasMany = computed(() => getImages().length > 1);

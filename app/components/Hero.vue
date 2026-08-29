@@ -11,13 +11,46 @@ const hasCta = computed(() => !!props.tenant?.heroCtaLabel && !!props.tenant?.he
 const ctaExternal = computed(() => /^https?:\/\//i.test(props.tenant?.heroCtaHref || ''))
 const heroTitle = computed(() => props.tenant?.heroTitle || 'Encontre o imóvel certo sem rodeios.')
 const imageAlt = computed(() => `Foto institucional${props.tenant?.name ? ' — ' + props.tenant.name : ''}`)
+
+/**
+ * O hero é sempre LCP (`fetchpriority="high"`, nunca lazy) mas era servido na
+ * derivada `IMAGE_SIZE_LG` (1600px) inteira, mesmo no celular. Mesma ideia das
+ * fotos de imóvel: srcset via transformação sob demanda do Supabase em vez da
+ * imagem única full-size.
+ */
+// Fundo full-bleed: cobre a largura toda da viewport.
+const heroBgSrcset = computed(() => {
+  const url = props.tenant?.heroImage
+  if (!url) return undefined
+  return [
+    `${supabaseRenderImage(url, { width: 640, height: 640, quality: 65 })} 640w`,
+    `${supabaseRenderImage(url, { width: 1280, height: 1280, quality: 65 })} 1280w`,
+    `${supabaseRenderImage(url, { width: 1920, height: 1920, quality: 65 })} 1920w`,
+  ].join(', ')
+})
+// Split: coluna de ~546px a partir de 860px; largura da viewport (menos padding) abaixo disso.
+const heroSplitSrcset = computed(() => {
+  const url = props.tenant?.heroImage
+  if (!url) return undefined
+  return [
+    `${supabaseRenderImage(url, { width: 720, height: 720, quality: 70 })} 720w`,
+    `${supabaseRenderImage(url, { width: 1440, height: 1440, quality: 70 })} 1440w`,
+  ].join(', ')
+})
 </script>
 
 <template>
   <section class="hero" :class="{ split: isSplit, 'img-left': isSplit && imageOnLeft, 'bg-mode': isBackground }">
     <div v-if="isBackground" class="hero-bg">
       <!-- LCP quase certo no modo fundo: alta prioridade, nunca lazy. -->
-      <img :src="tenant!.heroImage!" :alt="imageAlt" fetchpriority="high" decoding="async" />
+      <img
+        :src="tenant!.heroImage!"
+        :srcset="heroBgSrcset"
+        sizes="100vw"
+        :alt="imageAlt"
+        fetchpriority="high"
+        decoding="async"
+      />
       <div class="hero-overlay" />
     </div>
 
@@ -36,7 +69,14 @@ const imageAlt = computed(() => `Foto institucional${props.tenant?.name ? ' — 
         </NuxtLink>
       </div>
       <div v-if="isSplit" class="hero-media">
-        <img :src="tenant!.heroImage!" :alt="imageAlt" fetchpriority="high" decoding="async" />
+        <img
+          :src="tenant!.heroImage!"
+          :srcset="heroSplitSrcset"
+          sizes="(min-width: 860px) 546px, calc(100vw - 36px)"
+          :alt="imageAlt"
+          fetchpriority="high"
+          decoding="async"
+        />
       </div>
     </div>
   </section>
