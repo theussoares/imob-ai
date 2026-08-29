@@ -41,3 +41,30 @@ export async function resizeToWebp(file: File, maxEdge: number, quality = 0.82):
 export function isResizableImage(file: File): boolean {
   return /^image\/(jpeg|png|webp|gif|bmp)$/i.test(file.type)
 }
+
+/**
+ * Deriva uma URL da API de transformação de imagem do Supabase
+ * (`/render/image/public/...?width=&height=&quality=`) a partir da URL
+ * pública normal (`/object/public/...`). `resize=contain` porque só reduz —
+ * nunca corta a foto como `cover` faria.
+ *
+ * Testando como alternativa às derivadas `urlSm` geradas no upload: uma foto
+ * só, redimensionada sob demanda pro Supabase, em vez de duas subidas fixas.
+ */
+export function supabaseRenderImage(
+  url: string,
+  opts?: { width?: number; height?: number; quality?: number },
+): string {
+  if (!url) return url
+
+  const renderUrl = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
+  // URL externa (colada à mão, sem passar pelo nosso Storage): sem transformação.
+  if (renderUrl === url) return url
+
+  const width = opts?.width ?? 600
+  const height = opts?.height ?? 600
+  const quality = opts?.quality ?? 60
+  const sep = renderUrl.includes('?') ? '&' : '?'
+
+  return `${renderUrl}${sep}width=${width}&height=${height}&resize=contain&quality=${quality}`
+}
