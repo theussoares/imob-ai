@@ -9,10 +9,17 @@ import type { PropertyImage } from "~~/shared/models/property";
 export function useImageCarousel(getImages: () => PropertyImage[]) {
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
-  // srcset só quando existe a derivada de 640px; imagem externa/antiga usa a original.
-  const activeSrcset = computed(() =>
-    activeImage.value?.urlSm ? `${activeImage.value.urlSm} 640w, ${activeImage.value.url} 1600w` : undefined,
-  );
+  // Testando o endpoint de transformação do Supabase no lugar da derivada
+  // `urlSm` pré-gerada: as duas larguras do srcset saem sob demanda da mesma
+  // `url` original. Imagem externa cai na própria URL, sem transformação.
+  const activeSrcset = computed(() => {
+    const url = activeImage.value?.url;
+    if (!url) return undefined;
+    return [
+      `${supabaseRenderImage(url, { width: 280, height: 280, quality: 70 })} 280w`,
+      `${supabaseRenderImage(url, { width: 360, height: 360, quality: 70 })} 360w`,
+    ].join(", ");
+  });
   const hasMany = computed(() => getImages().length > 1);
 
   function go(delta: number) {

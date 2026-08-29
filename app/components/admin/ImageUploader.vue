@@ -125,7 +125,7 @@ function move(i: number, dir: number) {
 
     <div v-else class="thumbs-grid">
       <div v-for="(img, i) in model" :key="i" class="thumb-item" :class="{ cover: img.isCover }">
-        <img :src="img.url" :alt="img.alt || 'Imagem do imóvel'" />
+        <img :src="supabaseRenderImage(img.url, { width: 280, height: 210, quality: 70 })" :alt="img.alt || 'Imagem do imóvel'" />
         <span v-if="img.isCover" class="cover-tag">Capa</span>
         <div class="thumb-controls">
           <button type="button" title="Mover para trás" @click="move(i, -1)">←</button>

@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
               @click="activeIndex = i"
             >
               <img
-                :src="img.urlSm || img.url"
+                :src="supabaseRenderImage(img.url, { width: 144, height: 104, quality: 70 })"
                 :alt="img.alt || title"
                 loading="lazy"
               />
