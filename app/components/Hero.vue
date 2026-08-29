@@ -18,14 +18,20 @@ const imageAlt = computed(() => `Foto institucional${props.tenant?.name ? ' — 
  * fotos de imóvel: srcset via transformação sob demanda do Supabase em vez da
  * imagem única full-size.
  */
-// Fundo full-bleed: cobre a largura toda da viewport.
+// Fundo full-bleed: cobre a largura toda da viewport. Degrau de 960 no meio
+// porque o salto direto de 640 pra 1280 fazia celular com DPR alto (a maioria
+// hoje) cair no 1280 mesmo quando ~900-1000px já bastava (achado do PageSpeed
+// em produção: 98 KiB entregues contra ~29 KiB necessários). Qualidade um
+// pouco mais baixa que a das fotos de imóvel porque o degradê escuro por cima
+// (`.hero-overlay`) mascara boa parte da perda.
 const heroBgSrcset = computed(() => {
   const url = props.tenant?.heroImage
   if (!url) return undefined
   return [
-    `${supabaseRenderImage(url, { width: 640, height: 640, quality: 65 })} 640w`,
-    `${supabaseRenderImage(url, { width: 1280, height: 1280, quality: 65 })} 1280w`,
-    `${supabaseRenderImage(url, { width: 1920, height: 1920, quality: 65 })} 1920w`,
+    `${supabaseRenderImage(url, { width: 640, height: 640, quality: 60 })} 640w`,
+    `${supabaseRenderImage(url, { width: 960, height: 960, quality: 60 })} 960w`,
+    `${supabaseRenderImage(url, { width: 1280, height: 1280, quality: 60 })} 1280w`,
+    `${supabaseRenderImage(url, { width: 1920, height: 1920, quality: 60 })} 1920w`,
   ].join(', ')
 })
 // Split: coluna de ~546px a partir de 860px; largura da viewport (menos padding) abaixo disso.
