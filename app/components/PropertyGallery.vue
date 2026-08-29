@@ -22,9 +22,16 @@ const props = defineProps<{
 
 // Galeria controlada por índice (não por URL): é o que permite navegar
 // anterior/próxima na tela cheia e destacar a miniatura certa.
-const { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg } = useImageCarousel(
-  () => props.images,
-);
+const {
+  activeIndex,
+  activeImage,
+  activeSrcset,
+  hasMany,
+  go,
+  imageLoading,
+  onImageLoad,
+  bindImg,
+} = useImageCarousel(() => props.images);
 const active = computed(() => activeImage.value?.url || "");
 
 const thumbStrip = ref<HTMLElement | null>(null);
@@ -158,7 +165,11 @@ onBeforeUnmount(() => {
         @load="onImageLoad"
         @error="onImageLoad"
       />
-      <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
+      <div
+        class="img-spinner"
+        :class="{ on: imageLoading }"
+        aria-hidden="true"
+      />
       <span class="gallery-zoom"><AppIcon name="expand" /></span>
       <!-- aria-hidden: as miniaturas abaixo já dizem quantas são e qual é a
            atual, com rótulo próprio. Repetir aqui só polui o leitor de tela. -->
@@ -166,16 +177,26 @@ onBeforeUnmount(() => {
         {{ activeIndex + 1 }} / {{ images.length }}
       </span>
       <template v-if="hasMany">
-        <button type="button" class="gallery-nav gallery-prev" aria-label="Foto anterior" @click.stop="go(-1)">
+        <button
+          type="button"
+          class="gallery-nav gallery-prev"
+          aria-label="Foto anterior"
+          @click.stop="go(-1)"
+        >
           <AppIcon name="chevron-left" />
         </button>
-        <button type="button" class="gallery-nav gallery-next" aria-label="Próxima foto" @click.stop="go(1)">
+        <button
+          type="button"
+          class="gallery-nav gallery-next"
+          aria-label="Próxima foto"
+          @click.stop="go(1)"
+        >
           <AppIcon name="chevron-right" />
         </button>
       </template>
     </div>
 
-    <div v-if="hasMany" ref="thumbStrip" class="thumbs">
+    <!-- <div v-if="hasMany" ref="thumbStrip" class="thumbs">
       <button
         v-for="(img, i) in images"
         :key="img.id"
@@ -184,11 +205,11 @@ onBeforeUnmount(() => {
         :aria-label="`Foto ${i + 1} de ${images.length}`"
         :aria-current="activeIndex === i ? 'true' : undefined"
         @click="activeIndex = i"
-      >
-        <!-- thumb tem 84x60: usa a derivada pequena quando existe -->
-        <img :src="img.urlSm || img.url" :alt="img.alt || title" loading="lazy" />
+      > -->
+    <!-- thumb tem 84x60: usa a derivada pequena quando existe -->
+    <!-- <img :src="img.urlSm || img.url" :alt="img.alt || title" loading="lazy" />
       </button>
-    </div>
+    </div> -->
 
     <!-- Sem isto, abrir a tela cheia depende de a pessoa adivinhar que a foto é
          clicável. O ícone de ampliar ajuda, mas não diz quantas fotos existem. -->
@@ -241,7 +262,11 @@ onBeforeUnmount(() => {
               @load="onImageLoad"
               @error="onImageLoad"
             />
-            <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
+            <div
+              class="img-spinner"
+              :class="{ on: imageLoading }"
+              aria-hidden="true"
+            />
 
             <button
               v-if="hasMany"
@@ -264,7 +289,11 @@ onBeforeUnmount(() => {
               :aria-current="activeIndex === i ? 'true' : undefined"
               @click="activeIndex = i"
             >
-              <img :src="img.urlSm || img.url" :alt="img.alt || title" loading="lazy" />
+              <img
+                :src="img.urlSm || img.url"
+                :alt="img.alt || title"
+                loading="lazy"
+              />
             </button>
           </div>
 
