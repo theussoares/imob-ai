@@ -73,8 +73,7 @@ async function save() {
     if (e) throw e;
     await navigateTo("/admin");
   } catch (e: unknown) {
-    const err = e as { message?: string };
-    error.value = err?.message || "Não foi possível definir a senha.";
+    error.value = friendlyErrorMessage(e, "Não foi possível definir a senha.");
     state.value = "pronto";
   }
 }

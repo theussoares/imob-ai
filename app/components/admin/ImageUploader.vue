@@ -85,8 +85,7 @@ async function onFiles(e: Event) {
       });
     }
   } catch (err: unknown) {
-    const m = err as { message?: string };
-    toast.error("Falha no upload: " + (m?.message || "erro desconhecido"));
+    toast.error(friendlyErrorMessage(err, "Não foi possível enviar a imagem. Tente novamente."));
   } finally {
     uploading.value = false;
     input.value = "";

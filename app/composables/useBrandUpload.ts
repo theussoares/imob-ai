@@ -52,8 +52,7 @@ export function useBrandUpload(opts: {
 
       opts.onDone(client.storage.from(opts.bucket).getPublicUrl(path).data.publicUrl)
     } catch (err: unknown) {
-      const m = err as { message?: string }
-      toast.error('Falha no upload da imagem: ' + (m?.message || 'erro'))
+      toast.error(friendlyErrorMessage(err, 'Não foi possível enviar a imagem. Tente novamente.'))
     } finally {
       uploading.value = false
       input.value = ''
