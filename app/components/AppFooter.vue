@@ -3,8 +3,24 @@ import {
   resolveFooterPages,
   STATIC_FOOTER_PAGES,
 } from "~~/shared/utils/footer-pages";
+import {
+  formatTenantAddress,
+  googleMapsEmbedSrc,
+  hasStructuredAddress,
+} from "~~/shared/utils/address";
 const tenant = useTenant();
 const { whatsappLink } = useContact();
+
+const address = computed(() =>
+  tenant.value && hasStructuredAddress(tenant.value)
+    ? formatTenantAddress(tenant.value)
+    : "",
+);
+const mapSrc = computed(() =>
+  tenant.value && hasStructuredAddress(tenant.value)
+    ? googleMapsEmbedSrc(tenant.value)
+    : null,
+);
 
 /**
  * Texto do rodapé. Vazio cai na frase gerada com a cidade — quem nunca abrir a
@@ -81,8 +97,11 @@ const builtByLink = computed(() => {
           <AppIcon name="mail" /> {{ tenant.email }}
         </a>
         <!-- Era âncora vazia: link que não leva a lugar nenhum, anunciado como
-             link por leitor de tela. Cidade é informação, não navegação. -->
-        <span v-if="tenant?.city" class="foot-place">
+             link por leitor de tela. Endereço/cidade é informação, não navegação. -->
+        <span v-if="address" class="foot-place">
+          <AppIcon name="pin" /> {{ address }}
+        </span>
+        <span v-else-if="tenant?.city" class="foot-place">
           <AppIcon name="pin" /> {{ tenant.city
           }}<span v-if="tenant?.state"> · {{ tenant.state }}</span>
         </span>
@@ -96,6 +115,17 @@ const builtByLink = computed(() => {
         >
           <AppIcon :name="p.icon" /> {{ p.label }}
         </a>
+      </div>
+
+      <!-- Iframe sem chave de API (ver shared/utils/address.ts): só entra quando
+           há endereço, então não pesa o rodapé de quem não configurou nada. -->
+      <div v-if="mapSrc" class="foot-map" style="grid-column: 1 / -1">
+        <iframe
+          :src="mapSrc"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          title="Mapa com a localização"
+        />
       </div>
 
       <nav
@@ -138,6 +168,17 @@ const builtByLink = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+.foot-map {
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.foot-map iframe {
+  width: 100%;
+  height: 200px;
+  border: 0;
+  display: block;
 }
 .foot-links {
   grid-column: 1 / -1;

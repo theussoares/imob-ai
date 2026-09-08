@@ -351,6 +351,13 @@ export type Database = {
         Row: {
           active: boolean
           alternate_names: string[]
+          address_street: string | null
+          address_number: string | null
+          address_complement: string | null
+          address_neighborhood: string | null
+          address_zip: string | null
+          latitude: number | null
+          longitude: number | null
           brand_accent: string
           brand_primary: string
           city: string | null
@@ -363,6 +370,7 @@ export type Database = {
           hero_image_position: string
           hero_subtitle: string | null
           hero_title: string | null
+          about_content: Json
           footer_links: Json
           footer_pages: Json
           footer_text: string | null
@@ -383,6 +391,13 @@ export type Database = {
         Insert: {
           active?: boolean
           alternate_names?: string[]
+          address_street?: string | null
+          address_number?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_zip?: string | null
+          latitude?: number | null
+          longitude?: number | null
           brand_accent?: string
           brand_primary?: string
           city?: string | null
@@ -395,6 +410,7 @@ export type Database = {
           hero_image_position?: string
           hero_subtitle?: string | null
           hero_title?: string | null
+          about_content?: Json
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
@@ -415,6 +431,13 @@ export type Database = {
         Update: {
           active?: boolean
           alternate_names?: string[]
+          address_street?: string | null
+          address_number?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_zip?: string | null
+          latitude?: number | null
+          longitude?: number | null
           brand_accent?: string
           brand_primary?: string
           city?: string | null
@@ -427,6 +450,7 @@ export type Database = {
           hero_image_position?: string
           hero_subtitle?: string | null
           hero_title?: string | null
+          about_content?: Json
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null

@@ -1,5 +1,6 @@
 import type { FooterLink } from '~~/shared/utils/footer-links'
 import type { FooterPageOverrides } from '~~/shared/utils/footer-pages'
+import type { AboutPageContent } from '~~/shared/models/about-page'
 
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
@@ -21,6 +22,15 @@ export interface Tenant {
   creci: string | null
   city: string | null
   state: string | null
+  /** Endereço estruturado, para mostrar no rodapé com mapa e alimentar o schema.org. Tudo opcional. */
+  addressStreet: string | null
+  addressNumber: string | null
+  addressComplement: string | null
+  addressNeighborhood: string | null
+  addressZip: string | null
+  /** Coordenadas do pino no mapa. Junto com o endereço, mas independentes: um pode faltar sem o outro. */
+  latitude: number | null
+  longitude: number | null
   brandPrimary: string
   brandAccent: string
   logoUrl: string | null
@@ -45,6 +55,8 @@ export interface Tenant {
   footerLinks: FooterLink[]
   /** Ajustes do cliente sobre as páginas internas — só o que ele mudou. */
   footerPages: FooterPageOverrides
+  /** Conteúdo da página "Quem somos", em blocos. Ver shared/models/about-page.ts. */
+  aboutContent: AboutPageContent
   active: boolean
 }
 
@@ -64,6 +76,13 @@ export interface TenantSettingsInput {
   creci?: string | null
   city?: string | null
   state?: string | null
+  addressStreet?: string | null
+  addressNumber?: string | null
+  addressComplement?: string | null
+  addressNeighborhood?: string | null
+  addressZip?: string | null
+  latitude?: number | null
+  longitude?: number | null
   brandPrimary?: string
   brandAccent?: string
   logoUrl?: string | null
@@ -74,4 +93,5 @@ export interface TenantSettingsInput {
   footerText?: string | null
   footerLinks?: FooterLink[]
   footerPages?: FooterPageOverrides
+  aboutContent?: AboutPageContent
 }

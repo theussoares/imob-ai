@@ -24,7 +24,10 @@ const LABEL_MAX = 40
  * Estar aqui já é a decisão de que a página pode ser linkada; por isso o padrão
  * é visível, e esconder é escolha do cliente.
  */
-export const STATIC_FOOTER_PAGES: FooterPage[] = [{ path: '/quero-vender', label: 'Quero vender ou alugar' }]
+export const STATIC_FOOTER_PAGES: FooterPage[] = [
+  { path: '/quero-vender', label: 'Quero vender ou alugar' },
+  { path: '/quem-somos', label: 'Quem somos' },
+]
 
 /**
  * Junta o registro do código com os ajustes do cliente.

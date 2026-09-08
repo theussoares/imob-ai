@@ -44,6 +44,27 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
       throw createError({ statusCode: 422, statusMessage: 'Número de contato inválido.' })
     }
   }
+
+  if (t.addressZip !== undefined && t.addressZip !== null && String(t.addressZip).trim()) {
+    if (!/^\d{8}$/.test(String(t.addressZip).replace(/\D/g, ''))) {
+      throw createError({ statusCode: 422, statusMessage: 'CEP inválido. Use 8 dígitos.' })
+    }
+  }
+
+  // Ou o pino tem os dois eixos, ou não tem pino — metade de coordenada aponta
+  // para lugar nenhum e ainda assim passaria a chamar googleMapsEmbedSrc no modo
+  // "por coordenada" em vez de cair no modo "por endereço".
+  const hasLat = t.latitude !== undefined && t.latitude !== null
+  const hasLng = t.longitude !== undefined && t.longitude !== null
+  if (hasLat !== hasLng) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe latitude e longitude juntas, ou deixe as duas em branco.' })
+  }
+  if (hasLat && (typeof t.latitude !== 'number' || Number.isNaN(t.latitude) || t.latitude < -90 || t.latitude > 90)) {
+    throw createError({ statusCode: 422, statusMessage: 'Latitude inválida (-90 a 90).' })
+  }
+  if (hasLng && (typeof t.longitude !== 'number' || Number.isNaN(t.longitude) || t.longitude < -180 || t.longitude > 180)) {
+    throw createError({ statusCode: 422, statusMessage: 'Longitude inválida (-180 a 180).' })
+  }
 }
 
 /** Valida o payload de imóvel vindo do painel. */

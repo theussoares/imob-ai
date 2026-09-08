@@ -13,6 +13,7 @@ import {
   categoryLabel,
   allCategories,
 } from "~~/shared/utils/category";
+import { hasStructuredAddress, tenantCoordinates } from "~~/shared/utils/address";
 
 const tenant = useTenant();
 const requestFetch = useRequestFetch();
@@ -129,9 +130,25 @@ const orgJsonLd = computed(() => ({
   address: tenant.value?.city
     ? {
         "@type": "PostalAddress",
+        // Rua/número só entram quando a imobiliária preencheu o endereço
+        // estruturado (Meu site → Localização) — cidade/UF sempre existiram e
+        // continuam sozinhos servindo quem não configurou nada além disso.
+        ...(tenant.value && hasStructuredAddress(tenant.value)
+          ? {
+              streetAddress: [tenant.value.addressStreet, tenant.value.addressNumber].filter(Boolean).join(', '),
+              postalCode: tenant.value.addressZip || undefined,
+            }
+          : {}),
         addressLocality: tenant.value?.city,
         addressRegion: tenant.value?.state || undefined,
         addressCountry: "BR",
+      }
+    : undefined,
+  geo: tenant.value && tenantCoordinates(tenant.value)
+    ? {
+        "@type": "GeoCoordinates",
+        latitude: tenant.value.latitude,
+        longitude: tenant.value.longitude,
       }
     : undefined,
 }));

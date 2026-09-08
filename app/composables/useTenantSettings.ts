@@ -1,4 +1,5 @@
 import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
+import { EMPTY_ABOUT_CONTENT } from '~~/shared/models/about-page'
 
 type Field = keyof TenantSettingsInput
 
@@ -31,6 +32,13 @@ export function useTenantSettings(fields: Field[]) {
     creci: '',
     city: '',
     state: '',
+    addressStreet: '',
+    addressNumber: '',
+    addressComplement: '',
+    addressNeighborhood: '',
+    addressZip: '',
+    latitude: null,
+    longitude: null,
     brandPrimary: '#0f3d38',
     brandAccent: '#c2410c',
     logoUrl: '',
@@ -39,6 +47,7 @@ export function useTenantSettings(fields: Field[]) {
     footerText: '',
     footerLinks: [],
     footerPages: {},
+    aboutContent: EMPTY_ABOUT_CONTENT,
   })
   const alternateNamesText = ref('')
 
@@ -63,6 +72,13 @@ export function useTenantSettings(fields: Field[]) {
       creci: tenant.value.creci || '',
       city: tenant.value.city || '',
       state: tenant.value.state || '',
+      addressStreet: tenant.value.addressStreet || '',
+      addressNumber: tenant.value.addressNumber || '',
+      addressComplement: tenant.value.addressComplement || '',
+      addressNeighborhood: tenant.value.addressNeighborhood || '',
+      addressZip: tenant.value.addressZip || '',
+      latitude: tenant.value.latitude,
+      longitude: tenant.value.longitude,
       brandPrimary: tenant.value.brandPrimary,
       brandAccent: tenant.value.brandAccent,
       logoUrl: tenant.value.logoUrl || '',
@@ -75,6 +91,9 @@ export function useTenantSettings(fields: Field[]) {
       // Cópia rasa por chave, pelo mesmo motivo dos links: editar na tela não
       // pode sujar o tenant carregado antes de salvar.
       footerPages: Object.fromEntries(Object.entries(tenant.value.footerPages || {}).map(([k, v]) => [k, { ...v }])),
+      // Cópia: mesmo motivo dos links/páginas — editar blocos na tela não pode
+      // sujar o tenant carregado antes de salvar (nem entre blocos, que são objetos).
+      aboutContent: { blocks: (tenant.value.aboutContent?.blocks || []).map((b) => ({ ...b })) },
     })
     alternateNamesText.value = (tenant.value.alternateNames || []).join('\n')
   })
