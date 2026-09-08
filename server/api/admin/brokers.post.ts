@@ -6,5 +6,7 @@ export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
   const body = await readBody<BrokerInput>(event)
   assertBrokerInput(body)
-  return createBroker(client, tenant.id, body)
+  const broker = await createBroker(client, tenant.id, body)
+  await invalidateTenantCache(tenant.id)
+  return broker
 })

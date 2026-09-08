@@ -173,4 +173,12 @@ export function assertBrokerInput(input: unknown): asserts input is BrokerInput 
   if (b.phone !== undefined && b.phone !== null && String(b.phone).trim() && !isValidWhatsapp(String(b.phone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do corretor inválido.' })
   }
+  // Foto vem de upload para o Storage — só http(s), nunca um esquema executável
+  // (mesma regra dos blocos de imagem da página "Quem somos").
+  if (b.photoUrl !== undefined && b.photoUrl !== null && String(b.photoUrl).trim() && !/^https?:\/\//i.test(String(b.photoUrl).trim())) {
+    throw createError({ statusCode: 422, statusMessage: 'Foto inválida.' })
+  }
+  if (b.bio !== undefined && b.bio !== null && String(b.bio).length > 500) {
+    throw createError({ statusCode: 422, statusMessage: 'Minibio muito longa (máx. 500 caracteres).' })
+  }
 }

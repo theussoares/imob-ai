@@ -5,11 +5,13 @@
  * declara seus campos e o rótulo que aparece no seletor do painel, e o resto
  * (união de tipos, lista para o `<select>`) deriva daqui.
  *
- * Só quatro tipos hoje — o suficiente para começar a estruturar a página antes
- * dos modelos de conteúdo definitivos chegarem. Adicionar um tipo novo (linha
- * do tempo, depoimento, equipe) é estender a união e o `switch` de
- * renderização; nada disso quebra os blocos já salvos, porque cada um carrega
- * o próprio `type`.
+ * A maioria é conteúdo ESTÁTICO — o que a pessoa digita fica exatamente como
+ * digitou. `team` é diferente: é um bloco DINÂMICO, sem texto para editar aqui
+ * — ele manda a página buscar ao vivo os corretores que optaram por aparecer
+ * (tela Corretores → "Mostrar no site"). Existe separado de `image`/`gallery`
+ * de propósito: o conteúdo não mora no JSONB da página, mora no cadastro de
+ * corretores, e a página só aponta pra lá — trocar de agência ou desligar um
+ * corretor atualiza a vitrine sem tocar em "Quem somos".
  */
 
 export interface AboutHeadingBlock {
@@ -36,7 +38,73 @@ export interface AboutStatBlock {
   label: string
 }
 
-export type AboutBlock = AboutHeadingBlock | AboutTextBlock | AboutImageBlock | AboutStatBlock
+/** Faixa de largura total com imagem de fundo, título e um botão opcional. */
+export interface AboutBannerBlock {
+  type: 'banner'
+  title: string
+  imageUrl: string
+  ctaLabel: string
+  ctaHref: string
+}
+
+/** Texto e imagem lado a lado — o formato clássico de "nossa história". */
+export interface AboutSplitBlock {
+  type: 'split'
+  imageUrl: string
+  imageAlt: string
+  title: string
+  body: string
+  imagePosition: 'left' | 'right'
+}
+
+export interface AboutGalleryImage {
+  url: string
+  alt: string
+}
+
+/** Carrossel manual de fotos (escritório, eventos, bastidores). */
+export interface AboutGalleryBlock {
+  type: 'gallery'
+  images: AboutGalleryImage[]
+}
+
+/** Depoimento de cliente — prova social. */
+export interface AboutTestimonialBlock {
+  type: 'testimonial'
+  quote: string
+  authorName: string
+  authorRole: string
+}
+
+export interface AboutLogoItem {
+  url: string
+  alt: string
+}
+
+/** Fileira de selos/logos de parceiros (portais, certificações). */
+export interface AboutLogosBlock {
+  type: 'logos'
+  items: AboutLogoItem[]
+}
+
+/** Bloco dinâmico: carrossel dos corretores marcados como públicos. */
+export interface AboutTeamBlock {
+  type: 'team'
+  /** Título da seção. Vazio cai no padrão ("Nossa equipe") na renderização. */
+  title: string
+}
+
+export type AboutBlock =
+  | AboutHeadingBlock
+  | AboutTextBlock
+  | AboutImageBlock
+  | AboutStatBlock
+  | AboutBannerBlock
+  | AboutSplitBlock
+  | AboutGalleryBlock
+  | AboutTestimonialBlock
+  | AboutLogosBlock
+  | AboutTeamBlock
 
 export type AboutBlockType = AboutBlock['type']
 
@@ -45,6 +113,12 @@ export const ABOUT_BLOCK_TYPE_LABELS: Record<AboutBlockType, string> = {
   text: 'Texto',
   image: 'Imagem',
   stat: 'Número em destaque',
+  banner: 'Banner (imagem de fundo + chamada)',
+  split: 'Texto + imagem lado a lado',
+  gallery: 'Galeria de imagens',
+  testimonial: 'Depoimento',
+  logos: 'Logos/selos de parceiros',
+  team: 'Carrossel de corretores',
 }
 
 export const ABOUT_BLOCK_TYPES = Object.keys(ABOUT_BLOCK_TYPE_LABELS) as AboutBlockType[]
@@ -60,6 +134,18 @@ export function emptyAboutBlock(type: AboutBlockType): AboutBlock {
       return { type: 'image', url: '', alt: '', caption: '' }
     case 'stat':
       return { type: 'stat', value: '', label: '' }
+    case 'banner':
+      return { type: 'banner', title: '', imageUrl: '', ctaLabel: '', ctaHref: '' }
+    case 'split':
+      return { type: 'split', imageUrl: '', imageAlt: '', title: '', body: '', imagePosition: 'right' }
+    case 'gallery':
+      return { type: 'gallery', images: [] }
+    case 'testimonial':
+      return { type: 'testimonial', quote: '', authorName: '', authorRole: '' }
+    case 'logos':
+      return { type: 'logos', items: [] }
+    case 'team':
+      return { type: 'team', title: '' }
   }
 }
 

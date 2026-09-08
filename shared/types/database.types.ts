@@ -23,6 +23,9 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          photo_url: string | null
+          bio: string | null
+          public_visible: boolean
           tenant_id: string
           updated_at: string
         }
@@ -34,6 +37,9 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          photo_url?: string | null
+          bio?: string | null
+          public_visible?: boolean
           tenant_id: string
           updated_at?: string
         }
@@ -45,6 +51,9 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          photo_url?: string | null
+          bio?: string | null
+          public_visible?: boolean
           tenant_id?: string
           updated_at?: string
         }

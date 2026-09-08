@@ -14,7 +14,16 @@ const { data: brokers, refresh, pending } = useLazyAsyncData(
   { server: false, default: () => [] as Broker[] },
 )
 
-const empty = (): BrokerInput => ({ name: '', phone: '', email: '', creci: '', active: true })
+const empty = (): BrokerInput => ({
+  name: '',
+  phone: '',
+  email: '',
+  creci: '',
+  active: true,
+  photoUrl: '',
+  bio: '',
+  publicVisible: false,
+})
 const form = reactive<BrokerInput>(empty())
 const editingId = ref<string | null>(null)
 const saving = ref(false)
@@ -25,9 +34,25 @@ const formEl = ref<HTMLElement | null>(null)
 const { display: phoneDisplay, onInput: onPhoneInput, isValid: phoneValid } =
   usePhoneInput(toRef(form, 'phone'), 'whatsapp')
 
+const { uploading: uploadingPhoto, onFile: onPhotoFile } = useBrandUpload({
+  bucket: 'tenant-hero',
+  prefix: 'broker',
+  maxEdge: 480, // retrato pequeno na vitrine — não precisa da resolução do hero
+  onDone: (url) => (form.photoUrl = url),
+})
+
 function edit(b: Broker) {
   editingId.value = b.id
-  Object.assign(form, { name: b.name, phone: b.phone || '', email: b.email || '', creci: b.creci || '', active: b.active })
+  Object.assign(form, {
+    name: b.name,
+    phone: b.phone || '',
+    email: b.email || '',
+    creci: b.creci || '',
+    active: b.active,
+    photoUrl: b.photoUrl || '',
+    bio: b.bio || '',
+    publicVisible: b.publicVisible,
+  })
   formEl.value?.scrollIntoView({ behavior: 'smooth' })
 }
 function cancel() {
@@ -125,6 +150,43 @@ useHead({ title: 'Corretores · Painel' })
         <label class="check">
           <input v-model="form.active" type="checkbox" /> Ativo
         </label>
+
+        <div class="broker-public" style="grid-column: 1 / -1">
+          <h4 class="section-t sub">
+            Vitrine pública <span class="section-hint">(carrossel de corretores em "Quem somos")</span>
+          </h4>
+          <label class="check">
+            <input v-model="form.publicVisible" type="checkbox" /> Mostrar este corretor no site
+          </label>
+          <p class="hint-text">
+            Sem isto marcado, o corretor continua só no seu painel — nunca aparece pra quem visita o site, mesmo com
+            foto e minibio preenchidas.
+          </p>
+
+          <div class="form-grid" style="margin-top: 10px">
+            <div>
+              <label class="admin-label">Foto</label>
+              <div class="logo-row">
+                <div class="broker-photo-preview">
+                  <img v-if="form.photoUrl" :src="supabaseRenderImage(form.photoUrl, { width: 120, height: 120, quality: 75 })" alt="" />
+                  <AppIcon v-else name="home" />
+                </div>
+                <label class="admin-btn ghost file-btn">
+                  {{ uploadingPhoto ? 'Enviando...' : 'Enviar foto' }}
+                  <input type="file" accept="image/*" hidden @change="onPhotoFile" />
+                </label>
+                <button v-if="form.photoUrl" type="button" class="admin-btn ghost" @click="form.photoUrl = ''">
+                  Remover
+                </button>
+              </div>
+            </div>
+            <div>
+              <label class="admin-label">Minibio</label>
+              <textarea v-model="form.bio" class="admin-textarea" rows="3" maxlength="500" placeholder="Uma ou duas frases sobre a experiência dele." />
+            </div>
+          </div>
+        </div>
+
         <div class="form-actions">
           <button class="admin-btn" type="submit" :disabled="saving">
             {{ saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Adicionar corretor' }}
@@ -140,9 +202,14 @@ useHead({ title: 'Corretores · Painel' })
       <p v-else-if="!brokers?.length" style="color: var(--ink-soft)">Nenhum corretor cadastrado ainda.</p>
       <ul v-else class="broker-list">
         <li v-for="b in brokers" :key="b.id" class="broker">
+          <div class="broker-photo-preview list-thumb">
+            <img v-if="b.photoUrl" :src="supabaseRenderImage(b.photoUrl, { width: 80, height: 80, quality: 70 })" alt="" />
+            <AppIcon v-else name="home" />
+          </div>
           <div class="broker-info">
             <strong>{{ b.name }}</strong>
             <span v-if="!b.active" class="pill muted">Inativo</span>
+            <span v-if="b.publicVisible" class="pill">No site</span>
             <div class="broker-meta">
               <template v-if="b.creci">CRECI {{ b.creci }}</template>
               <template v-if="b.phone"> · {{ b.phone }}</template>
@@ -190,6 +257,56 @@ useHead({ title: 'Corretores · Painel' })
   gap: 10px;
   align-items: center;
 }
+.broker-public {
+  border-top: 1px dashed var(--line-2);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+.section-t.sub {
+  border-top: none;
+  padding-top: 0;
+  margin: 0 0 8px;
+  font-size: 13.5px;
+}
+.hint-text {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 6px 0 0;
+}
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.file-btn {
+  cursor: pointer;
+}
+.broker-photo-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1.5px solid var(--line-2);
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex: none;
+}
+.broker-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.broker-photo-preview :deep(svg) {
+  width: 24px;
+  height: 24px;
+}
+.broker-photo-preview.list-thumb {
+  width: 44px;
+  height: 44px;
+}
 .err {
   color: #b91c1c;
   font-size: 13px;
@@ -219,6 +336,10 @@ useHead({ title: 'Corretores · Painel' })
 }
 .broker:last-child {
   border-bottom: none;
+}
+.broker-info {
+  flex: 1;
+  min-width: 160px;
 }
 .broker-info strong {
   font-size: 15px;

@@ -6,5 +6,6 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
   await deleteBroker(client, tenant.id, id)
+  await invalidateTenantCache(tenant.id)
   return { ok: true }
 })

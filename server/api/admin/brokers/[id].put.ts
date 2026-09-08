@@ -8,5 +8,7 @@ export default defineEventHandler(async (event) => {
   if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
   const body = await readBody<BrokerInput>(event)
   assertBrokerInput(body)
-  return updateBroker(client, tenant.id, id, body)
+  const broker = await updateBroker(client, tenant.id, id, body)
+  await invalidateTenantCache(tenant.id)
+  return broker
 })
