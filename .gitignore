@@ -40,4 +40,3 @@ pnpm-debug.log*
 !.claude/agents/
 !.claude/settings.json
 .claude/settings.local.json
-.env.example
