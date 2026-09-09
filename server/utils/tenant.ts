@@ -18,16 +18,11 @@ export function isPlatformRootHost(hostname: string): boolean {
   return hostname === platform || hostname === 'www.' + platform
 }
 
-/**
- * Convenção da plataforma: `painel.<dominio-do-cliente>` serve exclusivamente o
- * admin. É prefixo em vez de configuração por tenant justamente pra que todo
- * cliente novo ganhe o painel no próprio domínio sem cadastro extra.
- */
-export const ADMIN_HOST_PREFIX = 'painel.'
-
-export function isAdminHost(hostname: string): boolean {
-  return hostname.startsWith(ADMIN_HOST_PREFIX)
-}
+// A regra do host de painel mora em shared/: o navegador também precisa dela,
+// para decidir se registra o service worker. Reexportado aqui porque o código
+// de servidor já a importa deste módulo.
+export { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
+import { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
 
 // Cache curto: mudanças de branding/config no painel refletem no site em ~1 min.
 // (Em serverless a invalidação só alcança uma instância, então o TTL é o que garante.)

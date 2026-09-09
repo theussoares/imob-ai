@@ -34,12 +34,23 @@ Instalação e carregamento rápido do painel, em desktop e mobile:
 
 **Fora do escopo, por decisão:**
 
-- **Trabalhar offline com dados.** É o que a maioria das pessoas entende por
-  "app", e é um projeto inteiro à parte: fila de escrita, resolução de conflito
-  e um modelo de "o que é verdade" enquanto não há rede. O painel hoje é um CRM
-  com Realtime — dois corretores mexendo no mesmo lead é caso normal, e resolver
-  isso mal é pior que não ter offline. O v1 entrega instalação e velocidade;
-  aberto sem rede, o painel abre e avisa que está sem conexão.
+- **Funcionar offline — de dados e de abertura.** Trabalhar offline com dados é
+  um projeto à parte: fila de escrita, resolução de conflito e um modelo de "o
+  que é verdade" enquanto não há rede. O painel é um CRM com Realtime, dois
+  corretores no mesmo lead é caso normal, e resolver isso mal é pior que não
+  ter.
+
+  **Nem abrir offline entra no v1**, e isso foi descoberto medindo, não
+  decidido antes: o build não emite HTML nenhum (`ssr: false` faz o shell da
+  SPA ser renderizado a cada requisição), então não há documento para o
+  `navigateFallback` do Workbox servir. Daria para prerenderizar `/admin` e
+  precachear esse shell, mas aí ele passaria a ser servido como arquivo
+  estático e o `render:html` de `pwa-head.ts` — que injeta o manifest conforme
+  o host — deixaria de rodar. Trocar a instalação por cliente pela abertura
+  offline é um mau negócio.
+
+  Sem rede, o painel mostra a tela de offline do navegador. O que o v1 entrega
+  é instalação e carregamento a partir do cache quando há rede.
 - **PWA no site público.** Não foi pedido, e cachear catálogo em site
   multi-tenant tem risco assimétrico: um shell errado servido no domínio de um
   cliente é prejuízo comercial dele, não nosso.
