@@ -53,24 +53,27 @@ async function onFiles(e: Event) {
         continue;
       }
 
-      // Duas derivadas WebP: 1600px (galeria) e 640px (card/thumb, via srcset).
+      // Duas derivadas: 1600px (galeria) e 640px (card/thumb, via srcset).
+      // O formato sai de `resizeImage`, não é assumido: navegador que não
+      // codifica WebP devolve JPEG, e nomear tudo de `.webp` foi o que escondeu
+      // 719 MB de PNG disfarçado no bucket.
       const [lg, sm] = await Promise.all([
-        resizeToWebp(file, IMAGE_SIZE_LG),
-        resizeToWebp(file, IMAGE_SIZE_SM),
+        resizeImage(file, IMAGE_SIZE_LG),
+        resizeImage(file, IMAGE_SIZE_SM),
       ]);
-      const pathLg = `${base}.webp`;
-      const pathSm = `${base}@sm.webp`;
+      const pathLg = `${base}.${lg.ext}`;
+      const pathSm = `${base}@sm.${sm.ext}`;
 
       const [resLg, resSm] = await Promise.all([
-        bucket.upload(pathLg, lg, {
+        bucket.upload(pathLg, lg.blob, {
           cacheControl: "31536000",
           upsert: false,
-          contentType: "image/webp",
+          contentType: lg.contentType,
         }),
-        bucket.upload(pathSm, sm, {
+        bucket.upload(pathSm, sm.blob, {
           cacheControl: "31536000",
           upsert: false,
-          contentType: "image/webp",
+          contentType: sm.contentType,
         }),
       ]);
       if (resLg.error) throw resLg.error;

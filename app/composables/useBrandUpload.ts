@@ -38,15 +38,18 @@ export function useBrandUpload(opts: {
     try {
       const client = await getAdminSupabase()
       // Formato que o canvas não abre (SVG, HEIC): sobe como veio.
-      const resizable = isResizableImage(file)
-      const body: Blob = resizable ? await resizeToWebp(file, opts.maxEdge) : file
-      const ext = resizable ? 'webp' : file.name.split('.').pop() || 'png'
+      // Quando dá para processar, o formato vem de `resizeImage` em vez de ser
+      // assumido — nem todo navegador codifica WebP, e o que não codifica
+      // devolvia PNG salvo com nome `.webp`.
+      const redimensionada = isResizableImage(file) ? await resizeImage(file, opts.maxEdge) : null
+      const body: Blob = redimensionada?.blob ?? file
+      const ext = redimensionada?.ext ?? file.name.split('.').pop() ?? 'png'
       const path = `${slug}/${opts.prefix}-${Date.now()}.${ext}`
 
       const { error } = await client.storage.from(opts.bucket).upload(path, body, {
         upsert: false,
         cacheControl: '31536000',
-        contentType: resizable ? 'image/webp' : file.type,
+        contentType: redimensionada?.contentType ?? file.type,
       })
       if (error) throw error
 

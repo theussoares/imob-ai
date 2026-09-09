@@ -9,11 +9,57 @@
 export const IMAGE_SIZE_LG = 1600
 export const IMAGE_SIZE_SM = 640
 
+/** Extensão de arquivo para cada formato que o `toBlob` pode devolver. */
+const EXTENSAO: Record<string, string> = {
+  'image/webp': 'webp',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+}
+
+export interface ImagemRedimensionada {
+  blob: Blob
+  /** Extensão do formato que o navegador REALMENTE codificou. */
+  ext: string
+  /** Mime do mesmo formato, para o `contentType` do upload. */
+  contentType: string
+}
+
+function toBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('Falha ao converter a imagem.'))),
+      type,
+      quality,
+    ),
+  )
+}
+
 /**
- * Reduz a imagem para caber em `maxEdge` (preservando proporção) e devolve WebP.
- * Nunca amplia: imagem menor que o alvo é só convertida.
+ * Reduz a imagem para caber em `maxEdge` (preservando proporção) e devolve o
+ * arquivo junto com o formato em que ele saiu. Nunca amplia: imagem menor que o
+ * alvo é só convertida.
+ *
+ * ## Por que o formato é devolvido, e não assumido
+ *
+ * `canvas.toBlob` não avisa quando não sabe codificar o tipo pedido: o spec
+ * manda cair para PNG calado. Safari só passou a codificar WebP na 16.4, então
+ * quem sobe foto de um aparelho mais velho gerava PNG — que era salvo com nome
+ * `.webp` e `contentType: 'image/webp'`, porque o código assumia ter recebido o
+ * que pediu. Nada quebrava na tela (o navegador farja pelo conteúdo), só pesava
+ * ~10x.
+ *
+ * Em 09/09/2026 isso era 686 dos 990 arquivos do bucket e 719 MB dos 741 MB —
+ * 97% do espaço, escondido atrás de uma extensão que mentia. Uma imobiliária
+ * inteira estava em 1737 kB por foto enquanto a outra, em navegador que
+ * codifica WebP, estava em 117 kB.
+ *
+ * Daí a queda para JPEG antes de aceitar PNG: para fotografia o JPEG fica perto
+ * do WebP em tamanho, e é codificável em qualquer navegador que rode este
+ * painel. E daí o `ext`/`contentType` saírem do blob que voltou, nunca do que
+ * foi pedido — arquivo com nome de um formato e bytes de outro foi justamente o
+ * que escondeu o problema por meses.
  */
-export async function resizeToWebp(file: File, maxEdge: number, quality = 0.82): Promise<Blob> {
+export async function resizeImage(file: File, maxEdge: number, quality = 0.82): Promise<ImagemRedimensionada> {
   const bitmap = await createImageBitmap(file)
   try {
     const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height))
@@ -27,11 +73,10 @@ export async function resizeToWebp(file: File, maxEdge: number, quality = 0.82):
     if (!ctx) throw new Error('Canvas indisponível neste navegador.')
     ctx.drawImage(bitmap, 0, 0, width, height)
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/webp', quality),
-    )
-    if (!blob) throw new Error('Falha ao converter a imagem para WebP.')
-    return blob
+    let blob = await toBlob(canvas, 'image/webp', quality)
+    if (blob.type !== 'image/webp') blob = await toBlob(canvas, 'image/jpeg', quality)
+
+    return { blob, ext: EXTENSAO[blob.type] ?? 'png', contentType: blob.type }
   } finally {
     bitmap.close()
   }
