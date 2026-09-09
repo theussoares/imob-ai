@@ -6,7 +6,34 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts'],
+  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts', '@vite-pwa/nuxt'],
+
+  /**
+   * PWA do painel. Ver docs/superpowers/specs/2026-09-09-pwa-painel-design.md.
+   *
+   * Configuração mínima por enquanto: o objetivo desta etapa é só provar que o
+   * módulo builda no Nuxt 4 (ele declara `@nuxt/kit ^3.9.0` e documenta Nuxt 3).
+   */
+  pwa: {
+    // `prompt` e não `autoUpdate`: recarregar sozinho no meio de um cadastro
+    // perde o formulário preenchido.
+    registerType: 'prompt',
+    manifest: {
+      name: 'Painel',
+      short_name: 'Painel',
+      start_url: '/admin',
+      display: 'standalone',
+      background_color: '#ffffff',
+      theme_color: '#0f3d38',
+    },
+    workbox: {
+      // Sem isto o precache sai com 3 entradas (dois JSON de metadata e o
+      // manifest) e NENHUM dos 89 arquivos de `_nuxt/` — o shell inteiro fica
+      // de fora e o service worker não acelera nada. O default do módulo não
+      // cobre js/css; foi preciso medir o build para descobrir.
+      globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+    },
+  },
 
   css: ['~/assets/css/main.css'],
 
