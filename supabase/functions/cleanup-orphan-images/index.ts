@@ -14,7 +14,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
  * e fecha a aba sem salvar.
  *
  * Agendada em 0029. Também pode ser chamada à mão para inspecionar sem apagar:
- *   POST /functions/v1/cleanup-orphan-images  { "dryRun": true }
+ *   POST /functions/v1/cleanup-orphan-images
+ *   x-sweep-token: <segredo orphan_sweep_token do Vault>
+ *   { "dryRun": true }
  */
 
 const BUCKET = 'property-images'
@@ -29,22 +31,28 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 Deno.serve(async (req) => {
-  // `verify_jwt` sozinho não serve de tranca aqui: ele aceita QUALQUER token
-  // válido do projeto, e a anon key vai no HTML de toda página do site. Sem esta
-  // checagem, um endpoint que apaga arquivo em lote ficaria ao alcance de
-  // qualquer visitante. Só a service_role passa.
-  const auth = req.headers.get('Authorization') ?? ''
-  if (auth !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+
+  // Publicada com `verify_jwt` desligado, então esta é a única tranca — e ela
+  // vem antes de qualquer outra coisa. O segredo é conferido dentro do banco
+  // (0029) para não precisar sair de lá.
+  //
+  // Não dá para comparar com o `SUPABASE_SERVICE_ROLE_KEY` do ambiente, que
+  // seria o caminho óbvio: neste projeto o runtime recebe a chave no formato
+  // novo (`sb_secret_…`) e o que se copia do painel é o JWT legado, então a
+  // comparação nunca bate. Ver o comentário da migration.
+  const { data: autorizado, error: authError } = await client.rpc('orphan_sweep_token_valid', {
+    candidate: req.headers.get('x-sweep-token') ?? '',
+  })
+  if (authError || autorizado !== true) {
     return Response.json({ error: 'não autorizado' }, { status: 401 })
   }
 
   const body = await req.json().catch(() => ({}))
   const dryRun = body?.dryRun === true
   const graceHours = Number(body?.graceHours ?? DEFAULT_GRACE_HOURS)
-
-  const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
 
   const { data, error } = await client.rpc('orphan_property_images', { grace_hours: graceHours })
   if (error) {
