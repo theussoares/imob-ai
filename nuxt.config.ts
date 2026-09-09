@@ -10,22 +10,22 @@ export default defineNuxtConfig({
 
   /**
    * PWA do painel. Ver docs/superpowers/specs/2026-09-09-pwa-painel-design.md.
-   *
-   * Configuração mínima por enquanto: o objetivo desta etapa é só provar que o
-   * módulo builda no Nuxt 4 (ele declara `@nuxt/kit ^3.9.0` e documenta Nuxt 3).
    */
   pwa: {
     // `prompt` e não `autoUpdate`: recarregar sozinho no meio de um cadastro
     // perde o formulário preenchido.
     registerType: 'prompt',
-    manifest: {
-      name: 'Painel',
-      short_name: 'Painel',
-      start_url: '/admin',
-      display: 'standalone',
-      background_color: '#ffffff',
-      theme_color: '#0f3d38',
-    },
+    /**
+     * O manifest NÃO é gerado aqui: quem serve é
+     * `server/routes/manifest.webmanifest.get.ts`, que o monta por host com o
+     * nome e a cor de cada cliente. Um arquivo estático não daria conta —
+     * `start_url` precisa ser relativo à origem, e cada cliente tem a sua.
+     *
+     * `false` também evita que o módulo injete o `<link rel="manifest">` em
+     * TODA página, inclusive nos sites públicos; quem injeta, só no host do
+     * painel, é `server/plugins/pwa-head.ts`.
+     */
+    manifest: false,
     workbox: {
       // Sem isto o precache sai com 3 entradas (dois JSON de metadata e o
       // manifest) e NENHUM dos 89 arquivos de `_nuxt/` — o shell inteiro fica
