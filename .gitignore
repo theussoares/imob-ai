@@ -34,6 +34,9 @@ pnpm-debug.log*
 # Vercel
 .vercel
 
-# Config local de dev do Claude Code (launch.json do preview)
-.claude/
-.env.example
+# Claude Code: agentes e settings do projeto são versionados (valem para o time);
+# só o que é por-máquina fica de fora.
+.claude/*
+!.claude/agents/
+!.claude/settings.json
+.claude/settings.local.json

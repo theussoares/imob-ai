@@ -68,12 +68,14 @@ domínio, headings semânticos e imagens com `alt`.
 
 ## Configuração
 
-1. **Variáveis de ambiente** — copie `.env.example` para `.env`:
+1. **Variáveis de ambiente** — copie `.env.example` para `.env` e preencha:
    ```bash
    cp .env.example .env
    ```
-   As chaves já apontam para o projeto Supabase provisionado (`SUPABASE_URL`, `SUPABASE_KEY` são
-   públicas/anon — seguras no client).
+   `SUPABASE_URL` e `SUPABASE_KEY` são públicas/anon — seguras no client.
+   `SUPABASE_SERVICE_ROLE_KEY` ignora a RLS, fica só no servidor e é obrigatória:
+   sem ela o formulário de contato para de gravar lead. O próprio `.env.example`
+   comenta o que quebra ao deixar cada variável em branco.
 
 2. **Instalar e rodar:**
    ```bash
@@ -149,10 +151,12 @@ quando houver domínio próprio e/ou APIs autenticadas para agentes.
 
 ## Deploy (Vercel)
 
-O Nitro já usa o preset `vercel`. Configure as variáveis `SUPABASE_URL`, `SUPABASE_KEY`,
-`NUXT_PUBLIC_SITE_URL` (e opcionalmente `NUXT_DEFAULT_TENANT`) no projeto da Vercel e faça o
-deploy. Para cada novo tenant/cliente, cadastre o domínio na Vercel e adicione a linha
-correspondente em `tenant_domains`.
+O Nitro já usa o preset `vercel`. Configure no projeto da Vercel: `SUPABASE_URL`,
+`SUPABASE_KEY` e `SUPABASE_SERVICE_ROLE_KEY` (obrigatórias), mais `RATE_LIMIT_IP_SALT` —
+sem esta última a trava por IP do formulário público não roda, e o único sinal é um aviso
+no log. Opcionais: `NUXT_DEFAULT_TENANT` e `NUXT_PLATFORM_DOMAIN`. Para cada novo
+tenant/cliente, cadastre o domínio na Vercel e adicione a linha correspondente em
+`tenant_domains`.
 
 ## Adicionar um novo tenant
 
