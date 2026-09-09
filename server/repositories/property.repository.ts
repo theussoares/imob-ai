@@ -11,6 +11,7 @@ import {
   type PropertyImageFields,
 } from '~~/server/mappers/property.mapper'
 import { toBrokerModel } from '~~/server/mappers/broker.mapper'
+import { imagePaths, removePropertyImages } from '~~/server/utils/storage'
 
 type Client = SupabaseClient<Database>
 type PropertyRow = Database['public']['Tables']['properties']['Row']
@@ -206,20 +207,60 @@ export async function getPropertyById(client: Client, tenantId: string, id: stri
   return model ?? null
 }
 
+/**
+ * Os arquivos que o imóvel referencia AGORA, como path dentro do bucket.
+ *
+ * Só serve para ser chamada antes de mexer nas linhas: depois do delete não
+ * sobra de onde tirar os paths.
+ */
+async function storedImagePaths(client: Client, propertyId: string): Promise<string[]> {
+  const { data } = await client.from('property_images').select('url, url_sm').eq('property_id', propertyId)
+  return (data ?? []).flatMap((row) => imagePaths({ url: row.url, urlSm: row.url_sm }))
+}
+
+/**
+ * Reescreve as imagens do imóvel e apaga do Storage o que saiu de cena.
+ *
+ * Antes daqui o arquivo ficava para sempre: a linha era apagada e reinserida, e
+ * o bucket nunca era tocado. Em 09/09 eram 354 arquivos órfãos de 1342 (26% do
+ * bucket, 309 MB) — a conta que estourou o limite de 1 GB do plano free.
+ *
+ * A regra é apagar só a diferença, nunca a lista antiga inteira. Uma foto
+ * mantida na edição aparece nos dois lados: apagá-la deixaria a linha nova
+ * apontando para um arquivo que não existe mais, ou seja, imagem quebrada no
+ * site do cliente — estrago bem maior que o órfão que estamos evitando.
+ *
+ * A limpeza vem depois do insert de propósito. Se o insert falhar, o `throw`
+ * sai antes e nada é apagado: numa gravação que não completou, o certo é
+ * deixar os arquivos onde estão.
+ */
 async function replaceImages(client: Client, propertyId: string, input: PropertyInput) {
+  const antes = await storedImagePaths(client, propertyId)
+
   await client.from('property_images').delete().eq('property_id', propertyId)
   const images = input.images ?? []
-  if (!images.length) return
-  const rows = images.map((img, i) => ({
-    property_id: propertyId,
-    url: img.url,
-    url_sm: img.urlSm ?? null,
-    alt: img.alt ?? null,
-    position: img.position ?? i,
-    is_cover: img.isCover ?? i === 0,
-  }))
-  const { error } = await client.from('property_images').insert(rows)
-  if (error) throw error
+
+  if (images.length) {
+    const rows = images.map((img, i) => ({
+      property_id: propertyId,
+      url: img.url,
+      url_sm: img.urlSm ?? null,
+      alt: img.alt ?? null,
+      position: img.position ?? i,
+      is_cover: img.isCover ?? i === 0,
+    }))
+    const { error } = await client.from('property_images').insert(rows)
+    if (error) throw error
+  }
+
+  // Lista nova vazia significa que tudo que havia sai: é quem removeu todas as
+  // fotos do imóvel. Esse caso escapava por um early return antes do insert e
+  // deixava o bucket intacto — por isso o insert virou `if` em vez de guarda.
+  const depois = new Set(images.flatMap(imagePaths))
+  await removePropertyImages(
+    client,
+    antes.filter((path) => !depois.has(path)),
+  )
 }
 
 /**
@@ -326,7 +367,31 @@ export async function updateProperty(
   return (await getPropertyById(client, tenantId, id))!
 }
 
+/**
+ * Apaga o imóvel e as fotos dele do Storage.
+ *
+ * Os paths são lidos ANTES do delete porque `property_images.property_id` é
+ * `on delete cascade` (`0001_init_schema.sql`): as linhas somem junto com o
+ * imóvel, em silêncio, e com elas a única pista de quais arquivos existiam.
+ * Apagar um imóvel de 20 fotos deixava 40 arquivos no bucket (grande + `@sm`)
+ * sem nada que os ligasse a coisa nenhuma.
+ */
 export async function deleteProperty(client: Client, tenantId: string, id: string): Promise<void> {
-  const { error } = await client.from('properties').delete().eq('tenant_id', tenantId).eq('id', id)
+  const paths = await storedImagePaths(client, id)
+
+  const { data, error } = await client
+    .from('properties')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+    .select('id')
   if (error) throw error
+
+  // Delete que não pegou linha nenhuma é imóvel de OUTRO tenant (ou já
+  // apagado). Seguir para a limpeza aqui apagaria as fotos de um imóvel vivo de
+  // outra imobiliária — a policy de storage de 0012 barraria, mas depender dela
+  // seria confiar a integridade de um cliente ao acaso de uma segunda camada.
+  if (!(data ?? []).length) return
+
+  await removePropertyImages(client, paths)
 }

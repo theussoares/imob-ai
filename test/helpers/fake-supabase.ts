@@ -9,6 +9,11 @@ export interface RecordedCall {
   args: unknown[]
 }
 
+export interface RecordedRemoval {
+  bucket: string
+  paths: string[]
+}
+
 /**
  * Client de Supabase falso, só o suficiente para os repositórios.
  *
@@ -47,8 +52,26 @@ export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]
     return chain
   }
 
+  // `remove` registra em vez de apagar. Sem isto o `client.storage` nem existe
+  // no fake, e a limpeza do repositório passaria no teste por engolir o
+  // TypeError no try/catch de `removePropertyImages` — verde sem ter rodado.
+  const removals: RecordedRemoval[] = []
+  const storage = {
+    from: (bucket: string) => ({
+      remove: async (paths: string[]) => {
+        removals.push({ bucket, paths })
+        return { data: null, error: null }
+      },
+    }),
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { client: { from } as any, calls }
+  return { client: { from, storage } as any, calls, removals }
+}
+
+/** Todos os paths mandados para o `remove()` do Storage, em ordem. */
+export function removedPaths(removals: RecordedRemoval[]): string[] {
+  return removals.flatMap((r) => r.paths)
 }
 
 export interface FakeAuthUser {
