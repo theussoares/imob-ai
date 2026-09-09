@@ -40,4 +40,64 @@ export default defineNuxtPlugin(() => {
     // `true` recarrega a página assim que o SW novo assume.
     await atualizar(true)
   }
+
+  configurarInstalacao()
 })
+
+/**
+ * O evento que permite instalar dispara UMA vez, logo depois do load, e some
+ * se ninguém o segurar — por isso isto vive no plugin e não no componente do
+ * botão, que só monta depois.
+ */
+function configurarInstalacao() {
+  const instalacao = usePwaInstall()
+
+  // Rodando em janela própria: já está instalado, não há o que oferecer.
+  const emJanelaPropria =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    // iOS não implementa display-mode: standalone; usa esta propriedade só dele.
+    (window.navigator as { standalone?: boolean }).standalone === true
+
+  if (emJanelaPropria) {
+    instalacao.instalado.value = true
+    return
+  }
+
+  /**
+   * iPad com iPadOS 13+ se apresenta como Macintosh no user agent. A tela de
+   * toque é o que separa um do outro — sem isso, o iPad ficaria sem instrução
+   * nenhuma, já que o Safari também não dispara `beforeinstallprompt` lá.
+   */
+  const ua = window.navigator.userAgent
+  const ehIos =
+    /iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && window.navigator.maxTouchPoints > 1)
+
+  let evento: (Event & { prompt: () => Promise<void> }) | null = null
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Sem isto o Chrome mostra o próprio convite, e passam a existir dois
+    // caminhos para a mesma coisa em momentos que não controlamos.
+    e.preventDefault()
+    evento = e as Event & { prompt: () => Promise<void> }
+    instalacao.podeInstalar.value = true
+  })
+
+  // Instalou: some com as duas ofertas sem esperar recarregar a página.
+  window.addEventListener('appinstalled', () => {
+    instalacao.instalado.value = true
+    instalacao.podeInstalar.value = false
+    instalacao.somenteInstrucao.value = false
+  })
+
+  // No iOS o evento nunca vem, então a instrução escrita é o único caminho.
+  if (ehIos) instalacao.somenteInstrucao.value = true
+
+  instalacao.instalar = async () => {
+    if (!evento) return
+    await evento.prompt()
+    // O evento serve uma vez só: depois de usado, o botão sai da tela. Se a
+    // pessoa recusar, o navegador dispara de novo numa visita futura.
+    evento = null
+    instalacao.podeInstalar.value = false
+  }
+}

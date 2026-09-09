@@ -56,6 +56,9 @@ async function logout() {
         {{ l.label }}
       </NuxtLink>
       <a href="/" target="_blank" rel="noopener">Ver site ↗</a>
+      <!-- Só aparece quando há o que oferecer: navegador que permite instalar,
+           ou iOS, onde a instalação é manual. Já instalado, some. -->
+      <AdminInstallButton />
     </nav>
   </aside>
 </template>

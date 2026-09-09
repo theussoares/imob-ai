@@ -56,6 +56,13 @@ useHead({ title: 'Entrar · Painel' })
         {{ loading ? 'Entrando...' : 'Entrar' }}
       </button>
     </form>
+
+    <!-- Aqui, e não só na sidebar: esta é a tela em que a pessoa cai ao digitar
+         o endereço do painel no celular, e é o momento em que faz sentido pôr o
+         atalho na tela inicial. Na sidebar ele só existiria depois do login. -->
+    <div class="login-instalar">
+      <AdminInstallButton />
+    </div>
   </div>
 </template>
 
@@ -70,5 +77,15 @@ useHead({ title: 'Entrar · Painel' })
 .login-card {
   width: 100%;
   max-width: 380px;
+}
+/* Segunda linha do grid, abaixo do cartão. Discreto de propósito: entrar é o
+   que a pessoa veio fazer; instalar é oferta. */
+.login-instalar {
+  width: 100%;
+  max-width: 380px;
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
 }
 </style>
