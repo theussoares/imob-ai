@@ -1,4 +1,5 @@
 import { isAdminHost, getHostname } from '~~/server/utils/tenant'
+import { isPwaPath } from '~~/server/utils/pwa'
 
 /**
  * `painel.<dominio>` serve EXCLUSIVAMENTE o admin: qualquer rota pública nesse
@@ -23,7 +24,8 @@ export default defineEventHandler((event) => {
     path.startsWith('/_') ||
     path.startsWith('/__') ||
     path.startsWith('/favicon') ||
-    path.startsWith('/.well-known/')
+    path.startsWith('/.well-known/') ||
+    isPwaPath(path)
   ) {
     return
   }

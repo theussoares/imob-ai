@@ -6,7 +6,67 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts'],
+  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts', '@vite-pwa/nuxt'],
+
+  /**
+   * PWA do painel. Ver docs/superpowers/specs/2026-09-09-pwa-painel-design.md.
+   */
+  pwa: {
+    // `prompt` e não `autoUpdate`: recarregar sozinho no meio de um cadastro
+    // perde o formulário preenchido.
+    registerType: 'prompt',
+    /**
+     * O manifest NÃO é gerado aqui: quem serve é
+     * `server/routes/manifest.webmanifest.get.ts`, que o monta por host com o
+     * nome e a cor de cada cliente. Um arquivo estático não daria conta —
+     * `start_url` precisa ser relativo à origem, e cada cliente tem a sua.
+     *
+     * `false` também evita que o módulo injete o `<link rel="manifest">` em
+     * TODA página, inclusive nos sites públicos; quem injeta, só no host do
+     * painel, é `server/plugins/pwa-head.ts`.
+     */
+    manifest: false,
+    /**
+     * O módulo registra o service worker num plugin Nuxt, que roda em TODA
+     * página — inclusive nos sites públicos dos clientes. Lá um SW controlando
+     * a origem serviria conteúdo de cache para visitantes e para o Googlebot, o
+     * que é prejuízo do cliente, não nosso.
+     *
+     * Desligado aqui, quem registra é `app/plugins/pwa.client.ts`, só quando o
+     * host é de painel.
+     */
+    client: { registerPlugin: false },
+    workbox: {
+      // Sem isto o precache sai com 3 entradas (dois JSON de metadata e o
+      // manifest) e NENHUM dos 89 arquivos de `_nuxt/` — o shell inteiro fica
+      // de fora e o service worker não acelera nada. O default do módulo não
+      // cobre js/css; foi preciso medir o build para descobrir.
+      // São 992 kB no total: cabe como download único de um app instalado.
+      globPatterns: ['**/*.{js,css,svg,png,ico,woff2}'],
+      /**
+       * Nenhuma resposta de API entra em cache, em nenhuma estratégia.
+       *
+       * O painel é dado autenticado e multi-tenant: uma resposta guardada volta
+       * para outra sessão ou mostra um lead que já mudou de etapa. E `/api/`
+       * ficaria coberto por qualquer regra de navegação que se adicione depois,
+       * então o denylist é explícito em vez de implícito.
+       */
+      navigateFallbackDenylist: [/^\/api\//],
+      // Sem runtimeCaching: o Supabase (dados e Storage) é sempre rede. O
+      // ganho do SW aqui é o shell, que é imutável por hash — dado de CRM não.
+      runtimeCaching: [],
+      /**
+       * `prompt` só vale se o SW novo esperar: com skipWaiting ele assume na
+       * hora e a pessoa recebe código novo numa aba que ainda roda o antigo.
+       * Quem decide a troca é o aviso na tela.
+       */
+      skipWaiting: false,
+      clientsClaim: false,
+      // Limpa precache de versões antigas — sem isso o Cache Storage cresce a
+      // cada deploy.
+      cleanupOutdatedCaches: true,
+    },
+  },
 
   css: ['~/assets/css/main.css'],
 
