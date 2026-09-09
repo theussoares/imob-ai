@@ -1,4 +1,10 @@
-export interface FooterLink {
+/**
+ * `type` e não `interface` de propósito: isto é gravado na coluna JSONB
+ * `tenants.footer_links`, cujo tipo gerado é `Json`. O TypeScript só dá index
+ * signature implícita a alias de tipo — uma `interface` não é atribuível a
+ * `Json` e quebra o `toTenantRow`. Trocar de volta reintroduz o TS2322.
+ */
+export type FooterLink = {
   label: string
   href: string
 }

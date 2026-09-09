@@ -4,8 +4,14 @@ export interface FooterPage {
   label: string
 }
 
-/** O que o cliente ajustou numa página. Ausente = padrão. */
-export interface FooterPageOverride {
+/**
+ * O que o cliente ajustou numa página. Ausente = padrão.
+ *
+ * `type` e não `interface` de propósito: vai para a coluna JSONB
+ * `tenants.footer_pages`, e só alias de tipo é atribuível a `Json` — o
+ * TypeScript não dá index signature implícita a `interface`.
+ */
+export type FooterPageOverride = {
   label?: string
   visible?: boolean
 }
