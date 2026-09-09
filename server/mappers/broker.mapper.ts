@@ -13,6 +13,7 @@ export function toBrokerModel(row: BrokerRow): Broker {
     email: row.email,
     creci: row.creci,
     active: row.active,
+    hasPanelAccess: row.user_id !== null,
   }
 }
 

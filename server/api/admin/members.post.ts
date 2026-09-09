@@ -8,7 +8,7 @@ import { inviteMember } from '~~/server/repositories/member.repository'
  * outro cliente.
  */
 export default defineEventHandler(async (event) => {
-  const { tenant } = await requireTenantMember(event)
+  const { tenant } = await requireTenantAdmin(event)
   const body = await readBody<{ email?: string }>(event)
 
   // O link tem que voltar para o mesmo host de onde partiu — cada cliente usa

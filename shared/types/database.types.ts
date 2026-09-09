@@ -25,6 +25,7 @@ export type Database = {
           phone: string | null
           tenant_id: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           active?: boolean
@@ -36,6 +37,7 @@ export type Database = {
           phone?: string | null
           tenant_id: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           active?: boolean
@@ -47,6 +49,7 @@ export type Database = {
           phone?: string | null
           tenant_id?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -455,7 +458,7 @@ export type Database = {
       is_tenant_member: { Args: { t_id: string }; Returns: boolean }
     }
     Enums: {
-      member_role: "owner" | "admin"
+      member_role: "owner" | "admin" | "broker"
       property_purpose: "venda" | "aluguel"
       property_status: "active" | "sold" | "rented" | "draft"
       property_type: "casa" | "apartamento" | "sobrado" | "kitnet" | "chacara" | "rancho" | "terreno" | "barracao" | "sala" | "salao" | "predio"

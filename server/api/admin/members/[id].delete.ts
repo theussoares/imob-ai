@@ -2,7 +2,7 @@ import { removeMember } from '~~/server/repositories/member.repository'
 
 /** Revoga o acesso de um membro. */
 export default defineEventHandler(async (event) => {
-  const { tenant, user } = await requireTenantMember(event)
+  const { tenant, user } = await requireTenantAdmin(event)
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
+import type { MemberRole } from '~~/shared/models/member'
 
 type Client = SupabaseClient<Database>
 
@@ -25,6 +26,13 @@ export interface InviteResult {
   alreadyRegistered: boolean
   alreadyMember: boolean
   email: string
+  /**
+   * Id da conta de autenticação. Serve para quem precisa ligar o convite a
+   * outro registro na mesma operação (ver `grantBrokerPanelAccess`).
+   *
+   * É interno: não devolva num payload de endpoint sem motivo.
+   */
+  userId: string
 }
 
 /**
@@ -44,6 +52,7 @@ export async function inviteMember(
   tenantId: string,
   rawEmail: string,
   redirectTo: string,
+  role: MemberRole = 'admin',
 ): Promise<InviteResult> {
   const email = rawEmail.trim().toLowerCase()
   if (!EMAIL_RE.test(email)) {
@@ -86,13 +95,18 @@ export async function inviteMember(
     .maybeSingle()
 
   if (existing) {
-    return { inviteLink: null, alreadyRegistered, alreadyMember: true, email }
+    // Não sobrescreve o papel de quem já é membro: rebaixar um admin para
+    // corretor por causa de um convite repetido tiraria acesso sem que ninguém
+    // tivesse pedido isso.
+    return { inviteLink: null, alreadyRegistered, alreadyMember: true, email, userId }
   }
 
-  const { error: insertError } = await service.from('tenant_members').insert({ tenant_id: tenantId, user_id: userId })
+  const { error: insertError } = await service
+    .from('tenant_members')
+    .insert({ tenant_id: tenantId, user_id: userId, role })
   if (insertError) throw insertError
 
-  return { inviteLink, alreadyRegistered, alreadyMember: false, email }
+  return { inviteLink, alreadyRegistered, alreadyMember: false, email, userId }
 }
 
 /**

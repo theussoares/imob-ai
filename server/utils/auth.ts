@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import { getMembership } from '~~/server/repositories/tenant.repository'
+import { isAdminRole } from '~~/shared/models/member'
 
 /**
  * Garante que a requisição vem de um usuário autenticado (token Bearer emitido
@@ -53,4 +54,33 @@ export async function requireTenantMember(event: H3Event) {
   }
 
   return { user, tenant, client, membership }
+}
+
+/**
+ * Como `requireTenantMember`, mas recusa o papel 'broker'.
+ *
+ * Existe porque a RLS não cobre tudo: os endpoints de membros e convite rodam
+ * por `serviceSupabase()`, que tem BYPASSRLS. Sem esta checagem, o corretor —
+ * que passou a logar na 0029 — chamaria `POST /api/admin/members` e se
+ * convidaria como admin, desfazendo a restrição inteira pela porta dos fundos.
+ *
+ * Use nos endpoints que administram a imobiliária (configuração, acessos,
+ * cadastro de corretores). Para o que o corretor usa no dia a dia — funil,
+ * imóveis — `requireTenantMember` e a RLS bastam.
+ */
+export async function requireTenantAdmin(event: H3Event) {
+  const ctx = await requireTenantMember(event)
+  if (!isAdminRole(ctx.membership.role)) {
+    logWarn('auth.rejected', {
+      reason: 'not_admin',
+      path: event.path,
+      tenant: ctx.tenant.slug,
+      role: ctx.membership.role,
+    })
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Esta ação é restrita a administradores da imobiliária.',
+    })
+  }
+  return ctx
 }
