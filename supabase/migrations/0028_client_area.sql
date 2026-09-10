@@ -1,0 +1,364 @@
+-- Área do Cliente — fundação: quem é o cliente, o que ele assinou e o que ele
+-- pode baixar.
+--
+-- Contexto: até aqui o único usuário autenticado do sistema era a imobiliária
+-- (`tenant_members`). Esta migration cria um SEGUNDO tipo de usuário — o
+-- inquilino e o proprietário — que loga no mesmo Supabase Auth e NÃO pode
+-- enxergar nada do painel.
+--
+-- A separação é a decisão central deste arquivo. `is_tenant_member()` hoje
+-- libera 20 policies (imóveis com dados do proprietário, corretores, leads,
+-- configurações). Dar ao cliente uma linha em `tenant_members` — ainda que com
+-- um papel novo — entregaria a base inteira do concorrente… quer dizer, da
+-- imobiliária, para qualquer inquilino. Por isso: tabela própria, predicado
+-- próprio, e nenhum caminho entre os dois.
+--
+-- Tudo idempotente: seguro rodar de novo.
+
+-- ---------------------------------------------------------------------------
+-- Enums
+-- ---------------------------------------------------------------------------
+
+-- 'fiador' entra desde já porque ele assina o contrato e costuma pedir a via
+-- dele; sem o papel, a imobiliária cadastraria o fiador como inquilino e ele
+-- passaria a ver o boleto do outro.
+do $$ begin
+  create type contract_party_role as enum ('inquilino', 'proprietario', 'fiador');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type contract_status as enum ('ativo', 'encerrado');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type portal_doc_category as enum (
+    'contrato', 'vistoria', 'boleto', 'recibo', 'extrato', 'outro'
+  );
+exception when duplicate_object then null; end $$;
+
+-- ---------------------------------------------------------------------------
+-- portal_users — o cliente da imobiliária (inquilino / proprietário / fiador)
+-- ---------------------------------------------------------------------------
+create table if not exists public.portal_users (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  email text not null,
+  -- CPF/CNPJ é como a imobiliária identifica a pessoa no contrato em papel.
+  -- Fica aqui para conferência no cadastro, e nunca é devolvido ao portal.
+  doc text,
+  phone text,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (tenant_id, user_id)
+);
+
+-- Duas contas com o mesmo e-mail na mesma imobiliária seriam duas caixas de
+-- entrada disputando o mesmo contrato — o suporte não teria como saber qual é a
+-- boa. O índice é sobre lower(email) porque e-mail não diferencia maiúscula.
+create unique index if not exists idx_portal_users_tenant_email
+  on public.portal_users(tenant_id, lower(email));
+create index if not exists idx_portal_users_user on public.portal_users(user_id);
+
+drop trigger if exists trg_portal_users_updated on public.portal_users;
+create trigger trg_portal_users_updated before update on public.portal_users
+  for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- contracts — o contrato de locação
+-- ---------------------------------------------------------------------------
+create table if not exists public.contracts (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  code text not null,
+  -- O imóvel pode sair do catálogo (vendido, arquivado) sem que o contrato
+  -- deixe de existir: o histórico de quem morou lá continua valendo.
+  property_id uuid references public.properties(id) on delete set null,
+  -- Preenchido quando o imóvel não está no catálogo (locação administrada de
+  -- imóvel que nunca foi anunciado por nós).
+  address_label text,
+  status contract_status not null default 'ativo',
+  started_on date,
+  ends_on date,
+  rent_amount numeric(12,2),
+  -- Anotação INTERNA da imobiliária. Nunca é exposta no portal — ver a nota em
+  -- portal_documents sobre o que o cliente enxerga.
+  notes text,
+  -- 'manual' hoje (a imobiliária sobe os arquivos pelo painel). Quando a
+  -- integração com o ERP entrar, o mesmo contrato passa a chegar com
+  -- source='erp' e external_id preenchido, sem migrar tabela nem reescrever a
+  -- área do cliente. Duas colunas agora custam nada e evitam o retrabalho.
+  source text not null default 'manual',
+  external_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (tenant_id, code)
+);
+
+alter table public.contracts
+  drop constraint if exists contracts_source_check;
+alter table public.contracts
+  add constraint contracts_source_check check (source in ('manual', 'erp'));
+
+create index if not exists idx_contracts_tenant_status on public.contracts(tenant_id, status);
+create index if not exists idx_contracts_property on public.contracts(property_id);
+
+drop trigger if exists trg_contracts_updated on public.contracts;
+create trigger trg_contracts_updated before update on public.contracts
+  for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- contract_parties — quem está em qual contrato, e em que papel
+--
+-- É esta tabela que responde "esta pessoa pode ver este documento?". O papel
+-- fica na RELAÇÃO, não na pessoa: quem aluga um imóvel e é dono de outro é
+-- inquilino num contrato e proprietário no outro, com a mesma conta.
+-- ---------------------------------------------------------------------------
+create table if not exists public.contract_parties (
+  id uuid primary key default gen_random_uuid(),
+  contract_id uuid not null references public.contracts(id) on delete cascade,
+  portal_user_id uuid not null references public.portal_users(id) on delete cascade,
+  role contract_party_role not null,
+  created_at timestamptz not null default now(),
+  unique (contract_id, portal_user_id, role)
+);
+create index if not exists idx_contract_parties_user on public.contract_parties(portal_user_id);
+create index if not exists idx_contract_parties_contract on public.contract_parties(contract_id);
+
+-- ---------------------------------------------------------------------------
+-- portal_documents — o arquivo que a imobiliária publica para o cliente
+-- ---------------------------------------------------------------------------
+create table if not exists public.portal_documents (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  contract_id uuid not null references public.contracts(id) on delete cascade,
+  category portal_doc_category not null,
+  title text not null,
+  -- Mês de referência (boleto/extrato). Guardado como data no dia 1 para
+  -- ordenar e agrupar sem parsear texto.
+  competence date,
+  due_on date,
+  amount numeric(12,2),
+  -- Caminho no bucket PRIVADO `portal-docs`. Nunca é URL: a URL é assinada na
+  -- hora do download, depois da checagem de permissão no servidor.
+  storage_path text not null,
+  mime text,
+  size_bytes bigint,
+  -- Quem enxerga. O boleto do inquilino não é assunto do proprietário, e o
+  -- extrato de repasse do proprietário não é assunto do inquilino — os dois
+  -- vazamentos são o mesmo campo esquecido no default.
+  audience contract_party_role[] not null default '{inquilino,proprietario}',
+  -- Rascunho enquanto null: o arquivo já está no bucket, mas some do portal.
+  -- Sem isso, um upload no meio do expediente aparece pela metade para o
+  -- cliente (a imobiliária sobe 12 boletos, o cliente vê 3).
+  published_at timestamptz,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_portal_documents_contract
+  on public.portal_documents(contract_id, category, competence desc);
+create index if not exists idx_portal_documents_tenant on public.portal_documents(tenant_id);
+
+-- ---------------------------------------------------------------------------
+-- portal_document_access — trilha de download (LGPD)
+--
+-- Documento de locação é dado pessoal, e boleto é dado financeiro. Quando
+-- alguém perguntar "quem baixou meu contrato?", a resposta precisa existir —
+-- e ela não pode ser reconstruída depois do fato.
+-- ---------------------------------------------------------------------------
+create table if not exists public.portal_document_access (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id) on delete cascade,
+  document_id uuid not null references public.portal_documents(id) on delete cascade,
+  portal_user_id uuid references public.portal_users(id) on delete set null,
+  ip text,
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_portal_doc_access_doc
+  on public.portal_document_access(document_id, created_at desc);
+create index if not exists idx_portal_doc_access_tenant
+  on public.portal_document_access(tenant_id, created_at desc);
+
+-- ---------------------------------------------------------------------------
+-- Predicado do cliente — o espelho de is_tenant_member(), e o oposto dele
+-- ---------------------------------------------------------------------------
+create or replace function public.is_portal_user(t_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.portal_users pu
+    where pu.tenant_id = t_id and pu.user_id = auth.uid() and pu.active
+  );
+$$;
+
+-- `active` desliga o acesso sem apagar o histórico: contrato encerrado tira a
+-- pessoa do portal, mas a trilha de quem baixou o quê continua de pé.
+
+-- ---------------------------------------------------------------------------
+-- RLS
+-- ---------------------------------------------------------------------------
+alter table public.portal_users           enable row level security;
+alter table public.contracts              enable row level security;
+alter table public.contract_parties       enable row level security;
+alter table public.portal_documents       enable row level security;
+alter table public.portal_document_access enable row level security;
+
+-- portal_users --------------------------------------------------------------
+drop policy if exists "portal_users_member_all" on public.portal_users;
+create policy "portal_users_member_all" on public.portal_users
+  for all using (public.is_tenant_member(tenant_id))
+  with check (public.is_tenant_member(tenant_id));
+
+-- O cliente lê a PRÓPRIA linha (é assim que o portal descobre o nome dele e o
+-- id para as demais consultas). Nunca a dos outros: sem o `user_id = auth.uid()`
+-- um inquilino listaria o telefone e o CPF de todos os clientes da imobiliária.
+drop policy if exists "portal_users_self_read" on public.portal_users;
+create policy "portal_users_self_read" on public.portal_users
+  for select using (user_id = auth.uid());
+
+-- contracts -----------------------------------------------------------------
+drop policy if exists "contracts_member_all" on public.contracts;
+create policy "contracts_member_all" on public.contracts
+  for all using (public.is_tenant_member(tenant_id))
+  with check (public.is_tenant_member(tenant_id));
+
+drop policy if exists "contracts_party_read" on public.contracts;
+create policy "contracts_party_read" on public.contracts
+  for select using (
+    exists (
+      select 1
+      from public.contract_parties cp
+      join public.portal_users pu on pu.id = cp.portal_user_id
+      where cp.contract_id = contracts.id
+        and pu.user_id = auth.uid()
+        and pu.active
+        -- O contrato e a pessoa têm que ser da MESMA imobiliária. Sem esta
+        -- linha, um id de contrato vazado atravessaria tenants.
+        and pu.tenant_id = contracts.tenant_id
+    )
+  );
+
+-- contract_parties ----------------------------------------------------------
+drop policy if exists "contract_parties_member_all" on public.contract_parties;
+create policy "contract_parties_member_all" on public.contract_parties
+  for all using (
+    exists (select 1 from public.contracts c
+            where c.id = contract_parties.contract_id and public.is_tenant_member(c.tenant_id))
+  )
+  with check (
+    exists (select 1 from public.contracts c
+            where c.id = contract_parties.contract_id and public.is_tenant_member(c.tenant_id))
+  );
+
+-- O cliente enxerga apenas o próprio vínculo. Deliberadamente NÃO enxerga os
+-- outros participantes: o inquilino não precisa do nome e do contato do
+-- proprietário para baixar um boleto, e o proprietário não precisa dos do
+-- inquilino. Se um dia precisar, é uma decisão de produto — não um efeito
+-- colateral de policy.
+drop policy if exists "contract_parties_self_read" on public.contract_parties;
+create policy "contract_parties_self_read" on public.contract_parties
+  for select using (
+    exists (select 1 from public.portal_users pu
+            where pu.id = contract_parties.portal_user_id and pu.user_id = auth.uid() and pu.active)
+  );
+
+-- portal_documents ----------------------------------------------------------
+drop policy if exists "portal_documents_member_all" on public.portal_documents;
+create policy "portal_documents_member_all" on public.portal_documents
+  for all using (public.is_tenant_member(tenant_id))
+  with check (public.is_tenant_member(tenant_id));
+
+-- A regra inteira da área do cliente cabe aqui: publicado, do meu contrato, e
+-- endereçado ao meu papel naquele contrato.
+drop policy if exists "portal_documents_party_read" on public.portal_documents;
+create policy "portal_documents_party_read" on public.portal_documents
+  for select using (
+    published_at is not null
+    and exists (
+      select 1
+      from public.contract_parties cp
+      join public.portal_users pu on pu.id = cp.portal_user_id
+      where cp.contract_id = portal_documents.contract_id
+        and pu.user_id = auth.uid()
+        and pu.active
+        and pu.tenant_id = portal_documents.tenant_id
+        and cp.role = any (portal_documents.audience)
+    )
+  );
+
+-- portal_document_access ----------------------------------------------------
+-- Trilha é só de leitura para a imobiliária. A escrita acontece pelo servidor
+-- (service role) no momento do download: se o próprio cliente pudesse inserir,
+-- poderia também forjar linhas e o registro deixaria de valer como prova.
+drop policy if exists "portal_doc_access_member_read" on public.portal_document_access;
+create policy "portal_doc_access_member_read" on public.portal_document_access
+  for select using (public.is_tenant_member(tenant_id));
+
+-- ---------------------------------------------------------------------------
+-- Privilégios de tabela
+--
+-- A anon key vai no HTML de toda página do site. Policy sozinha não basta: sem
+-- o revoke, o papel anon mantém o GRANT default do Supabase sobre as tabelas
+-- novas. Nenhuma destas tabelas tem qualquer leitura pública — contrato, boleto
+-- e vistoria não são catálogo.
+-- ---------------------------------------------------------------------------
+revoke all on public.portal_users           from anon;
+revoke all on public.contracts              from anon;
+revoke all on public.contract_parties       from anon;
+revoke all on public.portal_documents       from anon;
+revoke all on public.portal_document_access from anon;
+
+-- `notes` (anotação interna) e `external_id` nunca devem sair para o cliente,
+-- que é `authenticated` como qualquer membro. A policy filtra LINHA, não
+-- COLUNA — então o corte é por privilégio de coluna.
+revoke select on public.contracts from authenticated;
+grant select (
+  id, tenant_id, code, property_id, address_label, status,
+  started_on, ends_on, rent_amount, source, created_at, updated_at
+) on public.contracts to authenticated;
+grant insert, update, delete on public.contracts to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Storage: bucket PRIVADO
+--
+-- Os três buckets existentes são públicos (foto de imóvel, logo, hero) — nesses,
+-- URL vazada é no máximo uma foto de anúncio. Aqui é contrato assinado e boleto:
+-- o bucket nasce privado e o cliente nunca fala com o storage direto. O download
+-- passa pelo servidor, que confere a permissão e devolve uma URL assinada de
+-- vida curta.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('portal-docs', 'portal-docs', false)
+on conflict (id) do nothing;
+
+-- Só a imobiliária escreve, e só dentro da própria pasta (mesmo esquema de
+-- 0012: o primeiro nível do path é o slug do tenant).
+drop policy if exists "member upload portal-docs" on storage.objects;
+create policy "member upload portal-docs" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'portal-docs' and public.is_member_of_slug((storage.foldername(name))[1]));
+
+drop policy if exists "member update portal-docs" on storage.objects;
+create policy "member update portal-docs" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'portal-docs' and public.is_member_of_slug((storage.foldername(name))[1]));
+
+drop policy if exists "member delete portal-docs" on storage.objects;
+create policy "member delete portal-docs" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'portal-docs' and public.is_member_of_slug((storage.foldername(name))[1]));
+
+drop policy if exists "member read portal-docs" on storage.objects;
+create policy "member read portal-docs" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'portal-docs' and public.is_member_of_slug((storage.foldername(name))[1]));
+
+-- Nenhuma policy de leitura para o cliente: é intencional. A ausência é a
+-- proteção — o único caminho até o arquivo é a URL assinada emitida pelo
+-- servidor depois de checar contrato, papel e publicação.
