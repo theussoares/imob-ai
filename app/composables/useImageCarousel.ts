@@ -2,23 +2,26 @@ import type { ComponentPublicInstance } from "vue";
 import type { PropertyImage } from "~~/shared/models/property";
 
 /**
- * Índice ativo + navegação circular sobre uma lista de fotos do imóvel. O
- * srcset (1x/2x) sai sob demanda do endpoint de transformação do Supabase, a
- * partir da `url` original — sem depender da derivada `urlSm` pré-gerada no
- * upload. `baseWidth` é a largura 1x: o card da listagem usa uma (pequena) e
- * a galeria da página de detalhe usa outra (maior) — por isso é parâmetro, não
- * uma constante fixa aqui dentro.
+ * Índice ativo + navegação circular sobre uma lista de fotos do imóvel.
+ *
+ * O srcset usa as derivadas WebP já geradas NO UPLOAD (`urlSm` 640px, `url`
+ * 1600px — ver ImageUploader.vue), não o endpoint de transformação sob
+ * demanda do Supabase. Cada foto transformada sob demanda conta contra a cota
+ * paga de "Image Transformations" da conta — e como toda foto de todo imóvel
+ * de todo tenant passava por ali pra montar QUALQUER tamanho de srcset, a
+ * plataforma inteira estourou a cota rápido. As derivadas do upload já
+ * resolvem os dois tamanhos que a UI usa (thumb/card e galeria/tela cheia) sem
+ * custo por requisição — só falta quando a foto não passou pelo uploader
+ * (URL colada à mão, ou formato que o canvas não processa: SVG/HEIC), caso em
+ * que `urlSm` vem `null` e o `<img>` cai só na `url` original.
  */
-export function useImageCarousel(getImages: () => PropertyImage[], baseWidth = 360) {
+export function useImageCarousel(getImages: () => PropertyImage[]) {
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
   const activeSrcset = computed(() => {
-    const url = activeImage.value?.url;
-    if (!url) return undefined;
-    return [
-      `${supabaseRenderImage(url, { width: baseWidth, height: baseWidth, quality: 70 })} ${baseWidth}w`,
-      `${supabaseRenderImage(url, { width: baseWidth * 2, height: baseWidth * 2, quality: 70 })} ${baseWidth * 2}w`,
-    ].join(", ");
+    const img = activeImage.value;
+    if (!img?.url || !img.urlSm) return undefined;
+    return `${img.urlSm} 640w, ${img.url} 1600w`;
   });
   const hasMany = computed(() => getImages().length > 1);
 
