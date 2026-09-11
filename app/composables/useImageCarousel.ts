@@ -14,11 +14,25 @@ import type { PropertyImage } from "~~/shared/models/property";
  * custo por requisição — só falta quando a foto não passou pelo uploader
  * (URL colada à mão, ou formato que o canvas não processa: SVG/HEIC), caso em
  * que `urlSm` vem `null` e o `<img>` cai só na `url` original.
+ *
+ * `full`: contexto onde a foto ocupa boa parte da tela (foto principal e tela
+ * cheia da galeria) — aí sim vale oferecer as duas derivadas via srcset, pra
+ * tela de alta densidade puxar a de 1600px quando compensa. Sem isso (default,
+ * usado pelo card do catálogo), só a derivada pequena entra: sem outro
+ * candidato no srcset, um card de ~360px em tela retina puxaria a foto de
+ * 1600px inteira — desfazendo o ganho de banda que motivou trocar a
+ * transformação sob demanda pela derivada estática.
  */
-export function useImageCarousel(getImages: () => PropertyImage[]) {
+export function useImageCarousel(getImages: () => PropertyImage[], opts?: { full?: boolean }) {
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
+  const activeSrc = computed(() => {
+    const img = activeImage.value;
+    if (!img) return "";
+    return (opts?.full ? img.url : img.urlSm) || img.url || "";
+  });
   const activeSrcset = computed(() => {
+    if (!opts?.full) return undefined;
     const img = activeImage.value;
     if (!img?.url || !img.urlSm) return undefined;
     return `${img.urlSm} 640w, ${img.url} 1600w`;
@@ -56,5 +70,5 @@ export function useImageCarousel(getImages: () => PropertyImage[]) {
     if (el instanceof HTMLImageElement && el.complete) onImageLoad();
   }
 
-  return { activeIndex, activeImage, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg };
+  return { activeIndex, activeImage, activeSrc, activeSrcset, hasMany, go, imageLoading, onImageLoad, bindImg };
 }
