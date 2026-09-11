@@ -9,15 +9,28 @@ import type { PropertyImage } from "~~/shared/models/property";
  * a galeria da página de detalhe usa outra (maior) — por isso é parâmetro, não
  * uma constante fixa aqui dentro.
  */
-export function useImageCarousel(getImages: () => PropertyImage[], baseWidth = 360) {
+export function useImageCarousel(
+  getImages: () => PropertyImage[],
+  baseWidth = 360,
+  opts?: { aspect?: number; resize?: "contain" | "cover" },
+) {
+  // aspect = largura/altura da CAIXA onde a foto aparece. Default 1 (quadrado)
+  // + 'contain' mantém o comportamento de sempre — é o que a tela cheia da
+  // galeria (object-fit: contain, foto inteira sem cortar) precisa. Quem tem
+  // object-fit: cover (card, foto principal da galeria) deve passar o aspect
+  // real da caixa e resize: 'cover', senão baixa a foto na proporção
+  // ORIGINAL dela pra depois o CSS cortar metade no cliente.
+  const aspect = opts?.aspect ?? 1;
+  const resize = opts?.resize ?? "contain";
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
   const activeSrcset = computed(() => {
     const url = activeImage.value?.url;
     if (!url) return undefined;
+    const h = (w: number) => Math.round(w / aspect);
     return [
-      `${supabaseRenderImage(url, { width: baseWidth, height: baseWidth, quality: 70 })} ${baseWidth}w`,
-      `${supabaseRenderImage(url, { width: baseWidth * 2, height: baseWidth * 2, quality: 70 })} ${baseWidth * 2}w`,
+      `${supabaseRenderImage(url, { width: baseWidth, height: h(baseWidth), quality: 70, resize })} ${baseWidth}w`,
+      `${supabaseRenderImage(url, { width: baseWidth * 2, height: h(baseWidth * 2), quality: 70, resize })} ${baseWidth * 2}w`,
     ].join(", ");
   });
   const hasMany = computed(() => getImages().length > 1);

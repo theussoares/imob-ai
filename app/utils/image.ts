@@ -53,7 +53,7 @@ export function isResizableImage(file: File): boolean {
  */
 export function supabaseRenderImage(
   url: string,
-  opts?: { width?: number; height?: number; quality?: number },
+  opts?: { width?: number; height?: number; quality?: number; resize?: 'contain' | 'cover' },
 ): string {
   if (!url) return url
 
@@ -64,7 +64,14 @@ export function supabaseRenderImage(
   const width = opts?.width ?? 600
   const height = opts?.height ?? 600
   const quality = opts?.quality ?? 60
+  // 'contain' preserva a proporção da FOTO ORIGINAL, não da caixa onde ela é
+  // exibida — certo para a tela cheia (object-fit: contain, foto inteira
+  // visível), errado para qualquer lugar com object-fit: cover, onde o CSS já
+  // vai cortar o excedente depois. Pedir 'cover' com o WxH da caixa real faz
+  // esse corte no Storage, em vez de baixar a foto inteira pra descartar
+  // metade dela no cliente (era o achado do PageSpeed: ~78 KiB de sobra).
+  const resize = opts?.resize ?? 'contain'
   const sep = renderUrl.includes('?') ? '&' : '?'
 
-  return `${renderUrl}${sep}width=${width}&height=${height}&resize=contain&quality=${quality}`
+  return `${renderUrl}${sep}width=${width}&height=${height}&resize=${resize}&quality=${quality}`
 }

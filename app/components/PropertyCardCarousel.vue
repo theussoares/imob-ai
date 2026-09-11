@@ -31,7 +31,7 @@ const {
   imageLoading,
   onImageLoad,
   bindImg,
-} = useImageCarousel(() => props.images);
+} = useImageCarousel(() => props.images, 360, { aspect: 16 / 11, resize: "cover" });
 // Cards acima da dobra não podem ser lazy: em tenant sem hero image, a capa do
 // primeiro card É o elemento de LCP, e lazy adia o download pro pós-layout.
 const isAboveFold = computed(() => props.index < 3);

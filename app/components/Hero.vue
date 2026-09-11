@@ -24,23 +24,38 @@ const imageAlt = computed(() => `Foto institucional${props.tenant?.name ? ' — 
 // em produção: 98 KiB entregues contra ~29 KiB necessários). Qualidade um
 // pouco mais baixa que a das fotos de imóvel porque o degradê escuro por cima
 // (`.hero-overlay`) mascara boa parte da perda.
+/**
+ * `resize=cover` (não `contain`): o `.hero-bg img`/`.hero-media img` são
+ * `object-fit: cover`, ou seja o CSS já corta a sobra depois. Pedir `contain`
+ * devolve a foto na proporção ORIGINAL dela (quase quadrada, no caso da
+ * institucional) e o navegador baixa isso inteiro pra descartar boa parte —
+ * era o achado do PageSpeed de ~29 KiB de sobra só nessa imagem, o LCP do
+ * site. Com `cover` + a proporção real da caixa, o corte acontece no
+ * Storage: menos bytes, exatamente o que aparece na tela.
+ */
 const heroBgSrcset = computed(() => {
   const url = props.tenant?.heroImage
   if (!url) return undefined
+  // Sem aspect-ratio fixo em CSS (altura varia com o texto) — 16/7 aproxima
+  // o formato usual de um fundo full-bleed sem pedir bem mais do que precisa.
+  const h = (w: number) => Math.round((w * 7) / 16)
   return [
-    `${supabaseRenderImage(url, { width: 640, height: 640, quality: 60 })} 640w`,
-    `${supabaseRenderImage(url, { width: 960, height: 960, quality: 60 })} 960w`,
-    `${supabaseRenderImage(url, { width: 1280, height: 1280, quality: 60 })} 1280w`,
-    `${supabaseRenderImage(url, { width: 1920, height: 1920, quality: 60 })} 1920w`,
+    `${supabaseRenderImage(url, { width: 640, height: h(640), quality: 60, resize: 'cover' })} 640w`,
+    `${supabaseRenderImage(url, { width: 960, height: h(960), quality: 60, resize: 'cover' })} 960w`,
+    `${supabaseRenderImage(url, { width: 1280, height: h(1280), quality: 60, resize: 'cover' })} 1280w`,
+    `${supabaseRenderImage(url, { width: 1920, height: h(1920), quality: 60, resize: 'cover' })} 1920w`,
   ].join(', ')
 })
 // Split: coluna de ~546px a partir de 860px; largura da viewport (menos padding) abaixo disso.
+// Proporção 4/3 (a do mobile, `.hero.split .hero-media`) — é onde o PageSpeed
+// testa; no desktop (4/5, ≥860px) o CSS ainda corta certo, só um pouco mais.
 const heroSplitSrcset = computed(() => {
   const url = props.tenant?.heroImage
   if (!url) return undefined
+  const h = (w: number) => Math.round((w * 3) / 4)
   return [
-    `${supabaseRenderImage(url, { width: 720, height: 720, quality: 70 })} 720w`,
-    `${supabaseRenderImage(url, { width: 1440, height: 1440, quality: 70 })} 1440w`,
+    `${supabaseRenderImage(url, { width: 720, height: h(720), quality: 70, resize: 'cover' })} 720w`,
+    `${supabaseRenderImage(url, { width: 1440, height: h(1440), quality: 70, resize: 'cover' })} 1440w`,
   ].join(', ')
 })
 </script>
