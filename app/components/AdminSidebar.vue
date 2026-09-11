@@ -2,6 +2,7 @@
 const tenant = useTenant();
 const { signOut } = useAdminAuth();
 const route = useRoute();
+const siteUrl = usePublicSiteUrl();
 
 const links = [
   { to: "/admin", label: "Dashboard", exact: true },
@@ -55,7 +56,7 @@ async function logout() {
       >
         {{ l.label }}
       </NuxtLink>
-      <a href="/" target="_blank" rel="noopener">Ver site ↗</a>
+      <a :href="siteUrl" target="_blank" rel="noopener">Ver site ↗</a>
       <!-- Só aparece quando há o que oferecer: navegador que permite instalar,
            ou iOS, onde a instalação é manual. Já instalado, some. -->
       <AdminInstallButton />
