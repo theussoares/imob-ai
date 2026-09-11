@@ -2,7 +2,8 @@
 
 /* ============================================================
    Design tokens (marca dirigida por tenant)
-   Apenas --brand e --accent são injetados por tenant (SSR).
+   --brand, --accent e --wa são injetados por tenant (SSR) quando o
+   tenant define uma cor própria; senão ficam nos valores fixos daqui.
    Os demais derivam via color-mix.
    ============================================================ */
 :root {
@@ -19,7 +20,9 @@
   --brand-ghost: color-mix(in srgb, var(--brand) 10%, white);
 
   --wa: #0d7539; /* verde WhatsApp escurecido p/ contraste AA (≈5.8:1 c/ branco) */
-  --wa-dark: #0a5e2d;
+  /* Deriva de --wa (não fixo) para que uma cor customizada pelo tenant já
+     ganhe o hover escurecido de graça, sem pedir um segundo campo no admin. */
+  --wa-dark: color-mix(in srgb, var(--wa) 82%, black);
 
   --shadow: 0 1px 2px rgba(20, 22, 26, 0.06), 0 6px 20px rgba(20, 22, 26, 0.06);
   --shadow-lg: 0 20px 48px rgba(20, 22, 26, 0.18);
