@@ -8,6 +8,7 @@ import {
 definePageMeta({ layout: "admin", middleware: "admin" });
 
 const tenant = useTenant();
+const siteUrl = usePublicSiteUrl();
 
 const { data: properties, pending } = useLazyAsyncData(
   // Mesma chave da listagem de imóveis: compartilha a entrada em vez de manter
@@ -140,7 +141,11 @@ useHead({ title: "Dashboard · Painel" });
           <NuxtLink class="admin-btn ghost" to="/admin/corretores"
             >Corretores</NuxtLink
           >
-          <a class="admin-btn ghost" href="/" target="_blank" rel="noopener"
+          <a
+            class="admin-btn ghost"
+            :href="siteUrl"
+            target="_blank"
+            rel="noopener"
             >Ver site ↗</a
           >
           <NuxtLink class="admin-btn ghost" to="/admin/config"
