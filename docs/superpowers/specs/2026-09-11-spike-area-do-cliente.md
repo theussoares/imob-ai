@@ -148,7 +148,7 @@ JWT do usuário, validado por RLS em `storage.objects`, ou (b) URL assinada.
 
 # Parte 3 — Decisões que o spike MUDA
 
-## M1 — A autorização do download deve viver também na RLS do storage 🔴 decisão pendente
+## M1 — A autorização do download vive também na RLS do storage ✅ decidido e aplicado
 
 **Como está desenhado:** o cliente não tem policy de leitura no bucket; o servidor
 confere a permissão em código (`canClientSeeDocument`) e assina a URL com service
@@ -176,7 +176,7 @@ todos os tenants. A documentação resolve isso com os helpers operacionais
 "ler objeto" de "listar bucket". Se a policy for adicionada, ela **tem** que usar
 esses helpers.
 
-## M2 — Trocar privilégio de coluna por tabela separada, em `contracts` 🔴 decisão pendente
+## M2 — Privilégio de coluna trocado por tabela separada em `contracts` ✅ decidido e aplicado
 
 A migration 0028 usa `revoke select on contracts from authenticated` + grant por
 coluna, para esconder `notes`, `external_id` e `admin_fee_percent`.
@@ -236,6 +236,22 @@ entraria como o oitavo.
 ## M6 — `revoke execute` em `is_portal_user` ✅ aplicado
 
 Corrige o A5 para a função nova, antes de ela existir.
+
+## Decisões, registradas em 11/09
+
+As três foram levadas ao Matheus com recomendação, e as três foram aceitas:
+
+| Decisão | Escolha | Onde ficou |
+|---|---|---|
+| M1 — autorização do download | Duas barreiras: código **e** policy de storage | migration 0028, commit `7a8e307` |
+| M2 — campos internos de contrato | Tabela `contract_internal` | migration 0028, commit `7a8e307` |
+| Achados de produção (A2, A3, A4, A5, A6) | Card próprio, **antes** da Fase 0 | card 0.0 no ClickUp |
+
+Consequência de M1 que precisa sobreviver à implementação: **a URL assinada tem que
+ser gerada com o token do cliente**, não com service role. Assinar com service role
+mantém a policy inerte e devolve o desenho ao ponto único de falha — sem que nada
+falhe visivelmente. Está escrito no card 2.3, e o teste que prova isso é remover a
+checagem em TypeScript e confirmar que a policy ainda barra.
 
 ---
 
