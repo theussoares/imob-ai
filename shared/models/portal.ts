@@ -66,25 +66,35 @@ export interface Contract {
   rentAmount: number | null
   /** Dia do vencimento (1–31). Base do agendamento da cobrança. */
   dueDay: number | null
-  /**
-   * Percentual retido pela imobiliária. É margem comercial: não sai para o
-   * portal por privilégio de coluna — ver a nota na migration 0028.
-   */
-  adminFeePercent: number | null
   /** Índice do reajuste anual (igpm, ipca, incc…). */
   adjustmentIndex: string | null
-  /** Anotação interna. Não existe na visão do cliente — ver `ContractForClient`. */
-  notes: string | null
   source: 'manual' | 'erp'
   createdAt: string
 }
 
 /**
+ * O que é da imobiliária e nunca do cliente.
+ *
+ * Tabela separada (`contract_internal`), não colunas escondidas dentro de
+ * `contracts`. A RLS sozinha decide quem lê — sem privilégio por coluna, e
+ * portanto sem a armadilha do `select('*')` que já mordeu este repositório em
+ * `properties`. Ver a nota na migration 0028.
+ */
+export interface ContractInternal {
+  contractId: string
+  notes: string | null
+  /** Percentual retido pela imobiliária. Margem comercial. */
+  adminFeePercent: number | null
+  /** Id do contrato no ERP, quando a integração existir. */
+  externalId: string | null
+}
+
+/**
  * O mesmo contrato, como o CLIENTE o enxerga.
  *
- * Tipo separado de propósito. A alternativa — devolver `Contract` e lembrar de
- * apagar `notes` em cada endpoint — falha em silêncio no dia em que alguém
- * escrever o endpoint seguinte. Aqui o campo simplesmente não existe.
+ * Tipo separado de propósito, mesmo agora que os campos internos moram em outra
+ * tabela: `ContractForClient` também omite `tenantId`, `propertyId` e `source`,
+ * que são detalhe de implementação e não dizem nada a um inquilino.
  */
 export interface ContractForClient {
   id: string
@@ -127,9 +137,14 @@ export interface ContractInput {
   endsOn?: string | null
   rentAmount?: number | null
   dueDay?: number | null
-  adminFeePercent?: number | null
   adjustmentIndex?: string | null
+}
+
+/** Campos internos, editados na mesma tela mas gravados em outra tabela. */
+export interface ContractInternalInput {
   notes?: string | null
+  adminFeePercent?: number | null
+  externalId?: string | null
 }
 
 /** Cadastro de um cliente no portal (dispara o convite por e-mail). */

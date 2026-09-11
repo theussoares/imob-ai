@@ -58,6 +58,30 @@ export type Database = {
           },
         ]
       }
+      contract_internal: {
+        Row: {
+          admin_fee_percent: number | null
+          contract_id: string
+          external_id: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_fee_percent?: number | null
+          contract_id: string
+          external_id?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_fee_percent?: number | null
+          contract_id?: string
+          external_id?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contract_parties: {
         Row: {
           contract_id: string
@@ -86,14 +110,11 @@ export type Database = {
         Row: {
           address_label: string | null
           adjustment_index: string | null
-          admin_fee_percent: number | null
           code: string
           created_at: string
           due_day: number | null
           ends_on: string | null
-          external_id: string | null
           id: string
-          notes: string | null
           property_id: string | null
           rent_amount: number | null
           source: string
@@ -105,14 +126,11 @@ export type Database = {
         Insert: {
           address_label?: string | null
           adjustment_index?: string | null
-          admin_fee_percent?: number | null
           code: string
           created_at?: string
           due_day?: number | null
           ends_on?: string | null
-          external_id?: string | null
           id?: string
-          notes?: string | null
           property_id?: string | null
           rent_amount?: number | null
           source?: string
@@ -124,14 +142,11 @@ export type Database = {
         Update: {
           address_label?: string | null
           adjustment_index?: string | null
-          admin_fee_percent?: number | null
           code?: string
           created_at?: string
           due_day?: number | null
           ends_on?: string | null
-          external_id?: string | null
           id?: string
-          notes?: string | null
           property_id?: string | null
           rent_amount?: number | null
           source?: string

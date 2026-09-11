@@ -93,21 +93,15 @@ create table if not exists public.contracts (
   -- Dia do vencimento: o que decide quando a cobrança é emitida e com quanta
   -- antecedência ela vai para o inquilino.
   due_day smallint,
-  -- Percentual que a imobiliária retém do aluguel. É a base do repasse ao
-  -- proprietário e do extrato que ele vê no portal.
-  admin_fee_percent numeric(5,2),
   -- Índice do reajuste anual (igpm, ipca, incc...). Texto livre e não enum: a
   -- lista real varia por contrato e um enum aqui vira migration a cada exceção.
   adjustment_index text,
-  -- Anotação INTERNA da imobiliária. Nunca é exposta no portal — ver a nota em
-  -- portal_documents sobre o que o cliente enxerga.
-  notes text,
   -- 'manual' hoje (a imobiliária sobe os arquivos pelo painel). Quando a
   -- integração com o ERP entrar, o mesmo contrato passa a chegar com
-  -- source='erp' e external_id preenchido, sem migrar tabela nem reescrever a
-  -- área do cliente. Duas colunas agora custam nada e evitam o retrabalho.
+  -- source='erp', sem migrar tabela nem reescrever a área do cliente.
   source text not null default 'manual',
-  external_id text,
+  -- ⚠️ Campos internos da imobiliária (anotação, taxa de administração, id no
+  -- ERP) NÃO moram aqui — ver `contract_internal`, logo abaixo.
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (tenant_id, code)
@@ -126,17 +120,55 @@ alter table public.contracts
 alter table public.contracts
   add constraint contracts_due_day_check check (due_day is null or (due_day between 1 and 31));
 
-alter table public.contracts
-  drop constraint if exists contracts_admin_fee_check;
-alter table public.contracts
-  add constraint contracts_admin_fee_check
-  check (admin_fee_percent is null or (admin_fee_percent >= 0 and admin_fee_percent <= 100));
+
 
 create index if not exists idx_contracts_tenant_status on public.contracts(tenant_id, status);
 create index if not exists idx_contracts_property on public.contracts(property_id);
 
 drop trigger if exists trg_contracts_updated on public.contracts;
 create trigger trg_contracts_updated before update on public.contracts
+  for each row execute function public.set_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- contract_internal — o que é da imobiliária e nunca do cliente
+--
+-- Tabela separada em vez de colunas com privilégio diferente dentro de
+-- `contracts`. Duas razões, ambas da documentação do Supabase:
+--
+--   1. Ela desaconselha privilégio por coluna e recomenda, textualmente, "RLS
+--      combinada com uma tabela dedicada" no lugar.
+--   2. Papel com privilégio restrito NÃO pode usar `select('*')` na tabela: o
+--      PostgREST expande o curinga para todas as colunas e a query inteira
+--      falha com "permission denied". Este repositório já pagou esse preço uma
+--      vez — está comentado em `property.repository.ts`, e é por isso que as
+--      leituras públicas de imóvel listam coluna por coluna.
+--
+-- Com a tabela separada, a RLS faz o trabalho sozinha e `select('*')` volta a
+-- ser seguro em `contracts`. O modelo também fica mais honesto: "o que o cliente
+-- vê" e "o que é da imobiliária" viram tabelas diferentes, não colunas com
+-- permissão diferente.
+-- ---------------------------------------------------------------------------
+create table if not exists public.contract_internal (
+  contract_id uuid primary key references public.contracts(id) on delete cascade,
+  -- Anotação da imobiliária sobre o contrato.
+  notes text,
+  -- Percentual retido pela imobiliária. É margem comercial: o proprietário tem
+  -- direito ao número, mas ele chega até ele pelo extrato de repasse, que é
+  -- documento endereçado — não por consulta à tabela.
+  admin_fee_percent numeric(5,2),
+  -- Id do contrato no ERP, quando a integração existir.
+  external_id text,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.contract_internal
+  drop constraint if exists contract_internal_admin_fee_check;
+alter table public.contract_internal
+  add constraint contract_internal_admin_fee_check
+  check (admin_fee_percent is null or (admin_fee_percent >= 0 and admin_fee_percent <= 100));
+
+drop trigger if exists trg_contract_internal_updated on public.contract_internal;
+create trigger trg_contract_internal_updated before update on public.contract_internal
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
@@ -244,6 +276,7 @@ revoke execute on function public.is_portal_user(uuid) from anon, authenticated,
 -- RLS
 -- ---------------------------------------------------------------------------
 alter table public.portal_users           enable row level security;
+alter table public.contract_internal     enable row level security;
 alter table public.contracts              enable row level security;
 alter table public.contract_parties       enable row level security;
 alter table public.portal_documents       enable row level security;
@@ -305,6 +338,19 @@ create policy "contracts_member_write" on public.contracts
   for all to authenticated
   using (public.is_tenant_member(tenant_id))
   with check (public.is_tenant_member(tenant_id));
+
+-- contract_internal ---------------------------------------------------------
+-- Só a imobiliária, em qualquer operação. Não existe termo de cliente aqui, e a
+-- ausência é a proteção: sem policy que o alcance, o cliente não lê a linha.
+drop policy if exists "contract_internal_member_all" on public.contract_internal;
+create policy "contract_internal_member_all" on public.contract_internal
+  for all to authenticated
+  using (
+    contract_id in (select c.id from public.contracts c where public.is_tenant_member(c.tenant_id))
+  )
+  with check (
+    contract_id in (select c.id from public.contracts c where public.is_tenant_member(c.tenant_id))
+  );
 
 -- contract_parties ----------------------------------------------------------
 drop policy if exists "contract_parties_member_all" on public.contract_parties;
@@ -380,27 +426,15 @@ create policy "portal_doc_access_member_read" on public.portal_document_access
 -- e vistoria não são catálogo.
 -- ---------------------------------------------------------------------------
 revoke all on public.portal_users           from anon;
+revoke all on public.contract_internal     from anon;
 revoke all on public.contracts              from anon;
 revoke all on public.contract_parties       from anon;
 revoke all on public.portal_documents       from anon;
 revoke all on public.portal_document_access from anon;
 
--- `notes` (anotação interna) e `external_id` nunca devem sair para o cliente,
--- que é `authenticated` como qualquer membro. A policy filtra LINHA, não
--- COLUNA — então o corte é por privilégio de coluna.
---
--- `admin_fee_percent` fica de fora junto, e por um motivo diferente: é a margem
--- comercial da imobiliária. O proprietário até tem direito ao número (está no
--- contrato dele), mas privilégio de coluna vale para o papel inteiro — liberar
--- para ele libera para o inquilino, que não tem nada com isso. O proprietário
--- vê o valor pelo extrato de repasse, que é documento endereçado a ele.
-revoke select on public.contracts from authenticated;
-grant select (
-  id, tenant_id, code, property_id, address_label, status,
-  started_on, ends_on, rent_amount, due_day, adjustment_index,
-  source, created_at, updated_at
-) on public.contracts to authenticated;
-grant insert, update, delete on public.contracts to authenticated;
+-- Nenhum `revoke` por coluna em `contracts`: o que é interno mora em
+-- `contract_internal`, protegida por RLS. É o que permite `select('*')` seguir
+-- funcionando aqui — ver a nota na criação daquela tabela.
 
 -- ---------------------------------------------------------------------------
 -- Storage: bucket PRIVADO
@@ -437,6 +471,50 @@ create policy "member read portal-docs" on storage.objects
   for select to authenticated
   using (bucket_id = 'portal-docs' and public.is_member_of_slug((storage.foldername(name))[1]));
 
--- Nenhuma policy de leitura para o cliente: é intencional. A ausência é a
--- proteção — o único caminho até o arquivo é a URL assinada emitida pelo
--- servidor depois de checar contrato, papel e publicação.
+-- ---------------------------------------------------------------------------
+-- E a policy do CLIENTE — a segunda barreira do download
+--
+-- O desenho original deixava o cliente sem policy nenhuma e confiava só no
+-- código: o servidor checava a permissão e assinava a URL com service role.
+-- O problema é que service role IGNORA RLS — então, se alguém esquecesse a
+-- checagem antes de assinar, não havia nada embaixo.
+--
+-- Com esta policy existe uma segunda barreira, no banco. Para que ela de fato
+-- rode, a assinatura tem que ser feita com o token DO CLIENTE (o client que
+-- `requirePortalUser` devolve), não com service role. A service role fica só
+-- para gravar a trilha de acesso.
+--
+-- A condição é a mesma regra de sempre, agora em SQL: publicado, de um contrato
+-- em que a pessoa é parte, e endereçado ao papel dela naquele contrato.
+--
+-- ⚠️ `allow_any_operation` é o que impede que dar leitura para baixar vire
+-- permissão de LISTAR o bucket — sem ele, um cliente enumeraria os caminhos dos
+-- documentos de todos os contratos de todos os tenants. A lista abaixo é a
+-- documentada para leitura de objeto; se a operação usada pela assinatura tiver
+-- outro nome nesta versão do Storage, o download para de funcionar de forma
+-- VISÍVEL (falha fechada, que é o modo certo de errar aqui) e o nome correto
+-- entra nesta lista. Conferir no primeiro apply.
+drop policy if exists "portal client reads own documents" on storage.objects;
+create policy "portal client reads own documents" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'portal-docs'
+    and storage.allow_any_operation(array['object.get_authenticated', 'object.get_authenticated_info'])
+    and exists (
+      select 1
+      from public.portal_documents d
+      join public.contract_parties cp on cp.contract_id = d.contract_id
+      join public.portal_users pu on pu.id = cp.portal_user_id
+      where d.storage_path = storage.objects.name
+        and d.published_at is not null
+        and pu.user_id = (select auth.uid())
+        and pu.active
+        and pu.tenant_id = d.tenant_id
+        and cp.role = any (d.audience)
+    )
+  );
+
+-- O join acima percorre storage.objects.name -> portal_documents.storage_path.
+-- Sem índice nessa coluna, cada download vira varredura da tabela de documentos.
+create index if not exists idx_portal_documents_storage_path
+  on public.portal_documents(storage_path);
