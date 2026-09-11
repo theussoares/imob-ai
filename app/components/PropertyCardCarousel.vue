@@ -25,6 +25,7 @@ const props = withDefaults(
 
 const {
   activeImage,
+  activeSrc,
   activeSrcset,
   hasMany,
   go,
@@ -67,7 +68,7 @@ function onTap() {
   <div v-if="activeImage" ref="stage" class="cc" @click="onTap">
     <img
       :ref="bindImg"
-      :src="activeImage.url"
+      :src="activeSrc"
       :srcset="activeSrcset"
       sizes="(min-width: 1040px) 360px, (min-width: 820px) 50vw, 100vw"
       :alt="alt"

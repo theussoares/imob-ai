@@ -165,7 +165,7 @@ function move(i: number, dir: number) {
         :class="{ cover: img.isCover }"
       >
         <img
-          :src="supabaseRenderImage(img.url, { width: 280, height: 210, quality: 70 })"
+          :src="img.urlSm || img.url"
           :alt="img.alt || 'Imagem do imóvel'"
         />
         <span v-if="img.isCover" class="cover-tag">Capa</span>
