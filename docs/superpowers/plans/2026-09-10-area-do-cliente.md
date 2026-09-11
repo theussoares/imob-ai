@@ -116,6 +116,24 @@ prazo:
    exatamente por isso que o convite de usuários do painel entrega link copiável
    em vez de e-mail. Para um disparo mensal a uma carteira inteira, isso não
    serve: precisa de Resend ou SES com domínio verificado.
+
+   **Decisão (2026-09-11): o envio sai do domínio da plataforma
+   (`usemoradi.com.br`), não do domínio de cada cliente.** Verificar o domínio de
+   cada imobiliária significa uma rodada de DNS por cliente, para sempre, com
+   quem muitas vezes não controla o próprio DNS — e é o tipo de trabalho que não
+   aparece na estimativa e aparece no onboarding. Com um domínio só, SPF, DKIM e
+   DMARC são configurados uma vez, a reputação de envio é construída uma vez, e
+   cliente novo custa zero.
+
+   O preço é a marca no remetente, e ele se paga barato: o nome de exibição leva
+   o nome da imobiliária e o `Reply-To` leva o e-mail real dela — o cliente final
+   vê "Imobiliária X" na caixa de entrada e responde para a imobiliária. Domínio
+   de envio próprio (`mail.<dominio-do-cliente>` por CNAME) fica como upgrade
+   para quem pedir e controlar o DNS, sem bloquear ninguém.
+
+   Nesta primeira cliente o DNS é gerenciado pelo próprio Matheus, o que remove
+   o risco de cronograma — mas a decisão acima não é sobre ela, é sobre o
+   segundo, o quinto e o vigésimo cliente.
 2. **Upload manual é trabalho recorrente da imobiliária.** Com a carteira dela,
    é uma pessoa subindo um boleto por contrato, todo mês, para sempre. A feature
    não morre de bug — morre de fadiga operacional no terceiro mês. Por isso a
