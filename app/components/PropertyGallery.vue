@@ -31,7 +31,7 @@ const {
   imageLoading,
   onImageLoad,
   bindImg,
-} = useImageCarousel(() => props.images, 720);
+} = useImageCarousel(() => props.images);
 const active = computed(() => activeImage.value?.url || "");
 
 const thumbStrip = ref<HTMLElement | null>(null);
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
               @click="activeIndex = i"
             >
               <img
-                :src="supabaseRenderImage(img.url, { width: 144, height: 104, quality: 70 })"
+                :src="img.urlSm || img.url"
                 :alt="img.alt || title"
                 loading="lazy"
               />
