@@ -36,7 +36,12 @@ useHead(() => ({
           // especificidade de `:root` sozinho (0,1,0) empata com a do main.css — quem
           // vem depois no <head> vence, e essa ordem não é garantida. `html:root`
           // (0,1,1) sempre bate o main.css, não importa a ordem de injeção.
-          innerHTML: `html:root{--brand:${tenantState.value.brandPrimary};--accent:${tenantState.value.brandAccent};}`,
+          //
+          // --wa só entra quando o tenant define uma cor própria: a maioria não
+          // mexe nisso, e sem essa declaração o valor fixo do main.css (verde
+          // padrão do WhatsApp) continua valendo — --wa-dark (hover) deriva dele
+          // via color-mix, então não precisa ser injetado à parte.
+          innerHTML: `html:root{--brand:${tenantState.value.brandPrimary};--accent:${tenantState.value.brandAccent};${tenantState.value.whatsappButtonColor ? `--wa:${tenantState.value.whatsappButtonColor};` : ''}}`,
         },
       ]
     : [],
