@@ -48,8 +48,13 @@ export function isResizableImage(file: File): boolean {
  * pública normal (`/object/public/...`). `resize=contain` porque só reduz —
  * nunca corta a foto como `cover` faria.
  *
- * Testando como alternativa às derivadas `urlSm` geradas no upload: uma foto
- * só, redimensionada sob demanda pro Supabase, em vez de duas subidas fixas.
+ * Foi testada como alternativa às derivadas `urlSm` geradas no upload (uma
+ * foto só, redimensionada sob demanda, em vez de duas subidas fixas) — mas
+ * pra foto de imóvel isso estourou a cota de Image Transformations da conta
+ * (toda foto de todo tenant passava por aqui pra montar QUALQUER srcset; ver
+ * useImageCarousel.ts). Voltou a ser exceção, não regra: continua servindo
+ * hero, foto de corretor e blocos do "Quem somos" — poucas fotos por tenant,
+ * onde ainda não existe derivada pequena pré-gerada.
  */
 export function supabaseRenderImage(
   url: string,

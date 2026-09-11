@@ -1,5 +1,6 @@
 import { listActiveProperties } from '~~/server/repositories/property.repository'
 import { qualifyingCategories, categorySlug } from '~~/shared/utils/category'
+import { qualifyingNeighborhoods } from '~~/shared/utils/neighborhood'
 import { propertyPath } from '~~/shared/utils/property-url'
 
 /** Sitemap dinâmico por host (tenant). */
@@ -30,12 +31,19 @@ export default defineEventHandler(async (event) => {
     priority: '0.9',
   }))
 
+  // Mesma regra de piso das categorias: só entra bairro com imóveis suficientes.
+  const neighborhoods = qualifyingNeighborhoods(list).map((h) => ({
+    loc: `${origin}/imoveis/bairro/${h.slug}`,
+    priority: '0.9',
+  }))
+
   const urls: { loc: string; lastmod?: string; priority: string }[] = [
     { loc: `${origin}/`, priority: '1.0' },
     // Página de conteúdo próprio, não gerada a partir do catálogo: entra sempre,
     // sem piso de conteúdo, porque não depende de haver imóvel cadastrado.
     { loc: `${origin}/quero-vender`, priority: '0.9' },
     ...categories,
+    ...neighborhoods,
     ...list.map((p) => ({
       loc: `${origin}${propertyPath(p)}`,
       lastmod: p.updatedAt,
