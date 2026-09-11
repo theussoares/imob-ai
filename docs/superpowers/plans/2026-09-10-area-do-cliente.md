@@ -183,6 +183,60 @@ Asaas, escolha dela). Os dois têm API de emissão e webhook de baixa; o passo m
 barato da integração continua sendo assinar só o webhook, sem emitir nada, para o
 portal mostrar "pago / em aberto" sozinho.
 
+## Atualização de 2026-09-11 (fim do dia): a feature vira plano pago
+
+Duas decisões que mudam a ordem de execução, sem mudar o prazo combinado.
+
+### A Área do Cliente é vendida à parte
+
+É a primeira feature que entra como **plano superior na mensalidade**, não como
+melhoria incluída. O mecanismo é um recurso ligado por tenant
+(`tenant_features`), e não uma coluna `plan` com enum: os nomes dos planos ainda
+não existem porque nada foi vendido, e errar o nome do tier custa migration.
+Quando houver um segundo recurso pago, `plan` vira um atalho que resolve para um
+conjunto de recursos.
+
+A checagem mora em dois lugares que já existem: dentro de `is_portal_user()` — e
+como essa função gatilha todas as policies do portal, o recurso desligado passa a
+fechar o acesso **no banco**, em todo caminho — e em `requirePortalUser`, para
+devolver erro legível em vez de lista vazia.
+
+**Pergunta de produto em aberto:** o que acontece quando a imobiliária para de
+pagar? Os documentos não são dela, são dos clientes dela — cortar no vencimento
+tira do inquilino o acesso ao próprio contrato por causa de uma fatura entre
+terceiros. O schema prevê `grace_until` para suportar carência; a decisão é
+comercial.
+
+### O demo da semana 2 vai para produção, não para staging
+
+Defensável porque a Área do Cliente é **auto-fechada** (ninguém entra sem
+convite) e porque o dado é o contrato real dela, no tenant dela. O entitlement
+acima é o que garante que os outros dois clientes não vejam nada.
+
+Isso dispensa o projeto de staging de US$ 10/mês até a semana 2, e dispensa
+inteiramente o dilema do plano Free (que pausa após 7 dias ocioso — inaceitável
+num link que a cliente vai abrir).
+
+### A reordenação, e o motivo dela
+
+O caminho completo até "ela loga e baixa" soma **14,5 dias úteis**. A semana 2
+tem **10**. Não fechava.
+
+O que destrava: **o demo não precisa do painel.** O compromisso enviado foi *"você
+entra num link de teste e baixa o contrato e a vistoria"* — ela entra e baixa, não
+cadastra. Então o contrato dela é cadastrado à mão pelo dashboard (dado real, no
+tenant certo) e a Fase 1 inteira sai do caminho crítico:
+
+`0.0 → 0.2 → 0.6 → 0.3 → 0.5 → 2.1 → 2.2 → 2.3` = **9 dias**, com um dia de folga.
+
+Ficam para depois do demo: e-mail transacional (0.4), o painel inteiro (1.1–1.3)
+e o polimento de mobile (2.4). O total não muda; muda a ordem — e o painel passa a
+ser construído depois de ela usar, alimentado pelo que ela reclamar, em vez de no
+escuro.
+
+O card 3.3 deixou de ser "primeiro contrato real em produção" e virou "abrir para
+a carteira", que é o que de fato encerra o projeto.
+
 ## Fases e prazo
 
 Estimativa em dias úteis de trabalho efetivo.
