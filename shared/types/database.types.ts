@@ -396,6 +396,7 @@ export type Database = {
           updated_by: string | null
           website: string | null
           whatsapp: string | null
+          whatsapp_button_color: string | null
         }
         Insert: {
           active?: boolean
@@ -436,6 +437,7 @@ export type Database = {
           updated_by?: string | null
           website?: string | null
           whatsapp?: string | null
+          whatsapp_button_color?: string | null
         }
         Update: {
           active?: boolean
@@ -476,6 +478,7 @@ export type Database = {
           updated_by?: string | null
           website?: string | null
           whatsapp?: string | null
+          whatsapp_button_color?: string | null
         }
         Relationships: []
       }
