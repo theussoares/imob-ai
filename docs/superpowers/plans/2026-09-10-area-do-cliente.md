@@ -157,11 +157,31 @@ coisas do plano acima e não muda o prazo.
   contratos, a integração não se paga por esta cliente. Se for feita, é porque
   serve os outros tenants e as vendas seguintes — não porque ela precisa.
 
-Registrado também: a cobrança dela hoje sai pelo **Cora**, emitida manualmente
-pelo contador. O Cora tem API de cobrança e webhook de baixa, liberados pelo
-plano CoraPro (~R$ 44,90/mês, na conta dela). Ou seja, a integração de cobrança
-não exige que ela troque de provedor — e o passo mais barato é só assinar o
-webhook, sem emitir nada, para o portal mostrar "pago / em aberto" sozinho.
+**Como o inquilino paga hoje: Pix.** Não existe boleto na operação dela — a
+intenção de migrar para boleto é futura e sem data. Duas consequências:
+
+- **O marco da semana 4 não pode depender dessa migração.** Se ela ainda não
+  tiver trocado, uma tela chamada "Boletos" fica vazia e o marco vira vexame.
+  A seção é de **pagamentos**, e mostra o que existir: hoje o comprovante de Pix,
+  amanhã o boleto. O enum `portal_doc_category` já cobre os dois (`recibo` e
+  `boleto`) — nada a mudar no schema.
+- **Se ela vai migrar mesmo, que migre direto para o provedor que escolher**
+  (Cora ou Asaas), não para a emissão pelo banco dela. Senão faz a mudança
+  operacional duas vezes, e na segunda resiste.
+
+Vale também questionar a premissa com ela: o que ela pediu foi organização, e
+organização vem do sistema, não do instrumento de pagamento. **Pix cobrança com
+vencimento** — que os dois provedores emitem, com multa, juros e data — organiza
+igual, concilia na hora (o webhook dispara no instante do pagamento, não no dia
+seguinte) e é mais barato que boleto. O caminho que evita a escolha é a cobrança
+híbrida: um documento só, com código de barras e QR, que o inquilino paga como
+preferir e que concilia por um caminho só.
+
+Registrado também: o **Cora** que apareceu na conversa é do contador dela, usado
+para cobrar a imobiliária — a imobiliária não tem conta de cobrança nenhuma. Ela vai abrir uma (Cora ou
+Asaas, escolha dela). Os dois têm API de emissão e webhook de baixa; o passo mais
+barato da integração continua sendo assinar só o webhook, sem emitir nada, para o
+portal mostrar "pago / em aberto" sozinho.
 
 ## Fases e prazo
 
