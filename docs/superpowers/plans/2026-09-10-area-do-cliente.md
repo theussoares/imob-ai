@@ -201,11 +201,45 @@ como essa função gatilha todas as policies do portal, o recurso desligado pass
 fechar o acesso **no banco**, em todo caminho — e em `requirePortalUser`, para
 devolver erro legível em vez de lista vazia.
 
-**Pergunta de produto em aberto:** o que acontece quando a imobiliária para de
-pagar? Os documentos não são dela, são dos clientes dela — cortar no vencimento
-tira do inquilino o acesso ao próprio contrato por causa de uma fatura entre
-terceiros. O schema prevê `grace_until` para suportar carência; a decisão é
-comercial.
+### Política de inadimplência — decidida em 11/09
+
+A pergunta era: o que acontece quando a imobiliária para de pagar, se os
+documentos são dos clientes dela? A pesquisa jurídica separou duas coisas que
+pareciam uma só.
+
+**Suspender o serviço é legítimo; reter os dados é abusivo.** O provedor pode
+suspender acesso por inadimplência desde que isso esteja *expresso no contrato* e
+com notificação prévia — mas reter os dados brutos do cliente viola propriedade e
+princípios da LGPD. Há precedente do lado errado disso: agência condenada a
+indenizar por bloquear o acesso de cliente inadimplente, porque o contrato previa
+apenas multa e não mencionava suspensão. Sem cláusula, o corte é ilícito mesmo
+com o cliente devendo.
+
+**E a cadeia de responsabilidade alivia a preocupação.** Na LGPD a imobiliária é
+**controladora** e o imob-ai é **operador** — trata dados apenas sob instrução
+dela. O direito do inquilino de acessar o próprio contrato (art. 18) é devido
+**pela imobiliária**. Cortar o portal não retira esse direito, desde que os dados
+permaneçam devolvíveis a ela. O que quebraria a cadeia seria cortar *e* segurar
+os arquivos.
+
+**A régua adotada:** vencimento sem efeito e aviso automático; segundo aviso em
+D+7; suspensão do portal em **D+15**; janela de exportação até D+90; eliminação
+depois, com as exceções do art. 16.
+
+Três regras que a implementação não pode perder:
+
+1. **O painel da imobiliária nunca é cortado por este entitlement** — só o portal.
+   Cortar o painel *é* reter dados, e é a conduta do precedente.
+2. **A tela de suspensão não menciona pagamento.** O inquilino vê
+   "temporariamente indisponível, fale com a imobiliária". Expor a inadimplência
+   dela aos clientes dela é dano à imagem de terceiro.
+3. **`portal_document_access` não entra no expurgo** — é registro de operação de
+   tratamento e tem base própria para sobreviver.
+
+Fora do código: a cláusula de suspensão **precisa existir no contrato** com a
+imobiliária. Isso é trabalho de advogado, não de desenvolvimento.
+
+O schema não muda: `enabled` + `grace_until` já expressam a régua acima.
 
 ### O demo da semana 2 vai para produção, não para staging
 
