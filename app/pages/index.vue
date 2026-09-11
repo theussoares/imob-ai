@@ -13,6 +13,7 @@ import {
   categoryLabel,
   allCategories,
 } from "~~/shared/utils/category";
+import { qualifyingNeighborhoods } from "~~/shared/utils/neighborhood";
 import { hasStructuredAddress, tenantCoordinates } from "~~/shared/utils/address";
 
 const tenant = useTenant();
@@ -88,6 +89,16 @@ const catLinks = computed(() => {
     }));
   return [...pretensoes, ...tipos];
 });
+
+// Bairros com inventário suficiente viram link aqui, pelo mesmo motivo das
+// categorias: sem link daqui, a página existe mas ninguém — nem o rastreador
+// — chega até ela.
+const hoodLinks = computed(() =>
+  qualifyingNeighborhoods(list.value).map((h) => ({
+    href: `/imoveis/bairro/${h.slug}`,
+    label: `Imóveis em ${h.label}`,
+  })),
+);
 
 const resultsEl = ref<HTMLElement | null>(null);
 function scrollToResults() {
@@ -216,6 +227,19 @@ useHead(() => ({
       >
         <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{
           c.label
+        }}</NuxtLink>
+      </nav>
+
+      <!-- Mesmo raciocínio do bloco acima, por bairro: só entra quem já tem
+           imóveis suficientes (ver CATEGORY_MIN_PROPERTIES), pra não linkar
+           página fina. -->
+      <nav
+        v-if="hoodLinks.length"
+        class="cat-links"
+        aria-label="Bairros"
+      >
+        <NuxtLink v-for="h in hoodLinks" :key="h.href" :to="h.href">{{
+          h.label
         }}</NuxtLink>
       </nav>
 
