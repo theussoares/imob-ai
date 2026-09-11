@@ -210,6 +210,9 @@ create index if not exists idx_portal_doc_access_doc
   on public.portal_document_access(document_id, created_at desc);
 create index if not exists idx_portal_doc_access_tenant
   on public.portal_document_access(tenant_id, created_at desc);
+-- FK sem índice de cobertura é o advisor 0001, que já lista 7 casos em produção.
+create index if not exists idx_portal_doc_access_user
+  on public.portal_document_access(portal_user_id);
 
 -- ---------------------------------------------------------------------------
 -- Predicado do cliente — o espelho de is_tenant_member(), e o oposto dele
@@ -230,6 +233,13 @@ $$;
 -- `active` desliga o acesso sem apagar o histórico: contrato encerrado tira a
 -- pessoa do portal, mas a trilha de quem baixou o quê continua de pé.
 
+-- Função `security definer` no schema `public` fica exposta como RPC em
+-- /rest/v1/rpc/. Sem este revoke, qualquer um chama `is_portal_user` com um
+-- tenant_id e recebe true/false de graça. Os advisors 0028/0029 já acusam isso
+-- para `is_tenant_member` e `is_member_of_slug` em produção — a função nova não
+-- nasce com o mesmo defeito.
+revoke execute on function public.is_portal_user(uuid) from anon, authenticated, public;
+
 -- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
@@ -239,96 +249,127 @@ alter table public.contract_parties       enable row level security;
 alter table public.portal_documents       enable row level security;
 alter table public.portal_document_access enable row level security;
 
+-- Três regras valem para TODAS as policies abaixo, e as três vêm dos advisors:
+--
+--   1. `to authenticated` — a policy nem é avaliada para o papel `anon`
+--      (advisor 0003 e a orientação de "specify roles in your policies").
+--   2. `(select auth.uid())` em vez de `auth.uid()` solto — dentro de um
+--      subselect a função roda uma vez por QUERY; solta, uma vez por LINHA.
+--      A documentação é explícita: não há desvantagem em aplicar isso sempre.
+--   3. UMA policy permissiva por ação, com `or` — duas policies permissivas
+--      sobre a mesma ação rodam as duas em toda query (advisor 0006, que já
+--      acusa 30 ocorrências neste banco). Por isso "membro OU parte do
+--      contrato" é uma expressão só, não duas policies.
+
 -- portal_users --------------------------------------------------------------
 drop policy if exists "portal_users_member_all" on public.portal_users;
-create policy "portal_users_member_all" on public.portal_users
-  for all using (public.is_tenant_member(tenant_id))
-  with check (public.is_tenant_member(tenant_id));
-
--- O cliente lê a PRÓPRIA linha (é assim que o portal descobre o nome dele e o
--- id para as demais consultas). Nunca a dos outros: sem o `user_id = auth.uid()`
--- um inquilino listaria o telefone e o CPF de todos os clientes da imobiliária.
 drop policy if exists "portal_users_self_read" on public.portal_users;
-create policy "portal_users_self_read" on public.portal_users
-  for select using (user_id = auth.uid());
+
+-- Leitura: a imobiliária vê os clientes dela; o cliente vê a PRÓPRIA linha.
+-- Sem o `user_id = auth.uid()` do segundo termo, um inquilino listaria nome,
+-- telefone e CPF de todos os clientes da imobiliária.
+create policy "portal_users_read" on public.portal_users
+  for select to authenticated using (
+    public.is_tenant_member(tenant_id)
+    or user_id = (select auth.uid())
+  );
+
+-- Escrita: só a imobiliária. O cliente não edita o próprio cadastro pelo portal.
+create policy "portal_users_member_write" on public.portal_users
+  for all to authenticated
+  using (public.is_tenant_member(tenant_id))
+  with check (public.is_tenant_member(tenant_id));
 
 -- contracts -----------------------------------------------------------------
 drop policy if exists "contracts_member_all" on public.contracts;
-create policy "contracts_member_all" on public.contracts
-  for all using (public.is_tenant_member(tenant_id))
-  with check (public.is_tenant_member(tenant_id));
-
 drop policy if exists "contracts_party_read" on public.contracts;
-create policy "contracts_party_read" on public.contracts
-  for select using (
-    exists (
-      select 1
+
+create policy "contracts_read" on public.contracts
+  for select to authenticated using (
+    public.is_tenant_member(tenant_id)
+    or id in (
+      -- Sem join com a tabela de origem: a documentação de performance de RLS
+      -- recomenda trazer o conjunto e usar `in`, em vez de correlacionar.
+      select cp.contract_id
       from public.contract_parties cp
       join public.portal_users pu on pu.id = cp.portal_user_id
-      where cp.contract_id = contracts.id
-        and pu.user_id = auth.uid()
+      where pu.user_id = (select auth.uid())
         and pu.active
-        -- O contrato e a pessoa têm que ser da MESMA imobiliária. Sem esta
-        -- linha, um id de contrato vazado atravessaria tenants.
+        -- A pessoa e o contrato têm que ser da MESMA imobiliária. Sem isto, um
+        -- id de contrato vazado atravessaria tenants.
         and pu.tenant_id = contracts.tenant_id
     )
   );
 
+create policy "contracts_member_write" on public.contracts
+  for all to authenticated
+  using (public.is_tenant_member(tenant_id))
+  with check (public.is_tenant_member(tenant_id));
+
 -- contract_parties ----------------------------------------------------------
 drop policy if exists "contract_parties_member_all" on public.contract_parties;
-create policy "contract_parties_member_all" on public.contract_parties
-  for all using (
-    exists (select 1 from public.contracts c
-            where c.id = contract_parties.contract_id and public.is_tenant_member(c.tenant_id))
-  )
-  with check (
-    exists (select 1 from public.contracts c
-            where c.id = contract_parties.contract_id and public.is_tenant_member(c.tenant_id))
+drop policy if exists "contract_parties_self_read" on public.contract_parties;
+
+-- O cliente enxerga apenas o PRÓPRIO vínculo. Deliberadamente não enxerga os
+-- outros participantes: o inquilino não precisa do contato do proprietário para
+-- baixar um documento, e vice-versa. Se um dia precisar, é decisão de produto —
+-- não efeito colateral de policy.
+create policy "contract_parties_read" on public.contract_parties
+  for select to authenticated using (
+    contract_id in (
+      select c.id from public.contracts c where public.is_tenant_member(c.tenant_id)
+    )
+    or portal_user_id in (
+      select pu.id from public.portal_users pu
+      where pu.user_id = (select auth.uid()) and pu.active
+    )
   );
 
--- O cliente enxerga apenas o próprio vínculo. Deliberadamente NÃO enxerga os
--- outros participantes: o inquilino não precisa do nome e do contato do
--- proprietário para baixar um boleto, e o proprietário não precisa dos do
--- inquilino. Se um dia precisar, é uma decisão de produto — não um efeito
--- colateral de policy.
-drop policy if exists "contract_parties_self_read" on public.contract_parties;
-create policy "contract_parties_self_read" on public.contract_parties
-  for select using (
-    exists (select 1 from public.portal_users pu
-            where pu.id = contract_parties.portal_user_id and pu.user_id = auth.uid() and pu.active)
+create policy "contract_parties_member_write" on public.contract_parties
+  for all to authenticated
+  using (
+    contract_id in (select c.id from public.contracts c where public.is_tenant_member(c.tenant_id))
+  )
+  with check (
+    contract_id in (select c.id from public.contracts c where public.is_tenant_member(c.tenant_id))
   );
 
 -- portal_documents ----------------------------------------------------------
 drop policy if exists "portal_documents_member_all" on public.portal_documents;
-create policy "portal_documents_member_all" on public.portal_documents
-  for all using (public.is_tenant_member(tenant_id))
-  with check (public.is_tenant_member(tenant_id));
-
--- A regra inteira da área do cliente cabe aqui: publicado, do meu contrato, e
--- endereçado ao meu papel naquele contrato.
 drop policy if exists "portal_documents_party_read" on public.portal_documents;
-create policy "portal_documents_party_read" on public.portal_documents
-  for select using (
-    published_at is not null
-    and exists (
-      select 1
-      from public.contract_parties cp
-      join public.portal_users pu on pu.id = cp.portal_user_id
-      where cp.contract_id = portal_documents.contract_id
-        and pu.user_id = auth.uid()
-        and pu.active
-        and pu.tenant_id = portal_documents.tenant_id
-        and cp.role = any (portal_documents.audience)
+
+-- A regra inteira da área do cliente cabe no segundo termo: publicado, de um
+-- contrato em que a pessoa é parte, e endereçado ao papel dela NAQUELE contrato.
+create policy "portal_documents_read" on public.portal_documents
+  for select to authenticated using (
+    public.is_tenant_member(tenant_id)
+    or (
+      published_at is not null
+      and exists (
+        select 1
+        from public.contract_parties cp
+        join public.portal_users pu on pu.id = cp.portal_user_id
+        where cp.contract_id = portal_documents.contract_id
+          and pu.user_id = (select auth.uid())
+          and pu.active
+          and pu.tenant_id = portal_documents.tenant_id
+          and cp.role = any (portal_documents.audience)
+      )
     )
   );
 
+create policy "portal_documents_member_write" on public.portal_documents
+  for all to authenticated
+  using (public.is_tenant_member(tenant_id))
+  with check (public.is_tenant_member(tenant_id));
+
 -- portal_document_access ----------------------------------------------------
--- Trilha é só de leitura para a imobiliária. A escrita acontece pelo servidor
--- (service role) no momento do download: se o próprio cliente pudesse inserir,
--- poderia também forjar linhas e o registro deixaria de valer como prova.
+-- Trilha é só de leitura, e só para a imobiliária. A escrita acontece pelo
+-- servidor (service role) no momento do download: se o próprio cliente pudesse
+-- inserir, poderia forjar linhas e o registro deixaria de valer como prova.
 drop policy if exists "portal_doc_access_member_read" on public.portal_document_access;
 create policy "portal_doc_access_member_read" on public.portal_document_access
-  for select using (public.is_tenant_member(tenant_id));
+  for select to authenticated using (public.is_tenant_member(tenant_id));
 
 -- ---------------------------------------------------------------------------
 -- Privilégios de tabela
