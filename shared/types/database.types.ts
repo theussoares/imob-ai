@@ -17,34 +17,43 @@ export type Database = {
       brokers: {
         Row: {
           active: boolean
+          bio: string | null
           created_at: string
           creci: string | null
           email: string | null
           id: string
           name: string
           phone: string | null
+          photo_url: string | null
+          public_visible: boolean
           tenant_id: string
           updated_at: string
         }
         Insert: {
           active?: boolean
+          bio?: string | null
           created_at?: string
           creci?: string | null
           email?: string | null
           id?: string
           name: string
           phone?: string | null
+          photo_url?: string | null
+          public_visible?: boolean
           tenant_id: string
           updated_at?: string
         }
         Update: {
           active?: boolean
+          bio?: string | null
           created_at?: string
           creci?: string | null
           email?: string | null
           id?: string
           name?: string
           phone?: string | null
+          photo_url?: string | null
+          public_visible?: boolean
           tenant_id?: string
           updated_at?: string
         }

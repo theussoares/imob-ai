@@ -265,12 +265,27 @@ $$;
 -- `active` desliga o acesso sem apagar o histórico: contrato encerrado tira a
 -- pessoa do portal, mas a trilha de quem baixou o quê continua de pé.
 
--- Função `security definer` no schema `public` fica exposta como RPC em
--- /rest/v1/rpc/. Sem este revoke, qualquer um chama `is_portal_user` com um
--- tenant_id e recebe true/false de graça. Os advisors 0028/0029 já acusam isso
--- para `is_tenant_member` e `is_member_of_slug` em produção — a função nova não
--- nasce com o mesmo defeito.
-revoke execute on function public.is_portal_user(uuid) from anon, authenticated, public;
+-- ⚠️ NÃO revogue EXECUTE desta função.
+--
+-- A versão anterior desta migration trazia
+-- `revoke execute on function public.is_portal_user(uuid) from anon, authenticated`,
+-- seguindo os advisors 0028/0029, que apontam funções `security definer`
+-- expostas como RPC em /rest/v1/rpc/.
+--
+-- Isso derrubaria o portal inteiro. Expressão de policy roda com a permissão de
+-- quem consulta, e o privilégio de EXECUTE É verificado: sem ele, toda policy
+-- que chama a função falha com `permission denied for function`. Testado em
+-- schema isolado neste banco, com função e tabela descartáveis — o resultado foi
+-- exatamente esse erro.
+--
+-- O remédio correto para o advisor é a outra saída que ele mesmo lista: tirar a
+-- função do schema exposto (mover para um schema `private`, que o PostgREST não
+-- publica), mantendo EXECUTE para as policies. Isso exige reescrever todas as
+-- policies que referenciam as funções e está registrado como dívida, não feito
+-- aqui — ver `0029_reconciliar_producao.sql`.
+--
+-- Na prática o vazamento é nulo: a função responde "VOCÊ é cliente deste
+-- tenant?", que é coisa que o próprio chamador já sabe.
 
 -- ---------------------------------------------------------------------------
 -- RLS
