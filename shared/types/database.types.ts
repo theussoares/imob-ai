@@ -85,8 +85,11 @@ export type Database = {
       contracts: {
         Row: {
           address_label: string | null
+          adjustment_index: string | null
+          admin_fee_percent: number | null
           code: string
           created_at: string
+          due_day: number | null
           ends_on: string | null
           external_id: string | null
           id: string
@@ -101,8 +104,11 @@ export type Database = {
         }
         Insert: {
           address_label?: string | null
+          adjustment_index?: string | null
+          admin_fee_percent?: number | null
           code: string
           created_at?: string
+          due_day?: number | null
           ends_on?: string | null
           external_id?: string | null
           id?: string
@@ -117,8 +123,11 @@ export type Database = {
         }
         Update: {
           address_label?: string | null
+          adjustment_index?: string | null
+          admin_fee_percent?: number | null
           code?: string
           created_at?: string
+          due_day?: number | null
           ends_on?: string | null
           external_id?: string | null
           id?: string

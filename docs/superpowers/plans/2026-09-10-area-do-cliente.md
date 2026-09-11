@@ -57,6 +57,11 @@ Duas escolhas que valem registro:
   a entrega sendo 100% manual. Quando a integração com ERP entrar, o mesmo
   contrato passa a chegar com `source='erp'` sem migrar tabela nem reescrever a
   área do cliente. Duas colunas hoje custam nada e evitam o retrabalho inteiro.
+- **`due_day`, `admin_fee_percent` e `adjustment_index` pelo mesmo motivo**, e
+  com um agravante: contrato é dado que uma pessoa digitou. Acrescentar a coluna
+  depois não é rodar migration — é pedir que a imobiliária reabra cada contrato
+  para preencher o que faltava. Nenhuma tela da Área do Cliente usa os três; eles
+  existem para que cobrança e repasse encaixem sem reabrir cadastro.
 
 ## A regra de acesso, e por que ela está em dois lugares
 
@@ -116,6 +121,29 @@ prazo:
    não morre de bug — morre de fadiga operacional no terceiro mês. Por isso a
    Fase 1 inclui envio em lote, e por isso a integração com ERP é a sequência
    natural (e o schema já está preparado para ela).
+
+## Atualização de 2026-09-11: a carteira tem 10 casas
+
+A cliente informou o tamanho real: **10 imóveis locados**. Isso recalibra três
+coisas do plano acima e não muda o prazo.
+
+- **O custo operacional do upload manual deixa de ser argumento.** 10 boletos por
+  mês são minutos, não fadiga. O envio em lote sai da Fase 1 (economia de ~1 dia,
+  total passa a 15–19 dias úteis); entra de volta quando a carteira crescer, que
+  é exatamente a preocupação que ela verbalizou ("quando tivermos mais imóveis
+  pode virar uma bola de neve").
+- **O que ela está comprando é organização, não alívio.** Ela não está em dor
+  hoje; está evitando a dor futura. Isso favorece a Área do Cliente como está
+  desenhada e desfavorece antecipar cobrança automática.
+- **A cobrança automática vira decisão de produto, não atendimento.** A 10
+  contratos, a integração não se paga por esta cliente. Se for feita, é porque
+  serve os outros tenants e as vendas seguintes — não porque ela precisa.
+
+Registrado também: a cobrança dela hoje sai pelo **Cora**, emitida manualmente
+pelo contador. O Cora tem API de cobrança e webhook de baixa, liberados pelo
+plano CoraPro (~R$ 44,90/mês, na conta dela). Ou seja, a integração de cobrança
+não exige que ela troque de provedor — e o passo mais barato é só assinar o
+webhook, sem emitir nada, para o portal mostrar "pago / em aberto" sozinho.
 
 ## Fases e prazo
 

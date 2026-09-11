@@ -83,6 +83,22 @@ create table if not exists public.contracts (
   started_on date,
   ends_on date,
   rent_amount numeric(12,2),
+  -- Os três campos abaixo não são usados por nenhuma tela da área do cliente.
+  -- Entram agora porque são o vocabulário mínimo da cobrança, e porque contrato
+  -- em produção é dado que alguém digitou: acrescentar coluna depois significa
+  -- pedir à imobiliária que reabra 10, 50 ou 300 contratos para preencher o que
+  -- faltou. Três colunas hoje, ou uma migration com trabalho manual do cliente
+  -- depois.
+  --
+  -- Dia do vencimento: o que decide quando a cobrança é emitida e com quanta
+  -- antecedência ela vai para o inquilino.
+  due_day smallint,
+  -- Percentual que a imobiliária retém do aluguel. É a base do repasse ao
+  -- proprietário e do extrato que ele vê no portal.
+  admin_fee_percent numeric(5,2),
+  -- Índice do reajuste anual (igpm, ipca, incc...). Texto livre e não enum: a
+  -- lista real varia por contrato e um enum aqui vira migration a cada exceção.
+  adjustment_index text,
   -- Anotação INTERNA da imobiliária. Nunca é exposta no portal — ver a nota em
   -- portal_documents sobre o que o cliente enxerga.
   notes text,
@@ -101,6 +117,20 @@ alter table public.contracts
   drop constraint if exists contracts_source_check;
 alter table public.contracts
   add constraint contracts_source_check check (source in ('manual', 'erp'));
+
+-- Dia 31 em fevereiro é problema de quem agenda, não do banco — mas dia 0 e dia
+-- 45 são erro de digitação, e um contrato com vencimento inválido só aparece no
+-- mês em que a cobrança não sai.
+alter table public.contracts
+  drop constraint if exists contracts_due_day_check;
+alter table public.contracts
+  add constraint contracts_due_day_check check (due_day is null or (due_day between 1 and 31));
+
+alter table public.contracts
+  drop constraint if exists contracts_admin_fee_check;
+alter table public.contracts
+  add constraint contracts_admin_fee_check
+  check (admin_fee_percent is null or (admin_fee_percent >= 0 and admin_fee_percent <= 100));
 
 create index if not exists idx_contracts_tenant_status on public.contracts(tenant_id, status);
 create index if not exists idx_contracts_property on public.contracts(property_id);
@@ -317,10 +347,17 @@ revoke all on public.portal_document_access from anon;
 -- `notes` (anotação interna) e `external_id` nunca devem sair para o cliente,
 -- que é `authenticated` como qualquer membro. A policy filtra LINHA, não
 -- COLUNA — então o corte é por privilégio de coluna.
+--
+-- `admin_fee_percent` fica de fora junto, e por um motivo diferente: é a margem
+-- comercial da imobiliária. O proprietário até tem direito ao número (está no
+-- contrato dele), mas privilégio de coluna vale para o papel inteiro — liberar
+-- para ele libera para o inquilino, que não tem nada com isso. O proprietário
+-- vê o valor pelo extrato de repasse, que é documento endereçado a ele.
 revoke select on public.contracts from authenticated;
 grant select (
   id, tenant_id, code, property_id, address_label, status,
-  started_on, ends_on, rent_amount, source, created_at, updated_at
+  started_on, ends_on, rent_amount, due_day, adjustment_index,
+  source, created_at, updated_at
 ) on public.contracts to authenticated;
 grant insert, update, delete on public.contracts to authenticated;
 

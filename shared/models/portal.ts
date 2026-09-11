@@ -64,6 +64,15 @@ export interface Contract {
   startedOn: string | null
   endsOn: string | null
   rentAmount: number | null
+  /** Dia do vencimento (1–31). Base do agendamento da cobrança. */
+  dueDay: number | null
+  /**
+   * Percentual retido pela imobiliária. É margem comercial: não sai para o
+   * portal por privilégio de coluna — ver a nota na migration 0028.
+   */
+  adminFeePercent: number | null
+  /** Índice do reajuste anual (igpm, ipca, incc…). */
+  adjustmentIndex: string | null
   /** Anotação interna. Não existe na visão do cliente — ver `ContractForClient`. */
   notes: string | null
   source: 'manual' | 'erp'
@@ -85,6 +94,7 @@ export interface ContractForClient {
   startedOn: string | null
   endsOn: string | null
   rentAmount: number | null
+  dueDay: number | null
   /** Papéis que ESTE cliente tem neste contrato (pode ser mais de um). */
   roles: ContractPartyRole[]
 }
@@ -116,6 +126,9 @@ export interface ContractInput {
   startedOn?: string | null
   endsOn?: string | null
   rentAmount?: number | null
+  dueDay?: number | null
+  adminFeePercent?: number | null
+  adjustmentIndex?: string | null
   notes?: string | null
 }
 
