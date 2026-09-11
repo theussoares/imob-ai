@@ -25,14 +25,14 @@ const props = defineProps<{
 const {
   activeIndex,
   activeImage,
+  activeSrc: active,
   activeSrcset,
   hasMany,
   go,
   imageLoading,
   onImageLoad,
   bindImg,
-} = useImageCarousel(() => props.images);
-const active = computed(() => activeImage.value?.url || "");
+} = useImageCarousel(() => props.images, { full: true });
 
 const thumbStrip = ref<HTMLElement | null>(null);
 const lbStrip = ref<HTMLElement | null>(null);
