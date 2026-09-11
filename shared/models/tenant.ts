@@ -23,6 +23,8 @@ export interface Tenant {
   state: string | null
   brandPrimary: string
   brandAccent: string
+  /** Cor do botão/CTA de WhatsApp. Vazio cai no verde padrão do WhatsApp (`--wa` em main.css). */
+  whatsappButtonColor: string | null
   logoUrl: string | null
   /** Ícone do site. Vazio cai no /favicon.svg gerado (inicial + cor da marca). */
   faviconUrl: string | null
@@ -66,6 +68,7 @@ export interface TenantSettingsInput {
   state?: string | null
   brandPrimary?: string
   brandAccent?: string
+  whatsappButtonColor?: string | null
   logoUrl?: string | null
   faviconUrl?: string | null
   instagram?: string | null

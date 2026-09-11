@@ -10,16 +10,21 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "creci",
     "brandPrimary",
     "brandAccent",
+    "whatsappButtonColor",
     "alternateNames",
   ]);
 
 // Preview ao vivo das cores
 watch(
-  () => [form.brandPrimary, form.brandAccent],
-  ([b, a]) => {
+  () => [form.brandPrimary, form.brandAccent, form.whatsappButtonColor],
+  ([b, a, w]) => {
     if (import.meta.client) {
       document.documentElement.style.setProperty("--brand", b || "#0f3d38");
       document.documentElement.style.setProperty("--accent", a || "#c2410c");
+      // Campo vazio = usa o verde padrão do WhatsApp: remove o override em vez
+      // de setar string vazia, senão var(--wa) resolveria pra inválido.
+      if (w) document.documentElement.style.setProperty("--wa", w);
+      else document.documentElement.style.removeProperty("--wa");
     }
   },
 );
@@ -97,10 +102,27 @@ useHead({ title: "Configurações · Painel" });
             <input v-model="form.brandAccent" class="admin-input" />
           </div>
         </div>
+        <div>
+          <label class="admin-label">Cor do botão do WhatsApp</label>
+          <div class="color-row">
+            <input
+              v-model="form.whatsappButtonColor"
+              type="color"
+              class="color-swatch"
+            />
+            <input
+              v-model="form.whatsappButtonColor"
+              class="admin-input"
+              placeholder="Padrão (verde do WhatsApp)"
+            />
+          </div>
+          <p class="field-hint">Vazio usa o verde padrão do WhatsApp.</p>
+        </div>
         <div class="preview-box">
           <span class="badge">Venda</span>
           <span class="badge rent">Aluguel</span>
           <span class="admin-btn" style="pointer-events: none">Botão</span>
+          <span class="btn-wa" style="pointer-events: none">WhatsApp</span>
         </div>
       </div>
 

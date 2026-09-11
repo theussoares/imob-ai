@@ -26,6 +26,7 @@ export function toTenantModel(row: TenantRow): Tenant {
     state: row.state,
     brandPrimary: row.brand_primary,
     brandAccent: row.brand_accent,
+    whatsappButtonColor: row.whatsapp_button_color,
     logoUrl: row.logo_url,
     faviconUrl: row.favicon_url,
     instagram: row.instagram,
@@ -60,6 +61,7 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.state !== undefined) row.state = input.state
   if (input.brandPrimary !== undefined) row.brand_primary = input.brandPrimary
   if (input.brandAccent !== undefined) row.brand_accent = input.brandAccent
+  if (input.whatsappButtonColor !== undefined) row.whatsapp_button_color = input.whatsappButtonColor
   if (input.logoUrl !== undefined) row.logo_url = input.logoUrl
   if (input.faviconUrl !== undefined) row.favicon_url = input.faviconUrl
   if (input.instagram !== undefined) row.instagram = input.instagram
