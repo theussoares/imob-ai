@@ -177,7 +177,7 @@ export async function listContractsForClient(
   for (const linha of data ?? []) {
     // O embed vem nulo quando a RLS do contrato recusa — e recusa é o
     // comportamento certo quando o entitlement do tenant está desligado.
-    const row = linha.contracts as Database['public']['Tables']['contracts']['Row'] | null
+    const row = linha.contracts
     if (!row) continue
     const atual = porContrato.get(row.id)
     if (atual) atual.roles.push(linha.role)
@@ -187,6 +187,42 @@ export async function listContractsForClient(
   return [...porContrato.values()]
     .map(({ row, roles }) => toContractForClient(row, roles))
     .sort((a, b) => (a.startedOn ?? '').localeCompare(b.startedOn ?? '') * -1)
+}
+
+/**
+ * UM contrato, se esta pessoa for parte dele.
+ *
+ * Parte de `contract_parties` pelo mesmo motivo da listagem: é o vínculo que
+ * autoriza. Note que NÃO existe um `getContract(client, tenantId, id)` sendo
+ * reaproveitado aqui com um check depois — a consulta já nasce escopada na
+ * pessoa, então "não é parte" e "não existe" produzem o mesmo `null`, e o
+ * handler não tem como vazar a diferença por descuido.
+ *
+ * Essa indistinção é deliberada: responder 403 para contrato alheio e 404 para
+ * inexistente conta ao curioso quais ids existem.
+ */
+export async function getContractForClient(
+  client: Client,
+  portalUserId: string,
+  contractId: string,
+): Promise<ContractForClient | null> {
+  const { data, error } = await client
+    .from('contract_parties')
+    .select('role, contracts(*)')
+    .eq('portal_user_id', portalUserId)
+    .eq('contract_id', contractId)
+  if (error) throw error
+
+  const linhas = data ?? []
+  if (linhas.length === 0) return null
+
+  // O embed vem nulo quando a RLS do contrato recusa (entitlement desligado,
+  // por exemplo). Vínculo sem contrato legível é o mesmo que nada.
+  const row = linhas[0]!.contracts
+  if (!row) return null
+
+  // Mesma pessoa pode ter dois papéis no mesmo contrato (inquilina e fiadora).
+  return toContractForClient(row, linhas.map((l) => l.role))
 }
 
 /** Os papéis desta pessoa num contrato específico. Vazio = não é parte. */

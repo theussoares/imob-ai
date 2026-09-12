@@ -171,6 +171,94 @@ const tenant = useTenant();
   color: #1f5137;
   background: #e7f3ec;
 }
+/* ---- lista de contratos e detalhe (card 2.2) ---- */
+.pc-lista {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px;
+  border: 1px solid #e4eae7;
+  border-radius: 11px;
+  text-decoration: none;
+  color: inherit;
+  /* O item inteiro é o alvo do toque, não só o texto do endereço: no celular
+     acertar um link de uma linha é o tipo de atrito que faz a pessoa desistir
+     e ligar para a imobiliária. */
+  min-height: 48px;
+}
+.pc-item:hover,
+.pc-item:focus-visible {
+  border-color: var(--brand);
+  outline: none;
+}
+.pc-item-topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  color: var(--brand);
+}
+.pc-item-meta {
+  font-size: 0.87rem;
+  color: #5c6b67;
+}
+.pc-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef1f0;
+  color: #5c6b67;
+  white-space: nowrap;
+}
+.pc-voltar {
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 0.88rem;
+  color: var(--brand);
+  text-decoration: none;
+}
+.pc-voltar:hover {
+  text-decoration: underline;
+}
+.pc-dados {
+  margin: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pc-dados > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid #f0f3f2;
+  padding-bottom: 10px;
+}
+.pc-dados > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.pc-dados dt {
+  font-size: 0.87rem;
+  color: #5c6b67;
+}
+.pc-dados dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
 .pc-foot {
   margin-top: auto;
   text-align: center;

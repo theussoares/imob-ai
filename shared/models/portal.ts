@@ -15,6 +15,13 @@ export const CONTRACT_PARTY_ROLES: readonly ContractPartyRole[] = [
   'fiador',
 ]
 
+/** Rótulos de tela para o papel. O cliente lê "Inquilino", não "inquilino". */
+export const CONTRACT_ROLE_LABELS: Record<ContractPartyRole, string> = {
+  inquilino: 'Inquilino',
+  proprietario: 'Proprietário',
+  fiador: 'Fiador',
+}
+
 export type ContractStatus = 'ativo' | 'encerrado'
 
 export type PortalDocCategory = 'contrato' | 'vistoria' | 'boleto' | 'recibo' | 'extrato' | 'outro'
