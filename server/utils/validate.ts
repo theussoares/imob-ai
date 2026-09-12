@@ -11,8 +11,11 @@ import type {
   ContractPartyRole,
   ContractSavePayload,
   ContractStatus,
+  PortalDocCategory,
+  PortalDocumentInput,
+  PortalDocumentUpdateInput,
 } from '~~/shared/models/portal'
-import { CONTRACT_PARTY_ROLES, CONTRACT_STATUSES } from '~~/shared/models/portal'
+import { CONTRACT_PARTY_ROLES, CONTRACT_STATUSES, PORTAL_DOC_CATEGORIES } from '~~/shared/models/portal'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -247,5 +250,75 @@ export function assertContractPartyInput(input: unknown): asserts input is Contr
   }
   if (!CONTRACT_PARTY_ROLES.includes(p.role as ContractPartyRole)) {
     throw createError({ statusCode: 422, statusMessage: 'Papel inválido.' })
+  }
+}
+
+/**
+ * Valida o cadastro de um documento do portal.
+ *
+ * A audiência é o campo perigoso deste payload: é ela que decide se o extrato de
+ * repasse do proprietário aparece para o inquilino. Por isso ela é obrigatória e
+ * não aceita valor fora do enum — nunca vira "vazio quer dizer todo mundo".
+ */
+export function assertPortalDocumentInput(input: unknown): asserts input is PortalDocumentInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const d = input as Record<string, unknown>
+
+  if (!PORTAL_DOC_CATEGORIES.includes(d.category as PortalDocCategory)) {
+    throw createError({ statusCode: 422, statusMessage: 'Categoria do documento inválida.' })
+  }
+  if (!String(d.title ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Título do documento é obrigatório.' })
+  }
+  if (!String(d.storagePath ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Arquivo não enviado.' })
+  }
+
+  assertAudiencia(d.audience)
+  assertOptionalDate(d.competence, 'Competência')
+  assertOptionalDate(d.dueOn, 'Vencimento')
+  assertNumeroEmFaixa(d.amount, 0, Number.MAX_SAFE_INTEGER, 'Valor do documento inválido.')
+}
+
+/** Edição: todo campo é opcional, mas o que vier tem que ser válido. */
+export function assertPortalDocumentUpdateInput(
+  input: unknown,
+): asserts input is PortalDocumentUpdateInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const d = input as Record<string, unknown>
+
+  if (d.category !== undefined && !PORTAL_DOC_CATEGORIES.includes(d.category as PortalDocCategory)) {
+    throw createError({ statusCode: 422, statusMessage: 'Categoria do documento inválida.' })
+  }
+  if (d.title !== undefined && !String(d.title).trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Título não pode ficar vazio.' })
+  }
+  if (d.audience !== undefined) assertAudiencia(d.audience)
+  assertOptionalDate(d.competence, 'Competência')
+  assertOptionalDate(d.dueOn, 'Vencimento')
+  assertNumeroEmFaixa(d.amount, 0, Number.MAX_SAFE_INTEGER, 'Valor do documento inválido.')
+}
+
+/**
+ * Público-alvo: lista de papéis, sem vazio e sem valor inventado.
+ *
+ * Lista vazia é recusada em vez de virar "todo mundo" ou "ninguém". Um default
+ * silencioso aqui é exatamente como o boleto do inquilino chega ao proprietário.
+ */
+function assertAudiencia(v: unknown): void {
+  if (!Array.isArray(v) || v.length === 0) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Escolha para quem o documento aparece.',
+    })
+  }
+  for (const papel of v) {
+    if (!CONTRACT_PARTY_ROLES.includes(papel as ContractPartyRole)) {
+      throw createError({ statusCode: 422, statusMessage: 'Público-alvo inválido.' })
+    }
   }
 }

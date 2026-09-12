@@ -221,3 +221,43 @@ export interface ContractDetail {
 export interface ContractSavePayload extends ContractInput {
   internal?: ContractInternalInput
 }
+
+/**
+ * Cadastro de um documento já enviado ao bucket.
+ *
+ * O arquivo sobe primeiro, pelo navegador, com o token do próprio membro — é
+ * assim que as policies de storage da 0028 conseguem recusar quem tenta gravar
+ * na pasta de outra imobiliária. Só depois a linha é criada, e `storagePath` é o
+ * que amarra as duas coisas.
+ */
+export interface PortalDocumentInput {
+  category: PortalDocCategory
+  title: string
+  /** Mês de referência (boleto/extrato), sempre no dia 1. */
+  competence?: string | null
+  dueOn?: string | null
+  amount?: number | null
+  /** Quem enxerga. Vazio não é permitido: documento sem público é documento invisível. */
+  audience: ContractPartyRole[]
+  storagePath: string
+  mime?: string | null
+  sizeBytes?: number | null
+  /**
+   * Publicar na hora, ou deixar em rascunho.
+   *
+   * O padrão é rascunho. Sem isso, um upload no meio do expediente aparece pela
+   * metade para o cliente: a imobiliária sobe 12 boletos e o cliente vê 3.
+   */
+  publish?: boolean
+}
+
+/** Edição do que a imobiliária digitou, mais o botão de publicar. */
+export interface PortalDocumentUpdateInput {
+  category?: PortalDocCategory
+  title?: string
+  competence?: string | null
+  dueOn?: string | null
+  amount?: number | null
+  audience?: ContractPartyRole[]
+  publish?: boolean
+}

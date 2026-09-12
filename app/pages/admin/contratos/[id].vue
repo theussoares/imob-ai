@@ -430,6 +430,15 @@ useHead({
         Nenhum cliente cadastrado ainda nesta imobiliária.
       </p>
     </div>
+
+    <!-- Só depois que o contrato existe: o documento é publicado PARA um
+         contrato, e o path no bucket carrega o id dele. -->
+    <AdminPortalDocuments
+      v-if="!isNew"
+      :key="id"
+      :contract-id="id"
+      style="margin-top: 18px"
+    />
   </div>
 </template>
 
