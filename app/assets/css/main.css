@@ -1101,9 +1101,28 @@ a.btn-detail:hover {
     grid-template-columns: 232px 1fr;
   }
   .admin-sidebar {
-    min-height: 100vh;
     position: sticky;
     top: 0;
+    /*
+     * `align-self: start` + `height` (não `min-height`) é o que faz o sticky
+     * funcionar de verdade aqui.
+     *
+     * Item de grid nasce com `align-self: stretch`, então a sidebar ficava
+     * exatamente da altura da linha — ou seja, da altura da PÁGINA. Um elemento
+     * sticky só desliza dentro da folga entre a altura dele e a do container, e
+     * com folga zero ele não gruda em lugar nenhum: rolava junto com o
+     * conteúdo, que era o sintoma.
+     *
+     * Com `start` ela para de esticar, `100dvh` dá a altura de uma tela, e a
+     * folga passa a ser todo o resto da página.
+     */
+    align-self: start;
+    height: 100dvh;
+    /* Menu maior que a tela ganha rolagem PRÓPRIA... */
+    overflow-y: auto;
+    /* ...e `contain` impede que ela, ao chegar no fim, continue rolando a
+       página atrás — o encadeamento é o que faz uma interferir na outra. */
+    overscroll-behavior: contain;
     padding: 18px 16px;
   }
   .admin-sidebar-head {
