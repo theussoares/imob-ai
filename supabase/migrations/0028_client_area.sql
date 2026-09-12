@@ -9,9 +9,9 @@
 -- A separação é a decisão central deste arquivo. `is_tenant_member()` hoje
 -- libera 20 policies (imóveis com dados do proprietário, corretores, leads,
 -- configurações). Dar ao cliente uma linha em `tenant_members` — ainda que com
--- um papel novo — entregaria a base inteira do concorrente… quer dizer, da
--- imobiliária, para qualquer inquilino. Por isso: tabela própria, predicado
--- próprio, e nenhum caminho entre os dois.
+-- um papel novo — entregaria a base inteira da imobiliária para qualquer
+-- inquilino dela. Por isso: tabela própria, predicado próprio, e nenhum caminho
+-- entre os dois.
 --
 -- Tudo idempotente: seguro rodar de novo.
 
