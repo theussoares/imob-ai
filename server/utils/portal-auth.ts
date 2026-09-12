@@ -1,6 +1,12 @@
 import type { H3Event } from 'h3'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
+import {
+  canAccessPortal,
+  portalEntitlementStatus,
+  portalUnavailableMessage,
+  todayISODate,
+} from '~~/shared/utils/portal-entitlement'
 
 /**
  * Garante que a requisição vem de um CLIENTE do portal (inquilino, proprietário
@@ -70,5 +76,54 @@ export async function requirePortalUser(event: H3Event) {
     throw createError({ statusCode: 403, statusMessage: 'Seu acesso está desativado. Fale com a imobiliária.' })
   }
 
-  return { user, tenant, client, portalUserId: portalUser.id, portalUserName: portalUser.name }
+  /*
+   * Entitlement do tenant — a Área do Cliente é plano pago.
+   *
+   * A recusa de verdade já acontece no banco: a migration 0032 pôs este mesmo
+   * termo dentro de `is_portal_user()`, que gatilha todas as policies do portal.
+   * Sem plano, as consultas voltam vazias por RLS, sem depender desta checagem.
+   *
+   * O que esta parte acrescenta é a MENSAGEM. Devolver "você não tem contrato
+   * nenhum" para quem tem contrato manda a pessoa procurar o problema no lugar
+   * errado — e ela vai ligar para a imobiliária dizendo que o sistema perdeu os
+   * dados dela.
+   *
+   * Lê por service role de propósito: o cliente do portal não tem (nem deve ter)
+   * policy de leitura em `tenant_features`. A query é escopada por tenant e
+   * feature, e devolve uma linha.
+   */
+  const { data: feature } = await serviceSupabase()
+    .from('tenant_features')
+    .select('enabled, grace_until')
+    .eq('tenant_id', tenant.id)
+    .eq('feature', 'portal')
+    .maybeSingle()
+
+  const status = portalEntitlementStatus(
+    feature ? { enabled: feature.enabled, graceUntil: feature.grace_until } : null,
+    todayISODate(),
+  )
+
+  if (!canAccessPortal(status)) {
+    // O status preciso vai para o LOG, que é interno. Para a tela vai a mensagem
+    // genérica: quem está do outro lado é o inquilino, e a situação comercial da
+    // imobiliária não é assunto dele. Ver a política de inadimplência no plano.
+    logWarn('portal.rejected', {
+      reason: 'not_entitled',
+      status,
+      path: event.path,
+      tenant: tenant.slug,
+    })
+    throw createError({ statusCode: 403, statusMessage: portalUnavailableMessage() })
+  }
+
+  return {
+    user,
+    tenant,
+    client,
+    portalUserId: portalUser.id,
+    portalUserName: portalUser.name,
+    /** 'ativo' ou 'em_carencia'. Útil para a tela avisar a imobiliária, nunca o cliente. */
+    entitlementStatus: status,
+  }
 }

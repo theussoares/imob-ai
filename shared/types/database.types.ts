@@ -543,6 +543,36 @@ export type Database = {
           },
         ]
       }
+      tenant_features: {
+        Row: {
+          enabled: boolean
+          enabled_at: string | null
+          feature: string
+          grace_until: string | null
+          notes: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          enabled_at?: string | null
+          feature: string
+          grace_until?: string | null
+          notes?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          enabled_at?: string | null
+          feature?: string
+          grace_until?: string | null
+          notes?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_members: {
         Row: {
           created_at: string
