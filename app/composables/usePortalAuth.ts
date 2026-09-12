@@ -153,7 +153,7 @@ export async function portalFetch<T>(url: string, opts: Record<string, unknown> 
   try {
     return (await $fetch(url, { ...opts, headers })) as T
   } catch (e) {
-    if (isSessionExpiredError(e)) useSessionExpired().flag()
+    if (isSessionExpiredError(e)) useSessionExpired('portal').flag()
     throw e
   }
 }

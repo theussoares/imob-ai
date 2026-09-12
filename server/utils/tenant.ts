@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import type { Tenant } from '~~/shared/models/tenant'
 import { getTenantByDomain, getTenantBySlug } from '~~/server/repositories/tenant.repository'
+import { isPortalVisibleFor } from '~~/server/repositories/tenant-feature.repository'
 
 declare module 'h3' {
   interface H3EventContext {
@@ -104,8 +105,25 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
   // resolvido é o middleware (redirect, landing ou — só em dev — tenant padrão).
   // Deixar o fallback dentro desta função fazia QUALQUER host resolver em dev,
   // mascarando esses caminhos e tornando-os impossíveis de testar localmente.
+  tenant = await comEntitlementDoPortal(tenant)
   setCached('host:' + hostname, tenant)
   return tenant
+}
+
+/**
+ * Preenche `portalEnabled`, que não vem da linha de `tenants`.
+ *
+ * Fica aqui, no resolvedor, e não no repositório: é o resolvedor que alimenta o
+ * cache por host, então a leitura extra acontece uma vez por host por janela de
+ * cache — e não uma vez por requisição. O preço é que ligar ou desligar o plano
+ * de um cliente só aparece no site depois que o cache expira (ou depois de
+ * `invalidateTenantCache`), o que é aceitável para um link de menu.
+ *
+ * A leitura é por service role: `tenant_features` não tem policy para anon.
+ */
+async function comEntitlementDoPortal(tenant: Tenant | null): Promise<Tenant | null> {
+  if (!tenant) return null
+  return { ...tenant, portalEnabled: await isPortalVisibleFor(serviceSupabase(), tenant.id) }
 }
 
 /**
@@ -139,7 +157,7 @@ export async function findRegisteredBaseDomain(hostname: string): Promise<string
 export async function resolveTenantBySlug(slug: string): Promise<Tenant | null> {
   const cached = getCached('slug:' + slug)
   if (cached !== undefined) return cached
-  const tenant = await getTenantBySlug(publicSupabase(), slug)
+  const tenant = await comEntitlementDoPortal(await getTenantBySlug(publicSupabase(), slug))
   setCached('slug:' + slug, tenant)
   return tenant
 }

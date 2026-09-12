@@ -37,6 +37,10 @@ export function toTenantModel(row: TenantRow): Tenant {
     // colocar um href arbitrário no rodapé público.
     footerLinks: sanitizeFooterLinks(row.footer_links),
     footerPages: sanitizeFooterPageOverrides(row.footer_pages),
+    // Falso até que alguém confirme o contrário. O entitlement mora em
+    // `tenant_features`, não nesta linha — quem preenche é `resolveTenantForHost`,
+    // que tem service role para ler a tabela. Sem confirmação, sem link.
+    portalEnabled: false,
     active: row.active,
   }
 }

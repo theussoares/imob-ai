@@ -56,11 +56,13 @@ useSeoMeta({ title: "Área do cliente", robots: "noindex, nofollow" });
 
     <!-- Estado vazio com instrução, não só constatação: a pessoa entrou porque
          a imobiliária mandou, então "fale com a imobiliária" é o próximo passo
-         real, e o card 2.4 ainda vai desenhar isto com mais cuidado. -->
-    <p v-else-if="!contratos.length" class="pc-sub">
-      Você ainda não tem contratos por aqui. Se acha que isso está errado, fale
-      com a imobiliária.
-    </p>
+         real — não há nada que ela possa fazer aqui dentro que resolva. -->
+    <PortalEmptyState
+      v-else-if="!contratos.length"
+      titulo="Nenhum contrato por aqui ainda"
+      descricao="Seu acesso está funcionando, mas nenhum contrato foi vinculado a ele. Isso costuma ser cadastro em andamento — se você já assinou, vale avisar a imobiliária."
+      assunto="meu acesso à área do cliente"
+    />
 
     <ul v-else class="pc-lista">
       <li v-for="c in contratos" :key="c.id">

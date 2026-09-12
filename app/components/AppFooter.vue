@@ -99,10 +99,15 @@ const builtByLink = computed(() => {
       </div>
 
       <nav
-        v-if="pages.length || links.length"
+        v-if="tenant?.portalEnabled || pages.length || links.length"
         class="foot-links"
         aria-label="Links do rodapé"
       >
+        <!-- Primeiro da lista: quem procura a área do cliente no rodapé já
+             desistiu de achar no menu. Só existe para quem contratou. -->
+        <NuxtLink v-if="tenant?.portalEnabled" to="/area-cliente">
+          Área do Cliente
+        </NuxtLink>
         <NuxtLink v-for="p in pages" :key="p.path" :to="p.path">{{
           p.label
         }}</NuxtLink>

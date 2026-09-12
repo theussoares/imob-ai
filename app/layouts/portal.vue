@@ -28,6 +28,10 @@ const tenant = useTenant();
         <strong v-else class="pc-brand-name">{{ tenant?.name }}</strong>
       </header>
 
+      <!-- Antes do conteúdo: quando a sessão cai, TODA ação da tela falha, e a
+           causa precisa ser a primeira coisa que a pessoa lê. -->
+      <PortalSessionExpiredBanner />
+
       <section class="pc-card">
         <slot />
       </section>
@@ -91,6 +95,9 @@ const tenant = useTenant();
   line-height: 1.25;
   color: var(--brand);
   text-wrap: balance;
+  /* O h1 da tela de contrato é o endereço, que a imobiliária digita à mão e
+     pode vir sem espaço ("Rua Prof.Dr.Antonio-Carlos,1250/Apto-B"). */
+  overflow-wrap: anywhere;
 }
 .pc-sub {
   margin: 0 0 20px;
@@ -201,14 +208,28 @@ const tenant = useTenant();
 }
 .pc-item-topo {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  /* `flex-start`, não `center`: quando o título quebra em duas linhas, centrar
+     deixa o "Baixar" flutuando no meio do bloco. */
+  align-items: flex-start;
+  gap: 10px;
   justify-content: space-between;
   color: var(--brand);
+}
+/*
+ * O caso que quebra a tela de 360px: "Comprovante_de_pagamento_marco_2026",
+ * nome de arquivo sem espaço, com o "Baixar" ao lado. Um item de flex não
+ * encolhe abaixo do conteúdo por padrão (`min-width: auto`), então a palavra
+ * empurra o botão para fora e a PÁGINA INTEIRA ganha scroll horizontal — não só
+ * o item.
+ */
+.pc-item-topo > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .pc-item-meta {
   font-size: 0.87rem;
   color: #5c6b67;
+  overflow-wrap: anywhere;
 }
 .pc-tag {
   font-size: 0.72rem;
@@ -253,10 +274,17 @@ const tenant = useTenant();
   font-size: 0.87rem;
   color: #5c6b67;
 }
+.pc-dados dt {
+  /* O rótulo não encolhe; o valor é que quebra. Sem isto, "Vigência" vira
+     "Vigên- cia" em 360px enquanto a data do lado fica intacta. */
+  flex: none;
+}
 .pc-dados dd {
   margin: 0;
   font-weight: 600;
   text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ---- documentos (card 2.3) ---- */

@@ -159,9 +159,12 @@ useSeoMeta({ title: "Contrato", robots: "noindex, nofollow" });
 
       <p v-if="erroDownload" class="pc-msg erro">{{ erroDownload }}</p>
 
-      <p v-if="!porCategoria.length" class="pc-sub">
-        Ainda não há documentos publicados neste contrato.
-      </p>
+      <PortalEmptyState
+        v-if="!porCategoria.length"
+        titulo="Nenhum documento publicado ainda"
+        descricao="Assim que a imobiliária publicar contrato, vistoria ou comprovante, eles aparecem aqui — e você pode baixar quando quiser."
+        :assunto="`os documentos do contrato ${contrato.code}`"
+      />
 
       <section
         v-for="grupo in porCategoria"

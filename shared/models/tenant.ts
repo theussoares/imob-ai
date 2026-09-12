@@ -45,6 +45,16 @@ export interface Tenant {
   footerLinks: FooterLink[]
   /** Ajustes do cliente sobre as páginas internas — só o que ele mudou. */
   footerPages: FooterPageOverrides
+  /**
+   * A Área do Cliente está contratada e válida para este tenant?
+   *
+   * NÃO vem da linha de `tenants` — vem de `tenant_features`, e é preenchido
+   * por quem resolve o tenant (`resolveTenantForHost`). O mapper deixa `false`
+   * de propósito: sem entitlement confirmado, o site não mostra a porta de
+   * entrada. Link que leva a um login que recusa a pessoa é pior que link
+   * nenhum.
+   */
+  portalEnabled: boolean
   active: boolean
 }
 
