@@ -59,13 +59,7 @@ useHead({ title: "Contratos · Painel" });
 <template>
   <div>
     <div class="page-head">
-      <div>
-        <h1>Contratos</h1>
-        <p style="color: var(--ink-soft); margin: 4px 0 0">
-          O contrato de locação é o registro que sustenta tudo que o cliente vê
-          na Área do Cliente.
-        </p>
-      </div>
+      <h1>Contratos</h1>
       <NuxtLink class="admin-btn" to="/admin/contratos/novo"
         >Novo contrato</NuxtLink
       >

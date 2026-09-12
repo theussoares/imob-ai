@@ -249,12 +249,10 @@ function competenceLabel(iso: string | null): string {
 
 <template>
   <div class="admin-card">
-    <h3 class="section-t">Documentos</h3>
-    <p style="color: var(--ink-soft); font-size: 13px; margin: -6px 0 14px">
-      Contrato assinado, vistoria, boleto e comprovante. O arquivo fica em
-      armazenamento privado — o cliente só chega nele pela Área do Cliente, e só
-      depois de publicado.
-    </p>
+    <h3 class="section-t">
+      Documentos
+      <small>o cliente só vê depois de publicado</small>
+    </h3>
 
     <p v-if="pending" style="color: var(--ink-soft)">Carregando...</p>
     <ul v-else-if="documents?.length" class="doc-list">
@@ -384,6 +382,18 @@ function competenceLabel(iso: string | null): string {
   font-family: "Space Grotesk", sans-serif;
   font-size: 15px;
   margin: 0 0 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Legenda do próprio título, em vez de parágrafo abaixo dele: diz a mesma coisa
+   sem empurrar o formulário para baixo. */
+.section-t small {
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-soft);
 }
 .doc-list {
   list-style: none;
