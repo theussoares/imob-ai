@@ -110,9 +110,13 @@ revoke all on public.tenant_features from anon;
 -- vendeu:
 --
 --   insert into public.tenant_features (tenant_id, feature, enabled, enabled_at)
---   values ((select id from public.tenants where slug = '<slug>'), 'portal', true, now())
+--   values ((select id from public.tenants where slug = 'olmi'), 'portal', true, now())
 --   on conflict (tenant_id, feature)
 --   do update set enabled = true, enabled_at = now(), grace_until = null;
+--
+-- O slug 'olmi' é o da imobiliária que pediu a feature — é o único que deve ser
+-- ligado no demo da semana 2. Os outros tenants continuam sem linha, e portanto
+-- sem portal.
 --
 -- E para suspender por inadimplência (D+15 a partir do vencimento):
 --
@@ -120,4 +124,6 @@ revoke all on public.tenant_features from anon;
 --      set enabled = false, grace_until = current_date + 15
 --    where tenant_id = (select id from public.tenants where slug = '<slug>')
 --      and feature = 'portal';
+--
+-- (D+15 conta do dia em que o UPDATE roda, então rode no vencimento, não antes.)
 -- ---------------------------------------------------------------------------
