@@ -114,6 +114,35 @@ export function usePortalAuth() {
   return { user, me, init, signIn, signOut, accessToken, loadMe, resetPassword }
 }
 
+/**
+ * Baixa um documento do portal e entrega o arquivo ao navegador.
+ *
+ * Não dá para usar um `<a href>` simples: o endpoint exige o token no header, e
+ * link não manda header. Então busca-se o arquivo autenticado, transforma-se em
+ * blob e dispara-se o clique — o caminho normal para download protegido.
+ *
+ * `revokeObjectURL` no fim não é higiene opcional: sem ele o blob fica na
+ * memória da aba até fechar, e o portal é usado no celular, onde a pessoa
+ * costuma baixar vários recibos na mesma sessão.
+ */
+export async function baixarDocumento(documentId: string, nomeSugerido: string): Promise<void> {
+  const blob = await portalFetch<Blob>(`/api/portal/documents/${documentId}/download`, {
+    responseType: 'blob',
+  })
+
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nomeSugerido
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 /** $fetch para `/api/portal/*` com o token do cliente no header. */
 export async function portalFetch<T>(url: string, opts: Record<string, unknown> = {}): Promise<T> {
   const { accessToken } = usePortalAuth()

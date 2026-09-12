@@ -259,6 +259,44 @@ const tenant = useTenant();
   text-align: right;
 }
 
+/* ---- documentos (card 2.3) ---- */
+.pc-h2 {
+  margin: 4px 0 12px;
+  font-size: 1.05rem;
+  color: var(--brand);
+}
+.pc-grupo {
+  margin-bottom: 18px;
+}
+.pc-grupo-titulo {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #5c6b67;
+}
+/* O item de documento é <button> (dispara o download autenticado), mas tem que
+   parecer o mesmo item da lista de contratos — daí zerar o estilo de botão em
+   vez de inventar um segundo visual. */
+.pc-item-botao {
+  width: 100%;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pc-item-botao:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.pc-baixar {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand);
+  white-space: nowrap;
+}
+
 .pc-foot {
   margin-top: auto;
   text-align: center;

@@ -3,14 +3,19 @@ import type { ContractPartyRole, PortalDocCategory } from '~~/shared/models/port
 /**
  * A regra de "este cliente pode ver este documento?", em código.
  *
- * A mesma regra existe como policy de RLS na migration 0028. A duplicação é
- * deliberada e não é redundante: o download é assinado pelo servidor com a
- * service role — que IGNORA RLS, porque o cliente não tem policy de leitura no
- * bucket privado. Nesse caminho, esta função é a única barreira entre o
- * inquilino e o extrato de repasse do proprietário.
+ * A mesma regra existe como policy de RLS (migration 0028, corrigida pela 0033).
+ * A duplicação é deliberada: são as DUAS barreiras do card 2.3, e cada uma cobre
+ * a falha da outra.
  *
- * Por isso ela é pura e testada: é o pedaço do sistema onde um `||` no lugar de
- * um `&&` vaza documento assinado.
+ *   1. esta função, em TypeScript, no caminho do download;
+ *   2. a policy de `storage.objects`, em SQL, que roda porque o download usa o
+ *      token do próprio cliente — nunca service role.
+ *
+ * Quando esta função foi escrita (card 0.3), o desenho previa assinar com
+ * service role, que ignora RLS: ela era a ÚNICA barreira. O spike de 11/09 mudou
+ * isso. Ela continua pura e testada pelo mesmo motivo de antes — é o pedaço do
+ * sistema onde um `||` no lugar de um `&&` entrega o extrato do proprietário ao
+ * inquilino —, mas agora com uma rede embaixo.
  */
 
 export interface DocumentVisibility {

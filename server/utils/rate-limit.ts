@@ -60,6 +60,73 @@ export async function assertSubmitRateLimit(
   }
 }
 
+/**
+ * Limite de downloads do portal, contado na própria trilha de acesso.
+ *
+ * Reaproveita `portal_document_access`: a tabela que já registra cada download
+ * é também o contador, então não existe estado paralelo para divergir. Mesmo
+ * motivo do limite de formulário estar no banco — na Vercel cada requisição
+ * pode cair numa instância diferente, e um Map local não limita nada.
+ *
+ * O alvo aqui é diferente do formulário público. Não é spam: é alguém com
+ * sessão válida varrendo ids de documento para descobrir o que existe. A
+ * varredura é barrada de qualquer jeito (a recusa é 404 e não vaza nada), mas
+ * sem limite ela roda de graça e enche a trilha de ruído.
+ *
+ * Precisa de service role: o cliente não tem policy de leitura nesta tabela, e
+ * não deve ter — quem lê a trilha é a imobiliária.
+ */
+export async function assertDownloadRateLimit(
+  service: Client,
+  opts: {
+    tenantId: string
+    portalUserId: string
+    /** Janela considerada. Padrão: 5 min. */
+    windowMs?: number
+    /** Downloads tolerados na janela. Padrão: 40. */
+    max?: number
+  },
+): Promise<void> {
+  const windowMs = opts.windowMs ?? 5 * 60 * 1000
+  // Generoso de propósito: uma pessoa organizada baixando o ano inteiro de
+  // recibos para o imposto de renda faz uns 12 downloads seguidos, e travar
+  // ISSO é transformar proteção em defeito. O número corta varredura
+  // automatizada, não uso atento.
+  const max = opts.max ?? 40
+  const since = new Date(Date.now() - windowMs).toISOString()
+
+  const { count, error } = await service
+    .from('portal_document_access')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', opts.tenantId)
+    .eq('portal_user_id', opts.portalUserId)
+    .gte('created_at', since)
+
+  if (error) {
+    // Mesma escolha do limite de formulário: na dúvida deixa passar, mas grita.
+    // Negar o documento de quem tem direito a ele é pior que perder uma trava
+    // anti-abuso — e o acesso em si continua barrado pelas DUAS barreiras.
+    logWarn('ratelimit.check_failed', {
+      table: 'portal_document_access',
+      tenant: opts.tenantId,
+      reason: error.message,
+    })
+    return
+  }
+
+  if ((count ?? 0) >= max) {
+    logWarn('portal.download_rate_limited', {
+      tenant: opts.tenantId,
+      portalUserId: opts.portalUserId,
+      count,
+    })
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Muitos downloads seguidos. Tente novamente em alguns minutos.',
+    })
+  }
+}
+
 /** Corta e valida o tamanho de um campo de texto vindo de formulário público. */
 export function assertMaxLength(value: string, max: number, label: string): void {
   if (value.length > max) {
