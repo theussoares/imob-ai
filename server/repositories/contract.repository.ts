@@ -6,15 +6,20 @@ import type {
   ContractInput,
   ContractInternal,
   ContractInternalInput,
+  ContractParty,
+  ContractPartyInput,
   ContractPartyRole,
 } from '~~/shared/models/portal'
+import { CONTRACT_PARTY_ROLES } from '~~/shared/models/portal'
 import {
   toContractForClient,
   toContractInternalModel,
   toContractInternalRow,
   toContractModel,
+  toContractPartyModel,
   toContractRow,
 } from '~~/server/mappers/contract.mapper'
+import type { ContractPartyRowWithUser } from '~~/server/mappers/contract.mapper'
 
 type Client = SupabaseClient<Database>
 
@@ -238,4 +243,107 @@ export async function rolesInContract(
     .eq('contract_id', contractId)
   if (error) throw error
   return (data ?? []).map((r) => r.role)
+}
+
+// ---------------------------------------------------------------------------
+// Partes — quem está no contrato, e em que papel
+// ---------------------------------------------------------------------------
+
+/*
+ * As três funções abaixo confirmam o contrato pelo tenant ANTES de tocar em
+ * `contract_parties`. A tabela não tem `tenant_id` — o vínculo com a imobiliária
+ * passa pela FK para `contracts`, exatamente como em `contract_internal`. Sem a
+ * conferência, um id de contrato descoberto permitiria listar (ou alterar) os
+ * participantes de outra imobiliária.
+ */
+
+const SELECT_PARTY = 'id, contract_id, portal_user_id, role, portal_users(name, email, active)'
+
+export async function listContractParties(
+  client: Client,
+  tenantId: string,
+  contractId: string,
+): Promise<ContractParty[]> {
+  const contract = await getContract(client, tenantId, contractId)
+  if (!contract) return []
+
+  const { data, error } = await client
+    .from('contract_parties')
+    .select(SELECT_PARTY)
+    .eq('contract_id', contractId)
+  if (error) throw error
+
+  return (data ?? [])
+    .map((row) => toContractPartyModel(row as unknown as ContractPartyRowWithUser))
+    .filter((p): p is ContractParty => p !== null)
+    // Inquilino primeiro, depois proprietário, depois fiador: é a ordem em que
+    // a imobiliária fala do contrato, não a ordem de cadastro.
+    .sort((a, b) => CONTRACT_PARTY_ROLES.indexOf(a.role) - CONTRACT_PARTY_ROLES.indexOf(b.role))
+}
+
+export async function addContractParty(
+  client: Client,
+  tenantId: string,
+  contractId: string,
+  input: ContractPartyInput,
+): Promise<ContractParty> {
+  const contract = await getContract(client, tenantId, contractId)
+  if (!contract) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
+
+  // A pessoa precisa ser desta imobiliária. A RLS de `portal_users` já recusaria
+  // a leitura de um cliente de outro tenant, mas o insert em `contract_parties`
+  // olha só para o contrato — sem esta conferência, um `portalUserId` de fora
+  // entraria na tabela e viraria acesso concedido.
+  const { data: pessoa, error: erroPessoa } = await client
+    .from('portal_users')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('id', input.portalUserId)
+    .maybeSingle()
+  if (erroPessoa) throw erroPessoa
+  if (!pessoa) throw createError({ statusCode: 404, statusMessage: 'Cliente não encontrado.' })
+
+  const { data, error } = await client
+    .from('contract_parties')
+    .insert({ contract_id: contractId, portal_user_id: input.portalUserId, role: input.role })
+    .select(SELECT_PARTY)
+    .single()
+
+  // O unique é (contract_id, portal_user_id, role). Repetir o mesmo papel para a
+  // mesma pessoa não é erro de servidor — é a imobiliária clicando duas vezes.
+  if (error?.code === '23505') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Esta pessoa já está no contrato com esse papel.',
+    })
+  }
+  if (error) throw error
+
+  const party = toContractPartyModel(data as unknown as ContractPartyRowWithUser)
+  if (!party) throw createError({ statusCode: 500, statusMessage: 'Não foi possível ler o vínculo criado.' })
+  return party
+}
+
+/**
+ * Desvincula alguém do contrato.
+ *
+ * Apaga a LINHA DE VÍNCULO, nunca o cliente: a pessoa continua cadastrada, com
+ * os outros contratos dela e com a trilha de download intacta. Tirar o fiador
+ * de um contrato não é motivo para ele sumir do sistema.
+ */
+export async function removeContractParty(
+  client: Client,
+  tenantId: string,
+  contractId: string,
+  partyId: string,
+): Promise<void> {
+  const contract = await getContract(client, tenantId, contractId)
+  if (!contract) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
+
+  const { error } = await client
+    .from('contract_parties')
+    .delete()
+    .eq('contract_id', contractId)
+    .eq('id', partyId)
+  if (error) throw error
 }

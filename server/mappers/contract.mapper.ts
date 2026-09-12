@@ -5,6 +5,7 @@ import type {
   ContractInput,
   ContractInternal,
   ContractInternalInput,
+  ContractParty,
   ContractPartyRole,
 } from '~~/shared/models/portal'
 
@@ -89,5 +90,42 @@ export function toContractInternalRow(input: ContractInternalInput, contractId: 
     notes: input.notes?.trim() || null,
     admin_fee_percent: input.adminFeePercent ?? null,
     external_id: input.externalId?.trim() || null,
+  }
+}
+
+/**
+ * Linha de `contract_parties` com a pessoa embutida.
+ *
+ * O embed é `portal_users(...)` explícito — não `*`. A tabela tem `doc`
+ * (CPF/CNPJ) e `tenant_id`, e nenhum dos dois tem o que fazer numa lista de
+ * participantes: o CPF é conferência de cadastro, não dado de tela.
+ */
+export interface ContractPartyRowWithUser {
+  id: string
+  contract_id: string
+  portal_user_id: string
+  role: ContractPartyRole
+  portal_users: { name: string; email: string; active: boolean } | null
+}
+
+/**
+ * Participante para o painel.
+ *
+ * A pessoa vem nula quando a RLS de `portal_users` recusa a linha. Não inventa
+ * nome: quem chama descarta o vínculo órfão, porque listar "—" para um
+ * participante que existe no banco esconde um problema de dado em vez de
+ * mostrá-lo.
+ */
+export function toContractPartyModel(row: ContractPartyRowWithUser): ContractParty | null {
+  const pessoa = row.portal_users
+  if (!pessoa) return null
+  return {
+    id: row.id,
+    contractId: row.contract_id,
+    portalUserId: row.portal_user_id,
+    role: row.role,
+    name: pessoa.name,
+    email: pessoa.email,
+    active: pessoa.active,
   }
 }

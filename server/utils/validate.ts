@@ -6,6 +6,13 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
+import type {
+  ContractPartyInput,
+  ContractPartyRole,
+  ContractSavePayload,
+  ContractStatus,
+} from '~~/shared/models/portal'
+import { CONTRACT_PARTY_ROLES, CONTRACT_STATUSES } from '~~/shared/models/portal'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -151,5 +158,94 @@ export function assertBrokerInput(input: unknown): asserts input is BrokerInput 
   if (!String(b.name ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
   if (b.phone !== undefined && b.phone !== null && String(b.phone).trim() && !isValidWhatsapp(String(b.phone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do corretor inválido.' })
+  }
+}
+
+/**
+ * Valida o payload de contrato vindo do painel.
+ *
+ * As faixas de `dueDay` e `adminFeePercent` existem como CHECK no banco (0028).
+ * Repetir aqui não é redundância: o CHECK devolve 23514, que vira erro 500 e faz
+ * a pessoa perder o formulário preenchido. Esta camada devolve 422 com o motivo
+ * escrito no vocabulário de quem digitou.
+ */
+export function assertContractInput(input: unknown): asserts input is ContractSavePayload {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const c = input as Record<string, unknown>
+
+  if (!String(c.code ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Código do contrato é obrigatório.' })
+  }
+
+  // Imóvel do catálogo OU endereço escrito à mão. Contrato sem nenhum dos dois
+  // não diz de que imóvel se trata, e é o campo que o cliente lê primeiro na
+  // área dele.
+  const temImovel = !!String(c.propertyId ?? '').trim()
+  const temEndereco = !!String(c.addressLabel ?? '').trim()
+  if (!temImovel && !temEndereco) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Escolha o imóvel do catálogo ou escreva o endereço.',
+    })
+  }
+
+  if (c.status !== undefined && !CONTRACT_STATUSES.includes(c.status as ContractStatus)) {
+    throw createError({ statusCode: 422, statusMessage: 'Situação do contrato inválida.' })
+  }
+
+  assertOptionalDate(c.startedOn, 'Data de início')
+  assertOptionalDate(c.endsOn, 'Data de término')
+
+  // Vigência invertida passa pelo banco sem reclamar e só aparece meses depois,
+  // quando alguém pergunta por que o contrato "já nasceu vencido".
+  const inicio = String(c.startedOn ?? '').trim()
+  const fim = String(c.endsOn ?? '').trim()
+  if (inicio && fim && fim < inicio) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'O término não pode ser antes do início.',
+    })
+  }
+
+  assertNumeroEmFaixa(c.dueDay, 1, 31, 'Dia do vencimento deve estar entre 1 e 31.')
+  assertNumeroEmFaixa(c.rentAmount, 0, Number.MAX_SAFE_INTEGER, 'Valor do aluguel inválido.')
+
+  const interno = c.internal
+  if (interno !== undefined && interno !== null) {
+    if (typeof interno !== 'object') {
+      throw createError({ statusCode: 422, statusMessage: 'Dados internos inválidos.' })
+    }
+    const i = interno as Record<string, unknown>
+    assertNumeroEmFaixa(
+      i.adminFeePercent,
+      0,
+      100,
+      'Taxa de administração deve estar entre 0 e 100.',
+    )
+  }
+}
+
+/** Nulo e indefinido passam: o campo é opcional. Texto e NaN, não. */
+function assertNumeroEmFaixa(v: unknown, min: number, max: number, message: string) {
+  if (v === undefined || v === null || v === '') return
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < min || n > max) {
+    throw createError({ statusCode: 422, statusMessage: message })
+  }
+}
+
+/** Valida o vínculo de uma pessoa a um contrato. */
+export function assertContractPartyInput(input: unknown): asserts input is ContractPartyInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const p = input as Record<string, unknown>
+  if (!String(p.portalUserId ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Escolha o cliente.' })
+  }
+  if (!CONTRACT_PARTY_ROLES.includes(p.role as ContractPartyRole)) {
+    throw createError({ statusCode: 422, statusMessage: 'Papel inválido.' })
   }
 }

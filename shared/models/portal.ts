@@ -24,6 +24,14 @@ export const CONTRACT_ROLE_LABELS: Record<ContractPartyRole, string> = {
 
 export type ContractStatus = 'ativo' | 'encerrado'
 
+export const CONTRACT_STATUSES: readonly ContractStatus[] = ['ativo', 'encerrado']
+
+/** Rótulos de tela. A imobiliária lê "Ativo", não "ativo". */
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  ativo: 'Ativo',
+  encerrado: 'Encerrado',
+}
+
 export type PortalDocCategory = 'contrato' | 'vistoria' | 'boleto' | 'recibo' | 'extrato' | 'outro'
 
 export const PORTAL_DOC_CATEGORIES: readonly PortalDocCategory[] = [
@@ -160,4 +168,56 @@ export interface PortalUserInput {
   email: string
   doc?: string | null
   phone?: string | null
+}
+
+/**
+ * Participante de um contrato, como o PAINEL o lista.
+ *
+ * Carrega nome e e-mail junto porque a tela da imobiliária lista gente, não
+ * ids — e o papel vem da relação, não da pessoa: a mesma conta é inquilina de
+ * um contrato e proprietária de outro.
+ *
+ * Este tipo é do painel. O cliente nunca recebe a lista de participantes: o
+ * inquilino não precisa do contato do proprietário para baixar um documento, e
+ * a policy `contract_parties_read` da 0028 já limita o portal à própria linha.
+ */
+export interface ContractParty {
+  id: string
+  contractId: string
+  portalUserId: string
+  role: ContractPartyRole
+  name: string
+  email: string
+  /** Cliente desativado continua na lista, marcado — desativar não é apagar. */
+  active: boolean
+}
+
+/** Vincular uma pessoa já cadastrada a um contrato, com papel. */
+export interface ContractPartyInput {
+  portalUserId: string
+  role: ContractPartyRole
+}
+
+/**
+ * O contrato inteiro como a tela de edição precisa dele.
+ *
+ * Os três pedaços vêm de três tabelas (`contracts`, `contract_internal`,
+ * `contract_parties`) e continuam separados no tipo. Achatar tudo num objeto só
+ * faria os campos internos parecerem colunas do contrato — que é exatamente a
+ * confusão que a 0028 desfez ao criar a tabela separada.
+ */
+export interface ContractDetail {
+  contract: Contract
+  internal: ContractInternal | null
+  parties: ContractParty[]
+}
+
+/**
+ * O corpo que a tela envia ao salvar.
+ *
+ * `internal` viaja aninhado, e não espalhado junto dos campos do contrato, para
+ * que o handler não precise adivinhar qual campo vai para qual tabela.
+ */
+export interface ContractSavePayload extends ContractInput {
+  internal?: ContractInternalInput
 }
