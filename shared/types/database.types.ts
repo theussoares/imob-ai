@@ -17,34 +17,43 @@ export type Database = {
       brokers: {
         Row: {
           active: boolean
+          bio: string | null
           created_at: string
           creci: string | null
           email: string | null
           id: string
           name: string
           phone: string | null
+          photo_url: string | null
+          public_visible: boolean
           tenant_id: string
           updated_at: string
         }
         Insert: {
           active?: boolean
+          bio?: string | null
           created_at?: string
           creci?: string | null
           email?: string | null
           id?: string
           name: string
           phone?: string | null
+          photo_url?: string | null
+          public_visible?: boolean
           tenant_id: string
           updated_at?: string
         }
         Update: {
           active?: boolean
+          bio?: string | null
           created_at?: string
           creci?: string | null
           email?: string | null
           id?: string
           name?: string
           phone?: string | null
+          photo_url?: string | null
+          public_visible?: boolean
           tenant_id?: string
           updated_at?: string
         }
@@ -57,6 +66,105 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contract_internal: {
+        Row: {
+          admin_fee_percent: number | null
+          contract_id: string
+          external_id: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_fee_percent?: number | null
+          contract_id: string
+          external_id?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_fee_percent?: number | null
+          contract_id?: string
+          external_id?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contract_parties: {
+        Row: {
+          contract_id: string
+          created_at: string
+          id: string
+          portal_user_id: string
+          role: Database["public"]["Enums"]["contract_party_role"]
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          portal_user_id: string
+          role: Database["public"]["Enums"]["contract_party_role"]
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          portal_user_id?: string
+          role?: Database["public"]["Enums"]["contract_party_role"]
+        }
+        Relationships: []
+      }
+      contracts: {
+        Row: {
+          address_label: string | null
+          adjustment_index: string | null
+          code: string
+          created_at: string
+          due_day: number | null
+          ends_on: string | null
+          id: string
+          property_id: string | null
+          rent_amount: number | null
+          source: string
+          started_on: string | null
+          status: Database["public"]["Enums"]["contract_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          address_label?: string | null
+          adjustment_index?: string | null
+          code: string
+          created_at?: string
+          due_day?: number | null
+          ends_on?: string | null
+          id?: string
+          property_id?: string | null
+          rent_amount?: number | null
+          source?: string
+          started_on?: string | null
+          status?: Database["public"]["Enums"]["contract_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          address_label?: string | null
+          adjustment_index?: string | null
+          code?: string
+          created_at?: string
+          due_day?: number | null
+          ends_on?: string | null
+          id?: string
+          property_id?: string | null
+          rent_amount?: number | null
+          source?: string
+          started_on?: string | null
+          status?: Database["public"]["Enums"]["contract_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       leads: {
         Row: {
@@ -136,6 +244,126 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      portal_document_access: {
+        Row: {
+          created_at: string
+          document_id: string
+          id: string
+          ip: string | null
+          portal_user_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          id?: string
+          ip?: string | null
+          portal_user_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          id?: string
+          ip?: string | null
+          portal_user_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      portal_documents: {
+        Row: {
+          amount: number | null
+          audience: Database["public"]["Enums"]["contract_party_role"][]
+          category: Database["public"]["Enums"]["portal_doc_category"]
+          competence: string | null
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          due_on: string | null
+          id: string
+          mime: string | null
+          published_at: string | null
+          size_bytes: number | null
+          storage_path: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          amount?: number | null
+          audience?: Database["public"]["Enums"]["contract_party_role"][]
+          category: Database["public"]["Enums"]["portal_doc_category"]
+          competence?: string | null
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          due_on?: string | null
+          id?: string
+          mime?: string | null
+          published_at?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          amount?: number | null
+          audience?: Database["public"]["Enums"]["contract_party_role"][]
+          category?: Database["public"]["Enums"]["portal_doc_category"]
+          competence?: string | null
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          due_on?: string | null
+          id?: string
+          mime?: string | null
+          published_at?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      portal_users: {
+        Row: {
+          active: boolean
+          created_at: string
+          doc: string | null
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          doc?: string | null
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          doc?: string | null
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       properties: {
         Row: {
@@ -455,10 +683,14 @@ export type Database = {
     }
     Functions: {
       is_member_of_slug: { Args: { folder: string }; Returns: boolean }
+      is_portal_user: { Args: { t_id: string }; Returns: boolean }
       is_tenant_member: { Args: { t_id: string }; Returns: boolean }
     }
     Enums: {
+      contract_party_role: "inquilino" | "proprietario" | "fiador"
+      contract_status: "ativo" | "encerrado"
       member_role: "owner" | "admin"
+      portal_doc_category: "contrato" | "vistoria" | "boleto" | "recibo" | "extrato" | "outro"
       property_purpose: "venda" | "aluguel"
       property_status: "active" | "sold" | "rented" | "draft"
       property_type: "casa" | "apartamento" | "sobrado" | "kitnet" | "chacara" | "rancho" | "terreno" | "barracao" | "sala" | "salao" | "predio"
