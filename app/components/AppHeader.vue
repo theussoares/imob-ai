@@ -4,27 +4,26 @@ const { whatsappLink } = useContact();
 const route = useRoute();
 
 /**
- * O header ganha menu quando o tenant tem Área do Cliente.
+ * Menu para todo tenant, em qualquer largura.
  *
- * Sem portal, o header continua o que sempre foi: marca + um botão de WhatsApp.
- * É a única ação que existe, e transformá-la em item de menu esconderia a
- * conversão atrás de um clique a mais sem nada em troca.
+ * "Quero vender" e "Quero alugar" servem a qualquer imobiliária — não são do
+ * portal. Condicionar o menu inteiro ao plano deixaria esses dois destinos
+ * existindo só para quem contratou a Área do Cliente, que é o item errado a
+ * amarrar. O que depende do plano é UM item, não o menu.
  *
- * Com portal passam a existir quatro destinos — e é aí que a barra deixa de
- * caber no celular.
- */
-const temMenu = computed(() => !!tenant.value?.portalEnabled);
-
-/**
- * "Quero vender" e "Quero alugar" apontam para a MESMA página.
- *
- * Não é descuido: a página de captação já trata os dois casos, e quem quer
- * alugar o imóvel dele não se reconhece em "quero vender" — procura a palavra
- * "alugar" e não acha. Dois rótulos para uma página é mais barato que uma
- * segunda página para manter, e é reversível no dia em que o conteúdo divergir.
+ * "Quero vender" e "Quero alugar" apontam para a MESMA página, de propósito: a
+ * página de captação já trata os dois casos, e quem quer alugar o imóvel dele
+ * procura a palavra "alugar" e não se reconhece em "quero vender". Dois rótulos
+ * para uma página é mais barato que uma segunda página para manter, e é
+ * reversível no dia em que o conteúdo divergir.
  */
 const itens = computed(() => [
-  { label: "Área do Cliente", to: "/area-cliente", externo: false },
+  // Só para quem contratou: link que leva a um login que recusa a pessoa é pior
+  // que link nenhum — ela conclui que o site está quebrado, não que não tem
+  // acesso. Ver `portalEnabled`.
+  ...(tenant.value?.portalEnabled
+    ? [{ label: "Área do Cliente", to: "/area-cliente", externo: false }]
+    : []),
   { label: "Quero vender", to: "/quero-vender", externo: false },
   { label: "Quero alugar", to: "/quero-vender", externo: false },
   ...(tenant.value?.whatsapp
@@ -33,6 +32,7 @@ const itens = computed(() => [
 ]);
 
 const aberto = ref(false);
+const raiz = ref<HTMLElement | null>(null);
 
 // Fecha ao navegar: sem isto o menu fica aberto por cima da página nova, e no
 // celular a pessoa acha que o clique não funcionou.
@@ -41,17 +41,33 @@ watch(
   () => (aberto.value = false),
 );
 
-// Esc fecha, que é o que qualquer um tenta antes de procurar o X.
 function onKey(e: KeyboardEvent) {
+  // Esc é o que qualquer um tenta antes de procurar o X.
   if (e.key === "Escape") aberto.value = false;
 }
-onMounted(() => window.addEventListener("keydown", onKey));
-onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
+
+// O painel flutua por cima da página, então clicar fora é a forma natural de
+// dispensá-lo — sem isso ele só fecha pelo próprio botão, e no celular a pessoa
+// toca no conteúdo atrás esperando que suma.
+function onClickFora(e: MouseEvent) {
+  if (!aberto.value) return;
+  if (raiz.value && !raiz.value.contains(e.target as Node))
+    aberto.value = false;
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", onKey);
+  document.addEventListener("click", onClickFora);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onKey);
+  document.removeEventListener("click", onClickFora);
+});
 </script>
 
 <template>
-  <header class="bar">
-    <div class="bar-in" :class="{ 'com-menu': temMenu }">
+  <header ref="raiz" class="bar">
+    <div class="bar-in">
       <NuxtLink class="brand" to="/">
         <span class="mark" aria-hidden="true">
           <img
@@ -67,15 +83,32 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
         </span>
       </NuxtLink>
 
+      <div class="bar-cta cta-group">
+        <button
+          type="button"
+          class="burger"
+          :aria-expanded="aberto"
+          aria-controls="menu-site"
+          :aria-label="aberto ? 'Fechar menu' : 'Abrir menu'"
+          @click="aberto = !aberto"
+        >
+          <!-- Três traços desenhados aqui mesmo: a coleção de ícones do projeto
+               é bundlada localmente e não tem um "menu". Um arquivo a mais no
+               bundle para três retângulos não se paga. -->
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="6" width="18" height="2" rx="1" />
+            <rect x="3" y="11" width="18" height="2" rx="1" />
+            <rect x="3" y="16" width="18" height="2" rx="1" />
+          </svg>
+        </button>
+      </div>
+
       <!--
         Sempre no DOM, aberto ou fechado: quem mostra e esconde é o CSS, não
         `v-if`/`v-show`. Assim os links existem no HTML do SSR e valem como
-        navegação interna para o rastreador mesmo com o menu fechado — e no
-        desktop o mesmo markup vira uma linha, sem `!important` brigando com
-        estilo inline.
+        navegação interna para o rastreador mesmo com o menu fechado.
       -->
       <nav
-        v-if="temMenu"
         id="menu-site"
         class="menu"
         :class="{ aberto }"
@@ -96,48 +129,16 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
           </NuxtLink>
         </template>
       </nav>
-
-      <div class="bar-cta cta-group">
-        <!-- Sem portal: o header de sempre. -->
-        <a
-          v-if="!temMenu && tenant?.whatsapp"
-          class="wa-btn"
-          :href="whatsappLink()"
-          target="_blank"
-          rel="noopener"
-          aria-label="Falar no WhatsApp"
-        >
-          <AppIcon name="wa" />
-          <span class="label-desk">Falar no WhatsApp</span>
-        </a>
-
-        <button
-          v-if="temMenu"
-          type="button"
-          class="burger"
-          :aria-expanded="aberto"
-          aria-controls="menu-site"
-          :aria-label="aberto ? 'Fechar menu' : 'Abrir menu'"
-          @click="aberto = !aberto"
-        >
-          <!-- Três traços desenhados aqui mesmo: a coleção de ícones do projeto
-               é bundlada localmente e não tem um "menu". Um arquivo a mais no
-               bundle para três retângulos não se paga. -->
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="6" width="18" height="2" rx="1" />
-            <rect x="3" y="11" width="18" height="2" rx="1" />
-            <rect x="3" y="16" width="18" height="2" rx="1" />
-          </svg>
-        </button>
-      </div>
     </div>
   </header>
 </template>
 
 <style scoped>
-/* A barra vira duas linhas no celular: marca + burger em cima, menu embaixo. */
+/* Âncora do painel: sem isto o `absolute` do menu se resolveria contra a `.bar`,
+   que vai de ponta a ponta da tela — e em monitor largo o painel descolaria do
+   conteúdo, encostado na borda da janela. */
 .bar-in {
-  flex-wrap: wrap;
+  position: relative;
 }
 .cta-group {
   display: flex;
@@ -176,16 +177,28 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
   fill: currentColor;
 }
 
+/*
+ * Painel flutuante, não bloco que empurra a página.
+ *
+ * Abrir o menu não pode reposicionar o conteúdo atrás: quem tocou no burger
+ * enquanto lia um anúncio veria o anúncio pular tela abaixo. Por isso
+ * `absolute` — e por isso ele tem fundo e sombra próprios, já que passa por
+ * cima de texto.
+ */
 .menu {
   display: none;
-  /* Terceiro item da linha: quebra para baixo da marca e do burger. */
-  order: 3;
-  flex-basis: 100%;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 1;
   flex-direction: column;
   gap: 2px;
-  margin: 0 -10px;
-  padding: 6px 10px 10px;
-  border-top: 1px solid var(--line);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper, #fff);
+  box-shadow: 0 10px 30px rgb(16 29 27 / 12%);
 }
 .menu.aberto {
   display: flex;
@@ -215,8 +228,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
 .menu-item.router-link-active {
   color: var(--brand);
 }
-/* O WhatsApp é o último da lista e o único com peso visual: continua sendo a
-   ação que converte, mesmo tendo saído da barra. */
+/* O WhatsApp é o último da lista e o único com peso visual: saiu da barra, mas
+   continua sendo a ação que converte. */
 .menu-item.destaque {
   margin-top: 6px;
   background: var(--wa);
@@ -232,35 +245,12 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKey));
   fill: #fff;
 }
 
-@media (min-width: 720px) {
-  /*
-   * No desktop há espaço de sobra: os quatro destinos ficam na própria barra e
-   * o burger some. Menu escondido atrás de um clique numa tela larga esconde
-   * "Quero vender", que é caminho de conversão.
-   */
+@media (min-width: 560px) {
+  /* A partir daí o painel para de ocupar a largura toda e vira uma coluna
+     ancorada no burger, que é onde o olho está depois do clique. */
   .menu {
-    display: flex;
-    order: 0;
-    flex-basis: auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-    /* Empurra o menu para a direita; o `.bar-cta` fica vazio e some logo abaixo,
-       então não há duas margens automáticas disputando o espaço livre. */
-    margin: 0 0 0 auto;
-    padding: 0;
-    border-top: 0;
-  }
-  .menu-item {
-    min-height: 40px;
-    padding: 0 11px;
-    font-size: 14px;
-  }
-  .menu-item.destaque {
-    margin: 0 0 0 6px;
-  }
-  .bar-in.com-menu .cta-group {
-    display: none;
+    left: auto;
+    min-width: 240px;
   }
 }
 </style>
