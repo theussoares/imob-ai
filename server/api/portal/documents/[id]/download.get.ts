@@ -43,6 +43,11 @@ import {
  * operação `object.get_authenticated`, documentada e já na lista. O servidor lê
  * com o token do cliente (a policy roda) e devolve os bytes.
  *
+ * ✅ CONFIRMADO em produção (12/09/2026): o fluxo completo funcionou no tenant
+ * `demo`, com inquilina e proprietário. Ou seja, o GET autenticado realmente
+ * chega à policy como `object.get_authenticated` nesta versão do Storage — era
+ * a única parte que não dava para provar por SQL, e agora está provada por uso.
+ *
  * Dois efeitos colaterais são melhorias, não concessões:
  *   - a policy é verificada no instante da transferência, não na emissão de uma
  *     URL que ainda vai ser usada depois;

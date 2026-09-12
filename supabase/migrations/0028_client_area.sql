@@ -495,9 +495,17 @@ create policy "member read portal-docs" on storage.objects
 -- checagem antes de assinar, não havia nada embaixo.
 --
 -- Com esta policy existe uma segunda barreira, no banco. Para que ela de fato
--- rode, a assinatura tem que ser feita com o token DO CLIENTE (o client que
+-- rode, a leitura tem que ser feita com o token DO CLIENTE (o client que
 -- `requirePortalUser` devolve), não com service role. A service role fica só
 -- para gravar a trilha de acesso.
+--
+-- 📌 O card 2.3 acabou NÃO usando URL assinada. `createSignedUrl` faz
+-- `POST /object/sign/...`, operação diferente da leitura autenticada e cujo nome
+-- não está na documentação pública — colocar um chute nesta lista liberaria
+-- junto o que ninguém conferiu. O download usa `download()`, que é
+-- `GET /object/{bucket}/{path}` = `object.get_authenticated`, já listada aqui.
+-- Confirmado em produção em 12/09/2026, com inquilina e proprietário reais no
+-- tenant `demo`.
 --
 -- A condição é a mesma regra de sempre, agora em SQL: publicado, de um contrato
 -- em que a pessoa é parte, e endereçado ao papel dela naquele contrato.
