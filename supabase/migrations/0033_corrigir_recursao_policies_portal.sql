@@ -55,6 +55,21 @@
 -- ⚠️ NÃO revogue EXECUTE (mesmo motivo documentado na 0028): expressão de
 -- policy roda com a permissão de quem consulta, e sem EXECUTE toda policy que
 -- chama a função falha com `permission denied for function`.
+--
+-- Esta função vai aparecer nos advisors 0028/0029 como RPC exposta, junto com
+-- is_tenant_member e is_portal_user. A diferença que importa: aquelas devolvem
+-- BOOLEANO sobre quem pergunta, esta devolve LINHAS. Por isso o argumento
+-- "vazamento nulo" da 0028 não se herda de graça — foi conferido separado, em
+-- produção, depois de aplicar:
+--
+--   anon chamando /rest/v1/rpc/portal_my_parties ............. 0 linhas
+--   anon chamando portal_can_read_doc_path(caminho válido) ... false
+--   membro de outra imobiliária chamando a RPC ............... 0 linhas
+--
+-- O motivo é estrutural, não coincidência: a cláusula é `pu.user_id =
+-- auth.uid()`, e a função não tem parâmetro de identidade. Sem sessão,
+-- auth.uid() é nulo e o join não casa com nada. Quem chama só consegue
+-- perguntar por si mesmo, e a resposta é a mesma que o portal já lhe mostra.
 -- -----------------------------------------------------------------------------
 create or replace function public.portal_my_parties()
 returns table (contract_id uuid, tenant_id uuid, party_role public.contract_party_role)
