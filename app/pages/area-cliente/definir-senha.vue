@@ -10,7 +10,7 @@
  * chega depende de configuração do projeto, e errar aqui deixa a pessoa numa
  * tela morta sem explicação.
  */
-definePageMeta({ layout: false });
+definePageMeta({ layout: "portal" });
 
 const tenant = useTenant();
 const password = ref("");
@@ -69,7 +69,9 @@ async function save() {
 
   state.value = "salvando";
   const client = await getPortalSupabase();
-  const { error: e } = await client.auth.updateUser({ password: password.value });
+  const { error: e } = await client.auth.updateUser({
+    password: password.value,
+  });
   if (e) {
     // O Supabase recusa senha vazada quando a proteção está ativa — a mensagem
     // dele é em inglês, então vale traduzir o caso mais provável.
@@ -90,122 +92,46 @@ useSeoMeta({
 </script>
 
 <template>
-  <main class="pc-wrap">
-    <section class="pc-card">
-      <h1>Criar sua senha</h1>
-      <p class="pc-sub">{{ tenant?.name }}</p>
+  <div>
+    <h1>Criar sua senha</h1>
+    <p class="pc-sub">{{ tenant?.name }}</p>
 
-      <p v-if="state === 'verificando'">Verificando o link…</p>
+    <p v-if="state === 'verificando'">Verificando o link…</p>
 
-      <template v-else-if="state === 'invalido'">
-        <p class="pc-erro">
-          Este link não é mais válido. Links de acesso expiram — peça um novo à
-          imobiliária.
-        </p>
-        <NuxtLink class="pc-link" to="/area-cliente/login"
-          >Ir para o login</NuxtLink
-        >
-      </template>
+    <template v-else-if="state === 'invalido'">
+      <p class="pc-msg erro">
+        Este link não é mais válido. Links de acesso expiram — peça um novo à
+        imobiliária.
+      </p>
+      <NuxtLink class="pc-link" to="/area-cliente/login"
+        >Ir para o login</NuxtLink
+      >
+    </template>
 
-      <form v-else @submit.prevent="save">
-        <label for="pc-nova">Nova senha</label>
-        <input
-          id="pc-nova"
-          v-model="password"
-          type="password"
-          autocomplete="new-password"
-          required
-        />
+    <form v-else @submit.prevent="save">
+      <label for="pc-nova">Nova senha</label>
+      <input
+        id="pc-nova"
+        v-model="password"
+        type="password"
+        autocomplete="new-password"
+        required
+      />
 
-        <label for="pc-conf">Confirme a senha</label>
-        <input
-          id="pc-conf"
-          v-model="confirmPassword"
-          type="password"
-          autocomplete="new-password"
-          required
-        />
+      <label for="pc-conf">Confirme a senha</label>
+      <input
+        id="pc-conf"
+        v-model="confirmPassword"
+        type="password"
+        autocomplete="new-password"
+        required
+      />
 
-        <p v-if="error" class="pc-erro">{{ error }}</p>
+      <p v-if="error" class="pc-msg erro">{{ error }}</p>
 
-        <button type="submit" :disabled="state === 'salvando'">
-          {{ state === "salvando" ? "Salvando…" : "Salvar e entrar" }}
-        </button>
-      </form>
-    </section>
-  </main>
+      <button class="pc-btn" type="submit" :disabled="state === 'salvando'">
+        {{ state === "salvando" ? "Salvando…" : "Salvar e entrar" }}
+      </button>
+    </form>
+  </div>
 </template>
-
-<style scoped>
-.pc-wrap {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: color-mix(in srgb, var(--brand) 6%, white);
-}
-.pc-card {
-  width: 100%;
-  max-width: 380px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 28px 24px;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
-}
-h1 {
-  margin: 0;
-  font-size: 1.4rem;
-  color: var(--brand);
-}
-.pc-sub {
-  margin: 4px 0 22px;
-  color: #5c6b67;
-  font-size: 0.95rem;
-}
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-input {
-  padding: 11px 12px;
-  border: 1px solid #d8e0dc;
-  border-radius: 8px;
-  font-size: 1rem;
-  margin-bottom: 10px;
-}
-input:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
-}
-button[type="submit"] {
-  margin-top: 8px;
-  padding: 12px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--brand);
-  color: #fff;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-button[type="submit"]:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.pc-link {
-  display: inline-block;
-  margin-top: 14px;
-  color: var(--brand);
-  font-size: 0.9rem;
-}
-.pc-erro {
-  margin: 4px 0 0;
-  color: #b03d0c;
-  font-size: 0.9rem;
-}
-</style>
