@@ -31,8 +31,23 @@ const form = reactive({
   endsOn: "",
   rentAmount: 0,
   dueDay: null as number | null,
-  adjustmentIndex: "",
   notes: "",
+
+  /*
+   * Sem campo na tela, mas ainda no formulário — e isso é de propósito.
+   *
+   * Índice de reajuste, taxa de administração e id no ERP saíram da interface
+   * porque nada os consome: os três já estão escritos no contrato em PDF que a
+   * imobiliária sobe, e digitá-los de novo é trabalho que ninguém lê. As
+   * COLUNAS continuam no banco, para o dia em que existir cobrança — aí o
+   * sistema vai precisar do número estruturado, porque PDF não se consulta.
+   *
+   * Continuam viajando no payload porque `toContractRow` e
+   * `toContractInternalRow` gravam o objeto inteiro: parar de enviá-los
+   * APAGARIA o que já está gravado a cada salvamento. Aqui eles são carregados
+   * do banco e devolvidos intactos.
+   */
+  adjustmentIndex: "",
   adminFeePercent: null as number | null,
   externalId: "",
 });
@@ -421,14 +436,6 @@ useHead({
               placeholder="10"
             />
           </div>
-          <div>
-            <label class="admin-label">Índice de reajuste</label>
-            <input
-              v-model="form.adjustmentIndex"
-              class="admin-input"
-              placeholder="IGP-M"
-            />
-          </div>
         </div>
 
         <!-- Campos internos: ficam em contract_internal e NUNCA chegam ao
@@ -439,22 +446,6 @@ useHead({
           <small>Não aparece para o cliente</small>
         </h3>
         <div class="form-grid">
-          <div>
-            <label class="admin-label">Taxa de administração (%)</label>
-            <input
-              v-model.number="form.adminFeePercent"
-              class="admin-input"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="10"
-            />
-          </div>
-          <div>
-            <label class="admin-label">ID no ERP</label>
-            <input v-model="form.externalId" class="admin-input" />
-          </div>
           <div class="full">
             <label class="admin-label">Anotação</label>
             <textarea v-model="form.notes" class="admin-input" rows="3" />
