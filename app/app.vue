@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Tenant } from '~~/shared/models/tenant'
+import { homeOgUrl } from '~~/shared/utils/og-image'
 
 type TenantResponse = Tenant | { platformRoot: true }
 
@@ -74,6 +75,21 @@ useSeoMeta({
   ogLocale: 'pt_BR',
   twitterCard: 'summary_large_image',
 })
+
+// Card social padrão de TODA página. Antes só a home e o detalhe do imóvel
+// anunciavam imagem — categorias, bairros e /quero-vender iam sem nenhuma, e o
+// WhatsApp caía no favicon do site. Quem tem imagem própria (o detalhe do
+// imóvel) sobrescreve estas tags.
+//
+// A versão (`?v=`) sai do hero/logo porque é o que o app.vue conhece sem buscar
+// nada. Quando o card acaba vindo da capa de um imóvel (tenant sem hero e sem
+// logo), trocar essa foto não muda a URL — o preview velho só cai quando o cache
+// do WhatsApp expira sozinho. Aceito: é o caso raro, e a alternativa era carregar
+// a lista de imóveis em toda página só para calcular um hash.
+useOgCard(() => ({
+  url: homeOgUrl(requestUrl.origin, tenantState.value?.heroImage || tenantState.value?.logoUrl),
+  alt: tenantState.value?.name || undefined,
+}))
 
 useHead(() => ({
   link: [

@@ -5,6 +5,7 @@ import { PROPERTY_TYPE_REGISTRY } from "~~/shared/models/property";
 import { propertyPath, propertySlug } from "~~/shared/utils/property-url";
 import { propertyTitle } from "~~/shared/utils/property-title";
 import { formatPropertyCode } from "~~/shared/utils/property-specs";
+import { propertyOgUrl } from "~~/shared/utils/og-image";
 
 const route = useRoute();
 const router = useRouter();
@@ -69,10 +70,17 @@ useSeoMeta({
     `${PROPERTY_TYPE_LABELS[p.type]} ${isRent ? "para alugar" : "à venda"}${locality ? " em " + locality : ""}. ${priceLabel.value}.`,
   ogTitle: `${propertyTitle(p)} — ${priceLabel.value}`,
   ogDescription: p.description || undefined,
-  ogImage: p.images[0]?.url,
   ogType: "website",
   twitterCard: "summary_large_image",
 });
+
+// A capa NÃO é anunciada direto do Storage: ela está em WebP (formato que o
+// WhatsApp não renderiza em preview) e na proporção original da foto. A rota /og
+// devolve a mesma capa em JPEG 1200×630 — ver shared/utils/og-image.ts.
+useOgCard(() => ({
+  url: propertyOgUrl(url.origin, p.code, p.images[0]?.url),
+  alt: propertyTitle(p),
+}));
 
 const schemaType = PROPERTY_TYPE_REGISTRY[p.type].schema;
 
