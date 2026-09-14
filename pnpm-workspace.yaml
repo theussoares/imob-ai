@@ -1,0 +1,7 @@
+# Pacotes autorizados a rodar script de instalação (o pnpm bloqueia por padrão).
+#
+# esbuild: dependência de build do Vite/Nuxt. O script dele resolve o binário da
+# plataforma; sem autorizar, o pnpm avisa a cada install e o build fica sujeito
+# ao esbuild cair no caminho de fallback.
+allowBuilds:
+  esbuild: true
