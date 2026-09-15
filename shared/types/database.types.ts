@@ -332,6 +332,7 @@ export type Database = {
           created_at: string
           doc: string | null
           email: string
+          last_recovery_at: string | null
           id: string
           name: string
           phone: string | null
@@ -345,6 +346,7 @@ export type Database = {
           doc?: string | null
           email: string
           id?: string
+          last_recovery_at?: string | null
           name: string
           phone?: string | null
           tenant_id: string
@@ -357,6 +359,7 @@ export type Database = {
           doc?: string | null
           email?: string
           id?: string
+          last_recovery_at?: string | null
           name?: string
           phone?: string | null
           tenant_id?: string

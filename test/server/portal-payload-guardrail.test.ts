@@ -33,11 +33,27 @@ function arquivosTs(dir: string): string[] {
 }
 
 /**
- * Únicos usos legítimos de service role no portal:
+ * Únicos usos legítimos de service role num endpoint AUTENTICADO do portal:
  *   - gravar a trilha de acesso (o cliente não pode forjar as próprias linhas);
  *   - contar a trilha para o rate limit (o cliente não lê a tabela).
+ *
+ * Em todo o resto, o client do cliente é que deve ser usado — é o que mantém a
+ * RLS e a policy do bucket valendo.
  */
 const USOS_PERMITIDOS = ['recordDocumentAccess', 'assertSubmitRateLimit']
+
+/**
+ * Endpoints NÃO autenticados, onde não existe token de cliente para usar.
+ *
+ * Exceção nominal, e não um afrouxamento da regra: cada arquivo aqui precisa de
+ * um motivo que sobreviva à pergunta "por que não dá para usar o client do
+ * cliente?". Acrescentar um nome a esta lista é uma decisão, não um atalho.
+ *
+ *   - recuperar-senha: quem esqueceu a senha não está logado. Não há sessão,
+ *     logo não há token. O endpoint compensa respondendo igual para todo mundo
+ *     e com intervalo mínimo por conta (migration 0033).
+ */
+const SEM_SESSAO_POSSIVEL = ['recuperar-senha.post.ts']
 
 describe('endpoints do portal', () => {
   const arquivos = arquivosTs(PORTAL_API)
@@ -49,6 +65,7 @@ describe('endpoints do portal', () => {
 
   test('service role só é usado para a trilha e para o rate limit', () => {
     for (const caminho of arquivos) {
+      if (SEM_SESSAO_POSSIVEL.some((nome) => caminho.endsWith(nome))) continue
       const fonte = readFileSync(caminho, 'utf8')
       let i = fonte.indexOf('serviceSupabase()')
       while (i !== -1) {
@@ -61,6 +78,17 @@ describe('endpoints do portal', () => {
         ).toBe(true)
         i = fonte.indexOf('serviceSupabase()', i + 1)
       }
+    }
+  })
+
+  test('toda exceção da lista existe de fato', () => {
+    // Nome que sobra na lista depois de o arquivo sumir vira permissão fantasma:
+    // um arquivo novo com o mesmo nome herdaria a exceção sem ninguém decidir.
+    for (const nome of SEM_SESSAO_POSSIVEL) {
+      expect(
+        arquivos.some((f) => f.endsWith(nome)),
+        `${nome} está na lista de exceções mas não existe mais`,
+      ).toBe(true)
     }
   })
 

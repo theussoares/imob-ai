@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
- * Recuperação de senha do cliente, pelo fluxo do próprio Supabase.
+ * Recuperação de senha do cliente.
  *
- * ⚠️ Depende do card 0.4 (e-mail transacional) para ser confiável na prática.
- * Até ele entrar, o envio sai pelo SMTP embutido do Supabase, que limita poucos
- * mensagens por hora e sai do domínio dele — cai em spam. O fluxo está correto
- * e funciona; o que falta é a entrega. Não anunciar esta tela para a carteira
- * antes da 0.4.
+ * O envio passa pelo servidor (`/api/portal/recuperar-senha`), e não por
+ * `resetPasswordForEmail` no navegador, porque o SMTP do Supabase tem um
+ * remetente global por projeto — o cliente veria um nome só, igual para todas as
+ * imobiliárias. Pelo servidor, o e-mail sai com o nome desta imobiliária e o
+ * Reply-To dela.
  */
 definePageMeta({ layout: 'portal' })
 
@@ -19,13 +19,13 @@ async function enviar() {
   loading.value = true
   error.value = ''
   try {
-    const client = await getPortalSupabase()
-    const { error: e } = await client.auth.resetPasswordForEmail(email.value.trim(), {
-      // Mesma origem de onde a pessoa pediu: o portal responde no domínio da
-      // imobiliária, e um link para outro host quebraria a sessão que ele cria.
-      redirectTo: `${window.location.origin}/area-cliente/definir-senha`,
+    // Chama o NOSSO endpoint, não `resetPasswordForEmail` direto: aquele faz o
+    // Supabase enviar, com o remetente global do projeto. Pelo servidor o
+    // e-mail sai com o nome e o Reply-To desta imobiliária.
+    await $fetch('/api/portal/recuperar-senha', {
+      method: 'POST',
+      body: { email: email.value.trim() },
     })
-    if (e) throw e
   } catch {
     // Silêncio proposital sobre a causa — ver a mensagem abaixo.
   } finally {
