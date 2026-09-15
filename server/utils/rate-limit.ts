@@ -19,7 +19,7 @@ type Client = SupabaseClient<Database>
 export async function assertSubmitRateLimit(
   client: Client,
   opts: {
-    table: 'leads'
+    table: 'leads' | 'portal_document_access'
     tenantId: string
     /** Coluna que identifica quem enviou (ex.: telefone). */
     column: string
@@ -28,6 +28,8 @@ export async function assertSubmitRateLimit(
     windowMs?: number
     /** Quantos envios são tolerados na janela. Padrão: 3. */
     max?: number
+    /** Mensagem do 429. O padrão fala de formulário, que não serve a todo caso. */
+    message?: string
   },
 ): Promise<void> {
   const windowMs = opts.windowMs ?? 10 * 60 * 1000
@@ -55,7 +57,7 @@ export async function assertSubmitRateLimit(
   if ((count ?? 0) >= max) {
     throw createError({
       statusCode: 429,
-      statusMessage: 'Muitas mensagens enviadas. Tente novamente em alguns minutos.',
+      statusMessage: opts.message ?? 'Muitas mensagens enviadas. Tente novamente em alguns minutos.',
     })
   }
 }

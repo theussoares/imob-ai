@@ -300,6 +300,20 @@ Estimativa em dias úteis de trabalho efetivo.
 - Envio em lote dos boletos do mês — 1 dia
 
 **Fase 2 — Área do cliente (4–5 dias)**
+- [x] Login e recuperação de senha — 0,5 dia
+- [x] "Meus contratos" e detalhe do contrato — 1,5 dia
+- [x] Documentos por categoria, download assinado, trilha — 1,5 dia
+- [ ] Mobile de verdade e estados vazios/erro — 1 dia
+- [ ] Entrada no site (header/rodapé) — 0,5 dia
+
+**Conflito resolvido no card 2.3 (15/09):** o card mandava assinar o download
+com service role; a migration 0028, escrita depois, mudou o desenho e criou a
+policy `portal client reads own documents` no bucket para haver uma segunda
+barreira no banco. Vale a 0028 — a assinatura usa o token do cliente, e a
+service role fica só para a trilha de acesso, que o cliente não pode forjar.
+Assinar com service role deixaria a policy como código morto sem nenhum sintoma,
+então a decisão é travada por teste no fonte
+(`test/server/portal-payload-guardrail.test.ts`), não só por comentário.
 - Login e recuperação de senha — 0,5 dia
 - "Meus contratos" e detalhe do contrato — 1,5 dia
 - Documentos por categoria, download assinado, 2ª via, trilha — 1,5 dia
