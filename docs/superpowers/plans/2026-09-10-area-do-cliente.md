@@ -426,14 +426,34 @@ Nada aqui bloqueia o demo da semana 2. Tudo aqui bloqueia a semana 4.
    - **O endereço na tela vem do contrato** (`address_label` / `property_id`),
      nunca transcrito do documento. Com uma fonte só, divergência dentro do PDF
      nunca contradiz o que o portal afirma.
-   - **Conferência de parte no upload (card 1.3).** Todos os três PDFs têm
-     camada de texto. Ao subir, extrair o texto e procurar o CPF/CNPJ das partes
-     daquele contrato; se **nenhum** aparecer, avisar antes de publicar — sem
-     bloquear, porque há documento legítimo que não cita CPF. O rascunho
-     (`published_at is null`) já é a rede embaixo disso: o aviso só precisa
-     chegar antes de alguém clicar em publicar. É o mesmo princípio de
-     `defaultAudienceFor` — não depender de alguém conferir às 18h de uma
-     sexta.
+   - **Decisão (15/09): a conferência é humana, e a tela é que precisa ser
+     explícita.** Foi considerada uma checagem automática no upload — os três
+     PDFs têm camada de texto, dava para procurar o CPF/CNPJ das partes daquele
+     contrato e avisar quando nenhum aparecesse. **Não vai ser feita.** O papel
+     do produto aqui é dizer com clareza o que vai em cada lugar e quem enxerga
+     o quê; classificar documento é ato de quem sobe, e o erro é dela.
+
+     A decisão é coerente com a cadeia da LGPD já registrada neste plano: a
+     imobiliária é **controladora** e o imob-ai é **operador**, que trata dado
+     sob instrução dela. Subir o documento no contrato errado é instrução
+     errada da controladora, não falha do operador.
+
+     O que ela cobra de nós em troca é que a tela não esconda a consequência:
+
+     - `PORTAL_DOC_HINTS` — uma linha por categoria dizendo o que vai ali;
+     - `describeAudience()` — "Só o proprietário vê", ao lado da audiência
+       selecionada, **derivada de `defaultAudienceFor`** e não escrita à mão,
+       para que rótulo e comportamento não possam divergir;
+     - o rascunho (`published_at is null`) continua sendo o passo entre subir e
+       publicar;
+     - `portal_documents.created_by` já registra quem subiu, que é o que
+       sustenta "a responsabilidade é de quem classificou" quando alguém
+       perguntar.
+
+     O custo aceito, registrado para não ser esquecido: **um documento subido no
+     contrato errado será publicado sem um ruído.** Se acontecer uma vez em
+     produção, a checagem automática volta à mesa — e o desenho dela está
+     descrito acima, pronto.
 
 ### O demo não convida terceiro real sem ela mandar
 

@@ -1,4 +1,9 @@
-import type { ContractPartyRole, PortalDocCategory } from '~~/shared/models/portal'
+import {
+  CONTRACT_PARTY_LABELS,
+  CONTRACT_PARTY_ROLES,
+  type ContractPartyRole,
+  type PortalDocCategory,
+} from '~~/shared/models/portal'
 
 /**
  * A regra de "este cliente pode ver este documento?", em código.
@@ -76,4 +81,36 @@ export function defaultAudienceFor(category: PortalDocCategory): ContractPartyRo
     default:
       return ['inquilino', 'proprietario']
   }
+}
+
+/**
+ * "Quem vai ver este documento?", em uma frase, para a tela de upload.
+ *
+ * Quem classifica o documento é a imobiliária, e a classificação decide quem
+ * enxerga — então a consequência tem que estar visível no momento da escolha,
+ * não escondida num default que só aparece depois de publicado.
+ *
+ * Deriva da audiência de verdade em vez de repetir o texto em outro lugar: se a
+ * audiência de uma categoria mudar, a frase muda junto. Um rótulo que descreve
+ * a regra antiga é pior que rótulo nenhum, porque quem leu confiou.
+ *
+ * Recebe `roles` (não a categoria) de propósito: o formulário pode ampliar a
+ * audiência caso a caso, e a frase precisa descrever o que está selecionado
+ * AGORA, não o default de onde ela partiu.
+ */
+export function describeAudience(roles: readonly ContractPartyRole[]): string {
+  // Ordena pela ordem canônica, não pela ordem em que vieram: a mesma audiência
+  // precisa produzir a mesma frase toda vez, ou a tela pisca entre "inquilino e
+  // proprietário" e "proprietário e inquilino" sem nada ter mudado.
+  const ordenados = CONTRACT_PARTY_ROLES.filter((r) => roles.includes(r))
+
+  // Audiência vazia é documento que ninguém vê. Não é caso impossível — é o que
+  // sobra quando alguém desmarca tudo — e falhar calado aqui produz um arquivo
+  // publicado que o cliente jura não existir.
+  if (!ordenados.length) return 'Ninguém vê este documento'
+
+  const nomes = ordenados.map((r) => CONTRACT_PARTY_LABELS[r])
+  if (nomes.length === 1) return `Só o ${nomes[0]} vê`
+  const ultimo = nomes[nomes.length - 1]
+  return `${nomes.slice(0, -1).join(', ')} e ${ultimo} veem`
 }

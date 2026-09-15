@@ -2,10 +2,12 @@ import { describe, expect, test } from 'vitest'
 import {
   canClientSeeDocument,
   defaultAudienceFor,
+  describeAudience,
   visibleDocumentsFor,
 } from '~~/shared/utils/portal-access'
 import {
   PORTAL_DOC_CATEGORIES,
+  PORTAL_DOC_HINTS,
   PORTAL_DOC_LABELS,
   type ContractPartyRole,
   type PortalDocCategory,
@@ -111,13 +113,51 @@ describe('defaultAudienceFor', () => {
     }
   })
 
-  test('toda categoria do enum tem default e rótulo', () => {
+  test('toda categoria do enum tem default, rótulo e explicação', () => {
     // Impede que uma categoria nova chegue ao formulário sem audiência pensada:
     // sem esta trava, ela herda o `default` ['inquilino','proprietario'] em
     // silêncio, que é o lado inseguro para qualquer documento de dono.
     for (const categoria of PORTAL_DOC_CATEGORIES) {
       expect(defaultAudienceFor(categoria).length).toBeGreaterThan(0)
       expect(PORTAL_DOC_LABELS[categoria]).toBeTruthy()
+      expect(PORTAL_DOC_HINTS[categoria]).toBeTruthy()
     }
+  })
+})
+
+describe('describeAudience', () => {
+  test('diz em uma frase quem vê', () => {
+    expect(describeAudience(['proprietario'])).toBe('Só o proprietário vê')
+    expect(describeAudience(['inquilino'])).toBe('Só o inquilino vê')
+    expect(describeAudience(['inquilino', 'proprietario'])).toBe(
+      'inquilino e proprietário veem',
+    )
+    expect(describeAudience(['inquilino', 'proprietario', 'fiador'])).toBe(
+      'inquilino, proprietário e fiador veem',
+    )
+  })
+
+  test('a mesma audiência produz a mesma frase, venha na ordem que vier', () => {
+    // Sem a ordenação canônica a tela alterna entre duas frases para o mesmo
+    // estado, e quem lê acha que mudou alguma coisa.
+    expect(describeAudience(['proprietario', 'inquilino'])).toBe(
+      describeAudience(['inquilino', 'proprietario']),
+    )
+  })
+
+  test('audiência vazia é dita, não omitida', () => {
+    // É o que sobra quando alguém desmarca tudo. Falhar calado aqui publica um
+    // arquivo que o cliente jura não existir.
+    expect(describeAudience([])).toBe('Ninguém vê este documento')
+  })
+
+  test('a frase descreve o default de verdade de cada categoria', () => {
+    // A trava que justifica derivar em vez de repetir texto: se a audiência de
+    // uma categoria mudar, é aqui que o rótulo antigo cai.
+    expect(describeAudience(defaultAudienceFor('contrato_administracao'))).toBe(
+      'Só o proprietário vê',
+    )
+    expect(describeAudience(defaultAudienceFor('extrato'))).toBe('Só o proprietário vê')
+    expect(describeAudience(defaultAudienceFor('boleto'))).toBe('Só o inquilino vê')
   })
 })
