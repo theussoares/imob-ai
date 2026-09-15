@@ -290,7 +290,7 @@ Estimativa em dias úteis de trabalho efetivo.
 - [ ] Fechar a brecha de colunas de `properties` para `authenticated` — 1 dia
 - [x] Mappers e repositories das 5 tabelas novas — 1 dia
 - [ ] SMTP próprio (Resend/SES) + template de convite — 1 dia
-- [ ] Auth do portal no client: `storageKey` separado do painel, middleware,
+- [x] Auth do portal no client: `storageKey` separado do painel, middleware,
       login e definir-senha — 1,5 dia
 
 **Fase 1 — Painel (5–6 dias)**
