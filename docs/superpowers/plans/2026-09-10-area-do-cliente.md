@@ -481,6 +481,61 @@ em que ela disser que avisou as pessoas.
 Isso também remove a pressa de decidir se este é *o* contrato do demo: qualquer
 um dos 10 serve, e a escolha deixa de bloquear a semana 2.
 
+### Decisão (15/09): o demo roda com dado fictício
+
+Substitui a ideia de cadastrar o contrato real dela na semana 2. O e-mail
+transacional (0.4) fica para a entrega final — onde o plano já o tinha posto.
+
+**O motivo forte não é o consentimento das partes, é a ordem das fases.** Todo o
+endurecimento do caminho de download mora na Fase 3: rate limit, expiração curta
+da URL assinada, o teste de que o cliente A não alcança o documento do cliente B,
+e o `/security-review`. Tudo isso acontece **depois** do demo. Cadastrar o
+contrato real na semana 2 significa pôr CPF, conta bancária e contrato assinado
+de três pessoas reais em produção, num caminho que ainda não passou por nenhuma
+dessas verificações. Com dado fictício o risco deixa de existir, em vez de ser
+administrado.
+
+O que se perde é o impacto de ela ver o próprio contrato na tela. Compensação: o
+dado fictício é modelado **sobre o material real** já lido — mesmo vocabulário
+("Laudo de Vistoria Inicial", "Contrato de Locação Residencial Mobiliado com
+Seguro Fiança"), mesma estrutura de valores (aluguel + parcela de seguro fiança),
+mesmas categorias. Parece real porque foi copiado da forma do real; só as
+pessoas, o endereço e os números são inventados.
+
+**Os PDFs de demo nascem marcados como demonstração** (cabeçalho ou marca
+d'água). Documento que imita contrato assinado e circula sem marca é problema
+esperando acontecer — e num demo ninguém precisa que ele seja indistinguível do
+real.
+
+**A armadilha, que este repositório já pisou:** a migration 0006 semeou 50
+imóveis fictícios no tenant `olmi`, que é cliente real, e a 0010 existe só para
+limpar a sujeira — imóveis falsos com nome e WhatsApp inventados ficaram visíveis
+no site público do cliente. Aqui o estrago seria menor (portal fechado, bucket
+privado, nada aparece no site), mas o contrato de demo apareceria na lista de
+contratos dela assim que o painel da Fase 1 existir.
+
+Por isso, duas regras para o fixture:
+
+1. **Marcador de escopo estrito.** Código de contrato com prefixo reservado
+   (`DEMO-`), como a 0006 usou `TST-`, para que a remoção alcance exatamente o
+   que o demo criou e nada mais.
+2. **A remoção é escrita junto com o fixture**, não depois — incluindo os
+   objetos no bucket `portal-docs`, que a 0010 não precisou tratar e aqui são
+   metade do dado. Dado de demo em tenant real sem caminho de volta pronto é
+   como a 0010 nasceu.
+
+**Quando construir:** o fixture só faz sentido junto com as telas da Fase 2
+(login, "meus contratos", documentos). Não há o que semear antes de existir tela
+que o mostre.
+
+**Consequência para a condição de prazo:** a exigência de "um contrato real com
+os PDFs correspondentes na semana 1" era por dois motivos — modelar o domínio e
+alimentar o demo. **O primeiro já foi cumprido** pelos três PDFs lidos (e rendeu
+a categoria `contrato_administracao`, o seguro fiança fora do `rent_amount` e o
+resto desta seção). O segundo deixa de existir. O material que ainda falta
+continua sendo necessário para **modelar** as telas da semana 4, e não bloqueia
+mais o demo da semana 2.
+
 ### O que ainda falta ela mandar
 
 O material cobre a área do **proprietário** — que é exatamente o marco da
