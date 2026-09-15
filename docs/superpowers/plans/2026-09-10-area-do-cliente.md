@@ -401,14 +401,59 @@ Nada aqui bloqueia o demo da semana 2. Tudo aqui bloqueia a semana 4.
    `not null` e único por tenant. A imobiliária vai ter que inventar uma
    convenção no primeiro cadastro — melhor combinar antes do card 1.1 do que
    deixar cada contrato nascer com um formato diferente.
-5. **Os documentos divergem no endereço do imóvel.** Contrato de locação e
-   contrato de administração dizem *"Rua Capitão Ramão Nunes, nº 1359, Jardim
-   Caçula"*; o laudo de vistoria diz *"Rua Cap. Ramão Nunes nº 1539, Vila São
-   João, CEP 79621-290"*. Número e bairro diferentes para o mesmo imóvel — é
-   erro de digitação em um dos dois, e é da cliente, não nosso. Precisa ser
-   apontado para ela antes do cadastro. Reforça a decisão de o endereço ser do
-   **contrato** (`address_label` / `property_id`), nunca transcrito por
-   documento: com uma fonte só, a divergência aparece uma vez e some.
+5. **Os documentos divergem no endereço, e isso vira requisito de produto.**
+   Contrato de locação e contrato de administração dizem *"Rua Capitão Ramão
+   Nunes, nº 1359, Jardim Caçula"*; o laudo de vistoria diz *"Rua Cap. Ramão
+   Nunes nº 1539, Vila São João, CEP 79621-290"*.
+
+   A primeira leitura foi "a vistoria é de outra casa". Os CPFs dizem que não:
+   Thiago (003.590.581-67) é locador nos três, Giane (068.801.178-05) e Cesar
+   (368.633.941-20) são locatários na vistoria **e** na locação, e as duas
+   testemunhas se repetem. Mesma rua, e 1359 ↔ 1539 é transposição de dígito. É
+   o mesmo negócio, com a vistoria saída de um modelo cujo número e bairro não
+   foram atualizados.
+
+   **O que importa não é o typo — é que o sistema não teria como saber.** Um
+   documento é amarrado a um contrato porque uma pessoa escolheu o contrato num
+   select e subiu o PDF. Errou o select, o portal publica o CPF, o endereço e os
+   dados bancários de um terceiro para quem não é parte daquele contrato. Com
+   upload manual, 10 contratos e vários documentos por mês, isso é questão de
+   quando, não de se — e quem descobre é o cliente da cliente. É incidente de
+   LGPD, não bug de tela.
+
+   Duas consequências, as duas obrigatórias:
+
+   - **O endereço na tela vem do contrato** (`address_label` / `property_id`),
+     nunca transcrito do documento. Com uma fonte só, divergência dentro do PDF
+     nunca contradiz o que o portal afirma.
+   - **Conferência de parte no upload (card 1.3).** Todos os três PDFs têm
+     camada de texto. Ao subir, extrair o texto e procurar o CPF/CNPJ das partes
+     daquele contrato; se **nenhum** aparecer, avisar antes de publicar — sem
+     bloquear, porque há documento legítimo que não cita CPF. O rascunho
+     (`published_at is null`) já é a rede embaixo disso: o aviso só precisa
+     chegar antes de alguém clicar em publicar. É o mesmo princípio de
+     `defaultAudienceFor` — não depender de alguém conferir às 18h de uma
+     sexta.
+
+### O demo não convida terceiro real sem ela mandar
+
+O material veio como **exemplo de formato**, não como "cadastre este contrato".
+A distinção importa porque o demo da semana 2 vai para produção, no tenant dela,
+e o fluxo de convite manda e-mail para as partes. Cadastrar este contrato e
+disparar convite entregaria a Thiago, Giane e Cesar um e-mail que ninguém
+combinou com eles — pessoas reais, CPF real, que não pediram conta em portal
+nenhum.
+
+**Como o demo roda sem esse problema:** cadastrar o contrato real (o dado é
+dela, está no tenant dela, e é isso que dá valor ao demo) e apontar as partes
+para o **e-mail da própria imobiliária**. Ela loga como proprietário, vê o
+contrato dela e baixa os três documentos — que é exatamente o compromisso
+enviado ("você entra num link de teste e baixa o contrato e a vistoria"). Trocar
+o e-mail da parte para o do cliente final é uma edição de cadastro, feita no dia
+em que ela disser que avisou as pessoas.
+
+Isso também remove a pressa de decidir se este é *o* contrato do demo: qualquer
+um dos 10 serve, e a escolha deixa de bloquear a semana 2.
 
 ### O que ainda falta ela mandar
 
