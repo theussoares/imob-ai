@@ -4,7 +4,12 @@ import {
   defaultAudienceFor,
   visibleDocumentsFor,
 } from '~~/shared/utils/portal-access'
-import type { ContractPartyRole } from '~~/shared/models/portal'
+import {
+  PORTAL_DOC_CATEGORIES,
+  PORTAL_DOC_LABELS,
+  type ContractPartyRole,
+  type PortalDocCategory,
+} from '~~/shared/models/portal'
 
 const PUBLICADO = '2026-09-01T12:00:00.000Z'
 
@@ -79,12 +84,40 @@ describe('defaultAudienceFor', () => {
     expect(defaultAudienceFor('extrato')).toEqual(['proprietario'])
   })
 
-  test('contrato e vistoria valem para todo mundo que assinou', () => {
+  test('contrato de locação e vistoria valem para todo mundo que assinou', () => {
     expect(defaultAudienceFor('contrato')).toEqual(['inquilino', 'proprietario', 'fiador'])
     expect(defaultAudienceFor('vistoria')).toEqual(['inquilino', 'proprietario', 'fiador'])
   })
 
+  test('contrato de administração é só do proprietário', () => {
+    // O documento real traz a taxa de administração (10%), a conta bancária e a
+    // chave Pix do dono do imóvel. O inquilino não é parte deste contrato.
+    expect(defaultAudienceFor('contrato_administracao')).toEqual(['proprietario'])
+  })
+
   test('categoria genérica não inclui o fiador por engano', () => {
     expect(defaultAudienceFor('outro')).toEqual(['inquilino', 'proprietario'])
+  })
+
+  test('nenhum default entrega ao inquilino um documento do proprietário', () => {
+    // Trava de rede, não repetição dos casos acima: se uma categoria nova
+    // entrar no enum sem passar por este arquivo, ela cai no `default` e o teste
+    // continua passando — mas o dia em que alguém apontar uma categoria de dono
+    // para a audiência das duas pontas, este teste cai junto.
+    const soDoProprietario: PortalDocCategory[] = ['extrato', 'contrato_administracao']
+    for (const categoria of soDoProprietario) {
+      expect(defaultAudienceFor(categoria)).not.toContain('inquilino')
+      expect(defaultAudienceFor(categoria)).not.toContain('fiador')
+    }
+  })
+
+  test('toda categoria do enum tem default e rótulo', () => {
+    // Impede que uma categoria nova chegue ao formulário sem audiência pensada:
+    // sem esta trava, ela herda o `default` ['inquilino','proprietario'] em
+    // silêncio, que é o lado inseguro para qualquer documento de dono.
+    for (const categoria of PORTAL_DOC_CATEGORIES) {
+      expect(defaultAudienceFor(categoria).length).toBeGreaterThan(0)
+      expect(PORTAL_DOC_LABELS[categoria]).toBeTruthy()
+    }
   })
 })

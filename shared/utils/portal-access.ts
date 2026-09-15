@@ -58,8 +58,18 @@ export function defaultAudienceFor(category: PortalDocCategory): ContractPartyRo
       return ['inquilino']
     case 'extrato':
       return ['proprietario']
-    // Contrato e vistoria são o documento que as duas pontas assinaram — e é
-    // exatamente o que o print do concorrente destaca.
+    // O contrato de ADMINISTRAÇÃO é entre a imobiliária e o dono do imóvel — o
+    // inquilino não é parte dele e não pode vê-lo. No contrato real que modelou
+    // esta feature, o documento traz a taxa de administração (10%), a conta
+    // bancária e a chave Pix pessoal do proprietário, e a comissão de venda
+    // devida à imobiliária. É a margem comercial que a 0028 mandou chegar ao
+    // proprietário pelo extrato, mais os dados bancários dele — tudo num PDF
+    // que, sem esta linha, seria classificado como `contrato` e cairia na
+    // audiência das duas pontas.
+    case 'contrato_administracao':
+      return ['proprietario']
+    // Contrato de LOCAÇÃO e vistoria são o documento que as duas pontas
+    // assinaram — e é exatamente o que o print do concorrente destaca.
     case 'contrato':
     case 'vistoria':
       return ['inquilino', 'proprietario', 'fiador']

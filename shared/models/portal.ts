@@ -17,10 +17,18 @@ export const CONTRACT_PARTY_ROLES: readonly ContractPartyRole[] = [
 
 export type ContractStatus = 'ativo' | 'encerrado'
 
-export type PortalDocCategory = 'contrato' | 'vistoria' | 'boleto' | 'recibo' | 'extrato' | 'outro'
+export type PortalDocCategory =
+  | 'contrato'
+  | 'contrato_administracao'
+  | 'vistoria'
+  | 'boleto'
+  | 'recibo'
+  | 'extrato'
+  | 'outro'
 
 export const PORTAL_DOC_CATEGORIES: readonly PortalDocCategory[] = [
   'contrato',
+  'contrato_administracao',
   'vistoria',
   'boleto',
   'recibo',
@@ -30,7 +38,8 @@ export const PORTAL_DOC_CATEGORIES: readonly PortalDocCategory[] = [
 
 /** Rótulos de tela, no vocabulário que a imobiliária usa com o cliente. */
 export const PORTAL_DOC_LABELS: Record<PortalDocCategory, string> = {
-  contrato: 'Contrato',
+  contrato: 'Contrato de locação',
+  contrato_administracao: 'Contrato de administração',
   vistoria: 'Vistoria',
   boleto: 'Boleto',
   recibo: 'Recibo',

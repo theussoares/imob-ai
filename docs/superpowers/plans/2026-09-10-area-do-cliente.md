@@ -342,3 +342,85 @@ pessoa espera encontrar na tela.
 - **Inquilino vendo os dados do proprietário (e vice-versa).** As policies
   deliberadamente não expõem as outras partes do contrato. Se for pedido, é
   decisão de produto — não pode entrar por efeito colateral de policy.
+
+## Atualização de 2026-09-15: o primeiro contrato real chegou
+
+A imobiliária entregou o material da semana 1 — três PDFs de um contrato real
+(imóvel da Rua Cap. Ramão Nunes, Três Lagoas): **laudo de vistoria inicial**,
+**contrato de locação** e **contrato de administração**. É o pré-requisito que
+sustentava o prazo, e ele fez exatamente o que devia: mudou o desenho antes da
+tela existir.
+
+### O achado que muda código: contrato de administração não é "contrato"
+
+O plano previa `contrato` como o documento que as duas pontas assinaram, com
+audiência `['inquilino', 'proprietario', 'fiador']`. O terceiro PDF não estava
+previsto em lugar nenhum, e é o mais sigiloso dos três: o contrato de
+administração é firmado entre a **imobiliária e o proprietário**, e traz
+
+- a taxa de administração — 10% a partir do segundo aluguel, e 100% do primeiro
+  a título de intermediação;
+- a **conta bancária e a chave Pix pessoais do proprietário**, onde cai o
+  repasse;
+- a multa rescisória e a comissão de venda devidas à imobiliária.
+
+Subido como `contrato`, ele herdaria o default das duas pontas e **o inquilino
+veria a margem da imobiliária e os dados bancários do dono do imóvel**. É o
+mesmo vazamento que a 0028 tratou entre boleto e extrato, entrando por uma porta
+que ninguém tinha olhado — e a resposta é a mesma: categoria própria, com
+audiência decidida em código.
+
+Feito: migration 0032 (`contrato_administracao` no enum),
+`defaultAudienceFor` devolvendo `['proprietario']`, rótulo `contrato` renomeado
+para "Contrato de locação" (o vocabulário agora tem dois contratos e a tela
+precisa distinguir), e teste de rede que falha se qualquer categoria de dono
+passar a incluir inquilino ou fiador.
+
+### O que o material revelou e ainda não virou código
+
+Nada aqui bloqueia o demo da semana 2. Tudo aqui bloqueia a semana 4.
+
+1. **O aluguel não é o que o inquilino paga.** O contrato é de R$ 3.000,00 mais
+   **11 parcelas de R$ 530,95 de seguro fiança** (Porto Seguro), pagas pelo
+   locatário. `contracts.rent_amount` guarda 3.000 — e uma tela que anuncia
+   "R$ 3.000,00" para quem paga R$ 3.530,95 durante onze meses vai gerar
+   ligação no primeiro mês. Decidir antes da Fase 1: encargo é campo do
+   contrato, ou é sempre um documento de pagamento com o valor cheio.
+2. **A garantia é seguro fiança, não fiador.** O papel `fiador` existe no enum e
+   **não é exercido neste contrato**. Em compensação apareceu um documento que o
+   plano não tinha: a **apólice do seguro**. O inquilino paga por ela e vai
+   procurá-la no portal. Cabe em `outro` hoje; se repetir na carteira, vira
+   categoria.
+3. **Dois inquilinos no mesmo contrato.** Giane e Cesar assinam juntos. O schema
+   aguenta (duas linhas em `contract_parties` com `role='inquilino'`), mas a
+   operação precisa saber: são **duas contas e dois convites**. E o índice
+   `(tenant_id, lower(email))` de `portal_users` impede que o casal compartilhe
+   um e-mail — se compartilharem, é uma conta só, e a outra pessoa fica sem
+   acesso. Perguntar no cadastro, não descobrir no convite.
+4. **Nenhum dos três PDFs tem número de contrato.** `contracts.code` é
+   `not null` e único por tenant. A imobiliária vai ter que inventar uma
+   convenção no primeiro cadastro — melhor combinar antes do card 1.1 do que
+   deixar cada contrato nascer com um formato diferente.
+5. **Os documentos divergem no endereço do imóvel.** Contrato de locação e
+   contrato de administração dizem *"Rua Capitão Ramão Nunes, nº 1359, Jardim
+   Caçula"*; o laudo de vistoria diz *"Rua Cap. Ramão Nunes nº 1539, Vila São
+   João, CEP 79621-290"*. Número e bairro diferentes para o mesmo imóvel — é
+   erro de digitação em um dos dois, e é da cliente, não nosso. Precisa ser
+   apontado para ela antes do cadastro. Reforça a decisão de o endereço ser do
+   **contrato** (`address_label` / `property_id`), nunca transcrito por
+   documento: com uma fonte só, a divergência aparece uma vez e some.
+
+### O que ainda falta ela mandar
+
+O material cobre a área do **proprietário** — que é exatamente o marco da
+semana 2, e por isso ele não está bloqueado. Faltam os dois documentos do lado
+do dinheiro, que são o marco da semana 4:
+
+- **Comprovante de pagamento do aluguel** (hoje Pix, categoria `recibo`) — é o
+  que o inquilino abre o portal para ver.
+- **Extrato de repasse ao proprietário** (categoria `extrato`) — e este é o mais
+  urgente dos dois, porque provavelmente **ainda não existe como documento**. É
+  por ele que a taxa de administração chega legitimamente ao dono do imóvel. Se
+  hoje o repasse é um comprovante de transferência solto, isso é decisão de
+  produto: ou a imobiliária passa a emitir um extrato, ou o portal gera um.
+- Útil, não bloqueante: a **apólice do seguro fiança** citada no contrato.
