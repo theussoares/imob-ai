@@ -458,11 +458,17 @@ Nada aqui bloqueia o demo da semana 2. Tudo aqui bloqueia a semana 4.
 ### O demo não convida terceiro real sem ela mandar
 
 O material veio como **exemplo de formato**, não como "cadastre este contrato".
-A distinção importa porque o demo da semana 2 vai para produção, no tenant dela,
-e o fluxo de convite manda e-mail para as partes. Cadastrar este contrato e
-disparar convite entregaria a Thiago, Giane e Cesar um e-mail que ninguém
-combinou com eles — pessoas reais, CPF real, que não pediram conta em portal
-nenhum.
+
+Primeiro, o que **não** é o problema, para não assombrar ninguém: no demo nenhum
+e-mail sai sozinho. O convite que existe (`inviteMember`) usa `generateLink`, que
+devolve um link para o admin copiar e não dispara mensagem, e o e-mail
+transacional (0.4) está adiado para depois do demo. Uma versão anterior desta
+seção dizia que o convite mandaria e-mail para as partes; estava errado.
+
+O problema real é **quem loga**. Para a tela do proprietário existir, alguém
+precisa de conta ligada ao contrato com papel `proprietario`. Cadastrar com o
+e-mail do Thiago cria uma conta no Auth para uma pessoa real que não combinou
+nada disso — e obriga a imobiliária a **entrar como ele** para demonstrar.
 
 **Como o demo roda sem esse problema:** cadastrar o contrato real (o dado é
 dela, está no tenant dela, e é isso que dá valor ao demo) e apontar as partes
