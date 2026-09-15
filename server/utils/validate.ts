@@ -6,6 +6,8 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
+import type { ContractInput, PortalUserInput } from '~~/shared/models/portal'
+import { CONTRACT_PARTY_ROLES } from '~~/shared/models/portal'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -151,5 +153,98 @@ export function assertBrokerInput(input: unknown): asserts input is BrokerInput 
   if (!String(b.name ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
   if (b.phone !== undefined && b.phone !== null && String(b.phone).trim() && !isValidWhatsapp(String(b.phone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do corretor inválido.' })
+  }
+}
+
+
+/** Valida o payload de contrato vindo do painel. */
+export function assertContractInput(input: unknown): asserts input is ContractInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const c = input as Record<string, unknown>
+
+  if (!String(c.code ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Código do contrato é obrigatório.' })
+  }
+  if (c.status !== undefined && !['ativo', 'encerrado'].includes(String(c.status))) {
+    throw createError({ statusCode: 422, statusMessage: 'Situação do contrato inválida.' })
+  }
+
+  // O mesmo check da constraint da 0028, adiantado para virar mensagem legível
+  // em vez de erro do Postgres. Dia 0 e dia 45 são digitação, e um contrato com
+  // vencimento inválido só aparece no mês em que a cobrança não sai.
+  if (c.dueDay !== undefined && c.dueDay !== null) {
+    const dia = Number(c.dueDay)
+    if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+      throw createError({ statusCode: 422, statusMessage: 'Dia do vencimento deve ser entre 1 e 31.' })
+    }
+  }
+
+  if (c.rentAmount !== undefined && c.rentAmount !== null) {
+    const valor = Number(c.rentAmount)
+    if (!Number.isFinite(valor) || valor < 0) {
+      throw createError({ statusCode: 422, statusMessage: 'Valor do aluguel inválido.' })
+    }
+  }
+
+  assertOptionalDate(c.startedOn, 'Início da locação')
+  assertOptionalDate(c.endsOn, 'Fim da locação')
+
+  // Contrato que termina antes de começar passa despercebido no cadastro e
+  // reaparece como vigência negativa na tela do cliente.
+  if (c.startedOn && c.endsOn && String(c.endsOn) < String(c.startedOn)) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'O fim da locação não pode ser anterior ao início.',
+    })
+  }
+
+  // Sem imóvel do catálogo E sem endereço escrito, o contrato não tem como ser
+  // identificado na tela — nem pelo cliente, nem por quem cadastrou.
+  const temImovel = c.propertyId !== undefined && c.propertyId !== null && String(c.propertyId).trim()
+  const temEndereco = String(c.addressLabel ?? '').trim()
+  if (!temImovel && !temEndereco) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Informe o imóvel do catálogo ou escreva o endereço do contrato.',
+    })
+  }
+}
+
+/** Valida o cadastro de um cliente do portal. */
+export function assertPortalUserInput(input: unknown): asserts input is PortalUserInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const u = input as Record<string, unknown>
+
+  if (!String(u.name ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+  }
+
+  // O e-mail é a identidade da pessoa no Auth e a chave do convite. E-mail
+  // errado aqui não é campo errado: é convite entregue a outra pessoa.
+  const email = String(u.email ?? '').trim()
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw createError({ statusCode: 422, statusMessage: 'E-mail inválido.' })
+  }
+
+  if (u.phone !== undefined && u.phone !== null && String(u.phone).trim() && !isValidWhatsapp(String(u.phone))) {
+    throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do cliente inválido.' })
+  }
+}
+
+/** Valida o público-alvo de um documento vindo do painel. */
+export function assertAudience(value: unknown): asserts value is string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    // Audiência vazia grava um documento que ninguém vê — e o suporte que vem
+    // depois é "publiquei e o cliente diz que não está lá".
+    throw createError({ statusCode: 422, statusMessage: 'Escolha quem pode ver este documento.' })
+  }
+  for (const papel of value) {
+    if (!CONTRACT_PARTY_ROLES.includes(papel as never)) {
+      throw createError({ statusCode: 422, statusMessage: 'Público-alvo inválido.' })
+    }
   }
 }
