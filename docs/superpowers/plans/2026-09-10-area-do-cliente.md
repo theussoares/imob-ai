@@ -306,6 +306,48 @@ Estimativa em dias úteis de trabalho efetivo.
 - [~] Mobile de verdade e estados vazios/erro — 1 dia
 - [x] Entrada no site (header/rodapé) — 0,5 dia
 
+### `tenant_features` (16/09) — e a premissa errada do plano
+
+O entitlement decidido em 11/09 virou a **0036**. Mas o plano dizia que a
+checagem devia morar dentro de `is_portal_user()`, *"e como essa função gatilha
+todas as policies do portal, o recurso desligado passa a fechar o acesso no
+banco, em todo caminho"*.
+
+**`is_portal_user()` não gatilha nada.** Ela foi criada na 0028 e **nenhuma
+policy a chama** — as policies do portal fazem a checagem inline
+(`pu.user_id = auth.uid() and pu.active`). Mudar só a função teria dado a
+sensação de fechar o acesso sem fechar coisa alguma. Por isso a 0036 é maior do
+que o plano previa: o recurso entra nas quatro policies do portal e na policy do
+bucket, uma a uma, sempre no termo do CLIENTE.
+
+Dois comentários no código repetiam a mesma premissa falsa (em
+`portal-user.repository.ts` e no endpoint de desativar cliente, os dois dizendo
+que `is_portal_user()` recusa a pessoa). Corrigidos.
+
+As três regras do plano estão respeitadas e travadas por teste:
+
+1. **O painel nunca é cortado.** O conjunto do recurso só aparece no termo do
+   cliente — há teste varrendo a migration linha a linha para garantir que
+   `tenant_feature_ativa` nunca apareça colado em `is_tenant_member`. Cortar o
+   painel *é* reter dado do cliente, e é a conduta do precedente citado no plano.
+2. **A suspensão não menciona pagamento.** Teste sobre o literal da mensagem,
+   recusando "pagamento", "fatura", "inadimplência", "plano".
+3. **`portal_document_access` não é tocada.**
+
+A carência virou função pura (`recursoAtivo`), usada pelo servidor e coberta por
+teste: ausência de registro é DESLIGADO (lado seguro para recurso pago),
+`enabled` vale sozinho, e `grace_until` no futuro mantém o acesso mesmo
+desligado — que é a régua de inadimplência sem precisar de coluna de estado.
+
+A semeadura liga o recurso para todo tenant que **já tem cliente cadastrado**:
+trocar as policies sem isso cortaria quem está usando por causa de uma migration
+de infraestrutura.
+
+Relação com a 0035: `tenants.portal_enabled` continua sendo só exibição (mostra
+o link no site). O acesso é a 0036. Um tenant pode ter o recurso ligado e o link
+desligado — é exatamente o caso do demo, em que ela entra por link direto antes
+de anunciar.
+
 **Card 2.4 (16/09) — o que ficou e o que não ficou.**
 
 Feito: link "Área do Cliente" no topo e no rodapé, estados vazios com

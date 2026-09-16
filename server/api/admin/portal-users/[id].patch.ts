@@ -3,9 +3,9 @@ import { setPortalUserActive } from '~~/server/repositories/portal-user.reposito
 /**
  * Liga e desliga o acesso de um cliente.
  *
- * Desativar NÃO apaga: `is_portal_user()` passa a recusar a pessoa em toda
- * policy do portal, mas o cadastro e a trilha de quem baixou o quê continuam de
- * pé — que é exatamente o que não pode sumir quando um contrato encerra.
+ * Desativar NÃO apaga: as policies do portal passam a recusar a pessoa, mas o
+ * cadastro e a trilha de quem baixou o quê continuam de pé — que é exatamente o
+ * que não pode sumir quando um contrato encerra.
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)

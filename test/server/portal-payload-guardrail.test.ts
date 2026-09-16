@@ -312,3 +312,43 @@ describe('conta de equipe não vira cadastro de cliente', () => {
     }
   })
 })
+
+describe('o entitlement do portal', () => {
+  test('a suspensão NÃO menciona pagamento', () => {
+    // Decisão do plano: expor a inadimplência da imobiliária aos clientes DELA
+    // é dano à imagem de terceiro. O cliente é mandado para quem tem a relação
+    // com ele, sem saber por quê.
+    const fonte = readFileSync(join(process.cwd(), 'server', 'utils', 'portal-auth.ts'), 'utf8')
+    const casado = fonte.match(/statusMessage:\s*\n?\s*'([^']*temporariamente indisponível[^']*)'/)
+    expect(casado, 'mensagem de suspensão não encontrada').toBeTruthy()
+
+    const msg = (casado?.[1] || '').toLowerCase()
+    for (const proibido of ['pagamento', 'pagar', 'fatura', 'inadimpl', 'assinatura', 'plano']) {
+      expect(msg, `a mensagem menciona "${proibido}"`).not.toContain(proibido)
+    }
+  })
+
+  test('o painel nunca é cortado pelo entitlement', () => {
+    // Regra 1 do plano, e a que tem precedente judicial: cortar o painel É
+    // reter dado do cliente. O conjunto do recurso só pode aparecer no termo
+    // do CLIENTE das policies, nunca colado no is_tenant_member.
+    const sql = readFileSync(
+      join(process.cwd(), 'supabase', 'migrations', '0036_tenant_features_portal.sql'),
+      'utf8',
+    )
+    // Nenhuma linha pode ter os dois na mesma expressão de conjunção.
+    for (const linha of sql.split('\n')) {
+      if (linha.trimStart().startsWith('--')) continue
+      const temMembro = linha.includes('is_tenant_member')
+      const temRecurso = linha.includes('tenant_feature_ativa')
+      expect(temMembro && temRecurso, `entitlement colado no painel: ${linha.trim()}`).toBe(false)
+    }
+  })
+
+  test('requirePortalUser usa a mesma regra que o teste cobre', () => {
+    // Duas implementações da carência acabariam discordando, e a que discorda
+    // em produção é a que ninguém testou.
+    const fonte = readFileSync(join(process.cwd(), 'server', 'utils', 'portal-auth.ts'), 'utf8')
+    expect(fonte).toContain('recursoAtivo(')
+  })
+})

@@ -48,9 +48,13 @@ export async function createPortalUser(
 /**
  * Liga e desliga o acesso sem apagar histórico.
  *
- * É o que `is_portal_user()` consulta: com `active = false` a pessoa para de
- * passar em toda policy do portal, mas a trilha de quem baixou o quê continua
- * de pé — que é justamente o que não pode sumir quando um contrato encerra.
+ * Com `active = false` a pessoa para de passar nas policies do portal, mas a
+ * trilha de quem baixou o quê continua de pé — que é justamente o que não pode
+ * sumir quando um contrato encerra.
+ *
+ * (A checagem de `active` é feita INLINE por cada policy, não por
+ * `is_portal_user()`: essa função existe desde a 0028 e nenhuma policy a chama.
+ * Ver a nota no topo da 0036.)
  */
 export async function setPortalUserActive(
   client: Client,

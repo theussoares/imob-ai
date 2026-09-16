@@ -3,6 +3,7 @@ import {
   canClientSeeDocument,
   defaultAudienceFor,
   describeAudience,
+  recursoAtivo,
   visibleDocumentsFor,
 } from '~~/shared/utils/portal-access'
 import {
@@ -159,5 +160,41 @@ describe('describeAudience', () => {
     )
     expect(describeAudience(defaultAudienceFor('extrato'))).toBe('Só o proprietário vê')
     expect(describeAudience(defaultAudienceFor('boleto'))).toBe('Só o inquilino vê')
+  })
+})
+
+describe('recursoAtivo — o entitlement da Área do Cliente', () => {
+  const AGORA = new Date('2026-09-16T12:00:00.000Z')
+
+  test('sem registro é DESLIGADO, não ligado', () => {
+    // O lado seguro para um recurso pago: tenant novo não ganha a Área do
+    // Cliente por esquecimento de cadastro.
+    expect(recursoAtivo(null, AGORA)).toBe(false)
+    expect(recursoAtivo(undefined, AGORA)).toBe(false)
+  })
+
+  test('ligado vale, independentemente da carência', () => {
+    expect(recursoAtivo({ enabled: true, graceUntil: null }, AGORA)).toBe(true)
+    expect(recursoAtivo({ enabled: true, graceUntil: '2020-01-01' }, AGORA)).toBe(true)
+  })
+
+  test('desligado sem carência não vale', () => {
+    expect(recursoAtivo({ enabled: false, graceUntil: null }, AGORA)).toBe(false)
+  })
+
+  test('desligado COM carência no futuro ainda vale', () => {
+    // É a régua do plano: desliga na hora do vencimento, corta em D+15. Entre
+    // as duas coisas o cliente final continua acessando os documentos dele —
+    // que é o que a LGPD protege, e o que o precedente citado no plano exige.
+    expect(recursoAtivo({ enabled: false, graceUntil: '2026-10-01T00:00:00Z' }, AGORA)).toBe(true)
+  })
+
+  test('carência vencida não vale', () => {
+    expect(recursoAtivo({ enabled: false, graceUntil: '2026-09-01T00:00:00Z' }, AGORA)).toBe(false)
+  })
+
+  test('data inválida não vira carência infinita', () => {
+    // `NaN > x` é falso, mas deixar passar esconderia dado corrompido.
+    expect(recursoAtivo({ enabled: false, graceUntil: 'nao-e-data' }, AGORA)).toBe(false)
   })
 })

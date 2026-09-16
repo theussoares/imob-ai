@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { createClient } from '@supabase/supabase-js'
+import { recursoAtivo } from '~~/shared/utils/portal-access'
 import type { Database } from '~~/shared/types/database.types'
 
 /**
@@ -44,6 +45,37 @@ export async function requirePortalUser(event: H3Event) {
   }
 
   const tenant = useTenantContext(event)
+
+  // O recurso está ligado para esta imobiliária?
+  //
+  // A RLS já fecha tudo quando não está (0036), mas ali o cliente veria uma
+  // LISTA VAZIA — que parece bug, não parece indisponibilidade. Aqui a resposta
+  // é legível.
+  //
+  // ⚠️ A mensagem NÃO menciona pagamento, por decisão registrada no plano:
+  // expor a inadimplência da imobiliária aos clientes DELA é dano à imagem de
+  // terceiro. O cliente é mandado para quem tem a relação com ele.
+  const { data: recurso } = await serviceSupabase()
+    .from('tenant_features')
+    .select('enabled, grace_until')
+    .eq('tenant_id', tenant.id)
+    .eq('feature', 'portal')
+    .maybeSingle()
+
+  // Mesma função que o teste cobre — a régua de carência não pode ter duas
+  // implementações que discordam.
+  const ativo = recursoAtivo(
+    recurso ? { enabled: recurso.enabled, graceUntil: recurso.grace_until } : null,
+  )
+
+  if (!ativo) {
+    logWarn('portal.rejected', { reason: 'feature_off', path: event.path, tenant: tenant.slug })
+    throw createError({
+      statusCode: 403,
+      statusMessage:
+        'A Área do Cliente está temporariamente indisponível. Fale com a imobiliária.',
+    })
+  }
 
   // A policy `portal_users_self_read` deixa a pessoa ler só a própria linha —
   // então esta consulta já é a checagem de acesso, e não uma busca que precise
