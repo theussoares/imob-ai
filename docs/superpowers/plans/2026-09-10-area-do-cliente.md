@@ -294,8 +294,8 @@ Estimativa em dias úteis de trabalho efetivo.
       login e definir-senha — 1,5 dia
 
 **Fase 1 — Painel (5–6 dias)**
-- CRUD de contrato, vínculo com imóvel e com as partes — 2 dias
-- Convidar cliente, listar, reenviar, desativar — 1,5 dia
+- [x] CRUD de contrato, vínculo com imóvel e com as partes — 2 dias
+- [x] Convidar cliente, listar, reenviar, desativar — 1,5 dia
 - Upload de documento: categoria, competência, público-alvo, publicar — 2 dias
 - Envio em lote dos boletos do mês — 1 dia
 
@@ -305,6 +305,16 @@ Estimativa em dias úteis de trabalho efetivo.
 - [x] Documentos por categoria, download assinado, trilha — 1,5 dia
 - [ ] Mobile de verdade e estados vazios/erro — 1 dia
 - [ ] Entrada no site (header/rodapé) — 0,5 dia
+
+**Ajuste no card 1.2 (16/09):** o card mandava repetir a proteção de
+`inviteMember` — não devolver link quando o e-mail já tem conta. Ela existe lá
+porque aquele fluxo **devolve um link copiável** para quem convidou (foi escrito
+antes de haver mailer), e entregar link de conta alheia é escalação de
+privilégio. No portal o link **só vai para a caixa de entrada do convidado** e
+nunca volta na resposta, então o risco não existe — e tratar conta já existente
+como caso normal é o que faz o reenvio funcionar. Conta existente recebe link de
+`recovery`, porque `generateLink({type:'invite'})` recusa e-mail já cadastrado:
+sem isso, reenviar convite não mandaria nada.
 
 **Conflito resolvido no card 2.3 (15/09):** o card mandava assinar o download
 com service role; a migration 0028, escrita depois, mudou o desenho e criou a

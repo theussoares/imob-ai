@@ -6,7 +6,7 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
-import type { ContractInput, PortalUserInput } from '~~/shared/models/portal'
+import type { ContractInput, ContractInternalInput, PortalUserInput } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_ROLES } from '~~/shared/models/portal'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
@@ -245,6 +245,31 @@ export function assertAudience(value: unknown): asserts value is string[] {
   for (const papel of value) {
     if (!CONTRACT_PARTY_ROLES.includes(papel as never)) {
       throw createError({ statusCode: 422, statusMessage: 'Público-alvo inválido.' })
+    }
+  }
+}
+
+
+/**
+ * Valida os campos internos do contrato.
+ *
+ * `admin_fee_percent` é margem comercial da imobiliária. A constraint da 0028
+ * já recusa fora de 0–100; aqui a recusa vira mensagem legível, e não erro do
+ * Postgres numa tela de cadastro.
+ */
+export function assertContractInternalInput(input: unknown): asserts input is ContractInternalInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const i = input as Record<string, unknown>
+
+  if (i.adminFeePercent !== undefined && i.adminFeePercent !== null) {
+    const taxa = Number(i.adminFeePercent)
+    if (!Number.isFinite(taxa) || taxa < 0 || taxa > 100) {
+      throw createError({
+        statusCode: 422,
+        statusMessage: 'Taxa de administração deve ser entre 0 e 100.',
+      })
     }
   }
 }

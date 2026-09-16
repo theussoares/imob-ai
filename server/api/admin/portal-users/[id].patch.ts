@@ -1,0 +1,21 @@
+import { setPortalUserActive } from '~~/server/repositories/portal-user.repository'
+
+/**
+ * Liga e desliga o acesso de um cliente.
+ *
+ * Desativar NÃO apaga: `is_portal_user()` passa a recusar a pessoa em toda
+ * policy do portal, mas o cadastro e a trilha de quem baixou o quê continuam de
+ * pé — que é exatamente o que não pode sumir quando um contrato encerra.
+ */
+export default defineEventHandler(async (event) => {
+  const { client, tenant } = await requireTenantMember(event)
+  const id = getRouterParam(event, 'id')
+  if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+
+  const body = await readBody<{ active?: unknown }>(event)
+  if (typeof body?.active !== 'boolean') {
+    throw createError({ statusCode: 422, statusMessage: 'Informe se o acesso fica ativo.' })
+  }
+
+  return setPortalUserActive(client, tenant.id, id, body.active)
+})

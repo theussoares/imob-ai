@@ -113,7 +113,22 @@ export type Database = {
           portal_user_id?: string
           role?: Database["public"]["Enums"]["contract_party_role"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contract_parties_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_parties_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contracts: {
         Row: {
