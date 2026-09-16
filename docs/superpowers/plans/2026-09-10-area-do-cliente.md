@@ -564,8 +564,39 @@ então a decisão é travada por teste no fonte
 - Entrada no site (header/rodapé) — 0,5 dia
 
 **Fase 3 — Endurecimento, LGPD e produção (3–4 dias)**
-- Rate limit no download, expiração curta da URL assinada, teste de que o
-  cliente A não alcança o documento do cliente B — 1,5 dia
+- [x] Rate limit no download, expiração curta da URL assinada, teste de que o
+      cliente A não alcança o documento do cliente B — 1,5 dia
+
+**Card 3.1 (16/09) — feito em duas camadas, porque uma só não prova.**
+
+`test/server/portal-isolation.test.ts` roda no CI: 33 testes, com a matriz
+categoria × papel escrita à mão (derivá-la de `defaultAudienceFor` faria o teste
+concordar consigo mesmo e não com a intenção), o caminho do download assinado —
+que não passa por RLS de tabela — e a garantia de que lista e download aplicam a
+MESMA regra, porque discordar é o pior dos dois mundos.
+
+`supabase/tests/isolamento-portal.sql` roda contra o banco: **17 verificações
+contra as policies reais**, personificando clientes de verdade com
+`set local role authenticated` + `request.jwt.claims`. Rodadas em produção em
+16/09, todas verdes:
+
+| | |
+|---|---|
+| inquilino não vê extrato / proprietário não vê recibo | ✅ |
+| rascunho invisível, cliente vê só a própria linha de cadastro | ✅ |
+| download: assina o próprio, recusa o do outro, recusa pasta alheia | ✅ |
+| cross-tenant: nenhum vínculo nem contrato fora do próprio tenant | ✅ |
+| anônimo não alcança nada | ✅ |
+| entitlement desligado fecha; carência futura mantém; vencida fecha | ✅ |
+
+O bloco do entitlement desliga e religa dentro do mesmo `do $$` — sendo um só
+comando, se algo falhar no meio o Postgres desfaz tudo. Conferido depois que
+`demo` e `olmi` voltaram a `enabled=true, grace_until=null`.
+
+**Por que as duas camadas.** A de código prova o que o código faz; não prova o
+que o banco faz, e é o banco que isola. A migration descartada em 16/09 teria
+reintroduzido uma recursão que derruba o portal, e a suíte de vitest passaria
+verde — ela lê a pasta, não o banco. Nenhuma das duas substitui a outra.
 - `/security-review` e correções — 1 dia
 - Política de privacidade e retenção atualizadas — 0,5 dia
 - Deploy, primeiro contrato real cadastrado junto com a imobiliária — 1 dia
