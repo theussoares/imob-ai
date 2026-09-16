@@ -98,7 +98,9 @@ export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
       })
     }
     logWarn('mail.simulado', {
-      para: msg.para,
+      // Sem o endereço: `log.ts` proíbe PII, e esta regra foi seguida em todo o
+      // resto desta feature. O destinatário não ajuda a depurar — o corpo, que
+      // carrega o link, é o que se quer ver em dev.
       assunto: msg.assunto,
       // Em dev o link é o que se quer ver; em produção este caminho não roda.
       corpo: msg.texto,
@@ -127,7 +129,6 @@ export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
     // Falha de envio vira log SEM o corpo: o corpo carrega o link de definir
     // senha, e log é lido por mais gente que o e-mail.
     logError('mail.falhou', {
-      para: msg.para,
       assunto: msg.assunto,
       reason: errMessage(e),
     })

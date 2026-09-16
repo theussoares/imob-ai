@@ -23,11 +23,13 @@ export default defineEventHandler(async (event) => {
     tenant.email,
     body,
     `${origin}/area-cliente/definir-senha`,
+    `${origin}/area-cliente/login`,
   )
 
   logWarn('portal.cliente_convidado', {
     tenant: tenant.slug,
     reenvio: resultado.jaEraCliente,
+    semToken: resultado.contaPreexistente,
     enviado: resultado.emailEnviado,
   })
 

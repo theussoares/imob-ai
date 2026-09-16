@@ -315,6 +315,45 @@ e confere o contrato, não a pasta. As policies de storage impedem A de LER a
 pasta de B, mas não de apontar para ela. Fechado por `assertCaminhoDoTenant`
 (prefixo `<slug>/` e recusa de `..`), travado por teste e conferido por mutação.
 
+### Revisão de segurança (16/09) — três achados, todos corrigidos
+
+Rodada sobre o diff inteiro da branch, com sub-agente. Os dois fatos
+verificáveis foram conferidos direto no código antes de aceitar os achados.
+
+**1. A guarda de caminho era só da aplicação.** `assertCaminhoDoTenant` estava
+documentada como a fronteira, mas vive no endpoint — e o endpoint não é o único
+caminho até a tabela. A 0028 revoga privilégios de `portal_documents` só de
+`anon`; `authenticated` mantém o GRANT default, e a policy de escrita valida
+apenas `tenant_id`. Um membro do painel insere a linha pelo PostgREST com
+`storage_path` apontando para a pasta de outra imobiliária, e a policy do bucket
+assina o download — ela casava nome de objeto, não pasta. Corrigido na **0034**:
+trigger no banco (prefixo do slug, sem `..`, contrato do mesmo tenant) e a
+policy do bucket passa a exigir que a pasta do objeto seja do tenant do
+documento. A função no repositório continua, agora como 403 legível.
+
+**2. O convite virava ferramenta de phishing.** A versão anterior gerava link de
+`recovery` para qualquer e-mail com conta preexistente. Isso deixava qualquer
+membro de qualquer tenant forçar a redefinição de senha de uma conta alheia —
+inclusive a de um admin concorrente, que usa o mesmo `auth.users` — num e-mail
+autêntico do domínio verificado da plataforma, com nome de exibição e Reply-To
+vindos de campos que a própria imobiliária edita. O raciocínio de que "mandar
+por e-mail elimina o risco" cobria só o roubo pelo convidante. Agora o token sai
+em **dois casos**: conta que nasceu agora, ou reenvio para quem já é cliente
+deste tenant. No terceiro caso o aviso vai **sem token** (`emailAcessoLiberado`),
+e a tela explica. Travado por teste, conferido por mutação.
+
+**3. Open redirect com credencial.** `adminHostAction` passou a montar um
+redirect ABSOLUTO com host derivado de `getHostname`, que confia em
+`X-Forwarded-Host`, preservando a query — onde o Supabase põe o `?code=`. Antes
+da branch o redirect era relativo, então a confiança no header era inofensiva;
+esta entrega a tornou carregadora de token. Agora a função devolve host e
+destino separados e o **middleware resolve o tenant do host antes de
+redirecionar**, caindo em `/admin` se não resolver.
+
+Também corrigido, fora dos achados: `mailer.ts` registrava o endereço do
+destinatário no log, contra a regra de PII do `log.ts` seguida no resto da
+feature.
+
 **Ajuste no card 1.2 (16/09):** o card mandava repetir a proteção de
 `inviteMember` — não devolver link quando o e-mail já tem conta. Ela existe lá
 porque aquele fluxo **devolve um link copiável** para quem convidou (foi escrito

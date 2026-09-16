@@ -150,3 +150,60 @@ export function emailRecuperacaoSenha(d: DadosRecuperacao): CorpoEmail {
 
   return { assunto: `${d.nomeImobiliaria} · redefinir sua senha`, html, texto }
 }
+
+
+interface DadosAcessoLiberado {
+  nomeCliente: string
+  nomeImobiliaria: string
+  /** Endereço do portal, para a pessoa saber onde entrar. */
+  urlPortal: string
+}
+
+/**
+ * "Seu acesso está pronto" — SEM token.
+ *
+ * Existe para o caso em que o e-mail já tem conta na plataforma e essa conta
+ * ainda não era cliente desta imobiliária. Mandar um link de redefinição aí
+ * seria forçar a troca de senha de uma conta que pode ser de outra pessoa,
+ * usando o domínio verificado da plataforma como remetente — um convite vira
+ * ferramenta de phishing contra qualquer endereço que alguém digite no painel.
+ *
+ * A pessoa entra com a senha que já tem. Se não lembrar, usa "esqueci minha
+ * senha" no portal, que é um fluxo que ELA inicia.
+ */
+export function emailAcessoLiberado(d: DadosAcessoLiberado): CorpoEmail {
+  const imob = esc(d.nomeImobiliaria)
+  const nome = esc(d.nomeCliente.split(' ')[0] || d.nomeCliente)
+
+  const html = moldura(
+    [
+      `<p style="margin:0 0 14px">Olá, ${nome}.</p>`,
+      `<p style="margin:0 0 14px">A <b>${imob}</b> liberou seu acesso à Área do Cliente,`,
+      ' onde ficam seus contratos, laudos de vistoria e comprovantes.</p>',
+      '<p style="margin:0 0 14px">Como você já tem uma conta, entre com o seu e-mail e a',
+      ' <b>senha que você já usa</b>.</p>',
+      botao(d.urlPortal, 'Entrar na Área do Cliente'),
+      '<p style="margin:0;color:#6b7280;font-size:13px">',
+      'Não lembra a senha? Use a opção “Esqueci minha senha” na tela de entrada.</p>',
+    ].join(''),
+    `Você recebeu este e-mail porque a ${imob} liberou seu acesso.` +
+      ' Se não reconhece este contato, responda a este e-mail.',
+  )
+
+  const texto = [
+    `Olá, ${d.nomeCliente.split(' ')[0] || d.nomeCliente}.`,
+    '',
+    `A ${d.nomeImobiliaria} liberou seu acesso à Área do Cliente, onde ficam seus`,
+    'contratos, laudos de vistoria e comprovantes.',
+    '',
+    'Como você já tem uma conta, entre com o seu e-mail e a senha que você já usa:',
+    d.urlPortal,
+    '',
+    'Não lembra a senha? Use a opção "Esqueci minha senha" na tela de entrada.',
+    '',
+    `Você recebeu este e-mail porque a ${d.nomeImobiliaria} liberou seu acesso.`,
+    'Se não reconhece este contato, responda a este e-mail.',
+  ].join('\n')
+
+  return { assunto: `${d.nomeImobiliaria} · seu acesso à Área do Cliente`, html, texto }
+}

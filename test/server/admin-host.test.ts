@@ -27,7 +27,7 @@ describe('adminHostAction', () => {
     // Mandar para /admin colocaria o inquilino na tela de login da imobiliária,
     // onde a senha dele não funciona.
     const acao = adminHostAction(PAINEL, '/area-cliente')
-    expect(acao).toEqual({ kind: 'portal', url: `https://${PUBLICO}/area-cliente` })
+    expect(acao).toEqual({ kind: 'portal', hostPublico: PUBLICO, destino: '/area-cliente' })
   })
 
   test('preserva a query, onde vem o token do convite', () => {
@@ -35,8 +35,18 @@ describe('adminHostAction', () => {
     const acao = adminHostAction(PAINEL, '/area-cliente/definir-senha?code=abc123')
     expect(acao).toEqual({
       kind: 'portal',
-      url: `https://${PUBLICO}/area-cliente/definir-senha?code=abc123`,
+      hostPublico: PUBLICO,
+      destino: '/area-cliente/definir-senha?code=abc123',
     })
+  })
+
+  test('NÃO devolve URL pronta — o host ainda precisa ser validado', () => {
+    // O host sai de X-Forwarded-Host, que é dado do cliente. Se esta função
+    // montasse a URL, o middleware emitiria um destino absoluto escolhido por
+    // quem forjou o header — levando junto o token que vai na query.
+    const acao = adminHostAction('painel.atacante.tld', '/area-cliente?code=x')
+    expect(acao).not.toHaveProperty('url')
+    expect(acao).toMatchObject({ kind: 'portal', hostPublico: 'atacante.tld' })
   })
 
   test('não confunde um caminho que só começa parecido', () => {

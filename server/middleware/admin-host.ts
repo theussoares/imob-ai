@@ -1,4 +1,4 @@
-import { getHostname } from '~~/server/utils/tenant'
+import { getHostname, resolveTenantForHost } from '~~/server/utils/tenant'
 import { adminHostAction } from '~~/server/utils/admin-host'
 
 /**
@@ -16,9 +16,27 @@ import { adminHostAction } from '~~/server/utils/admin-host'
  * Roda antes do middleware de tenant (ordem alfabética) para economizar a
  * resolução no banco quando a resposta vai ser um redirect.
  */
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const acao = adminHostAction(getHostname(event), event.path || '/')
   if (acao.kind === 'passa') return
-  if (acao.kind === 'portal') return sendRedirect(event, acao.url, 302)
+
+  if (acao.kind === 'portal') {
+    // ⚠️ O host vem de `getHostname`, que confia em `X-Forwarded-Host` — dado do
+    // cliente. Redirecionar para ele sem conferir seria um open redirect que
+    // CARREGA CREDENCIAL: o destino recebe a query, e é nela que o Supabase põe
+    // o `?code=` do convite e da recuperação de senha. Quem forjasse o header
+    // receberia o token da vítima e assumiria a conta.
+    //
+    // Resolver o tenant responde "este host é nosso?". É consulta cacheada e
+    // este caminho é raro (só /area-cliente no host do painel), então o custo
+    // não paga o risco de confiar no header.
+    const tenant = await resolveTenantForHost(acao.hostPublico)
+    if (!tenant) {
+      logWarn('adminhost.destino_recusado', { host: acao.hostPublico })
+      return sendRedirect(event, '/admin', 302)
+    }
+    return sendRedirect(event, `https://${acao.hostPublico}${acao.destino}`, 302)
+  }
+
   return sendRedirect(event, '/admin', 302)
 })

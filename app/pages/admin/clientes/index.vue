@@ -43,10 +43,11 @@ async function convidar() {
   salvando.value = true
   error.value = ''
   try {
-    const r = await adminFetch<{ jaEraCliente: boolean; emailEnviado: boolean }>(
-      '/api/admin/portal-users',
-      { method: 'POST', body: form },
-    )
+    const r = await adminFetch<{
+      jaEraCliente: boolean
+      contaPreexistente: boolean
+      emailEnviado: boolean
+    }>('/api/admin/portal-users', { method: 'POST', body: form })
 
     // As três frases são diferentes de propósito: "convite enviado" quando o
     // e-mail não saiu faria a imobiliária esperar um cliente que nunca foi
@@ -54,6 +55,13 @@ async function convidar() {
     if (!r.emailEnviado) {
       toast.error(
         'Cliente cadastrado, mas o convite NÃO foi enviado. Use "Reenviar convite" em instantes.',
+      )
+    } else if (r.contaPreexistente) {
+      // Não é falha: este e-mail já tinha conta na plataforma, então o aviso vai
+      // sem link de senha. Dizer isso evita a chamada "meu cliente não recebeu
+      // o link".
+      toast.success(
+        'Cliente cadastrado. Este e-mail já tinha conta — avisamos que o acesso está liberado, e ele entra com a senha que já usa.',
       )
     } else if (r.jaEraCliente) {
       toast.success('Convite reenviado.')

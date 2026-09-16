@@ -188,3 +188,47 @@ function arquivosVue(dir: string): string[] {
   }
   return saida
 }
+
+describe('o convite só gera token em dois casos', () => {
+  test('linkDeRedefinicao é chamado apenas para quem já é cliente deste tenant', () => {
+    // Regra de segurança do card 1.2, achada na revisão: gerar um link de
+    // redefinição para um e-mail com conta preexistente que NÃO é cliente deste
+    // tenant permitiria que qualquer membro de qualquer imobiliária forçasse a
+    // troca de senha de uma conta alheia — inclusive a de um admin concorrente,
+    // que usa o mesmo auth.users. E o e-mail sairia do domínio verificado da
+    // plataforma, com nome e Reply-To que a imobiliária edita.
+    //
+    // A regra mora num `else if (existente)`, que é fácil de reescrever sem
+    // perceber. Este teste olha o fonte porque o caminho depende do Supabase e
+    // não é alcançável por teste de unidade.
+    const fonte = readFileSync(
+      join(process.cwd(), 'server', 'repositories', 'portal-invite.repository.ts'),
+      'utf8',
+    )
+
+    const iChamada = fonte.indexOf('await linkDeRedefinicao(')
+    expect(iChamada, 'linkDeRedefinicao não é mais chamado').toBeGreaterThan(-1)
+
+    // A chamada tem que estar sob o ramo de cliente já existente.
+    const antes = fonte.slice(0, iChamada)
+    const iRamo = antes.lastIndexOf('} else if (existente) {')
+    expect(
+      iRamo,
+      'linkDeRedefinicao saiu de dentro do ramo `else if (existente)` — conta preexistente de terceiro voltaria a receber token',
+    ).toBeGreaterThan(-1)
+
+    // E nada entre o ramo e a chamada pode ter fechado o bloco.
+    expect(antes.slice(iRamo).includes('\n  } else {')).toBe(false)
+  })
+
+  test('o caso de conta preexistente manda o template sem token', () => {
+    const fonte = readFileSync(
+      join(process.cwd(), 'server', 'repositories', 'portal-invite.repository.ts'),
+      'utf8',
+    )
+    expect(fonte).toContain('emailAcessoLiberado')
+    // E o resultado diz à tela qual caso foi, para ela não prometer um link que
+    // não existe.
+    expect(fonte).toContain('contaPreexistente')
+  })
+})

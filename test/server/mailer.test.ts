@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { montarFrom, nomeExibicaoSeguro, replyToValido } from '~~/server/utils/mailer'
-import { emailConvitePortal, emailRecuperacaoSenha, esc } from '~~/server/utils/email-templates'
+import {
+  emailAcessoLiberado,
+  emailConvitePortal,
+  emailRecuperacaoSenha,
+  esc,
+} from '~~/server/utils/email-templates'
 
 describe('nomeExibicaoSeguro', () => {
   test('mantém um nome normal', () => {
@@ -140,5 +145,42 @@ describe('esc', () => {
     // Ordem errada produziria &amp;lt; — texto quebrado na caixa de entrada.
     expect(esc('<')).toBe('&lt;')
     expect(esc('&lt;')).toBe('&amp;lt;')
+  })
+})
+
+describe('emailAcessoLiberado — o aviso SEM token', () => {
+  const DADOS = {
+    nomeCliente: 'Giane de Cassia Martins Colli',
+    nomeImobiliaria: 'OLMI IMÓVEIS',
+    urlPortal: 'https://olmi.com.br/area-cliente/login',
+  }
+
+  test('não carrega token de nenhuma espécie', () => {
+    // A razão de existir deste template. Um link com `code=`/`token=` aqui
+    // devolveria o problema que ele foi criado para resolver: qualquer membro
+    // de qualquer tenant forçando a redefinição de senha de uma conta alheia,
+    // com o domínio verificado da plataforma no remetente.
+    const c = emailAcessoLiberado(DADOS)
+    for (const proibido of ['code=', 'token=', 'access_token', 'refresh_token', 'type=recovery']) {
+      expect(c.html).not.toContain(proibido)
+      expect(c.texto).not.toContain(proibido)
+    }
+  })
+
+  test('aponta para o login, não para definir-senha', () => {
+    const c = emailAcessoLiberado(DADOS)
+    expect(c.texto).toContain('/area-cliente/login')
+    expect(c.texto).not.toContain('definir-senha')
+  })
+
+  test('diz para usar a senha que a pessoa já tem', () => {
+    // Sem esta frase, quem recebe procura um link que não existe e liga para a
+    // imobiliária.
+    expect(emailAcessoLiberado(DADOS).texto.toLowerCase()).toContain('senha que você já usa')
+  })
+
+  test('escapa o nome da imobiliária', () => {
+    const c = emailAcessoLiberado({ ...DADOS, nomeImobiliaria: '<script>x</script>' })
+    expect(c.html).not.toContain('<script>')
   })
 })
