@@ -118,32 +118,39 @@ export function describeAudience(roles: readonly ContractPartyRole[]): string {
 /** Estado do recurso pago, como está gravado em `tenant_features`. */
 export interface RecursoDoTenant {
   enabled: boolean
-  /** Carência: vale até esta data mesmo com `enabled = false`. */
+  /** Carência: vale ATÉ ESTE DIA, inclusive, mesmo com `enabled = false`. */
   graceUntil: string | null
 }
 
 /**
- * O recurso está valendo agora?
+ * O recurso está valendo hoje?
  *
- * A régua de inadimplência do plano (aviso no vencimento, segundo aviso em D+7,
- * suspensão em D+15) não precisa de coluna de estado: desliga `enabled` na hora
- * e marca `grace_until` na data da suspensão. Entre uma coisa e outra, o acesso
- * continua.
+ * ⚠️ Esta função tem que dar a MESMA resposta que `is_portal_user()` no banco,
+ * que é quem de fato fecha o acesso. Lá a condição é
+ * `f.enabled or coalesce(f.grace_until, '-infinity') >= current_date`, com
+ * `grace_until` do tipo `date`.
  *
- * Ausência de registro é recurso DESLIGADO, não ligado. É o lado seguro para
- * um recurso pago: tenant novo não ganha a Área do Cliente por esquecimento.
+ * Duas consequências que uma leitura desatenta erra:
+ *   - a comparação é `>=` e por DIA, não `>` por instante. No próprio dia da
+ *     carência o acesso ainda vale. Uma versão anterior daqui usava
+ *     `graceUntil > now()`, que cortava um dia antes do banco — o servidor
+ *     devolveria 403 enquanto a RLS ainda liberava, e o suporte procuraria o
+ *     problema no lugar errado.
+ *   - ausência de registro é DESLIGADO. É o lado seguro para recurso pago:
+ *     tenant novo não ganha a Área do Cliente por esquecimento.
  */
 export function recursoAtivo(
   recurso: RecursoDoTenant | null | undefined,
-  agora: Date = new Date(),
+  hoje: Date = new Date(),
 ): boolean {
   if (!recurso) return false
   if (recurso.enabled) return true
   if (!recurso.graceUntil) return false
 
-  const fim = new Date(recurso.graceUntil).getTime()
-  // Data inválida não vira carência infinita: `NaN > x` é falso, mas deixar o
-  // NaN passar adiante esconderia o dado corrompido.
-  if (Number.isNaN(fim)) return false
-  return fim > agora.getTime()
+  // Compara por dia, no mesmo formato que o banco guarda (YYYY-MM-DD).
+  const dia = String(recurso.graceUntil).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return false
+
+  const hojeISO = hoje.toISOString().slice(0, 10)
+  return dia >= hojeISO
 }

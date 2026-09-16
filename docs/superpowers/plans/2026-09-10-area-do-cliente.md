@@ -306,7 +306,57 @@ Estimativa em dias úteis de trabalho efetivo.
 - [~] Mobile de verdade e estados vazios/erro — 1 dia
 - [x] Entrada no site (header/rodapé) — 0,5 dia
 
-### `tenant_features` (16/09) — e a premissa errada do plano
+### 16/09 — a pasta de migrations não é a produção
+
+Ao ir aplicar as migrations, o banco real contou outra história. **O histórico de
+produção não bate com esta pasta**, e nem é um subconjunto dela:
+
+- os números 0028–0030 em produção são `tenant_address`, `tenant_about_page` e
+  `broker_public_profile` — nomes que não existem aqui;
+- a área do cliente foi aplicada como `client_area` (12/09), junto com
+  **`tenant_features`** e uma **`corrigir_recursao_policies_portal`** que não
+  está nesta pasta em lugar nenhum.
+
+O que isso significa, ponto a ponto:
+
+**1. `tenant_features` já existia — eu estava errado.** Minha conclusão de que
+"nunca existiu" valia para o repositório e era falsa para o sistema. Em produção
+a tabela está lá desde 12/09, com `enabled`, `grace_until` (tipo `date`),
+`enabled_at` e `notes`, e `is_portal_user()` **já a consulta**. O entitlement
+está implementado e ligado.
+
+**2. `is_portal_user()` É usada por policy.** Minha outra conclusão — de que
+nenhuma policy a chamava — também valia só para a pasta. Em produção
+`contract_parties_read` a chama diretamente, e `portal_my_parties()` a chama
+também, o que a leva para `contracts_read` e `portal_documents_read`.
+
+**3. A 0036 que escrevi foi descartada.** Ela recriaria `tenant_features` com
+`grace_until timestamptz` (a produção usa `date`), substituiria
+`is_portal_user()` por uma versão com semântica diferente, e — o pior —
+reescreveria `contracts_read` e `portal_documents_read` com as subqueries inline
+da 0028, **reintroduzindo a recursão** que a `corrigir_recursao_policies_portal`
+existe para resolver. Aplicá-la teria derrubado o portal.
+
+**4. A 0034 foi reescrita contra o estado real.** O furo de pasta continua aberto
+em produção: `portal_can_read_doc_path()` casa `storage_path` com o nome do
+objeto e não confere a pasta. A correção agora entra DENTRO dessa função,
+preservando o desenho de lá, em vez de recriar a policy como a 0028 a definia.
+
+**5. `recursoAtivo` estava um dia adiantada.** Eu escrevi `graceUntil > now()`;
+o banco usa `coalesce(grace_until,'-infinity') >= current_date` — `>=` e por
+DIA. No próprio dia da carência o servidor devolveria 403 enquanto a RLS ainda
+liberava, e o suporte procuraria o problema no lugar errado. Alinhado e coberto
+por teste.
+
+**O que de fato falta aplicar:** 0032 (valor novo no enum), 0033
+(`last_recovery_at`) e 0035 (`tenants.portal_enabled`) — todas aditivas — e a
+0034 reescrita, que é a única que toca comportamento existente.
+
+**Dívida que isto expõe:** enquanto a pasta e o banco divergirem, toda migration
+nova é escrita contra uma ficção. Antes de seguir, vale trazer para cá as três
+migrations que só existem em produção.
+
+
 
 O entitlement decidido em 11/09 virou a **0036**. Mas o plano dizia que a
 checagem devia morar dentro de `is_portal_user()`, *"e como essa função gatilha

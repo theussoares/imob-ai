@@ -328,26 +328,11 @@ describe('o entitlement do portal', () => {
     }
   })
 
-  test('o painel nunca é cortado pelo entitlement', () => {
-    // Regra 1 do plano, e a que tem precedente judicial: cortar o painel É
-    // reter dado do cliente. O conjunto do recurso só pode aparecer no termo
-    // do CLIENTE das policies, nunca colado no is_tenant_member.
-    const sql = readFileSync(
-      join(process.cwd(), 'supabase', 'migrations', '0036_tenant_features_portal.sql'),
-      'utf8',
-    )
-    // Nenhuma linha pode ter os dois na mesma expressão de conjunção.
-    for (const linha of sql.split('\n')) {
-      if (linha.trimStart().startsWith('--')) continue
-      const temMembro = linha.includes('is_tenant_member')
-      const temRecurso = linha.includes('tenant_feature_ativa')
-      expect(temMembro && temRecurso, `entitlement colado no painel: ${linha.trim()}`).toBe(false)
-    }
-  })
-
   test('requirePortalUser usa a mesma regra que o teste cobre', () => {
-    // Duas implementações da carência acabariam discordando, e a que discorda
-    // em produção é a que ninguém testou.
+    // A regra da carência existe em dois lugares: aqui e em `is_portal_user()`
+    // no banco. Duas implementações acabariam discordando, e a que discorda em
+    // produção é a que ninguém testou — foi o que aconteceu com `> now()`
+    // contra o `>= current_date` do banco.
     const fonte = readFileSync(join(process.cwd(), 'server', 'utils', 'portal-auth.ts'), 'utf8')
     expect(fonte).toContain('recursoAtivo(')
   })

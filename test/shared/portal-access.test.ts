@@ -186,15 +186,23 @@ describe('recursoAtivo — o entitlement da Área do Cliente', () => {
     // É a régua do plano: desliga na hora do vencimento, corta em D+15. Entre
     // as duas coisas o cliente final continua acessando os documentos dele —
     // que é o que a LGPD protege, e o que o precedente citado no plano exige.
-    expect(recursoAtivo({ enabled: false, graceUntil: '2026-10-01T00:00:00Z' }, AGORA)).toBe(true)
+    expect(recursoAtivo({ enabled: false, graceUntil: '2026-10-01' }, AGORA)).toBe(true)
+  })
+
+  test('no PRÓPRIO dia da carência ainda vale', () => {
+    // O banco compara `coalesce(grace_until,'-infinity') >= current_date`: é
+    // `>=` e por DIA. Uma versão anterior daqui usava `> now()`, que cortava um
+    // dia antes da RLS — o servidor devolveria 403 enquanto o banco liberava, e
+    // o suporte procuraria o problema no lugar errado.
+    expect(recursoAtivo({ enabled: false, graceUntil: '2026-09-16' }, AGORA)).toBe(true)
   })
 
   test('carência vencida não vale', () => {
-    expect(recursoAtivo({ enabled: false, graceUntil: '2026-09-01T00:00:00Z' }, AGORA)).toBe(false)
+    expect(recursoAtivo({ enabled: false, graceUntil: '2026-09-15' }, AGORA)).toBe(false)
   })
 
   test('data inválida não vira carência infinita', () => {
-    // `NaN > x` é falso, mas deixar passar esconderia dado corrompido.
     expect(recursoAtivo({ enabled: false, graceUntil: 'nao-e-data' }, AGORA)).toBe(false)
+    expect(recursoAtivo({ enabled: false, graceUntil: '' }, AGORA)).toBe(false)
   })
 })
