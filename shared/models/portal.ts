@@ -195,3 +195,26 @@ export interface PortalUserInput {
   doc?: string | null
   phone?: string | null
 }
+
+
+/**
+ * Publicação de um documento pelo painel.
+ *
+ * `storagePath` chega do navegador porque o upload vai direto ao Storage (as
+ * policies da 0028 autorizam pela pasta do slug). O servidor NÃO confia nele —
+ * ver `assertCaminhoDoTenant` em `portal-document.repository.ts`.
+ */
+export interface PortalDocumentInput {
+  contractId: string
+  category: PortalDocCategory
+  title: string
+  /** Mês de referência, gravado no dia 1. */
+  competence?: string | null
+  dueOn?: string | null
+  amount?: number | null
+  storagePath: string
+  mime?: string | null
+  sizeBytes?: number | null
+  /** Omitido = o default seguro da categoria (`defaultAudienceFor`). */
+  audience?: ContractPartyRole[]
+}

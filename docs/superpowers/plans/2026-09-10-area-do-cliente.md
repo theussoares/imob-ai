@@ -296,7 +296,7 @@ Estimativa em dias úteis de trabalho efetivo.
 **Fase 1 — Painel (5–6 dias)**
 - [x] CRUD de contrato, vínculo com imóvel e com as partes — 2 dias
 - [x] Convidar cliente, listar, reenviar, desativar — 1,5 dia
-- Upload de documento: categoria, competência, público-alvo, publicar — 2 dias
+- [x] Upload de documento: categoria, competência, público-alvo, publicar — 2 dias
 - Envio em lote dos boletos do mês — 1 dia
 
 **Fase 2 — Área do cliente (4–5 dias)**
@@ -305,6 +305,15 @@ Estimativa em dias úteis de trabalho efetivo.
 - [x] Documentos por categoria, download assinado, trilha — 1,5 dia
 - [ ] Mobile de verdade e estados vazios/erro — 1 dia
 - [ ] Entrada no site (header/rodapé) — 0,5 dia
+
+**Achado no card 1.3 (16/09):** o upload vai direto do navegador para o
+Storage, então o `storage_path` é **dado do cliente**. Sem conferir o prefixo,
+um membro da imobiliária A registraria uma linha em `portal_documents` (no
+tenant dele) apontando para um arquivo da pasta da imobiliária B — e a policy do
+bucket assinaria o download, porque ela casa `storage_path` com o nome do objeto
+e confere o contrato, não a pasta. As policies de storage impedem A de LER a
+pasta de B, mas não de apontar para ela. Fechado por `assertCaminhoDoTenant`
+(prefixo `<slug>/` e recusa de `..`), travado por teste e conferido por mutação.
 
 **Ajuste no card 1.2 (16/09):** o card mandava repetir a proteção de
 `inviteMember` — não devolver link quando o e-mail já tem conta. Ela existe lá

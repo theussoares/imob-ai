@@ -6,8 +6,13 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
-import type { ContractInput, ContractInternalInput, PortalUserInput } from '~~/shared/models/portal'
-import { CONTRACT_PARTY_ROLES } from '~~/shared/models/portal'
+import type {
+  ContractInput,
+  ContractInternalInput,
+  PortalDocumentInput,
+  PortalUserInput,
+} from '~~/shared/models/portal'
+import { CONTRACT_PARTY_ROLES, PORTAL_DOC_CATEGORIES } from '~~/shared/models/portal'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -270,6 +275,42 @@ export function assertContractInternalInput(input: unknown): asserts input is Co
         statusCode: 422,
         statusMessage: 'Taxa de administração deve ser entre 0 e 100.',
       })
+    }
+  }
+}
+
+
+/** Valida o payload de publicação de documento. */
+export function assertPortalDocumentInput(input: unknown): asserts input is PortalDocumentInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const d = input as Record<string, unknown>
+
+  if (!String(d.contractId ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Contrato é obrigatório.' })
+  }
+  if (!String(d.title ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Título do documento é obrigatório.' })
+  }
+  if (!String(d.storagePath ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Envie o arquivo antes de salvar.' })
+  }
+  if (!PORTAL_DOC_CATEGORIES.includes(d.category as never)) {
+    throw createError({ statusCode: 422, statusMessage: 'Categoria de documento inválida.' })
+  }
+
+  // Audiência só é validada quando VEM: ausente significa "use o default da
+  // categoria", que é o caminho seguro e o preferido.
+  if (d.audience !== undefined) assertAudience(d.audience)
+
+  assertOptionalDate(d.competence, 'Competência')
+  assertOptionalDate(d.dueOn, 'Vencimento')
+
+  if (d.amount !== undefined && d.amount !== null) {
+    const valor = Number(d.amount)
+    if (!Number.isFinite(valor) || valor < 0) {
+      throw createError({ statusCode: 422, statusMessage: 'Valor do documento inválido.' })
     }
   }
 }

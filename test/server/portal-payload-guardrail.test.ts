@@ -126,6 +126,28 @@ describe('endpoints do portal', () => {
   })
 })
 
+describe('o bucket portal-docs nunca vira URL pública', () => {
+  test('nenhum código chama getPublicUrl no bucket dos documentos', () => {
+    // O bucket nasce privado na 0028, e o download passa por URL assinada de
+    // vida curta. `getPublicUrl` não falharia alto num bucket privado — ele
+    // devolve uma URL que simplesmente não funciona, ou pior, funcionaria se
+    // alguém marcasse o bucket como público um dia. Achar a chamada no fonte é
+    // mais confiável que descobrir pelo comportamento.
+    const raizes = [
+      join(process.cwd(), 'server'),
+      join(process.cwd(), 'app'),
+      join(process.cwd(), 'shared'),
+    ]
+    for (const raiz of raizes) {
+      for (const caminho of arquivosPorExtensao(raiz, ['.ts', '.vue'])) {
+        const fonte = readFileSync(caminho, 'utf8')
+        if (!fonte.includes('portal-docs')) continue
+        expect(fonte, `${caminho} usa getPublicUrl no bucket privado`).not.toContain('getPublicUrl')
+      }
+    }
+  })
+})
+
 describe('a área do cliente fica fora da indexação', () => {
   test('o sitemap não lista /area-cliente', () => {
     // O sitemap é montado a partir de uma lista explícita (home, quero-vender,
@@ -146,6 +168,16 @@ describe('a área do cliente fica fora da indexação', () => {
     }
   })
 })
+
+function arquivosPorExtensao(dir: string, exts: string[]): string[] {
+  const saida: string[] = []
+  for (const nome of readdirSync(dir)) {
+    const caminho = join(dir, nome)
+    if (statSync(caminho).isDirectory()) saida.push(...arquivosPorExtensao(caminho, exts))
+    else if (exts.some((e) => nome.endsWith(e))) saida.push(caminho)
+  }
+  return saida
+}
 
 function arquivosVue(dir: string): string[] {
   const saida: string[] = []
