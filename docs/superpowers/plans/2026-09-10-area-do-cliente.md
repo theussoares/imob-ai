@@ -368,9 +368,28 @@ proteção de senha vazada, que é configuração de Auth). Nada regrediu.
 O banco também mostrou o que já está em uso: **2 clientes cadastrados** e o
 entitlement `portal` ligado para `olmi` e `demo`.
 
-**Ainda NÃO aplicada: a 0034** — a única que troca comportamento existente
-(`portal_can_read_doc_path`, usada em todo download). Fica para uma aplicação
-isolada, para que a culpa seja óbvia se o download parar.
+**A 0034 também foi aplicada, isolada e verificada contra o banco real.**
+
+Antes de aplicar: conferido que os 7 documentos existentes têm a primeira pasta
+igual ao slug do tenant — nenhum download em uso seria bloqueado pela função
+nova. (São todos do tenant `demo`; ainda não há documento de cliente real.)
+
+Depois de aplicar, o trigger foi exercitado de verdade, em produção, com as
+três tentativas desfeitas no fim:
+
+| Tentativa | Resultado |
+|---|---|
+| `storage_path` na pasta de outra imobiliária | recusado ✅ |
+| travessia com `..` | recusado ✅ |
+| caminho legítimo | aceito ✅ |
+
+Confirmado depois: 7 documentos (o mesmo de antes), nenhuma linha de teste
+sobrando, trigger ativo, `portal_can_read_doc_path` conferindo a pasta **e**
+ainda usando `portal_my_parties()` — ou seja, a correção de recursão foi
+preservada.
+
+É a primeira verificação desta entrega feita contra o banco de verdade, e não
+contra teste ou fake.
 
 **Dois itens de configuração que o banco revelou:**
 
