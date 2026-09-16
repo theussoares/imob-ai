@@ -532,22 +532,29 @@ export type Database = {
       tenant_features: {
         Row: {
           enabled: boolean
+          enabled_at: string | null
           feature: string
+          /** Tipo `date` no banco (YYYY-MM-DD), não timestamp — ver `recursoAtivo`. */
           grace_until: string | null
+          notes: string | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
           enabled?: boolean
+          enabled_at?: string | null
           feature: string
           grace_until?: string | null
+          notes?: string | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
           enabled?: boolean
+          enabled_at?: string | null
           feature?: string
           grace_until?: string | null
+          notes?: string | null
           tenant_id?: string
           updated_at?: string
         }

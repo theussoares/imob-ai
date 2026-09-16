@@ -352,6 +352,35 @@ por teste.
 (`last_recovery_at`) e 0035 (`tenants.portal_enabled`) — todas aditivas — e a
 0034 reescrita, que é a única que toca comportamento existente.
 
+**Aplicadas em produção em 16/09** (as três aditivas, uma a uma, conferidas
+depois de cada uma):
+
+| Migration | Estado |
+|---|---|
+| `contrato_administracao` (0032) | ✅ enum passou a ter o valor |
+| `portal_recovery_cooldown` (0033) | ✅ `last_recovery_at timestamptz` |
+| `tenant_portal_enabled` (0035) | ✅ `boolean default false` — 0 de 4 tenants ligados |
+
+Advisors de segurança rodados depois: só os avisos pré-existentes (os cinco
+`security definer` expostos por RPC, que a 0028 já documenta como dívida, e a
+proteção de senha vazada, que é configuração de Auth). Nada regrediu.
+
+O banco também mostrou o que já está em uso: **2 clientes cadastrados** e o
+entitlement `portal` ligado para `olmi` e `demo`.
+
+**Ainda NÃO aplicada: a 0034** — a única que troca comportamento existente
+(`portal_can_read_doc_path`, usada em todo download). Fica para uma aplicação
+isolada, para que a culpa seja óbvia se o download parar.
+
+**Dois itens de configuração que o banco revelou:**
+
+- `tenants.portal_enabled` está `false` para todos. O link no site não aparece
+  em lugar nenhum até alguém ligar para a OLMI — que é o padrão desejado, mas
+  precisa ser ligado antes de anunciar.
+- **Proteção de senha vazada está desligada no Auth.** Um clique no painel do
+  Supabase, e vale especialmente aqui: o portal é para cliente final, que
+  escolhe senha fraca. Não é dívida de código.
+
 **Dívida que isto expõe:** enquanto a pasta e o banco divergirem, toda migration
 nova é escrita contra uma ficção. Antes de seguir, vale trazer para cá as três
 migrations que só existem em produção.
