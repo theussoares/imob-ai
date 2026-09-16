@@ -303,8 +303,35 @@ Estimativa em dias úteis de trabalho efetivo.
 - [x] Login e recuperação de senha — 0,5 dia
 - [x] "Meus contratos" e detalhe do contrato — 1,5 dia
 - [x] Documentos por categoria, download assinado, trilha — 1,5 dia
-- [ ] Mobile de verdade e estados vazios/erro — 1 dia
-- [ ] Entrada no site (header/rodapé) — 0,5 dia
+- [~] Mobile de verdade e estados vazios/erro — 1 dia
+- [x] Entrada no site (header/rodapé) — 0,5 dia
+
+**Card 2.4 (16/09) — o que ficou e o que não ficou.**
+
+Feito: link "Área do Cliente" no topo e no rodapé, estados vazios com
+instrução, e a classificação de falha (`classificarFalha`) que separa sessão
+caída, falha de rede, permissão e 404 — "não foi possível carregar" serve para
+tudo e não diz o que fazer, e no celular a falha de rede é a mais comum e a
+única em que "tente de novo" ajuda.
+
+**Não feito: testar em aparelho real.** Tentei rodar o app aqui com o Chromium
+disponível; as páginas respondem 500 porque a resolução de tenant precisa de um
+Supabase, e não há banco neste ambiente. Ficam no lugar três travas mecânicas
+(`test/shared/portal-mobile.test.ts`): largura fixa maior que 360px, `min-width`
+que impede encolher, e fonte de input abaixo de 16px, que dispara o zoom do
+Safari. Elas pegam o que quebra sem ninguém ver no desktop; **não** pegam fonte
+pequena, alvo de toque apertado nem rolagem travada. Esse item continua aberto e
+é de quem tiver um celular na mão.
+
+**Achado no caminho: `tenant_features` nunca existiu.** O plano decidiu em 11/09
+que a Área do Cliente é plano pago, com o recurso lido dentro de
+`is_portal_user()` para fechar o acesso no banco. Essa tabela não está em
+migration nenhuma, em código nenhum, e nem virou card. Como o link no site
+público precisava de alguma condição, entrou a **0035** (`tenants.portal_enabled`),
+que é interruptor de EXIBIÇÃO e nada mais — desligar tira o link do site, não
+fecha o portal. Nasce `false`, então ninguém ganha o link sem alguém ligar.
+O entitlement de verdade continua pendente e precisa existir antes de abrir para
+o segundo cliente.
 
 **Achado no card 1.3 (16/09):** o upload vai direto do navegador para o
 Storage, então o `storage_path` é **dado do cliente**. Sem conferir o prefixo,

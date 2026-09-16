@@ -618,6 +618,7 @@ export type Database = {
           logo_url: string | null
           name: string
           phone: string | null
+          portal_enabled: boolean
           slug: string
           state: string | null
           tagline: string | null
@@ -651,6 +652,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           phone?: string | null
+          portal_enabled?: boolean
           slug: string
           state?: string | null
           tagline?: string | null
@@ -684,6 +686,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           phone?: string | null
+          portal_enabled?: boolean
           slug?: string
           state?: string | null
           tagline?: string | null

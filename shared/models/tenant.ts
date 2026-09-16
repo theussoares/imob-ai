@@ -19,6 +19,14 @@ export interface Tenant {
   phone: string | null
   email: string | null
   creci: string | null
+  /**
+   * Anuncia a Área do Cliente no site (header e rodapé).
+   *
+   * ⚠️ NÃO é controle de acesso. Desligar tira o link do site; não fecha o
+   * portal. O entitlement de verdade foi decidido no plano (tabela
+   * `tenant_features` lida dentro de `is_portal_user()`) e ainda não existe.
+   */
+  portalEnabled: boolean
   city: string | null
   state: string | null
   brandPrimary: string
@@ -64,6 +72,7 @@ export interface TenantSettingsInput {
   phone?: string | null
   email?: string | null
   creci?: string | null
+  portalEnabled?: boolean
   city?: string | null
   state?: string | null
   brandPrimary?: string

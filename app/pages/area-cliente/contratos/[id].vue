@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ContractForClient, PortalDocCategory, PortalDocument } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_LABELS, PORTAL_DOC_CATEGORIES, PORTAL_DOC_LABELS } from '~~/shared/models/portal'
+import { classificarFalha, MENSAGEM_DE_FALHA } from '~~/shared/utils/session-error'
 
 definePageMeta({ layout: 'portal', middleware: 'portal' })
 
@@ -25,11 +26,11 @@ onMounted(async () => {
     contrato.value = c
     documentos.value = docs
   } catch (e: unknown) {
-    const status = (e as { statusCode?: number })?.statusCode
+    // Diferencia sessão caída, falha de rede e 404: "não foi possível carregar"
+    // serve para tudo e não diz o que fazer.
+    const tipo = classificarFalha(e)
     erro.value =
-      status === 404
-        ? 'Contrato não encontrado.'
-        : 'Não foi possível carregar este contrato. Tente novamente em instantes.'
+      tipo === 'nao_encontrado' ? 'Contrato não encontrado.' : MENSAGEM_DE_FALHA[tipo]
   } finally {
     carregando.value = false
   }
@@ -63,7 +64,7 @@ async function baixar(doc: PortalDocument) {
     erroDownload.value =
       status === 429
         ? 'Muitos downloads seguidos. Aguarde um minuto e tente de novo.'
-        : 'Não foi possível abrir este documento. Tente novamente em instantes.'
+        : MENSAGEM_DE_FALHA[classificarFalha(e)]
   } finally {
     baixando.value = null
   }

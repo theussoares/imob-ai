@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ContractForClient } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_LABELS } from '~~/shared/models/portal'
+import { classificarFalha, MENSAGEM_DE_FALHA } from '~~/shared/utils/session-error'
 
 definePageMeta({ layout: 'portal', middleware: 'portal' })
 
@@ -11,8 +12,8 @@ const erro = ref('')
 onMounted(async () => {
   try {
     contratos.value = await portalFetch<ContractForClient[]>('/api/portal/contratos')
-  } catch {
-    erro.value = 'Não foi possível carregar seus contratos. Tente novamente em instantes.'
+  } catch (e: unknown) {
+    erro.value = MENSAGEM_DE_FALHA[classificarFalha(e)]
   } finally {
     carregando.value = false
   }

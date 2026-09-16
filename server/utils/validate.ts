@@ -40,6 +40,10 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
     }
   }
 
+  if (t.portalEnabled !== undefined && typeof t.portalEnabled !== 'boolean') {
+    throw createError({ statusCode: 422, statusMessage: 'Valor inválido para a Área do Cliente.' })
+  }
+
   if (t.heroImagePosition !== undefined && !HERO_POSITIONS.includes(t.heroImagePosition as string)) {
     throw createError({ statusCode: 422, statusMessage: 'Posição da imagem do hero inválida.' })
   }
