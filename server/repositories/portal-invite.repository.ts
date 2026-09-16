@@ -38,6 +38,26 @@ async function acharUsuarioPorEmail(service: Client, email: string): Promise<str
   return null
 }
 
+/**
+ * Esta conta do Auth é membro do painel de ALGUMA imobiliária?
+ *
+ * Conta de equipe e conta de cliente compartilham o mesmo `auth.users`. Deixar
+ * uma imobiliária cadastrar como "cliente" o operador de outra significa criar,
+ * sem pedir nada a ele, um vínculo com nome, CPF e telefone digitados por
+ * terceiro — e um caminho para ele ser posto como parte de contratos que não
+ * são dele. O acesso ao painel dele não é afetado, mas o cadastro é um dado
+ * pessoal que ninguém autorizou.
+ */
+async function ehMembroDePainel(service: Client, userId: string): Promise<boolean> {
+  const { data } = await service
+    .from('tenant_members')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle()
+  return !!data
+}
+
 interface Acesso {
   userId: string
   /** Link de definir senha. Só existe quando a conta nasceu agora. */
@@ -145,6 +165,21 @@ export async function convidarClientePortal(
     .maybeSingle()
 
   const acesso = await obterAcesso(service, email, redirectTo)
+
+  // Conta de equipe não vira cadastro de cliente por iniciativa de terceiro.
+  // Só vale para cadastro NOVO: se a pessoa já é cliente deste tenant, o
+  // vínculo já existe e recusar agora quebraria o reenvio sem proteger nada.
+  //
+  // A mensagem não diz que a conta é administrativa — quem cadastra não precisa
+  // descobrir, pelo erro, que aquele endereço é de equipe em algum lugar.
+  if (!existente && (await ehMembroDePainel(service, acesso.userId))) {
+    logWarn('portal.cadastro_recusado', { tenant: tenantId, motivo: 'conta_de_equipe' })
+    throw createError({
+      statusCode: 409,
+      statusMessage:
+        'Este e-mail não pode receber acesso de cliente. Peça ao cliente um endereço pessoal.',
+    })
+  }
 
   let cliente: PortalUser
   if (existente) {

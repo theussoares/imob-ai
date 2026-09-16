@@ -22,6 +22,20 @@ import { describe, expect, test } from 'vitest'
 
 const PORTAL_API = join(process.cwd(), 'server', 'api', 'portal')
 
+/**
+ * O fonte sem comentários.
+ *
+ * Os guardrails deste arquivo procuram padrões proibidos no código — e vários
+ * desses padrões aparecem legitimamente em comentários, justamente para
+ * explicar por que NÃO usá-los. Sem esta limpeza, documentar a regra quebra o
+ * teste da regra, o que ensina a não documentar.
+ */
+function semComentarios(fonte: string): string {
+  return fonte
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+}
+
 function arquivosTs(dir: string): string[] {
   const saida: string[] = []
   for (const nome of readdirSync(dir)) {
@@ -230,5 +244,71 @@ describe('o convite só gera token em dois casos', () => {
     // E o resultado diz à tela qual caso foi, para ela não prometer um link que
     // não existe.
     expect(fonte).toContain('contaPreexistente')
+  })
+})
+
+describe('o destino do link nunca vem de header', () => {
+  const ARQUIVOS = [
+    join(process.cwd(), 'server', 'api', 'admin', 'portal-users.post.ts'),
+    join(process.cwd(), 'server', 'api', 'portal', 'recuperar-senha.post.ts'),
+  ]
+
+  test('quem gera link de sessão usa portalOrigin, não a origem da requisição', () => {
+    // `getRequestURL(event).origin` sai de Host/X-Forwarded-Host — dado do
+    // cliente. Como o link carrega `?code=`, um header forjado faria o e-mail da
+    // vítima apontar para o servidor de quem forjou, que receberia o token ao
+    // primeiro clique. A origem tem que sair do banco.
+    for (const caminho of ARQUIVOS) {
+      const codigo = semComentarios(readFileSync(caminho, 'utf8'))
+      expect(codigo, `${caminho} ainda deriva o destino da requisição`).not.toContain(
+        'getRequestURL(event).origin',
+      )
+      expect(codigo, `${caminho} não usa portalOrigin`).toContain('portalOrigin')
+    }
+  })
+
+  test('portalOrigin não aceita host da requisição como fonte', () => {
+    const codigo = semComentarios(
+      readFileSync(join(process.cwd(), 'server', 'utils', 'portal-origin.ts'), 'utf8'),
+    )
+    // Nem o evento entra aqui: a assinatura recebe client e tenant.
+    expect(codigo).not.toContain('getRequestURL')
+    expect(codigo).not.toContain('getHostname')
+    expect(codigo).not.toContain('getRequestHost')
+    expect(codigo).toContain('getPrimaryDomain')
+  })
+})
+
+describe('conta de equipe não vira cadastro de cliente', () => {
+  test('o convite recusa e-mail que é membro de painel', () => {
+    // auth.users é compartilhado entre equipe e cliente. Sem esta recusa, uma
+    // imobiliária cadastra o operador de outra como "cliente" — com nome, CPF e
+    // telefone digitados por terceiro, sem ninguém perguntar a ele.
+    const fonte = readFileSync(
+      join(process.cwd(), 'server', 'repositories', 'portal-invite.repository.ts'),
+      'utf8',
+    )
+    expect(fonte).toContain('ehMembroDePainel')
+    expect(fonte).toContain("from('tenant_members')")
+
+    // Só para cadastro novo: recusar no reenvio quebraria um vínculo que já
+    // existe, sem proteger nada.
+    expect(fonte).toContain('!existente && (await ehMembroDePainel(')
+  })
+
+  test('a recusa não revela que a conta é administrativa', () => {
+    // Quem cadastra não precisa descobrir, pelo erro, que aquele endereço é de
+    // equipe em alguma imobiliária da plataforma.
+    const fonte = readFileSync(
+      join(process.cwd(), 'server', 'repositories', 'portal-invite.repository.ts'),
+      'utf8',
+    )
+    const casado = fonte.match(/statusMessage:\s*\n?\s*'([^']*endereço pessoal[^']*)'/)
+    expect(casado, 'mensagem de recusa não encontrada').toBeTruthy()
+
+    const mensagem = (casado?.[1] || '').toLowerCase()
+    for (const vazamento of ['equipe', 'administrativ', 'painel', 'imobiliária']) {
+      expect(mensagem, `a mensagem revela "${vazamento}"`).not.toContain(vazamento)
+    }
   })
 })

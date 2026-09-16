@@ -1,29 +1,31 @@
 import type { PortalUserInput } from '~~/shared/models/portal'
 import { convidarClientePortal } from '~~/server/repositories/portal-invite.repository'
+import { portalOrigin, urlDefinirSenha, urlLoginPortal } from '~~/server/utils/portal-origin'
 
 /**
  * Cadastra um cliente do portal e dispara o convite. Reenvia quando já existe.
  *
- * O `redirectTo` usa a origem DESTA requisição, e não uma URL fixa: o painel
- * responde em `painel.<dominio>` e o portal no domínio público, então um link
- * montado com host fixo levaria o cliente ao lugar errado. O middleware de host
- * ainda redireciona `/area-cliente` do painel para o domínio público, mas o
- * link certo desde o começo evita um salto a mais no celular.
+ * O destino do link sai do BANCO (`portalOrigin`), não de
+ * `getRequestURL(event).origin`: aquele valor vem de `Host`/`X-Forwarded-Host`,
+ * que é dado do cliente, e o link carrega um token de sessão. Ver a nota em
+ * `server/utils/portal-origin.ts`.
  */
 export default defineEventHandler(async (event) => {
   const { tenant } = await requireTenantMember(event)
   const body = await readBody<PortalUserInput>(event)
   assertPortalUserInput(body)
 
-  const origin = getRequestURL(event).origin
+  const service = serviceSupabase()
+  const origem = await portalOrigin(service, tenant)
+
   const resultado = await convidarClientePortal(
-    serviceSupabase(),
+    service,
     tenant.id,
     tenant.name,
     tenant.email,
     body,
-    `${origin}/area-cliente/definir-senha`,
-    `${origin}/area-cliente/login`,
+    urlDefinirSenha(origem),
+    urlLoginPortal(origem),
   )
 
   logWarn('portal.cliente_convidado', {

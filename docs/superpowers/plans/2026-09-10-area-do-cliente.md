@@ -354,6 +354,24 @@ Também corrigido, fora dos achados: `mailer.ts` registrava o endereço do
 destinatário no log, contra a regra de PII do `log.ts` seguida no resto da
 feature.
 
+**Os dois pontos que ficaram abertos na revisão (16/09), resolvidos:**
+
+- **O destino do link não vem mais de header.** `redirectTo` saía de
+  `getRequestURL(event).origin`, que é `Host`/`X-Forwarded-Host` — dado do
+  cliente — e o link carrega `?code=`. Num endpoint público como o de
+  recuperação, um header forjado faria o e-mail da vítima chegar apontando para
+  o servidor de quem forjou. A allowlist de Redirect URLs do Supabase barra
+  isso hoje, mas é configuração fora do repositório e não dá para depender dela
+  em silêncio. Agora a origem sai do banco (`portalOrigin`): domínio primário do
+  tenant, ou o subdomínio da plataforma. Sem `platformDomain` configurado, falha
+  alto em vez de inventar um host.
+- **Conta de equipe não vira cadastro de cliente.** `auth.users` é compartilhado
+  entre painel e portal, então uma imobiliária podia cadastrar o operador de
+  outra como "cliente", com nome, CPF e telefone digitados por terceiro. Agora é
+  recusado no cadastro novo (não no reenvio, que quebraria um vínculo já
+  existente), com mensagem que **não** revela que o endereço é de equipe — quem
+  cadastra não precisa descobrir isso pelo erro.
+
 **Ajuste no card 1.2 (16/09):** o card mandava repetir a proteção de
 `inviteMember` — não devolver link quando o e-mail já tem conta. Ela existe lá
 porque aquele fluxo **devolve um link copiável** para quem convidou (foi escrito

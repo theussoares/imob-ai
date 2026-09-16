@@ -1,5 +1,6 @@
 import { emailRecuperacaoSenha } from '~~/server/utils/email-templates'
 import { enviarEmail } from '~~/server/utils/mailer'
+import { portalOrigin, urlDefinirSenha } from '~~/server/utils/portal-origin'
 
 /** Intervalo mínimo entre dois e-mails de redefinição para a MESMA conta. */
 const INTERVALO_MS = 5 * 60 * 1000
@@ -66,12 +67,15 @@ export default defineEventHandler(async (event) => {
     return resposta
   }
 
-  const origin = getRequestURL(event).origin
+  // Do BANCO, não do header: este endpoint é público, e um `X-Forwarded-Host`
+  // forjado faria o e-mail da vítima chegar com um link apontando para o
+  // servidor de quem forjou — que receberia o token ao primeiro clique.
+  const origem = await portalOrigin(service, tenant)
 
   const { data, error } = await service.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: `${origin}/area-cliente/definir-senha` },
+    options: { redirectTo: urlDefinirSenha(origem) },
   })
 
   const link = data?.properties?.action_link
