@@ -337,3 +337,69 @@ describe('o entitlement do portal', () => {
     expect(fonte).toContain('recursoAtivo(')
   })
 })
+
+describe('campos internos nunca saem numa resposta do portal', () => {
+  /**
+   * Os três que o card 3.2 nomeia, mais os que a 0028 pôs em
+   * `contract_internal` justamente para não vazarem.
+   *
+   * `admin_fee_percent` é margem comercial: o proprietário tem direito ao
+   * número, mas ele chega pelo extrato de repasse — documento endereçado —, não
+   * por consulta à API.
+   */
+  const PROIBIDOS_SNAKE = ['notes', 'external_id', 'admin_fee_percent']
+  const PROIBIDOS_CAMEL = ['notes', 'externalId', 'adminFeePercent']
+
+  test('o tipo ContractForClient não declara nenhum deles', () => {
+    // A fronteira é o TIPO: se ele não tem o campo, nenhuma tela pode devolvê-lo
+    // sem o typecheck reclamar.
+    const modelo = readFileSync(join(process.cwd(), 'shared', 'models', 'portal.ts'), 'utf8')
+    const i = modelo.indexOf('export interface ContractForClient')
+    expect(i).toBeGreaterThan(-1)
+    const bloco = modelo.slice(i, modelo.indexOf('}', i))
+
+    for (const campo of PROIBIDOS_CAMEL) {
+      expect(bloco, `ContractForClient declara ${campo}`).not.toContain(`${campo}:`)
+    }
+  })
+
+  test('nenhum endpoint do portal lê a tabela de campos internos', () => {
+    // `contract_internal` existe para ser lida SÓ pelo painel. Um select dela
+    // num endpoint do portal seria o vazamento inteiro numa linha.
+    for (const caminho of arquivosPorExtensao(join(process.cwd(), 'server', 'api', 'portal'), ['.ts'])) {
+      const fonte = readFileSync(caminho, 'utf8')
+      expect(fonte, `${caminho} toca contract_internal`).not.toContain('contract_internal')
+      expect(fonte, `${caminho} chama getContractInternal`).not.toContain('getContractInternal')
+    }
+  })
+
+  test('o mapper do cliente monta do zero, sem espalhar a row', () => {
+    // Copiar a row e apagar chaves é como uma coluna interna nova chega ao
+    // portal sem ninguém decidir: o `delete` de hoje não sabe da coluna de
+    // amanhã. O teste trava a forma, não o resultado.
+    const mapper = readFileSync(join(process.cwd(), 'server', 'mappers', 'contract.mapper.ts'), 'utf8')
+    const i = mapper.indexOf('export function toContractForClientModel')
+    const bloco = mapper.slice(i, mapper.indexOf('\n}', i))
+
+    expect(bloco, 'o mapper do cliente espalha a row').not.toContain('...row')
+    expect(bloco, 'o mapper do cliente usa delete').not.toContain('delete ')
+    for (const campo of PROIBIDOS_SNAKE) {
+      expect(bloco, `o mapper do cliente lê ${campo}`).not.toContain(campo)
+    }
+  })
+
+  test('a URL assinada tem vida curta', () => {
+    // Card 3.2. URL longa vazada num print ou num encaminhamento de e-mail vira
+    // acesso permanente ao documento.
+    const fonte = readFileSync(
+      join(process.cwd(), 'server', 'api', 'portal', 'documentos', '[id]', 'download.post.ts'),
+      'utf8',
+    )
+    const casado = fonte.match(/URL_TTL_SEGUNDOS\s*=\s*(\d+)/)
+    expect(casado, 'TTL da URL assinada não encontrado').toBeTruthy()
+
+    const segundos = Number(casado?.[1])
+    expect(segundos, 'TTL alto demais para uma URL que dá acesso a documento').toBeLessThanOrEqual(300)
+    expect(segundos, 'TTL curto demais: o download nem começa').toBeGreaterThanOrEqual(30)
+  })
+})

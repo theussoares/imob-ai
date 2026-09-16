@@ -597,8 +597,48 @@ comando, se algo falhar no meio o Postgres desfaz tudo. Conferido depois que
 que o banco faz, e é o banco que isola. A migration descartada em 16/09 teria
 reintroduzido uma recursão que derruba o portal, e a suíte de vitest passaria
 verde — ela lê a pasta, não o banco. Nenhuma das duas substitui a outra.
-- `/security-review` e correções — 1 dia
-- Política de privacidade e retenção atualizadas — 0,5 dia
+- [x] `/security-review` e correções — 1 dia
+- [~] Política de privacidade e retenção atualizadas — 0,5 dia
+
+**Card 3.2 (16/09).**
+
+Verificado contra o banco real, não por suposição:
+
+- **`anon` sem grant algum** nas sete tabelas do portal ✅
+- **A trilha de auditoria e o `tenant_features` estavam protegidos só pela
+  AUSÊNCIA de policy de escrita.** Funcionava — um membro do painel não apaga a
+  trilha nem liga o próprio recurso pago, testado, zero linhas afetadas — mas o
+  modo de falha é silencioso: no dia em que alguém acrescentar uma policy
+  `for all` a essas tabelas (o padrão usado em quase todo o resto do schema), a
+  escrita passa a ser permitida sem ninguém decidir. Fechado na **0036**, com
+  `revoke` explícito. Aplicada e conferida.
+- `notes`, `external_id` e `admin_fee_percent` fora de todo caminho do portal ✅,
+  travado por teste — inclusive um que impede o mapper do cliente de voltar a
+  espalhar a row, porque copiar-e-apagar é como coluna interna nova chega ao
+  portal sem ninguém decidir.
+- URL assinada com 60s, travada por teste entre 30 e 300 ✅
+
+**Um erro meu no caminho, que vale registrar:** o primeiro teste de escrita na
+trilha reportou "ACEITOU" e eu quase reportei dois furos críticos. `DELETE` e
+`UPDATE` sem policy **não dão erro** — afetam zero linhas. Confundi "não errou"
+com "conseguiu". Refeito medindo `row_count`, deu o oposto: a RLS barrava tudo.
+
+**O que NÃO ficou pronto: a política de privacidade.**
+`docs/runbooks/0037-lgpd-area-do-cliente.md` traz o mapa de dados — o que existe,
+onde, quem alcança, por quanto tempo — que é o insumo que um advogado precisa. A
+página `app/pages/privacidade.vue` existe e responde na URL, mas **não está
+registrada em `STATIC_FOOTER_PAGES`**, então não aparece no rodapé de site
+nenhum. Registrar é o ato de publicar, e ele depende de revisão jurídica:
+registrar torna a página visível no rodapé de TODA imobiliária por padrão, e
+política não revisada no ar no site de um cliente real é pior que nenhuma.
+
+**Retenção da trilha:** proposta de 5 anos após o encerramento do contrato,
+alinhada ao prazo de prescrição de reparação civil. É proposta de engenharia, não
+parecer — precisa de confirmação.
+
+**Dívida registrada:** não há rotina de expurgo nem de exportação. Hoje as duas
+seriam manuais. Aceitável com 10 contratos e nenhum pedido; deixa de ser no dia
+em que alguém exercer o art. 18.
 - Deploy, primeiro contrato real cadastrado junto com a imobiliária — 1 dia
 
 ### Prazo a passar para a cliente
