@@ -4,8 +4,7 @@ import { updateContract, upsertContractInternal } from '~~/server/repositories/c
 /** Atualiza um contrato, e os campos internos junto quando vierem. */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
-  const id = getRouterParam(event, 'id')
-  if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+  const id = idDeRota(getRouterParam(event, 'id'))
 
   const body = await readBody<ContractInput & { internal?: ContractInternalInput }>(event)
   assertContractInput(body)

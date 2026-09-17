@@ -1,36 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { ehUuid, nomeDeDownload } from '~~/shared/utils/portal-download'
+import { nomeDeDownload } from '~~/shared/utils/portal-download'
 
 /**
- * As duas peças puras do download. Pequenas, e cada uma fecha um jeito
- * específico de o endpoint responder errado.
+ * O nome do arquivo que chega no celular da pessoa. (A checagem de uuid, que
+ * era testada aqui, mudou-se para `test/shared/uuid.test.ts` junto com a
+ * função — ela não é do download.)
  */
-
-describe('ehUuid — id malformado é 404, não 500', () => {
-  test('aceita o que o banco de fato guarda', () => {
-    expect(ehUuid('0f5f4d2e-1c3a-4b5d-8e9f-a1b2c3d4e5f6')).toBe(true)
-    expect(ehUuid('0F5F4D2E-1C3A-4B5D-8E9F-A1B2C3D4E5F6')).toBe(true)
-    expect(ehUuid('  0f5f4d2e-1c3a-4b5d-8e9f-a1b2c3d4e5f6  ')).toBe(true)
-  })
-
-  test('recusa o que faria o Postgres devolver 22P02', () => {
-    // Cada um destes chega em `.eq('id', ...)` numa coluna `uuid`. Sem esta
-    // checagem o repositório dá `throw error` e o handler responde 500 — que,
-    // além de errado, distingue o id de um que simplesmente não existe.
-    for (const ruim of [
-      '',
-      '   ',
-      'nao-e-uuid',
-      '../../etc/passwd',
-      "1' or '1'='1",
-      '0f5f4d2e-1c3a-4b5d-8e9f',
-      '0f5f4d2e-1c3a-4b5d-8e9f-a1b2c3d4e5f6-extra',
-      'g0f5f4d2-1c3a-4b5d-8e9f-a1b2c3d4e5f6',
-    ]) {
-      expect(ehUuid(ruim), `aceitou ${JSON.stringify(ruim)}`).toBe(false)
-    }
-  })
-})
 
 describe('nomeDeDownload — o nome que chega no celular da pessoa', () => {
   test('usa o título e a extensão do arquivo no bucket', () => {

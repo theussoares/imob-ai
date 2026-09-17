@@ -13,6 +13,7 @@ import type {
   PortalUserInput,
 } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_ROLES, PORTAL_DOC_CATEGORIES } from '~~/shared/models/portal'
+import { ehUuid } from '~~/shared/utils/uuid'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -317,4 +318,27 @@ export function assertPortalDocumentInput(input: unknown): asserts input is Port
       throw createError({ statusCode: 422, statusMessage: 'Valor do documento inválido.' })
     }
   }
+}
+
+/**
+ * O id que veio da rota, conferido que tem forma de uuid.
+ *
+ * Todas as rotas do painel faziam `if (!id) throw 400`, que pega o id AUSENTE e
+ * deixa passar o id MALFORMADO. A diferença importa porque todo id deste
+ * sistema é `uuid` no banco: `/api/admin/contracts/abc` chegava em
+ * `.eq('id', 'abc')`, o Postgres devolvia 22P02, o repositório dava
+ * `throw error` e a resposta era **500** — erro de servidor para o que é, no
+ * fundo, um id que não existe.
+ *
+ * Continua 400 e não 404: quem chama aqui é membro autenticado do painel, e
+ * "você mandou um id que não é id" é informação útil para ele. Nos endpoints do
+ * PORTAL a resposta é 404, porque lá nada pode distinguir um id de outro — ver
+ * `shared/utils/uuid.ts`.
+ */
+export function idDeRota(valor: string | null | undefined, rotulo = 'ID'): string {
+  const id = (valor || '').trim()
+  if (!ehUuid(id)) {
+    throw createError({ statusCode: 400, statusMessage: `${rotulo} inválido.` })
+  }
+  return id
 }

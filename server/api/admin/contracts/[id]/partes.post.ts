@@ -4,8 +4,7 @@ import { addContractParty } from '~~/server/repositories/contract.repository'
 /** Vincula uma pessoa ao contrato, com papel. */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
-  const contractId = getRouterParam(event, 'id')
-  if (!contractId) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+  const contractId = idDeRota(getRouterParam(event, 'id'))
 
   const body = await readBody<{ portalUserId?: string; role?: string }>(event)
   const portalUserId = String(body?.portalUserId || '').trim()

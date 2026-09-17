@@ -1,5 +1,6 @@
 import { getContractForClient } from '~~/server/repositories/contract.repository'
 import { listDocumentsForClient } from '~~/server/repositories/portal-document.repository'
+import { ehUuid } from '~~/shared/utils/uuid'
 
 /**
  * Os documentos que este cliente pode ver neste contrato.
@@ -11,7 +12,13 @@ import { listDocumentsForClient } from '~~/server/repositories/portal-document.r
 export default defineEventHandler(async (event) => {
   const { client, tenant, portalUserId } = await requirePortalUser(event)
 
+  // Id malformado é 404 e não chega ao banco: igual ao contrato em si, e pela
+  // mesma razão (22P02 viraria 500, que distingue o id dos outros).
   const contractId = getRouterParam(event, 'id') || ''
+  if (!ehUuid(contractId)) {
+    throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
+  }
+
   const contrato = await getContractForClient(client, tenant.id, portalUserId, contractId)
   if (!contrato) {
     throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })

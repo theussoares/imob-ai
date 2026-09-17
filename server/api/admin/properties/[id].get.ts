@@ -12,8 +12,7 @@ import { getPropertyById } from '~~/server/repositories/property.repository'
  */
 export default defineEventHandler(async (event) => {
   const { tenant } = await requireTenantMember(event)
-  const id = getRouterParam(event, 'id')
-  if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+  const id = idDeRota(getRouterParam(event, 'id'))
   const property = await getPropertyById(serviceSupabase(), tenant.id, id)
   if (!property) throw createError({ statusCode: 404, statusMessage: 'Imóvel não encontrado.' })
   return property

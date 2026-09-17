@@ -14,8 +14,7 @@ import {
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
-  const id = getRouterParam(event, 'id')
-  if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+  const id = idDeRota(getRouterParam(event, 'id'))
 
   const contrato = await getContract(client, tenant.id, id)
   if (!contrato) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })

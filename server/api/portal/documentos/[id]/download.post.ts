@@ -1,5 +1,6 @@
 import { canClientSeeDocument } from '~~/shared/utils/portal-access'
-import { ehUuid, nomeDeDownload } from '~~/shared/utils/portal-download'
+import { nomeDeDownload } from '~~/shared/utils/portal-download'
+import { ehUuid } from '~~/shared/utils/uuid'
 import { getContractForClient } from '~~/server/repositories/contract.repository'
 import {
   getDocumentWithPath,

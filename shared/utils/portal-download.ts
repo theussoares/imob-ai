@@ -1,24 +1,11 @@
 /**
- * Duas peças puras do caminho de download do portal. Aqui e não no handler
- * porque handler de rota não se testa sozinho, e as duas erram de formas que
- * só um teste pega.
- */
-
-/** O id tem forma de uuid? */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/**
- * Serve para responder 404 sem ir ao banco.
+ * O nome do arquivo que o cliente baixa. Aqui e não no handler porque handler
+ * de rota não se testa sozinho, e esta função erra de um jeito que só um teste
+ * pega.
  *
- * `portal_documents.id` é `uuid`. Mandar `'../algo'` para `.eq('id', ...)` faz o
- * Postgres devolver 22P02 (sintaxe inválida), o repositório dá `throw error` e o
- * handler responde **500** — quando a resposta certa é a mesma de qualquer id
- * que não existe: 404. Um 500 aqui ainda diria, a quem estivesse sondando, que
- * aquele id é diferente dos outros.
+ * (A checagem de uuid que morava aqui virou `shared/utils/uuid.ts`: ela não é
+ * do download, serve todo caminho que recebe id de rota.)
  */
-export function ehUuid(valor: string): boolean {
-  return UUID.test((valor || '').trim())
-}
 
 /** Só o que pode viver num nome de arquivo sem quebrar o cabeçalho. */
 const PROIBIDO = /[\\/\r\n\t\x00-\x1f"]+/g

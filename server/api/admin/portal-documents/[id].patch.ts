@@ -7,8 +7,7 @@ import {
 /** Publica, despublica, ou corrige o público-alvo. */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
-  const id = getRouterParam(event, 'id')
-  if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+  const id = idDeRota(getRouterParam(event, 'id'))
 
   const body = await readBody<{ published?: unknown; audience?: unknown }>(event)
 
