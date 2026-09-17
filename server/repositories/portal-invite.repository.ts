@@ -7,7 +7,7 @@ import {
   emailConvitePortal,
   type CorpoEmail,
 } from '~~/server/utils/email-templates'
-import { enviarEmail } from '~~/server/utils/mailer'
+import { enviarEmail, type Remetente } from '~~/server/utils/mailer'
 
 type Client = SupabaseClient<Database>
 
@@ -172,8 +172,10 @@ async function linkDeRedefinicao(
 export async function convidarClientePortal(
   service: Client,
   tenantId: string,
-  tenantNome: string,
-  tenantEmail: string | null,
+  // O remetente inteiro, e não nome/e-mail soltos: a assinatura já tinha sete
+  // posicionais, e um terceiro `string` adjacente tornaria uma troca de ordem
+  // invisível para o compilador.
+  remetente: Remetente,
   input: PortalUserInput,
   redirectTo: string,
   urlPortal: string,
@@ -246,7 +248,7 @@ export async function convidarClientePortal(
     // Caso 1: a conta nasceu agora.
     corpo = emailConvitePortal({
       nomeCliente: cliente.name,
-      nomeImobiliaria: tenantNome,
+      nomeImobiliaria: remetente.nome,
       link: acesso.linkConvite,
     })
   } else if (vinculoConfirmado) {
@@ -254,8 +256,8 @@ export async function convidarClientePortal(
     const link = await linkDeRedefinicao(service, email, redirectTo)
     semToken = !link
     corpo = link
-      ? emailConvitePortal({ nomeCliente: cliente.name, nomeImobiliaria: tenantNome, link })
-      : emailAcessoLiberado({ nomeCliente: cliente.name, nomeImobiliaria: tenantNome, urlPortal })
+      ? emailConvitePortal({ nomeCliente: cliente.name, nomeImobiliaria: remetente.nome, link })
+      : emailAcessoLiberado({ nomeCliente: cliente.name, nomeImobiliaria: remetente.nome, urlPortal })
   } else {
     // Caso 3: conta preexistente de terceiro, ou reenvio de um cadastro que
     // nasceu assim e ninguém confirmou. NENHUM token, quantas vezes for.
@@ -266,7 +268,7 @@ export async function convidarClientePortal(
     })
     corpo = emailAcessoLiberado({
       nomeCliente: cliente.name,
-      nomeImobiliaria: tenantNome,
+      nomeImobiliaria: remetente.nome,
       urlPortal,
     })
   }
@@ -278,7 +280,7 @@ export async function convidarClientePortal(
       assunto: corpo.assunto,
       html: corpo.html,
       texto: corpo.texto,
-      remetente: { nome: tenantNome, replyTo: tenantEmail },
+      remetente,
     })
     emailEnviado = r.enviado
   } catch (e) {

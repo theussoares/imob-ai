@@ -1,5 +1,6 @@
 import type { PortalUserInput } from '~~/shared/models/portal'
 import { convidarClientePortal } from '~~/server/repositories/portal-invite.repository'
+import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 import { portalOrigin, urlDefinirSenha, urlLoginPortal } from '~~/server/utils/portal-origin'
 
 /**
@@ -18,11 +19,16 @@ export default defineEventHandler(async (event) => {
   const service = serviceSupabase()
   const origem = await portalOrigin(service, tenant)
 
+  const remetente = {
+    nome: tenant.name,
+    endereco: await remetenteDoTenant(tenant),
+    replyTo: tenant.email,
+  }
+
   const resultado = await convidarClientePortal(
     service,
     tenant.id,
-    tenant.name,
-    tenant.email,
+    remetente,
     body,
     urlDefinirSenha(origem),
     urlLoginPortal(origem),

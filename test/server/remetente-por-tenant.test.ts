@@ -143,3 +143,38 @@ describe('remetenteDoTenant', () => {
     expect(avisos).not.toContain('remetente.dedicado_sem_reply_to')
   })
 })
+
+describe('os dois caminhos de envio usam a fonte única', () => {
+  const fonte = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8')
+
+  test('o convite resolve o remetente antes de chamar o repositório', () => {
+    const f = fonte('server', 'api', 'admin', 'portal-users.post.ts')
+    expect(f).toContain('remetenteDoTenant')
+  })
+
+  test('a recuperação de senha também', () => {
+    const f = fonte('server', 'api', 'portal', 'recuperar-senha.post.ts')
+    expect(f).toContain('remetenteDoTenant')
+  })
+
+  test('o caminho de envio não lê config.mailFrom por fora do fallback', () => {
+    // A regra que some num refactor sem deixar erro: o código continua
+    // enviando, só que do domínio errado — e o sintoma aparece semanas depois,
+    // como "o e-mail não parece vir de nós".
+    for (const p of [
+      ['server', 'api', 'admin', 'portal-users.post.ts'],
+      ['server', 'api', 'portal', 'recuperar-senha.post.ts'],
+      ['server', 'repositories', 'portal-invite.repository.ts'],
+    ]) {
+      expect(fonte(...p), p.join('/')).not.toContain('mailFrom')
+    }
+  })
+
+  test('o repositório recebe o Remetente pronto, não nome e e-mail soltos', () => {
+    // Três `string` adjacentes numa assinatura posicional é troca silenciosa
+    // esperando acontecer: o tipo não distingue nome de endereço.
+    const f = fonte('server', 'repositories', 'portal-invite.repository.ts')
+    expect(f).toContain('remetente: Remetente')
+    expect(f).not.toContain('tenantNome')
+  })
+})

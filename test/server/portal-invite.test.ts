@@ -32,8 +32,10 @@ const { convidarClientePortal } = await import('~~/server/repositories/portal-in
 
 const TENANT = 't-olmi'
 const NOME_IMOB = 'OLMI Imóveis'
+const ENDERECO_REMETENTE = 'nao-responda@usemoradi.com.br'
 const REDIRECT = 'https://olmi.com.br/area-cliente/definir-senha'
 const PORTAL = 'https://olmi.com.br/area-cliente/login'
+const REMETENTE = { nome: NOME_IMOB, endereco: ENDERECO_REMETENTE, replyTo: 'contato@olmi.com.br' }
 
 const ENTRADA = { name: 'Giane', email: 'Giane@Exemplo.com', doc: null, phone: null }
 
@@ -61,8 +63,7 @@ function convidar(client: unknown) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     client as any,
     TENANT,
-    NOME_IMOB,
-    'contato@olmi.com.br',
+    REMETENTE,
     ENTRADA,
     REDIRECT,
     PORTAL,
@@ -237,7 +238,7 @@ describe('o e-mail em si', () => {
 
     await convidar(client)
 
-    expect(enviados[0]?.remetente).toEqual({ nome: NOME_IMOB, replyTo: 'contato@olmi.com.br' })
+    expect(enviados[0]?.remetente).toEqual(REMETENTE)
     // Normalizado: o índice único do banco é sobre lower(email).
     expect(enviados[0]?.para).toBe('giane@exemplo.com')
   })
