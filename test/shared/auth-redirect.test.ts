@@ -26,6 +26,63 @@ describe('authHashTarget', () => {
     expect(authHashTarget(HASH_CONVITE, '/admin/definir-senha')).toBeNull()
   })
 
+  /**
+   * ⚠️ O bug que motivou este bloco, visto em produção em 17/09.
+   *
+   * O convite do PORTAL aterrissava certo em `/area-cliente/definir-senha` — o
+   * `redirect_to` estava correto, a allowlist do Supabase cobria, e o Supabase
+   * honrava (conferido batendo no `/verify` com token inválido: ele devolve 303
+   * para o caminho do portal). Este resgate é que sequestrava o token e o
+   * mandava para `/admin/definir-senha`, porque o destino era uma constante.
+   *
+   * A pessoa definia a senha na tela do PAINEL, era mandada para `/admin`, o
+   * middleware via que ela não é membro do tenant e a jogava no login do painel
+   * com "sua conta não tem acesso a esta imobiliária" — mensagem que não tem
+   * nada a ver com o que ela estava fazendo.
+   *
+   * A ironia: este plugin existe para salvar convites cujo `redirect_to` o
+   * Supabase tivesse DESCARTADO. Com a allowlist correta, ele virou dano puro e
+   * passou a causar o beco sem saída que existia para evitar.
+   */
+  describe('o portal tem a própria tela de definir senha', () => {
+    test('não sequestra o convite que já caiu na tela do portal', () => {
+      expect(authHashTarget(HASH_CONVITE, '/area-cliente/definir-senha')).toBeNull()
+    })
+
+    test('recuperação de senha do portal também fica onde está', () => {
+      const hash = '#access_token=eyJabc&refresh_token=xyz&type=recovery'
+      expect(authHashTarget(hash, '/area-cliente/definir-senha')).toBeNull()
+    })
+
+    test('token perdido DENTRO do portal vai para a tela do portal', () => {
+      // O resgate continua existindo; o que muda é para onde ele resgata. Quem
+      // estava no portal não pode ser despejado no painel, onde não tem acesso.
+      expect(authHashTarget(HASH_CONVITE, '/area-cliente')).toBe(
+        `/area-cliente/definir-senha${HASH_CONVITE}`,
+      )
+      expect(authHashTarget(HASH_CONVITE, '/area-cliente/login')).toBe(
+        `/area-cliente/definir-senha${HASH_CONVITE}`,
+      )
+    })
+
+    test('fora do portal, o destino continua sendo o painel', () => {
+      // A regra antiga não muda para quem não está no portal: é o fluxo de
+      // convite de usuário do painel, que continua valendo.
+      expect(authHashTarget(HASH_CONVITE, '/')).toBe(`/admin/definir-senha${HASH_CONVITE}`)
+      expect(authHashTarget(HASH_CONVITE, '/admin/imoveis')).toBe(
+        `/admin/definir-senha${HASH_CONVITE}`,
+      )
+    })
+
+    test('não confunde um caminho que só começa parecido', () => {
+      // `/area-clientes` (com s) não é o portal. Sem a barra na comparação,
+      // um caminho novo com prefixo parecido herdaria o destino errado.
+      expect(authHashTarget(HASH_CONVITE, '/area-clientes-fake')).toBe(
+        `/admin/definir-senha${HASH_CONVITE}`,
+      )
+    })
+  })
+
   test('ignora hash comum de navegação', () => {
     expect(authHashTarget('#contato', '/')).toBeNull()
     expect(authHashTarget('', '/')).toBeNull()
