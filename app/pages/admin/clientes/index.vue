@@ -114,8 +114,13 @@ async function convidar() {
  * ligação que a mensagem deveria evitar.
  */
 const FALHA_DE_ENVIO: Record<'nao_configurado' | 'provedor', string> = {
+  // ⚠️ Esta frase NÃO promete que alguém já está resolvendo. A versão anterior
+  // dizia "já ficamos sabendo", e o único registro que este caminho produz é uma
+  // linha de log que ninguém observa — não existe alerta. Prometer ciência que
+  // não existe é o mesmo defeito do "tente de novo em instantes" que este
+  // arquivo corrigiu, só que pelo outro lado.
   nao_configurado:
-    'O envio de e-mail da plataforma não está configurado. Já ficamos sabendo — não adianta tentar de novo agora.',
+    'O envio de e-mail da plataforma não está configurado. Tentar de novo não resolve — é problema nosso, não do seu cadastro. Avise o suporte.',
   provedor:
     'O provedor de e-mail recusou o envio. Tente de novo em alguns minutos.',
 }
@@ -253,6 +258,7 @@ useHead({ title: 'Clientes · Painel' })
               class="admin-btn ghost"
               type="button"
               :disabled="!!reenviandoId"
+              :title="reenviandoId && reenviandoId !== c.id ? 'Aguarde o envio em curso' : undefined"
               @click="reenviar(c)"
             >
               {{ reenviandoId === c.id ? 'Enviando…' : 'Reenviar convite' }}
