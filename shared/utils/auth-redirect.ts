@@ -1,5 +1,18 @@
-/** Tela que sabe consumir o token e pedir a senha nova. */
+/**
+ * Telas que sabem consumir o token e pedir a senha nova. São DUAS, e confundi-las
+ * é o bug que este arquivo já causou.
+ *
+ * O painel e o portal têm fluxos de senha separados porque são públicos
+ * diferentes: quem define senha pelo painel é membro da imobiliária, quem define
+ * pelo portal é cliente dela. Mandar um para a tela do outro termina em "sua
+ * conta não tem acesso a esta imobiliária" — mensagem correta para o middleware
+ * que a emite e incompreensível para quem só clicou num convite.
+ */
 export const SET_PASSWORD_PATH = '/admin/definir-senha'
+export const SET_PASSWORD_PATH_PORTAL = '/area-cliente/definir-senha'
+
+/** Prefixo do portal. Com a barra: `/area-clientes-fake` não é o portal. */
+const PORTAL_PREFIX = '/area-cliente'
 
 /** Tipos de link que essa tela trata. Outros seguem o fluxo normal do Supabase. */
 const HANDLED_TYPES = ['invite', 'recovery']
@@ -28,8 +41,25 @@ export function authHashTarget(hash: string, currentPath: string): string | null
   const type = params.get('type')
   if (!type || !HANDLED_TYPES.includes(type)) return null
 
-  // Já está no lugar certo: redirecionar de novo viraria laço.
-  if (currentPath === SET_PASSWORD_PATH) return null
+  // Já está numa tela que sabe consumir: redirecionar de novo viraria laço no
+  // caso do painel e, no caso do portal, jogaria fora um token que acabou de
+  // chegar no lugar CERTO.
+  //
+  // ⚠️ Esta segunda metade é o conserto de 17/09. Antes, a comparação olhava só
+  // para a tela do painel, então todo convite do portal — que aterrissa em
+  // `/area-cliente/definir-senha` porque o `redirect_to` e a allowlist estão
+  // corretos — era sequestrado para o painel. O cliente definia a senha na tela
+  // errada e caía em "sua conta não tem acesso a esta imobiliária".
+  if (currentPath === SET_PASSWORD_PATH || currentPath === SET_PASSWORD_PATH_PORTAL) return null
 
-  return `${SET_PASSWORD_PATH}${hash.startsWith('#') ? hash : `#${hash}`}`
+  // Para onde resgatar depende de ONDE o token caiu, porque o `type` do hash não
+  // distingue os dois fluxos: `invite` é `invite` para membro e para cliente.
+  // O caminho de aterrissagem é a única pista que existe, e ela acerta o caso
+  // que importa — token perdido dentro do portal fica no portal.
+  const destino = ehDoPortal(currentPath) ? SET_PASSWORD_PATH_PORTAL : SET_PASSWORD_PATH
+  return `${destino}${hash.startsWith('#') ? hash : `#${hash}`}`
+}
+
+function ehDoPortal(path: string): boolean {
+  return path === PORTAL_PREFIX || path.startsWith(`${PORTAL_PREFIX}/`)
 }
