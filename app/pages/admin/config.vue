@@ -15,6 +15,9 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "portalEnabled",
   ]);
 
+const { areaCliente, carregar } = useAdminFeatures();
+onMounted(carregar);
+
 // Preview ao vivo das cores
 watch(
   () => [form.brandPrimary, form.brandAccent, form.whatsappButtonColor],
@@ -79,6 +82,14 @@ useHead({ title: "Configurações · Painel" });
         </div>
       </div>
 
+      <!--
+        Só aparece para quem tem o recurso. Sem esta condição, uma imobiliária
+        sem a Área do Cliente podia ligar o link no site dela — e o visitante
+        que clicasse chegaria num login que recusa todo mundo, porque a RLS
+        fecha o portal quando o recurso está desligado. O interruptor prometia
+        algo que o sistema não entrega.
+      -->
+      <template v-if="areaCliente">
       <h3 class="section-t">Área do Cliente</h3>
       <label class="check-row">
         <input v-model="form.portalEnabled" type="checkbox" />
@@ -93,6 +104,7 @@ useHead({ title: "Configurações · Painel" });
           </small>
         </span>
       </label>
+      </template>
 
       <h3 class="section-t">Cores da marca</h3>
       <div class="form-grid">

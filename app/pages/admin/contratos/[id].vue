@@ -18,7 +18,7 @@ import {
 import { defaultAudienceFor, describeAudience } from '~~/shared/utils/portal-access'
 import type { ParteDoContrato } from '~~/server/repositories/contract.repository'
 
-definePageMeta({ layout: 'admin', middleware: 'admin' })
+definePageMeta({ layout: 'admin', middleware: ['admin', 'area-cliente'] })
 
 const route = useRoute()
 const toast = useToast()

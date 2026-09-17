@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Contract } from '~~/shared/models/portal'
 
-definePageMeta({ layout: 'admin', middleware: 'admin' })
+definePageMeta({ layout: 'admin', middleware: ['admin', 'area-cliente'] })
 
 const { data: contratos, pending } = useLazyAsyncData(
   'admin:contracts',
