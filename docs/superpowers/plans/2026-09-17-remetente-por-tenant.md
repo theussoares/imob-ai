@@ -102,7 +102,7 @@ Decida no fim: merge na `develop`, ou rebase em cima da `main` para um PR limpo.
 - Produces: tabela `public.tenant_mail_sender (tenant_id uuid pk, from_address text not null, notes text, created_at timestamptz, updated_at timestamptz)`; tipo
   `Database['public']['Tables']['tenant_mail_sender']`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Crie `test/server/remetente-por-tenant.test.ts`:
 
@@ -152,12 +152,12 @@ describe('a tabela do remetente não é gravável pela imobiliária', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: FAIL — `ENOENT: no such file or directory ... 0038_tenant_mail_sender.sql`
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 Crie `supabase/migrations/0038_tenant_mail_sender.sql`:
 
@@ -228,7 +228,7 @@ create trigger trg_tenant_mail_sender_updated before update on public.tenant_mai
   for each row execute function public.set_updated_at();
 ```
 
-- [ ] **Step 4: Write the rollback**
+- [x] **Step 4: Write the rollback**
 
 Crie `supabase/migrations/rollback/0038_rollback.sql`:
 
@@ -243,12 +243,12 @@ Crie `supabase/migrations/rollback/0038_rollback.sql`:
 drop table if exists public.tenant_mail_sender;
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: PASS (3 testes)
 
-- [ ] **Step 6: Add the table type**
+- [x] **Step 6: Add the table type**
 
 Em `shared/types/database.types.ts`, dentro de `public.Tables`: **logo depois do
 bloco `tenant_features` e antes de `tenant_domains`**. (O arquivo não está em
@@ -290,12 +290,12 @@ tente reordenar nada; só insira ali.)
       }
 ```
 
-- [ ] **Step 7: Verify the whole suite and the types**
+- [x] **Step 7: Verify the whole suite and the types**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: typecheck sem erro novo, todos os testes passando.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add supabase/migrations/0038_tenant_mail_sender.sql supabase/migrations/rollback/0038_rollback.sql shared/types/database.types.ts test/server/remetente-por-tenant.test.ts
