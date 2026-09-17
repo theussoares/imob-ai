@@ -1,5 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { resolveFooterPages, sanitizeFooterPageOverrides } from '~~/shared/utils/footer-pages'
+import {
+  STATIC_FOOTER_PAGES,
+  resolveFooterPages,
+  sanitizeFooterPageOverrides,
+} from '~~/shared/utils/footer-pages'
 
 const registro = [
   { path: '/quero-vender', label: 'Quero vender ou alugar' },
@@ -73,5 +79,49 @@ describe('sanitizeFooterPageOverrides', () => {
     expect(sanitizeFooterPageOverrides(null)).toEqual({})
     expect(sanitizeFooterPageOverrides([1, 2])).toEqual({})
     expect(sanitizeFooterPageOverrides({ '/a': 'nao é objeto' })).toEqual({})
+  })
+})
+
+describe('rascunho de política de privacidade', () => {
+  const CAMINHO = '/privacidade'
+  const ARQUIVO = join(process.cwd(), 'app', 'pages', 'privacidade.vue')
+  const registrada = STATIC_FOOTER_PAGES.some((p) => p.path === CAMINHO)
+  const fonte = readFileSync(ARQUIVO, 'utf8')
+
+  /**
+   * A página existe e responde na URL em TODO domínio de tenant, mas o texto
+   * jurídico ainda não passou por advogado — por isso ela não está no registro
+   * acima. Só que não estar no rodapé não a esconde de crawler: basta um link
+   * externo, um referrer ou o palpite de URL mais óbvio que existe para uma
+   * política não revisada ser indexada e servida como a política de uma
+   * imobiliária real, com um `canonical` afirmando ser a versão autoritativa.
+   *
+   * Enquanto for rascunho, `noindex` é o que segura isso. Quando a revisão sair
+   * e a página entrar no registro, este teste inverte a exigência sozinho —
+   * publicar no rodapé e continuar pedindo para não indexar é contradição.
+   */
+  test(registrada ? 'publicada: sem noindex' : 'rascunho: com noindex', () => {
+    const temNoindex = /name:\s*'robots'[\s\S]{0,60}noindex/.test(fonte)
+    expect(
+      temNoindex,
+      registrada
+        ? 'a página está no rodapé e ainda pede noindex'
+        : 'rascunho não registrado no rodapé precisa de noindex',
+    ).toBe(!registrada)
+  })
+
+  test('as telas do portal também não são indexáveis', () => {
+    // Login, definir senha e as páginas da área do cliente. Nenhuma delas tem o
+    // que fazer num índice de busca.
+    for (const rel of [
+      'area-cliente/login.vue',
+      'area-cliente/definir-senha.vue',
+      'area-cliente/recuperar-senha.vue',
+      'area-cliente/index.vue',
+      'area-cliente/contratos/[id].vue',
+    ]) {
+      const f = readFileSync(join(process.cwd(), 'app', 'pages', rel), 'utf8')
+      expect(/noindex/.test(f), `${rel} sem noindex`).toBe(true)
+    }
   })
 })

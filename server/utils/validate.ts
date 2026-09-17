@@ -6,6 +6,14 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
+import type {
+  ContractInput,
+  ContractInternalInput,
+  PortalDocumentInput,
+  PortalUserInput,
+} from '~~/shared/models/portal'
+import { CONTRACT_PARTY_ROLES, PORTAL_DOC_CATEGORIES } from '~~/shared/models/portal'
+import { ehUuid } from '~~/shared/utils/uuid'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -31,6 +39,10 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
         statusMessage: 'O link do botão deve começar com / ou com http(s)://',
       })
     }
+  }
+
+  if (t.portalEnabled !== undefined && typeof t.portalEnabled !== 'boolean') {
+    throw createError({ statusCode: 422, statusMessage: 'Valor inválido para a Área do Cliente.' })
   }
 
   if (t.heroImagePosition !== undefined && !HERO_POSITIONS.includes(t.heroImagePosition as string)) {
@@ -152,4 +164,181 @@ export function assertBrokerInput(input: unknown): asserts input is BrokerInput 
   if (b.phone !== undefined && b.phone !== null && String(b.phone).trim() && !isValidWhatsapp(String(b.phone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do corretor inválido.' })
   }
+}
+
+
+/** Valida o payload de contrato vindo do painel. */
+export function assertContractInput(input: unknown): asserts input is ContractInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const c = input as Record<string, unknown>
+
+  if (!String(c.code ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Código do contrato é obrigatório.' })
+  }
+  if (c.status !== undefined && !['ativo', 'encerrado'].includes(String(c.status))) {
+    throw createError({ statusCode: 422, statusMessage: 'Situação do contrato inválida.' })
+  }
+
+  // O mesmo check da constraint da 0028, adiantado para virar mensagem legível
+  // em vez de erro do Postgres. Dia 0 e dia 45 são digitação, e um contrato com
+  // vencimento inválido só aparece no mês em que a cobrança não sai.
+  if (c.dueDay !== undefined && c.dueDay !== null) {
+    const dia = Number(c.dueDay)
+    if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+      throw createError({ statusCode: 422, statusMessage: 'Dia do vencimento deve ser entre 1 e 31.' })
+    }
+  }
+
+  if (c.rentAmount !== undefined && c.rentAmount !== null) {
+    const valor = Number(c.rentAmount)
+    if (!Number.isFinite(valor) || valor < 0) {
+      throw createError({ statusCode: 422, statusMessage: 'Valor do aluguel inválido.' })
+    }
+  }
+
+  assertOptionalDate(c.startedOn, 'Início da locação')
+  assertOptionalDate(c.endsOn, 'Fim da locação')
+
+  // Contrato que termina antes de começar passa despercebido no cadastro e
+  // reaparece como vigência negativa na tela do cliente.
+  if (c.startedOn && c.endsOn && String(c.endsOn) < String(c.startedOn)) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'O fim da locação não pode ser anterior ao início.',
+    })
+  }
+
+  // Sem imóvel do catálogo E sem endereço escrito, o contrato não tem como ser
+  // identificado na tela — nem pelo cliente, nem por quem cadastrou.
+  const temImovel = c.propertyId !== undefined && c.propertyId !== null && String(c.propertyId).trim()
+  const temEndereco = String(c.addressLabel ?? '').trim()
+  if (!temImovel && !temEndereco) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Informe o imóvel do catálogo ou escreva o endereço do contrato.',
+    })
+  }
+}
+
+/** Valida o cadastro de um cliente do portal. */
+export function assertPortalUserInput(input: unknown): asserts input is PortalUserInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const u = input as Record<string, unknown>
+
+  if (!String(u.name ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Nome é obrigatório.' })
+  }
+
+  // O e-mail é a identidade da pessoa no Auth e a chave do convite. E-mail
+  // errado aqui não é campo errado: é convite entregue a outra pessoa.
+  const email = String(u.email ?? '').trim()
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw createError({ statusCode: 422, statusMessage: 'E-mail inválido.' })
+  }
+
+  if (u.phone !== undefined && u.phone !== null && String(u.phone).trim() && !isValidWhatsapp(String(u.phone))) {
+    throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do cliente inválido.' })
+  }
+}
+
+/** Valida o público-alvo de um documento vindo do painel. */
+export function assertAudience(value: unknown): asserts value is string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    // Audiência vazia grava um documento que ninguém vê — e o suporte que vem
+    // depois é "publiquei e o cliente diz que não está lá".
+    throw createError({ statusCode: 422, statusMessage: 'Escolha quem pode ver este documento.' })
+  }
+  for (const papel of value) {
+    if (!CONTRACT_PARTY_ROLES.includes(papel as never)) {
+      throw createError({ statusCode: 422, statusMessage: 'Público-alvo inválido.' })
+    }
+  }
+}
+
+
+/**
+ * Valida os campos internos do contrato.
+ *
+ * `admin_fee_percent` é margem comercial da imobiliária. A constraint da 0028
+ * já recusa fora de 0–100; aqui a recusa vira mensagem legível, e não erro do
+ * Postgres numa tela de cadastro.
+ */
+export function assertContractInternalInput(input: unknown): asserts input is ContractInternalInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const i = input as Record<string, unknown>
+
+  if (i.adminFeePercent !== undefined && i.adminFeePercent !== null) {
+    const taxa = Number(i.adminFeePercent)
+    if (!Number.isFinite(taxa) || taxa < 0 || taxa > 100) {
+      throw createError({
+        statusCode: 422,
+        statusMessage: 'Taxa de administração deve ser entre 0 e 100.',
+      })
+    }
+  }
+}
+
+
+/** Valida o payload de publicação de documento. */
+export function assertPortalDocumentInput(input: unknown): asserts input is PortalDocumentInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const d = input as Record<string, unknown>
+
+  if (!String(d.contractId ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Contrato é obrigatório.' })
+  }
+  if (!String(d.title ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Título do documento é obrigatório.' })
+  }
+  if (!String(d.storagePath ?? '').trim()) {
+    throw createError({ statusCode: 422, statusMessage: 'Envie o arquivo antes de salvar.' })
+  }
+  if (!PORTAL_DOC_CATEGORIES.includes(d.category as never)) {
+    throw createError({ statusCode: 422, statusMessage: 'Categoria de documento inválida.' })
+  }
+
+  // Audiência só é validada quando VEM: ausente significa "use o default da
+  // categoria", que é o caminho seguro e o preferido.
+  if (d.audience !== undefined) assertAudience(d.audience)
+
+  assertOptionalDate(d.competence, 'Competência')
+  assertOptionalDate(d.dueOn, 'Vencimento')
+
+  if (d.amount !== undefined && d.amount !== null) {
+    const valor = Number(d.amount)
+    if (!Number.isFinite(valor) || valor < 0) {
+      throw createError({ statusCode: 422, statusMessage: 'Valor do documento inválido.' })
+    }
+  }
+}
+
+/**
+ * O id que veio da rota, conferido que tem forma de uuid.
+ *
+ * Todas as rotas do painel faziam `if (!id) throw 400`, que pega o id AUSENTE e
+ * deixa passar o id MALFORMADO. A diferença importa porque todo id deste
+ * sistema é `uuid` no banco: `/api/admin/contracts/abc` chegava em
+ * `.eq('id', 'abc')`, o Postgres devolvia 22P02, o repositório dava
+ * `throw error` e a resposta era **500** — erro de servidor para o que é, no
+ * fundo, um id que não existe.
+ *
+ * Continua 400 e não 404: quem chama aqui é membro autenticado do painel, e
+ * "você mandou um id que não é id" é informação útil para ele. Nos endpoints do
+ * PORTAL a resposta é 404, porque lá nada pode distinguir um id de outro — ver
+ * `shared/utils/uuid.ts`.
+ */
+export function idDeRota(valor: string | null | undefined, rotulo = 'ID'): string {
+  const id = (valor || '').trim()
+  if (!ehUuid(id)) {
+    throw createError({ statusCode: 400, statusMessage: `${rotulo} inválido.` })
+  }
+  return id
 }

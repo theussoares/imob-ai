@@ -15,12 +15,27 @@ export const CONTRACT_PARTY_ROLES: readonly ContractPartyRole[] = [
   'fiador',
 ]
 
+/** Como cada papel é escrito na tela, para a imobiliária e para o cliente. */
+export const CONTRACT_PARTY_LABELS: Record<ContractPartyRole, string> = {
+  inquilino: 'inquilino',
+  proprietario: 'proprietário',
+  fiador: 'fiador',
+}
+
 export type ContractStatus = 'ativo' | 'encerrado'
 
-export type PortalDocCategory = 'contrato' | 'vistoria' | 'boleto' | 'recibo' | 'extrato' | 'outro'
+export type PortalDocCategory =
+  | 'contrato'
+  | 'contrato_administracao'
+  | 'vistoria'
+  | 'boleto'
+  | 'recibo'
+  | 'extrato'
+  | 'outro'
 
 export const PORTAL_DOC_CATEGORIES: readonly PortalDocCategory[] = [
   'contrato',
+  'contrato_administracao',
   'vistoria',
   'boleto',
   'recibo',
@@ -30,12 +45,38 @@ export const PORTAL_DOC_CATEGORIES: readonly PortalDocCategory[] = [
 
 /** Rótulos de tela, no vocabulário que a imobiliária usa com o cliente. */
 export const PORTAL_DOC_LABELS: Record<PortalDocCategory, string> = {
-  contrato: 'Contrato',
+  contrato: 'Contrato de locação',
+  contrato_administracao: 'Contrato de administração',
   vistoria: 'Vistoria',
   boleto: 'Boleto',
   recibo: 'Recibo',
   extrato: 'Extrato de repasse',
   outro: 'Outro documento',
+}
+
+/**
+ * O que vai em cada categoria, escrito para quem SOBE o documento.
+ *
+ * Existe porque quem classifica o documento é a imobiliária, e a classificação
+ * decide quem enxerga. A responsabilidade pelo acerto é de quem sobe — e é
+ * justamente por isso que a tela precisa dizer, no momento da escolha, o que
+ * vai ali e quem vai ver. Regra que só existe na cabeça de quem escreveu o
+ * código não é regra: é armadilha.
+ *
+ * A frase de "quem vê" NÃO mora aqui. Ela é derivada de `defaultAudienceFor`
+ * por `describeAudience`, para que rótulo e comportamento não possam divergir —
+ * o dia em que a audiência de uma categoria mudar e o texto continuar o antigo
+ * é o dia em que a tela mente para quem confiou nela.
+ */
+export const PORTAL_DOC_HINTS: Record<PortalDocCategory, string> = {
+  contrato: 'O contrato de locação assinado pelas duas pontas.',
+  contrato_administracao:
+    'O contrato entre a imobiliária e o dono do imóvel. Traz taxa de administração e dados bancários do proprietário — o inquilino não é parte dele.',
+  vistoria: 'O laudo de vistoria do imóvel (entrada ou saída).',
+  boleto: 'O boleto do aluguel do mês.',
+  recibo: 'O comprovante de pagamento do aluguel — hoje, o Pix.',
+  extrato: 'O extrato de repasse ao proprietário, com a taxa de administração descontada.',
+  outro: 'Qualquer outro documento do contrato — apólice de seguro, notificação, aditivo.',
 }
 
 /** Cliente da imobiliária com acesso ao portal. */
@@ -153,4 +194,27 @@ export interface PortalUserInput {
   email: string
   doc?: string | null
   phone?: string | null
+}
+
+
+/**
+ * Publicação de um documento pelo painel.
+ *
+ * `storagePath` chega do navegador porque o upload vai direto ao Storage (as
+ * policies da 0028 autorizam pela pasta do slug). O servidor NÃO confia nele —
+ * ver `assertCaminhoDoTenant` em `portal-document.repository.ts`.
+ */
+export interface PortalDocumentInput {
+  contractId: string
+  category: PortalDocCategory
+  title: string
+  /** Mês de referência, gravado no dia 1. */
+  competence?: string | null
+  dueOn?: string | null
+  amount?: number | null
+  storagePath: string
+  mime?: string | null
+  sizeBytes?: number | null
+  /** Omitido = o default seguro da categoria (`defaultAudienceFor`). */
+  audience?: ContractPartyRole[]
 }

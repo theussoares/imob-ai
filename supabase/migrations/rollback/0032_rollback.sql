@@ -1,0 +1,26 @@
+-- Rollback da 0032.
+--
+-- O Postgres NÃO tem `alter type ... drop value`. Um valor de enum, uma vez
+-- adicionado, não sai sem recriar o tipo inteiro — o que significa derrubar a
+-- coluna `portal_documents.category`, o tipo e todas as dependências, e
+-- remontar. Com documento real já publicado no bucket, isso é perda de dado,
+-- não rollback.
+--
+-- Por isso o rollback aqui é: NÃO reverter o tipo. Um valor de enum a mais e
+-- sem uso é inerte — não muda policy, não muda privilégio, não muda leitura.
+--
+-- O que precisa ser revertido é o lado do app (o default de audiência em
+-- `shared/utils/portal-access.ts` e o rótulo em `shared/models/portal.ts`).
+-- Se houver documento já cadastrado com esta categoria, reclassificar ANTES:
+--
+--   update public.portal_documents
+--      set category = 'outro',
+--          audience = '{proprietario}'
+--    where category = 'contrato_administracao';
+--
+-- O `audience` explícito acima não é detalhe: `outro` tem default
+-- ['inquilino','proprietario'], e reclassificar sem corrigir a audiência
+-- entregaria ao inquilino exatamente o documento que a 0032 foi criada para
+-- proteger.
+
+select 1;

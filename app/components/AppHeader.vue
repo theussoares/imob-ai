@@ -21,6 +21,19 @@ const { whatsappLink } = useContact();
         </span>
       </NuxtLink>
       <div class="bar-cta">
+        <!--
+          Só aparece quando a imobiliária liga a Área do Cliente. Sem esta
+          condição o link iria para o site de toda imobiliária, levando o
+          visitante a um login onde ninguém tem conta.
+        -->
+        <NuxtLink
+          v-if="tenant?.portalEnabled"
+          class="portal-btn"
+          to="/area-cliente"
+        >
+          <AppIcon name="home" />
+          <span class="label-desk">Área do Cliente</span>
+        </NuxtLink>
         <a
           v-if="tenant?.whatsapp"
           class="wa-btn"

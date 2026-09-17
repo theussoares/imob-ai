@@ -113,7 +113,22 @@ export type Database = {
           portal_user_id?: string
           role?: Database["public"]["Enums"]["contract_party_role"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contract_parties_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_parties_portal_user_id_fkey"
+            columns: ["portal_user_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contracts: {
         Row: {
@@ -328,10 +343,12 @@ export type Database = {
       }
       portal_users: {
         Row: {
+          access_confirmed_at: string | null
           active: boolean
           created_at: string
           doc: string | null
           email: string
+          last_recovery_at: string | null
           id: string
           name: string
           phone: string | null
@@ -340,11 +357,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
           email: string
           id?: string
+          last_recovery_at?: string | null
           name: string
           phone?: string | null
           tenant_id: string
@@ -352,11 +371,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
           email?: string
           id?: string
+          last_recovery_at?: string | null
           name?: string
           phone?: string | null
           tenant_id?: string
@@ -511,6 +532,45 @@ export type Database = {
           },
         ]
       }
+      tenant_features: {
+        Row: {
+          enabled: boolean
+          enabled_at: string | null
+          feature: string
+          /** Tipo `date` no banco (YYYY-MM-DD), não timestamp — ver `recursoAtivo`. */
+          grace_until: string | null
+          notes: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          enabled_at?: string | null
+          feature: string
+          grace_until?: string | null
+          notes?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          enabled_at?: string | null
+          feature?: string
+          grace_until?: string | null
+          notes?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_features_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_domains: {
         Row: {
           created_at: string
@@ -600,6 +660,7 @@ export type Database = {
           logo_url: string | null
           name: string
           phone: string | null
+          portal_enabled: boolean
           slug: string
           state: string | null
           tagline: string | null
@@ -633,6 +694,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           phone?: string | null
+          portal_enabled?: boolean
           slug: string
           state?: string | null
           tagline?: string | null
@@ -666,6 +728,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           phone?: string | null
+          portal_enabled?: boolean
           slug?: string
           state?: string | null
           tagline?: string | null
@@ -690,7 +753,14 @@ export type Database = {
       contract_party_role: "inquilino" | "proprietario" | "fiador"
       contract_status: "ativo" | "encerrado"
       member_role: "owner" | "admin"
-      portal_doc_category: "contrato" | "vistoria" | "boleto" | "recibo" | "extrato" | "outro"
+      portal_doc_category:
+        | "contrato"
+        | "contrato_administracao"
+        | "vistoria"
+        | "boleto"
+        | "recibo"
+        | "extrato"
+        | "outro"
       property_purpose: "venda" | "aluguel"
       property_status: "active" | "sold" | "rented" | "draft"
       property_type: "casa" | "apartamento" | "sobrado" | "kitnet" | "chacara" | "rancho" | "terreno" | "barracao" | "sala" | "salao" | "predio"

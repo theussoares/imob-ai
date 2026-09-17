@@ -1,0 +1,36 @@
+-- Contrato de administração: categoria própria, porque a audiência dele é
+-- outra.
+--
+-- Achado ao modelar o primeiro contrato real (OLMI IMÓVEIS, semana 1). A
+-- imobiliária entregou três PDFs para a área do proprietário: laudo de
+-- vistoria, contrato de locação e CONTRATO DE ADMINISTRAÇÃO. O terceiro não
+-- estava previsto em lugar nenhum do plano, e é o mais sigiloso dos três.
+--
+-- O contrato de administração é firmado entre a imobiliária e o PROPRIETÁRIO.
+-- No documento real ele carrega:
+--   - a taxa de administração (10% do aluguel a partir do segundo mês, e 100%
+--     do primeiro aluguel a título de intermediação);
+--   - a conta bancária e a chave Pix pessoal do proprietário, onde o repasse
+--     é depositado;
+--   - a multa rescisória e a comissão de venda devidas à imobiliária.
+--
+-- Nada disso é assunto do inquilino. E sem esta categoria ele seria subido
+-- como `contrato`, cujo default de audiência é
+-- ['inquilino', 'proprietario', 'fiador'] — porque contrato de LOCAÇÃO é, de
+-- fato, o documento que as duas pontas assinaram. O inquilino veria a margem
+-- comercial da imobiliária e os dados bancários do dono do imóvel.
+--
+-- É o mesmo vazamento que a 0028 se preocupou em evitar entre boleto e
+-- extrato, entrando por uma porta que ninguém tinha olhado. E a resposta é a
+-- mesma da 0028: o público-alvo é decidido pela CATEGORIA, em código, não por
+-- alguém lembrar de desmarcar uma caixinha no formulário.
+--
+-- Idempotente: seguro rodar de novo.
+
+alter type portal_doc_category add value if not exists 'contrato_administracao';
+
+-- ⚠️ Esta migration NÃO usa o valor novo (nenhum insert, nenhum default,
+-- nenhuma policy que o referencie). É deliberado: o Postgres proíbe usar um
+-- valor de enum na mesma transação em que ele foi adicionado, e migration do
+-- Supabase roda em transação. Qualquer uso do valor entra na migration
+-- seguinte, ou pelo app.

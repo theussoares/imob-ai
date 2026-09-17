@@ -12,6 +12,7 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "brandAccent",
     "whatsappButtonColor",
     "alternateNames",
+    "portalEnabled",
   ]);
 
 // Preview ao vivo das cores
@@ -77,6 +78,21 @@ useHead({ title: "Configurações · Painel" });
           <input v-model="form.creci" class="admin-input" />
         </div>
       </div>
+
+      <h3 class="section-t">Área do Cliente</h3>
+      <label class="check-row">
+        <input v-model="form.portalEnabled" type="checkbox" />
+        <span>
+          <b>Mostrar o link "Área do Cliente" no site</b>
+          <small>
+            Liga a entrada no topo e no rodapé do site público. Não altera quem
+            tem acesso: quem entra são os clientes cadastrados em
+            <NuxtLink to="/admin/clientes">Clientes</NuxtLink>. Deixe desligado
+            enquanto ainda não houver ninguém cadastrado — o visitante cairia
+            numa tela de login sem conta.
+          </small>
+        </span>
+      </label>
 
       <h3 class="section-t">Cores da marca</h3>
       <div class="form-grid">
@@ -189,6 +205,31 @@ useHead({ title: "Configurações · Painel" });
 </template>
 
 <style scoped>
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 13px 14px;
+}
+.check-row input {
+  margin-top: 3px;
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+.check-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.check-row small {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.45;
+}
+
 .field-err {
   color: #b91c1c;
   font-size: 12.5px;

@@ -17,8 +17,7 @@ import { updateProperty } from '~~/server/repositories/property.repository'
  */
 export default defineEventHandler(async (event) => {
   const { tenant, user } = await requireTenantMember(event)
-  const id = getRouterParam(event, 'id')
-  if (!id) throw createError({ statusCode: 400, statusMessage: 'ID inválido.' })
+  const id = idDeRota(getRouterParam(event, 'id'))
   // `expectedUpdatedAt` viaja no body mas NÃO faz parte do PropertyInput: é a
   // versão que a tela carregou, usada só como condição do update. Fica fora do
   // tipo de propósito, para nunca ser confundido com campo gravável.
