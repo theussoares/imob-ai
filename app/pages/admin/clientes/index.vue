@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PortalUser, PortalUserInput } from '~~/shared/models/portal'
 
-definePageMeta({ layout: 'admin', middleware: 'admin' })
+definePageMeta({ layout: 'admin', middleware: ['admin', 'area-cliente'] })
 
 const toast = useToast()
 const { askConfirm } = useConfirm()
