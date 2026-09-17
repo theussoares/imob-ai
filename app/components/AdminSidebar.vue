@@ -4,15 +4,23 @@ const { signOut } = useAdminAuth();
 const route = useRoute();
 const siteUrl = usePublicSiteUrl();
 
-const links = [
+const { areaCliente, carregar } = useAdminFeatures();
+onMounted(carregar);
+
+const TODOS = [
   { to: "/admin", label: "Dashboard", exact: true },
   { to: "/admin/imoveis", label: "Imóveis", exact: false },
   { to: "/admin/leads", label: "Contatos", exact: false },
   { to: "/admin/corretores", label: "Corretores", exact: false },
   // Contratos e Clientes são a Área do Cliente vista do lado da imobiliária, e
   // ficam juntos: cadastrar um contrato sem ter os clientes é meio caminho.
-  { to: "/admin/contratos", label: "Contratos", exact: false },
-  { to: "/admin/clientes", label: "Clientes", exact: false },
+  //
+  // `recurso: "areaCliente"` é o que os tira do menu de quem não tem a Área do
+  // Cliente contratada. Sem isso eles apareciam para TODA imobiliária, inclusive
+  // as que nunca viram a feature — e clicar levava a uma tela vazia que parece
+  // sistema quebrado, não recurso ausente.
+  { to: "/admin/contratos", label: "Contratos", exact: false, recurso: "areaCliente" },
+  { to: "/admin/clientes", label: "Clientes", exact: false, recurso: "areaCliente" },
   // "Meu site" (edição do dia a dia) antes de "Configurações" (setup técnico):
   // a ordem do menu é a frequência de uso, não a hierarquia conceitual.
   { to: "/admin/site", label: "Meu site", exact: false },
@@ -20,6 +28,10 @@ const links = [
   { to: "/admin/usuarios", label: "Usuários", exact: false },
   { to: "/admin/config", label: "Configurações", exact: false },
 ];
+
+const links = computed(() =>
+  TODOS.filter((l) => !l.recurso || (l.recurso === "areaCliente" && areaCliente.value)),
+);
 
 function isActive(l: { to: string; exact: boolean }) {
   return l.exact ? route.path === l.to : route.path.startsWith(l.to);
