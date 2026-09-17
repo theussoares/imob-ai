@@ -120,6 +120,14 @@ export default defineNuxtConfig({
     supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     // Sal opcional para o hash de IP usado no anti-flood do formulário público.
     rateLimitIpSalt: process.env.RATE_LIMIT_IP_SALT || '',
+    // Envio transacional (convite e recuperação de senha do portal). FORA de
+    // `public`: chave de API no bundle do navegador é chave vazada.
+    // Sem as duas, o servidor não envia — em dev registra no log, em produção
+    // erra alto. Ver `server/utils/mailer.ts`.
+    mailApiKey: process.env.MAIL_API_KEY || '',
+    // Endereço remetente, no domínio VERIFICADO da plataforma.
+    // Ex.: nao-responda@usemoradi.com.br
+    mailFrom: process.env.MAIL_FROM || '',
     public: {
       // Não existe URL canônica global: cada tenant se auto-canonicaliza no
       // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.

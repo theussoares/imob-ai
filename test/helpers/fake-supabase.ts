@@ -35,7 +35,7 @@ export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]
 
   function from(table: string) {
     const chain: Record<string, unknown> = {}
-    const methods = ['select', 'update', 'insert', 'delete', 'eq', 'in', 'ilike', 'order', 'limit', 'maybeSingle', 'single']
+    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'maybeSingle', 'single']
     for (const m of methods) {
       chain[m] = (...args: unknown[]) => {
         calls.push({ table, method: m, args })
@@ -60,13 +60,19 @@ export interface FakeAuthUser {
 /**
  * Igual ao `fakeSupabase`, mais o `auth.admin` que o convite usa.
  *
- * `generateLink` recusa e-mail já cadastrado, do mesmo jeito que o GoTrue —
- * é justamente esse caminho que o código precisa tratar sem parecer erro.
+ * `generateLink` imita o GoTrue nos dois tipos, e a diferença entre eles é o que
+ * dá sentido ao teste:
+ *   - `invite` RECUSA e-mail já cadastrado (é esse erro que o código usa para
+ *     distinguir conta nova de conta preexistente);
+ *   - `recovery` ACEITA e-mail cadastrado e devolve o link — é o token que não
+ *     pode ser emitido para a conta de um terceiro.
  */
 export function fakeSupabaseWithAuth(opts: {
   results?: Record<string, QueryResult | QueryResult[]>
   users?: FakeAuthUser[]
   link?: string
+  /** Link devolvido por `generateLink({type:'recovery'})`. */
+  linkRecovery?: string
 }) {
   const { client, calls } = fakeSupabase(opts.results ?? {})
   const users = opts.users ?? []
@@ -81,6 +87,21 @@ export function fakeSupabaseWithAuth(opts: {
       generateLink: async (params: { type: string; email: string }) => {
         authCalls.push({ method: 'generateLink', args: [params] })
         const existing = users.find((u) => u.email === params.email)
+
+        if (params.type === 'recovery') {
+          // Recuperação é para conta que existe; para e-mail desconhecido o
+          // GoTrue não tem o que recuperar.
+          return existing
+            ? {
+                data: {
+                  user: existing,
+                  properties: { action_link: opts.linkRecovery ?? 'https://exemplo/recovery' },
+                },
+                error: null,
+              }
+            : { data: { user: null, properties: null }, error: { message: 'User not found' } }
+        }
+
         if (existing) {
           return { data: { user: null, properties: null }, error: { message: 'User already registered' } }
         }

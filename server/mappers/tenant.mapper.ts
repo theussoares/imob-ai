@@ -23,6 +23,7 @@ export function toTenantModel(row: TenantRow): Tenant {
     phone: row.phone,
     email: row.email,
     creci: row.creci,
+    portalEnabled: row.portal_enabled ?? false,
     city: row.city,
     state: row.state,
     addressStreet: row.address_street,
@@ -68,6 +69,7 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.phone !== undefined) row.phone = input.phone
   if (input.email !== undefined) row.email = input.email
   if (input.creci !== undefined) row.creci = input.creci
+  if (input.portalEnabled !== undefined) row.portal_enabled = input.portalEnabled
   if (input.city !== undefined) row.city = input.city
   if (input.state !== undefined) row.state = input.state
   if (input.addressStreet !== undefined) row.address_street = input.addressStreet

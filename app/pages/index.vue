@@ -6,7 +6,7 @@ import {
   searchCriteriaParts,
 } from "~~/shared/utils/search-lead";
 import { seekingTypeFor } from "~~/shared/models/lead";
-import { homeOgImage } from "~~/shared/utils/og-image";
+import { homeOgImage, homeOgUrl } from "~~/shared/utils/og-image";
 import {
   qualifyingCategories,
   categorySlug,
@@ -109,10 +109,16 @@ useSeoMeta({
   title: () => tenant.value?.heroTitle || "Imóveis à venda e para alugar",
   ogTitle: () =>
     `${tenant.value?.name || "Imóveis"} · Imóveis à venda e para alugar`,
-  // Sem isto, colar o link da home no WhatsApp não mostrava imagem nenhuma — a
-  // página de detalhe já anunciava a capa do imóvel, a home não anunciava nada.
-  ogImage: () => homeOgImage(tenant.value?.logoUrl, list.value),
 });
+
+// O app.vue já define um card padrão para toda página, mas ali a versão (`?v=`)
+// só considera hero e logo. Aqui a lista de imóveis está em mãos, então o hash
+// cobre também o caso do tenant sem hero e sem logo, cujo card sai da capa do
+// imóvel em destaque: trocar esse destaque passa a furar o cache do WhatsApp.
+useOgCard(() => ({
+  url: homeOgUrl(requestUrl.origin, homeOgImage(tenant.value, list.value)),
+  alt: tenant.value?.name || undefined,
+}));
 
 useHead(() => ({
   link: [{ rel: "canonical", href: requestUrl.origin + "/" }],
