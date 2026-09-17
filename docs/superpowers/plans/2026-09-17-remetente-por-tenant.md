@@ -513,7 +513,7 @@ git commit -m "feat(email): fonte única do remetente por tenant, que falha para
   - `interface Remetente { nome: string; endereco: string; replyTo: string | null }`
   - `enderecoDeEnvio(endereco: string | null | undefined, fallback: string): string`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `test/server/mailer.test.ts` (e inclua `enderecoDeEnvio` no import
 que já existe no topo do arquivo, vindo de `~~/server/utils/mailer`):
@@ -561,12 +561,12 @@ describe('enderecoDeEnvio', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/mailer.test.ts`
 Expected: FAIL — `enderecoDeEnvio is not a function` (ou erro de import)
 
-- [ ] **Step 3: Add `endereco` to the interface**
+- [x] **Step 3: Add `endereco` to the interface**
 
 Em `server/utils/mailer.ts`, no `export interface Remetente`:
 
@@ -584,7 +584,7 @@ export interface Remetente {
 }
 ```
 
-- [ ] **Step 4: Add the pure validator**
+- [x] **Step 4: Add the pure validator**
 
 No mesmo arquivo, logo depois de `replyToValido`:
 
@@ -613,12 +613,12 @@ export function enderecoDeEnvio(
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npx vitest run test/server/mailer.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Wire it into `enviarEmail`**
+- [x] **Step 6: Wire it into `enviarEmail`**
 
 Em `server/utils/mailer.ts`, dentro de `enviarEmail`, substitua
 
@@ -643,13 +643,13 @@ O guard `if (!chave || !remetenteEndereco)` acima continua intacto: sem
 dedicado **e** sem `MAIL_FROM`, `enderecoDeEnvio` devolve `''` e o erro alto em
 produção segue valendo.
 
-- [ ] **Step 7: Verify nothing else broke**
+- [x] **Step 7: Verify nothing else broke**
 
 Run: `pnpm test`
 Expected: os dois chamadores ainda não passam `endereco`, então o **typecheck**
 vai reclamar — isso é esperado e é a Task 4. Os testes devem passar.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/utils/mailer.ts test/server/mailer.test.ts
