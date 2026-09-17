@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { remetenteDoTenant } from '~~/server/utils/mail-sender'
+import type { Tenant } from '~~/shared/models/tenant'
 
 const MIGRATION = join(
   process.cwd(),
@@ -51,5 +53,93 @@ describe('a tabela do remetente não é gravável pela imobiliária', () => {
     const fonte = sql()
     expect(fonte).toContain('create table if not exists')
     expect(fonte).toContain('drop policy if exists')
+  })
+})
+
+const PLATAFORMA = 'nao-responda@usemoradi.com.br'
+
+/**
+ * `serviceSupabase` e `useRuntimeConfig` são auto-imports do Nitro, e o vitest
+ * aqui roda em Node puro, sem o Nuxt (ver `vitest.config.ts`). O `test/setup.ts`
+ * já registra `createError` e os logs no `globalThis` pelo mesmo motivo — estes
+ * dois são registrados por teste porque cada caso precisa de uma resposta
+ * diferente do banco.
+ */
+function comBanco(
+  resposta: { data: { from_address: string } | null; error: { message: string } | null },
+  opts: { lanca?: boolean } = {},
+) {
+  const eventos: string[] = []
+  Object.assign(globalThis, {
+    useRuntimeConfig: () => ({ mailFrom: PLATAFORMA }),
+    serviceSupabase: () => {
+      if (opts.lanca) throw new Error('SUPABASE_SERVICE_ROLE_KEY ausente')
+      return {
+        from: () => ({
+          select: () => ({
+            eq: () => ({ maybeSingle: async () => resposta }),
+          }),
+        }),
+      }
+    },
+    logWarn: (evento: string) => { eventos.push(evento) },
+    logError: (evento: string) => { eventos.push(evento) },
+  })
+  return eventos
+}
+
+const TENANT = { id: 't1', slug: 'olmi', email: 'contato@olmi.com.br' } as Tenant
+
+describe('remetenteDoTenant', () => {
+  test('devolve o endereço dedicado quando há linha', async () => {
+    comBanco({ data: { from_address: 'nao-responda@olmiimoveis.com.br' }, error: null })
+    expect(await remetenteDoTenant(TENANT)).toBe('nao-responda@olmiimoveis.com.br')
+  })
+
+  test('sem linha, cai na plataforma', async () => {
+    // Ausência = domínio da plataforma. Tenant novo não ganha remetente próprio
+    // por esquecimento.
+    comBanco({ data: null, error: null })
+    expect(await remetenteDoTenant(TENANT)).toBe(PLATAFORMA)
+  })
+
+  test('erro de leitura cai na plataforma E deixa rastro', async () => {
+    // Diferença deliberada em relação ao `entitlement.ts`, que falha fechado:
+    // lá a alternativa é entregar algo que não foi comprado; aqui, falhar
+    // fechado é não mandar o convite. E-mail do domínio da plataforma é pior
+    // que o dedicado e infinitamente melhor que e-mail nenhum.
+    //
+    // O log é metade da regra: cair na plataforma em silêncio faria o cliente
+    // enviar do domínio errado por semanas sem ninguém ver.
+    const eventos = comBanco({ data: null, error: { message: 'permission denied' } })
+    expect(await remetenteDoTenant(TENANT)).toBe(PLATAFORMA)
+    expect(eventos).toContain('remetente.leitura_falhou')
+  })
+
+  test('serviceSupabase lançando não derruba o envio', async () => {
+    // `serviceSupabase()` lança quando a chave não está configurada.
+    const eventos = comBanco({ data: null, error: null }, { lanca: true })
+    expect(await remetenteDoTenant(TENANT)).toBe(PLATAFORMA)
+    expect(eventos).toContain('remetente.leitura_falhou')
+  })
+
+  test('avisa quando há remetente dedicado e nenhum Reply-To', async () => {
+    // O apex de olmiimoveis.com.br não tem MX. Com o From parecendo da
+    // imobiliária, responder fica natural — e sem `tenant.email` não vai
+    // `Reply-To`, então a resposta bounce em silêncio.
+    const avisos = comBanco({
+      data: { from_address: 'nao-responda@olmiimoveis.com.br' },
+      error: null,
+    })
+    await remetenteDoTenant({ ...TENANT, email: null } as Tenant)
+    expect(avisos).toContain('remetente.dedicado_sem_reply_to')
+  })
+
+  test('sem dedicado NÃO avisa, mesmo sem Reply-To', async () => {
+    // O From é @usemoradi.com.br e ninguém responde para lá: o aviso seria ruído
+    // em todo tenant que não tem e-mail cadastrado.
+    const avisos = comBanco({ data: null, error: null })
+    await remetenteDoTenant({ ...TENANT, email: null } as Tenant)
+    expect(avisos).not.toContain('remetente.dedicado_sem_reply_to')
   })
 })
