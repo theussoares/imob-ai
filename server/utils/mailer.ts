@@ -16,7 +16,20 @@
  */
 
 export interface Remetente {
-  /** Nome de exibição: o nome da imobiliária. */
+  /**
+   * Nome de exibição: o nome da imobiliária.
+   *
+   * Dois lugares leem este mesmo valor com propósitos diferentes: aqui,
+   * `montarFrom` o sanitiza para o cabeçalho `From` (contra injeção de
+   * cabeçalho); em `portal-invite.repository.ts`, os templates de e-mail o
+   * usam como `nomeImobiliaria` — CONTEÚDO DO CORPO, sem passar por
+   * `nomeExibicaoSeguro`. Hoje os dois valem `tenant.name` e não há problema.
+   * Se algum dia o `From` precisar de sanitização mais dura (truncar mais
+   * curto, remover mais caracteres) e alguém endurecer só `nomeExibicaoSeguro`
+   * sem olhar o texto do convite, o `From` fica correto e o corpo do e-mail
+   * passa a mostrar um nome truncado ou vazio — silenciosamente, porque nada
+   * aqui os mantém em sincronia.
+   */
   nome: string
   /**
    * Endereço do `From`. Vem de `remetenteDoTenant` (server/utils/mail-sender.ts),

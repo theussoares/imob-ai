@@ -158,6 +158,16 @@ linha de log, que é o que falta hoje.
   `from_address` de domínio não verificado faz a Resend recusar, e o sintoma é
   502 no convite com `mail.falhou` no log. É o preço de não duplicar a
   allowlist, e é assumido: falha na hora, com rastro, em vez de silêncio.
+- **`/api/portal/recuperar-senha` passa a gastar a reputação do domínio do
+  cliente, não só a da plataforma.** O endpoint é público por natureza. Antes
+  desta branch, abusar dele gastava a reputação de envio de
+  `usemoradi.com.br`; agora, para um tenant com domínio dedicado, gasta a
+  reputação do domínio da própria imobiliária, com DKIM passando. Não há
+  código novo aqui: a trava por conta (migration 0033, intervalo mínimo de 5
+  min) é pré-existente e o conteúdo enviado é legítimo — o que faltava era o
+  registro. Fica assumido porque o risco só mudou de dono: antes era a
+  plataforma quem pagava o preço de um abuso, agora é o cliente com domínio
+  dedicado.
 
 ## Pendente fora do código
 

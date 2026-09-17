@@ -170,6 +170,19 @@ describe('os dois caminhos de envio usam a fonte única', () => {
     }
   })
 
+  test('o mailer usa o endereço do Remetente, com config.mailFrom só como fallback', () => {
+    // A varredura acima varre os TRÊS arquivos que NUNCA citaram `mailFrom` —
+    // ela já passava antes desta feature existir, então não pegaria a
+    // regressão real. Quem lê `config.mailFrom` de verdade é `mailer.ts`
+    // (ele TEM que conhecer o fallback), e é lá que um refactor do tipo
+    // `const remetenteEndereco = config.mailFrom` passaria o typecheck e os
+    // 629 testes, e voltaria todo tenant com domínio dedicado, em silêncio,
+    // para o domínio da plataforma. Esta asserção olha a chamada exata:
+    // `msg.remetente.endereco` tem que ser o primeiro argumento.
+    const f = fonte('server', 'utils', 'mailer.ts')
+    expect(f).toMatch(/enderecoDeEnvio\(\s*msg\.remetente\.endereco\s*,\s*config\.mailFrom\s*\)/)
+  })
+
   test('o repositório recebe o Remetente pronto, não nome e e-mail soltos', () => {
     // Três `string` adjacentes numa assinatura posicional é troca silenciosa
     // esperando acontecer: o tipo não distingue nome de endereço.
