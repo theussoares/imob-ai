@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import type { Tenant } from '~~/shared/models/tenant'
 import { getTenantByDomain, getTenantBySlug } from '~~/server/repositories/tenant.repository'
+import { areaClienteAtiva } from '~~/server/utils/entitlement'
 
 declare module 'h3' {
   interface H3EventContext {
@@ -104,8 +105,41 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
   // resolvido é o middleware (redirect, landing ou — só em dev — tenant padrão).
   // Deixar o fallback dentro desta função fazia QUALQUER host resolver em dev,
   // mascarando esses caminhos e tornando-os impossíveis de testar localmente.
+  tenant = await comLinkDoPortalEfetivo(tenant)
+
   setCached('host:' + hostname, tenant)
   return tenant
+}
+
+/**
+ * `portalEnabled` no payload é o valor EFETIVO: a imobiliária ligou **e** tem o
+ * recurso valendo.
+ *
+ * ⚠️ Achado da revisão do PR #27, e o percurso é o desenho da suspensão, não um
+ * caso de borda:
+ *
+ *   1. a imobiliária usa a Área do Cliente e liga o link — `portal_enabled` true;
+ *   2. a carência vence e `tenant_features` fica inativo;
+ *   3. `portal_enabled` continua true, porque as duas colunas são independentes;
+ *   4. **o link segue no ar no site dela**, e quem clicar chega num login que
+ *      recusa todo mundo, porque a RLS já fechou o portal.
+ *
+ * Esconder o interruptor do painel não resolvia isso: impede LIGAR, não impede
+ * continuar ligado — e ainda tirava o único jeito de desligar sem SQL.
+ *
+ * Colapsar aqui, e não acrescentar um campo novo ao payload, é decisão de
+ * privacidade: o valor efetivo é público por definição (é a presença do link no
+ * site), enquanto "tem o recurso mas escondeu o link" é informação comercial da
+ * imobiliária. Com o colapso, os dois casos ficam indistinguíveis de fora.
+ *
+ * A coluna crua NÃO é alterada: quando o recurso voltar, a escolha dela volta
+ * junto. Por isso `tenant.put.ts` recusa gravar o campo sem entitlement.
+ */
+async function comLinkDoPortalEfetivo(tenant: Tenant | null): Promise<Tenant | null> {
+  // Curto-circuito: quem não ligou o link não paga a consulta. É a maioria, e
+  // isto roda a cada resolução de host com cache frio.
+  if (!tenant?.portalEnabled) return tenant
+  return { ...tenant, portalEnabled: await areaClienteAtiva(tenant.id) }
 }
 
 /**
