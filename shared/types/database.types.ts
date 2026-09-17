@@ -343,6 +343,7 @@ export type Database = {
       }
       portal_users: {
         Row: {
+          access_confirmed_at: string | null
           active: boolean
           created_at: string
           doc: string | null
@@ -356,6 +357,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
@@ -369,6 +371,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null

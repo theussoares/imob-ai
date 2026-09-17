@@ -31,6 +31,14 @@ function arquivosVue(dir: string): string[] {
   return saida
 }
 
+/** Tira comentário de bloco e de linha, para a busca não acusar a explicação. */
+function semComentarios(fonte: string): string {
+  return fonte
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+}
+
 /** Só o bloco `<style>`: largura em `<script>` é lógica, não layout. */
 function estilos(fonte: string): string {
   return [...fonte.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n')
@@ -75,6 +83,34 @@ describe('layout do portal em 360px', () => {
   // CERTA de dimensionar imagem. Regra que reprova código correto não protege
   // nada e ensina a afrouxar regra, então saiu. As três acima são mecânicas: ou
   // a largura cabe em 360px, ou não cabe.
+
+  test('nada abre janela depois de um `await`', () => {
+    // A regra do Safari: `window.open` precisa acontecer no MESMO turno do
+    // event loop do gesto que o disparou. Depois de um `await` a ativação
+    // transitória já passou — o Chrome costuma tolerar, o iOS recusa. E recusa
+    // CALADO: não lança nada, então o `catch` da tela não vê, a mensagem de
+    // erro fica vazia e o spinner só para. A pessoa toca em "Baixar" e não
+    // acontece nada.
+    //
+    // Pior no caso do download: o servidor já gravou a trilha de LGPD e já
+    // gastou a URL assinada de 60s. O registro diz que o documento foi baixado,
+    // e ele não foi.
+    //
+    // O caminho certo é `location.href` com a URL já marcada como anexo
+    // (`download` no `createSignedUrl`), que não é popup e não passa por essa
+    // regra. Por isso a proibição é do `window.open`, e não do await.
+    for (const caminho of ARQUIVOS) {
+      // Sem comentários: a explicação de por que NÃO usar `window.open(...)`
+      // mora justamente no arquivo que a regra protege. Foi a lição de
+      // `portal-payload-guardrail.test.ts`, onde a busca crua reprovou código
+      // certo por causa do comentário que o defendia.
+      const fonte = semComentarios(readFileSync(caminho, 'utf8'))
+      expect(
+        fonte.includes('window.open('),
+        `${caminho}: window.open no portal é bloqueado no iOS quando vem depois de await`,
+      ).toBe(false)
+    }
+  })
 
   test('campos de formulário não disparam o zoom do iOS', () => {
     // Fonte menor que 16px num input faz o Safari dar zoom ao focar, e a página

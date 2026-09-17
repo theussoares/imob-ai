@@ -204,17 +204,21 @@ function arquivosVue(dir: string): string[] {
 }
 
 describe('o convite só gera token em dois casos', () => {
-  test('linkDeRedefinicao é chamado apenas para quem já é cliente deste tenant', () => {
-    // Regra de segurança do card 1.2, achada na revisão: gerar um link de
-    // redefinição para um e-mail com conta preexistente que NÃO é cliente deste
-    // tenant permitiria que qualquer membro de qualquer imobiliária forçasse a
-    // troca de senha de uma conta alheia — inclusive a de um admin concorrente,
-    // que usa o mesmo auth.users. E o e-mail sairia do domínio verificado da
-    // plataforma, com nome e Reply-To que a imobiliária edita.
-    //
-    // A regra mora num `else if (existente)`, que é fácil de reescrever sem
-    // perceber. Este teste olha o fonte porque o caminho depende do Supabase e
-    // não é alcançável por teste de unidade.
+  /**
+   * ⚠️ A versão anterior deste bloco exigia que `linkDeRedefinicao` morasse sob
+   * um `else if (existente)` — e essa era exatamente a condição ERRADA. A linha
+   * em `portal_users` é criada também no caso 3 (conta preexistente de
+   * terceiro), então bastava convidar duas vezes para a segunda chamada se
+   * julgar reenvio e emitir o `recovery` na caixa da vítima. O teste passava
+   * verde protegendo o buraco, porque afirmava sobre a forma do código e não
+   * sobre o que ele faz.
+   *
+   * Quem responde por essa regra agora é `test/server/portal-invite.test.ts`,
+   * que chama a função de verdade e verifica o e-mail que sai. O que ficou aqui
+   * é só o que teste de unidade não alcança: que a condição do ramo seja a
+   * coluna de confirmação, e não a existência da linha.
+   */
+  test('o ramo do token olha a confirmação do vínculo, não a existência da linha', () => {
     const fonte = readFileSync(
       join(process.cwd(), 'server', 'repositories', 'portal-invite.repository.ts'),
       'utf8',
@@ -223,16 +227,32 @@ describe('o convite só gera token em dois casos', () => {
     const iChamada = fonte.indexOf('await linkDeRedefinicao(')
     expect(iChamada, 'linkDeRedefinicao não é mais chamado').toBeGreaterThan(-1)
 
-    // A chamada tem que estar sob o ramo de cliente já existente.
     const antes = fonte.slice(0, iChamada)
-    const iRamo = antes.lastIndexOf('} else if (existente) {')
+    const iRamo = antes.lastIndexOf('} else if (vinculoConfirmado) {')
     expect(
       iRamo,
-      'linkDeRedefinicao saiu de dentro do ramo `else if (existente)` — conta preexistente de terceiro voltaria a receber token',
+      'linkDeRedefinicao saiu do ramo `else if (vinculoConfirmado)` — convidar duas vezes voltaria a emitir token para conta de terceiro',
     ).toBeGreaterThan(-1)
 
     // E nada entre o ramo e a chamada pode ter fechado o bloco.
     expect(antes.slice(iRamo).includes('\n  } else {')).toBe(false)
+
+    // A confirmação vem da coluna, não de qualquer outro sinal do request.
+    expect(semComentarios(fonte)).toContain(
+      'const vinculoConfirmado = !!existente?.access_confirmed_at',
+    )
+  })
+
+  test('quem confirma o vínculo é o login da própria pessoa', () => {
+    // A outra metade da regra. Se a gravação sair de `requirePortalUser`, o
+    // caso 3 nunca mais vira caso 2 — o reenvio legítimo para de funcionar sem
+    // ninguém perceber, porque falhar fechado é silencioso.
+    const fonte = semComentarios(
+      readFileSync(join(process.cwd(), 'server', 'utils', 'portal-auth.ts'), 'utf8'),
+    )
+    expect(fonte).toContain('access_confirmed_at')
+    // Por service role: a policy do cliente sobre a própria linha é de leitura.
+    expect(fonte).toContain('serviceSupabase()')
   })
 
   test('o caso de conta preexistente manda o template sem token', () => {

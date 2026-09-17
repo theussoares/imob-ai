@@ -94,9 +94,14 @@ export async function updateContract(
     .eq('tenant_id', tenantId)
     .eq('id', id)
     .select('*')
-    .single()
+    // `maybeSingle`: contrato de OUTRA imobiliária é falha de propriedade e
+    // merece 404 limpo. Com `single` o update acertava zero linhas, o PostgREST
+    // devolvia PGRST116 e o handler respondia 500 — barulho no log e nenhuma
+    // resposta útil para quem chamou.
+    .maybeSingle()
   assertCodigoContratoLivre(error, input.code)
   if (error) throw error
+  if (!data) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
   return toContractModel(data)
 }
 

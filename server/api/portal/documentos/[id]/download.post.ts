@@ -1,4 +1,5 @@
 import { canClientSeeDocument } from '~~/shared/utils/portal-access'
+import { ehUuid, nomeDeDownload } from '~~/shared/utils/portal-download'
 import { getContractForClient } from '~~/server/repositories/contract.repository'
 import {
   getDocumentWithPath,
@@ -27,18 +28,37 @@ const URL_TTL_SEGUNDOS = 60
  * regra é aplicada duas vezes, em dois lugares que falham de formas diferentes.
  * A service role fica só para gravar a trilha, que o cliente não pode forjar.
  *
- * **3. Tudo que nega devolve 404.** "Não é seu", "não existe" e "é rascunho"
- * respondem igual: um 403 confirmaria que o documento existe para quem trocou o
+ * **3. Tudo que nega devolve 404.** "Não é seu", "não existe", "é rascunho" e
+ * "isso nem é um uuid" respondem igual: um 403 — ou um 500 — confirmaria que o
+ * documento existe, ou que aquele id é diferente dos outros, para quem trocou o
  * id na URL.
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant, portalUserId } = await requirePortalUser(event)
   const documentId = getRouterParam(event, 'id') || ''
 
-  // Anti-abuso, antes de qualquer trabalho: impede varrer ids de documento e
-  // impede baixar a carteira inteira em rajada. Como no resto do repositório,
-  // falha na checagem deixa passar e registra — o limite não é controle de
-  // acesso, e o controle de acesso vem logo abaixo.
+  // Id malformado morre aqui, de graça: `.eq('id', 'qualquer-coisa')` numa
+  // coluna `uuid` faz o Postgres devolver 22P02 e o handler responder 500.
+  if (!ehUuid(documentId)) {
+    throw createError({ statusCode: 404, statusMessage: 'Documento não encontrado.' })
+  }
+
+  // Anti-abuso: impede baixar a carteira inteira em rajada. Como no resto do
+  // repositório, falha na checagem deixa passar e registra — o limite não é
+  // controle de acesso, e o controle de acesso vem logo abaixo.
+  //
+  // ⚠️ **O que este limite NÃO faz: impedir varredura de ids.** Ele conta linhas
+  // de `portal_document_access`, e essa tabela só recebe linha lá embaixo, DEPOIS
+  // de o documento existir, ser do contrato da pessoa e ser do papel dela. Uma
+  // rajada de ids inválidos devolve 404 em todas, não grava nada, e o contador
+  // fica em zero. Dizer o contrário aqui seria descrever uma proteção que não
+  // existe.
+  //
+  // Não é descuido: contar TENTATIVA exigiria gravar as negadas, e a única
+  // tabela à mão é a trilha de LGPD, que responde "quem baixou meu contrato?" e
+  // perde o sentido se encher de download que ninguém fez — é a mesma razão de
+  // o endpoint ser POST. O que fecha a varredura é o id ser `uuid` v4: adivinhar
+  // um é 2^122, e o `ehUuid` acima já devolve 404 antes de tocar no banco.
   await assertSubmitRateLimit(serviceSupabase(), {
     table: 'portal_document_access',
     tenantId: tenant.id,
@@ -69,9 +89,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Documento não encontrado.' })
   }
 
+  // `download` põe `Content-Disposition: attachment` na URL assinada. Duas
+  // consequências, e a segunda é a que importa: o arquivo baixa em vez de abrir
+  // no lugar da página (por isso a tela pode usar `location.href`, que o Safari
+  // não bloqueia), e ele chega com nome de gente em vez do uuid do bucket.
   const { data, error } = await client.storage
     .from('portal-docs')
-    .createSignedUrl(doc.storagePath, URL_TTL_SEGUNDOS)
+    .createSignedUrl(doc.storagePath, URL_TTL_SEGUNDOS, {
+      download: nomeDeDownload(doc.title, doc.storagePath),
+    })
 
   if (error || !data?.signedUrl) {
     // ⚠️ Se este erro aparecer logo após o primeiro deploy, o suspeito é a lista

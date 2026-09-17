@@ -68,7 +68,10 @@ export async function setPortalUserActive(
     .eq('tenant_id', tenantId)
     .eq('id', id)
     .select('*')
-    .single()
+    // `maybeSingle`: com `single`, um id que não é deste tenant (ou que acabou
+    // de ser apagado noutra aba) sairia como 500 em vez de 404.
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw createError({ statusCode: 404, statusMessage: 'Cliente não encontrado.' })
   return toPortalUserModel(data)
 }

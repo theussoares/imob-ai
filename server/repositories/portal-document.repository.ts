@@ -202,8 +202,14 @@ export async function setDocumentPublished(
     .eq('tenant_id', tenantId)
     .eq('id', documentId)
     .select('*')
-    .single()
+    // `maybeSingle`, não `single`: com `single` um update que não acerta linha
+    // nenhuma devolve PGRST116 e o handler responde 500 — quando o fato é 404.
+    // Acontece de verdade: duas abas abertas no mesmo contrato, o documento
+    // apagado numa e publicado na outra. Vale também para id de outra
+    // imobiliária, que o filtro de tenant já exclui.
+    .maybeSingle()
   if (error) throw error
+  if (!data) throw createError({ statusCode: 404, statusMessage: 'Documento não encontrado.' })
   return toPortalDocumentModel(data)
 }
 
@@ -220,8 +226,9 @@ export async function setDocumentAudience(
     .eq('tenant_id', tenantId)
     .eq('id', documentId)
     .select('*')
-    .single()
+    .maybeSingle()  // Zero linhas é 404, não 500. Ver `setDocumentPublished`.
   if (error) throw error
+  if (!data) throw createError({ statusCode: 404, statusMessage: 'Documento não encontrado.' })
   return toPortalDocumentModel(data)
 }
 

@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   logWarn('portal.cliente_convidado', {
     tenant: tenant.slug,
     reenvio: resultado.jaEraCliente,
-    semToken: resultado.contaPreexistente,
+    semToken: resultado.semToken,
     enviado: resultado.emailEnviado,
   })
 

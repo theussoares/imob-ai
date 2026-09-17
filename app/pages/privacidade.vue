@@ -23,8 +23,18 @@ const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true })
 
 const nome = computed(() => tenant.value?.name || 'a imobiliária')
 
+// `noindex` enquanto for rascunho, e isto não é cautela sobrando: a página
+// responde na URL em QUALQUER domínio de tenant, então basta um crawler chegar
+// — link externo, referrer, palpite — para um texto jurídico não revisado ser
+// indexado como a política de privacidade de uma imobiliária real. O canonical
+// ainda afirmaria que aquela é a versão autoritativa.
+//
+// ⚠️ Quando a revisão jurídica sair e a página for registrada em
+// `STATIC_FOOTER_PAGES`, ESTA LINHA SAI JUNTO — publicar no rodapé e continuar
+// pedindo para não indexar é contradição.
 useHead(() => ({
   title: `Privacidade · ${tenant.value?.name || 'Área do Cliente'}`,
+  meta: [{ name: 'robots', content: 'noindex, nofollow' }],
   link: [{ rel: 'canonical', href: `${url.origin}/privacidade` }],
 }))
 </script>

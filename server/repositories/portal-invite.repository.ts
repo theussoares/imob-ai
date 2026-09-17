@@ -20,6 +20,12 @@ export interface ResultadoConvite {
    * tenant — então o aviso enviado é sem token. A tela precisa dizer isso.
    */
   contaPreexistente: boolean
+  /**
+   * O aviso saiu sem link de senha. Vale também para o REENVIO de um cadastro
+   * que nasceu de conta preexistente e a pessoa ainda não confirmou entrando —
+   * aí o aviso é sem token de novo, e a tela não pode prometer um link.
+   */
+  semToken: boolean
   /** O e-mail foi realmente despachado. */
   emailEnviado: boolean
 }
@@ -100,8 +106,9 @@ async function obterAcesso(service: Client, email: string, redirectTo: string): 
 /**
  * Link de redefinição — só para quem JÁ é cliente deste tenant.
  *
- * ⚠️ Nunca chamar para um e-mail que não seja cliente confirmado desta
- * imobiliária. Ver a nota grande em `convidarClientePortal`.
+ * ⚠️ Nunca chamar para um e-mail que não seja cliente **com vínculo
+ * confirmado** desta imobiliária — existir linha em `portal_users` não basta.
+ * Ver a nota grande em `convidarClientePortal`.
  */
 async function linkDeRedefinicao(
   service: Client,
@@ -123,7 +130,8 @@ async function linkDeRedefinicao(
  *
  * Só em dois casos:
  *   1. a conta nasceu agora (o e-mail não existia na plataforma); ou
- *   2. o e-mail JÁ é cliente deste tenant, e isto é reenvio.
+ *   2. o e-mail já é cliente deste tenant **com vínculo confirmado**, e isto é
+ *      reenvio.
  *
  * No terceiro caso — e-mail com conta preexistente que ainda não era cliente
  * desta imobiliária — o aviso vai **sem token nenhum**.
@@ -140,6 +148,23 @@ async function linkDeRedefinicao(
  * anterior deste arquivo achou que mandar por e-mail bastava para eliminá-la;
  * bastava para evitar que QUEM CONVIDA roubasse a conta, não para evitar o
  * reset forçado nem o phishing com remetente confiável.
+ *
+ * ⚠️ **O "confirmado" do caso 2 não é detalhe: sem ele o caso 3 não é terminal.**
+ * A linha em `portal_users` é inserida em TODOS os casos, inclusive no 3 — é ela
+ * que permite pôr a pessoa como parte de um contrato. Se a decisão do token
+ * olhasse só para a existência da linha, bastaria convidar duas vezes: a
+ * primeira chamada criaria a linha (aviso sem token, como desenhado) e a
+ * segunda se julgaria reenvio, gerando o `recovery` de verdade para a caixa da
+ * vítima. Era assim até a revisão do PR #26.
+ *
+ * Por isso a guarda olha COMO a linha nasceu, e não se ela existe:
+ * `access_confirmed_at` (0037) só é preenchido quando a conta nasceu deste
+ * convite ou quando a própria pessoa entrou no portal desta imobiliária —
+ * `requirePortalUser` grava. Nulo = aviso sem token, sempre.
+ *
+ * O que ainda fica de pé, e é limite do desenho e não descuido: a conta criada
+ * no caso 1 é do `auth.users` compartilhado, então quem convidou mantém o poder
+ * de reemitir link para ela. Separar isso exigiria identidade por tenant.
  *
  * Exige service role: `portal_users` não aceita insert de quem não é membro, e
  * a API de admin do Auth não responde à chave pública.
@@ -187,7 +212,14 @@ export async function convidarClientePortal(
   } else {
     const { data: criado, error } = await service
       .from('portal_users')
-      .insert(toPortalUserRow(input, tenantId, acesso.userId))
+      .insert({
+        ...toPortalUserRow(input, tenantId, acesso.userId),
+        // O vínculo nasce confirmado só quando a conta nasceu AQUI: não há
+        // conta de terceiro para sequestrar. Vindo de conta preexistente fica
+        // nulo, e nenhum reenvio produz token até a pessoa entrar. É a decisão
+        // de segurança da nota acima, e por isso fica aqui e não no mapper.
+        access_confirmed_at: acesso.preexistente ? null : new Date().toISOString(),
+      })
       .select('*')
       .single()
 
@@ -203,7 +235,13 @@ export async function convidarClientePortal(
   }
 
   // A decisão do token, explícita. Ver a nota acima.
+  //
+  // `vinculoConfirmado` é o que separa o reenvio legítimo da escalada: a linha
+  // existir não diz nada, porque o caso 3 também cria linha.
+  const vinculoConfirmado = !!existente?.access_confirmed_at
+
   let corpo: CorpoEmail
+  let semToken = false
   if (acesso.linkConvite) {
     // Caso 1: a conta nasceu agora.
     corpo = emailConvitePortal({
@@ -211,15 +249,21 @@ export async function convidarClientePortal(
       nomeImobiliaria: tenantNome,
       link: acesso.linkConvite,
     })
-  } else if (existente) {
-    // Caso 2: reenvio para quem já é cliente deste tenant.
+  } else if (vinculoConfirmado) {
+    // Caso 2: reenvio para quem já é cliente confirmado deste tenant.
     const link = await linkDeRedefinicao(service, email, redirectTo)
+    semToken = !link
     corpo = link
       ? emailConvitePortal({ nomeCliente: cliente.name, nomeImobiliaria: tenantNome, link })
       : emailAcessoLiberado({ nomeCliente: cliente.name, nomeImobiliaria: tenantNome, urlPortal })
   } else {
-    // Caso 3: conta preexistente de terceiro. NENHUM token.
-    logWarn('portal.convite_sem_token', { tenant: tenantId, motivo: 'conta_preexistente' })
+    // Caso 3: conta preexistente de terceiro, ou reenvio de um cadastro que
+    // nasceu assim e ninguém confirmou. NENHUM token, quantas vezes for.
+    semToken = true
+    logWarn('portal.convite_sem_token', {
+      tenant: tenantId,
+      motivo: existente ? 'vinculo_nao_confirmado' : 'conta_preexistente',
+    })
     corpo = emailAcessoLiberado({
       nomeCliente: cliente.name,
       nomeImobiliaria: tenantNome,
@@ -249,6 +293,7 @@ export async function convidarClientePortal(
     cliente,
     jaEraCliente: !!existente,
     contaPreexistente: acesso.preexistente && !existente,
+    semToken,
     emailEnviado,
   }
 }

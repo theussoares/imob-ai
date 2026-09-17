@@ -56,9 +56,18 @@ async function baixar(doc: PortalDocument) {
       `/api/portal/documentos/${doc.id}/download`,
       { method: 'POST' },
     )
-    // A URL é assinada e de vida curta; abrir em nova aba deixa a pessoa na
-    // lista, que é onde ela vai querer continuar.
-    window.open(url, '_blank', 'noopener')
+    // ⚠️ `window.open` aqui NÃO serve, e o motivo é o iPhone — que é a
+    // plataforma principal deste portal. Entre o toque em "Baixar" e esta linha
+    // existe um `await`, então a janela seria aberta fora do turno do gesto: o
+    // Chrome costuma tolerar, o Safari recusa. E recusa CALADO — não lança
+    // nada, `erroDownload` continua vazio, o spinner só para. A pessoa não vê
+    // nada acontecer, e a trilha de LGPD registra um download que nunca chegou.
+    //
+    // `location.href` não é popup e não passa por essa regra. A URL assinada vem
+    // com `Content-Disposition: attachment` (ver o `download` no endpoint), então
+    // o navegador baixa o arquivo e a pessoa continua na lista, que é onde ela
+    // vai querer continuar.
+    window.location.href = url
   } catch (e: unknown) {
     const status = (e as { statusCode?: number })?.statusCode
     erroDownload.value =

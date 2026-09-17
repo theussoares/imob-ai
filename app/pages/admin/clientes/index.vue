@@ -46,6 +46,7 @@ async function convidar() {
     const r = await adminFetch<{
       jaEraCliente: boolean
       contaPreexistente: boolean
+      semToken: boolean
       emailEnviado: boolean
     }>('/api/admin/portal-users', { method: 'POST', body: form })
 
@@ -64,7 +65,14 @@ async function convidar() {
         'Cliente cadastrado. Este e-mail já tinha conta — avisamos que o acesso está liberado, e ele entra com a senha que já usa.',
       )
     } else if (r.jaEraCliente) {
-      toast.success('Convite reenviado.')
+      // Reenvio de um cadastro que nasceu de conta preexistente e que a pessoa
+      // ainda não confirmou entrando: o aviso vai sem link de novo. Prometer
+      // "convite reenviado" aqui geraria a ligação "ele não recebeu link".
+      toast.success(
+        r.semToken
+          ? 'Aviso reenviado sem link de senha: este e-mail já tinha conta e ainda não entrou na Área do Cliente. Ele entra com a senha que já usa.'
+          : 'Convite reenviado.',
+      )
     } else {
       toast.success('Cliente cadastrado e convite enviado.')
     }
@@ -81,13 +89,20 @@ async function convidar() {
 
 async function reenviar(c: PortalUser) {
   try {
-    const r = await adminFetch<{ emailEnviado: boolean }>('/api/admin/portal-users', {
-      method: 'POST',
-      // O reenvio manda o cadastro que já existe: o servidor reconhece pelo
-      // e-mail e não cria linha nova.
-      body: { name: c.name, email: c.email, doc: c.doc, phone: c.phone },
-    })
-    if (r.emailEnviado) toast.success(`Convite reenviado para ${c.email}.`)
+    const r = await adminFetch<{ emailEnviado: boolean; semToken: boolean }>(
+      '/api/admin/portal-users',
+      {
+        method: 'POST',
+        // O reenvio manda o cadastro que já existe: o servidor reconhece pelo
+        // e-mail e não cria linha nova.
+        body: { name: c.name, email: c.email, doc: c.doc, phone: c.phone },
+      },
+    )
+    if (r.emailEnviado && r.semToken)
+      toast.success(
+        `Aviso reenviado para ${c.email} sem link de senha: a conta já existia na plataforma e ainda não entrou aqui.`,
+      )
+    else if (r.emailEnviado) toast.success(`Convite reenviado para ${c.email}.`)
     else toast.error('Não foi possível enviar o convite agora. Tente de novo em instantes.')
   } catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string } }
