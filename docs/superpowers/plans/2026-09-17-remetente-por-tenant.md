@@ -17,6 +17,37 @@ Node puro.
 
 **Spec:** [docs/superpowers/specs/2026-09-17-remetente-por-tenant-design.md](../specs/2026-09-17-remetente-por-tenant-design.md)
 
+**Branch:** `claude/remetente-por-tenant`
+
+## Como retomar isto de outra sessão
+
+O estado desta implementação mora no **git**, não na conversa. Não existe nada
+para recuperar de uma sessão anterior além do que está abaixo.
+
+```bash
+git fetch origin claude/remetente-por-tenant
+git checkout claude/remetente-por-tenant
+pnpm install
+```
+
+**Onde parei:** a primeira caixa `- [ ]` não marcada, de cima para baixo. As
+marcadas (`- [x]`) já foram feitas e commitadas — cada tarefa termina num commit
+próprio, então `git log --oneline` confirma o que a marcação diz.
+
+**Antes de continuar,** rode `pnpm typecheck && pnpm test` para confirmar que a
+árvore está verde. Se não estiver, a última tarefa ficou pela metade: leia o
+diff do `git status` antes de seguir, porque o plano supõe que cada tarefa
+começa a partir de uma árvore limpa.
+
+**Se a marcação e o `git log` discordarem**, o `git log` tem razão — a marcação
+é commitada junto com a tarefa, então a divergência só acontece se alguém editou
+o plano à mão.
+
+**Destino do merge é decisão em aberto.** Esta branch saiu da `develop` (que já
+contém a `main`). Levá-la para a `main` por PR arrastaria junto todo o trabalho
+que só existe na `develop` — PWA do painel, "Quem somos", endereço estruturado.
+Decida no fim: merge na `develop`, ou rebase em cima da `main` para um PR limpo.
+
 ## Global Constraints
 
 - **Idioma:** comentários, mensagens de commit e nomes de domínio em português;
