@@ -21,6 +21,20 @@ const form = reactive<PortalUserInput>(vazio())
 const salvando = ref(false)
 const error = ref('')
 
+/**
+ * Qual cliente está tendo o convite reenviado agora.
+ *
+ * Guarda o id e não um booleano global: com um booleano, reenviar para uma
+ * pessoa congelaria o botão da lista inteira, e quem tem dez clientes não
+ * entende por que os outros nove pararam de responder.
+ *
+ * Existe porque o botão não dava sinal nenhum de que estava trabalhando — o
+ * clique parecia não ter funcionado, e a reação natural é clicar de novo. Três
+ * cliques viraram três POSTs (o `adminFetch` só deduplica GET) e três toasts de
+ * erro em cima do outro.
+ */
+const reenviandoId = ref<string | null>(null)
+
 const { display: phoneDisplay, onInput: onPhoneInput, isValid: phoneValid } = usePhoneInput(
   toRef(form, 'phone'),
   'whatsapp',
@@ -87,26 +101,52 @@ async function convidar() {
   }
 }
 
+/**
+ * O que dizer quando o e-mail não saiu.
+ *
+ * A frase antiga era "não foi possível enviar agora, tente de novo em
+ * instantes" para os dois casos — e ela é **mentira** quando falta configuração:
+ * tentar de novo nunca vai funcionar, e quem clica fica repetindo um gesto que
+ * não pode dar certo.
+ *
+ * O caso de configuração também diz de quem é o problema. A imobiliária não tem
+ * o que fazer a respeito, e deixá-la achando que errou alguma coisa gera a
+ * ligação que a mensagem deveria evitar.
+ */
+const FALHA_DE_ENVIO: Record<'nao_configurado' | 'provedor', string> = {
+  nao_configurado:
+    'O envio de e-mail da plataforma não está configurado. Já ficamos sabendo — não adianta tentar de novo agora.',
+  provedor:
+    'O provedor de e-mail recusou o envio. Tente de novo em alguns minutos.',
+}
+
 async function reenviar(c: PortalUser) {
+  // Segunda barreira do clique repetido: o `disabled` no botão é a primeira,
+  // mas ele não cobre Enter com o foco no botão nem duplo-clique rápido.
+  if (reenviandoId.value) return
+  reenviandoId.value = c.id
   try {
-    const r = await adminFetch<{ emailEnviado: boolean; semToken: boolean }>(
-      '/api/admin/portal-users',
-      {
-        method: 'POST',
-        // O reenvio manda o cadastro que já existe: o servidor reconhece pelo
-        // e-mail e não cria linha nova.
-        body: { name: c.name, email: c.email, doc: c.doc, phone: c.phone },
-      },
-    )
+    const r = await adminFetch<{
+      emailEnviado: boolean
+      semToken: boolean
+      motivoFalha: 'nao_configurado' | 'provedor' | null
+    }>('/api/admin/portal-users', {
+      method: 'POST',
+      // O reenvio manda o cadastro que já existe: o servidor reconhece pelo
+      // e-mail e não cria linha nova.
+      body: { name: c.name, email: c.email, doc: c.doc, phone: c.phone },
+    })
     if (r.emailEnviado && r.semToken)
       toast.success(
         `Aviso reenviado para ${c.email} sem link de senha: a conta já existia na plataforma e ainda não entrou aqui.`,
       )
     else if (r.emailEnviado) toast.success(`Convite reenviado para ${c.email}.`)
-    else toast.error('Não foi possível enviar o convite agora. Tente de novo em instantes.')
+    else toast.error(FALHA_DE_ENVIO[r.motivoFalha ?? 'provedor'])
   } catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string } }
     toast.error(err?.data?.statusMessage || 'Não foi possível reenviar.')
+  } finally {
+    reenviandoId.value = null
   }
 }
 
@@ -203,8 +243,19 @@ useHead({ title: 'Clientes · Painel' })
             <span v-if="!c.active" class="tag">Acesso desativado</span>
           </div>
           <div class="acoes">
-            <button class="admin-btn ghost" type="button" @click="reenviar(c)">
-              Reenviar convite
+            <!--
+              `disabled` na lista inteira enquanto um envio corre, e não só na
+              linha que está enviando: dois convites em voo ao mesmo tempo
+              deixariam dois toasts brigando pela mesma atenção, e a pessoa não
+              saberia qual resposta é de qual cliente.
+            -->
+            <button
+              class="admin-btn ghost"
+              type="button"
+              :disabled="!!reenviandoId"
+              @click="reenviar(c)"
+            >
+              {{ reenviandoId === c.id ? 'Enviando…' : 'Reenviar convite' }}
             </button>
             <button
               class="admin-btn"

@@ -124,6 +124,13 @@ export default defineNuxtConfig({
     // `public`: chave de API no bundle do navegador é chave vazada.
     // Sem as duas, o servidor não envia — em dev registra no log, em produção
     // erra alto. Ver `server/utils/mailer.ts`.
+    // ⚠️ Lida no BUILD, não no runtime. O Nuxt só sobrescreve `runtimeConfig`
+    // em execução com variável prefixada por `NUXT_` (aqui seria
+    // `NUXT_MAIL_API_KEY`); sem o prefixo, o valor é assado no bundle.
+    //
+    // Consequência que custou uma tarde de depuração em 17/09: marcar a
+    // variável na Vercel **não basta**, é preciso redeploy. O sintoma é convite
+    // que não sai num deploy onde a variável aparece configurada no painel.
     mailApiKey: process.env.MAIL_API_KEY || '',
     // Endereço remetente, no domínio VERIFICADO da plataforma.
     // Ex.: nao-responda@usemoradi.com.br

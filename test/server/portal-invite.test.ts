@@ -20,8 +20,22 @@ import type { Mensagem } from '~~/server/utils/mailer'
 
 const enviados: Mensagem[] = []
 
+/**
+ * Como o envio se comporta no teste da vez.
+ *
+ * `null` = envia. Um número = o `mailer` lança com aquele `statusCode`, que é
+ * como ele separa "não configurado" (500) de "o provedor recusou" (502).
+ * `'simulado'` = devolve `enviado: false` sem lançar, que é o caminho de fora
+ * de produção.
+ */
+let comportamentoDoEnvio: null | number | 'simulado' = null
+
 vi.mock('~~/server/utils/mailer', () => ({
   enviarEmail: async (msg: Mensagem) => {
+    if (typeof comportamentoDoEnvio === 'number') {
+      throw Object.assign(new Error('falha de envio'), { statusCode: comportamentoDoEnvio })
+    }
+    if (comportamentoDoEnvio === 'simulado') return { enviado: false, provedor: 'log' }
     enviados.push(msg)
     return { enviado: true, provedor: 'fake' }
   },
@@ -32,8 +46,10 @@ const { convidarClientePortal } = await import('~~/server/repositories/portal-in
 
 const TENANT = 't-olmi'
 const NOME_IMOB = 'OLMI Imóveis'
+const ENDERECO_REMETENTE = 'nao-responda@usemoradi.com.br'
 const REDIRECT = 'https://olmi.com.br/area-cliente/definir-senha'
 const PORTAL = 'https://olmi.com.br/area-cliente/login'
+const REMETENTE = { nome: NOME_IMOB, endereco: ENDERECO_REMETENTE, replyTo: 'contato@olmi.com.br' }
 
 const ENTRADA = { name: 'Giane', email: 'Giane@Exemplo.com', doc: null, phone: null }
 
@@ -61,8 +77,7 @@ function convidar(client: unknown) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     client as any,
     TENANT,
-    NOME_IMOB,
-    'contato@olmi.com.br',
+    REMETENTE,
     ENTRADA,
     REDIRECT,
     PORTAL,
@@ -83,6 +98,70 @@ function gerou(authCalls: { method: string; args: unknown[] }[], tipo: string): 
 
 beforeEach(() => {
   enviados.length = 0
+  comportamentoDoEnvio = null
+})
+
+/**
+ * Por que o e-mail não saiu — a informação que a tela não tinha.
+ *
+ * ⚠️ Nasceu de um caso real no preview: o convite não saía e a única frase
+ * possível era "tente de novo em instantes". Quem clicou tentou três vezes,
+ * ganhou três toasts idênticos, e a causa (chave de API ausente) não aparecia em
+ * lugar nenhum da tela. "Tente de novo" é MENTIRA quando falta configuração: não
+ * existe número de tentativas que resolva.
+ */
+describe('a tela fica sabendo por que o envio falhou', () => {
+  function semRegistro() {
+    return fakeSupabaseWithAuth({
+      results: { portal_users: [{ data: null, error: null }, { data: linha(), error: null }] },
+      users: [],
+    })
+  }
+
+  test('envio bem-sucedido não tem motivo de falha', async () => {
+    const r = await convidar(semRegistro().client)
+    expect(r.emailEnviado).toBe(true)
+    expect(r.motivoFalha).toBe(null)
+  })
+
+  test('500 do mailer é falta de configuração — não adianta tentar de novo', async () => {
+    comportamentoDoEnvio = 500
+    const r = await convidar(semRegistro().client)
+    expect(r.emailEnviado).toBe(false)
+    expect(r.motivoFalha).toBe('nao_configurado')
+  })
+
+  test('502 é o provedor recusando — aí tentar de novo faz sentido', async () => {
+    comportamentoDoEnvio = 502
+    const r = await convidar(semRegistro().client)
+    expect(r.emailEnviado).toBe(false)
+    expect(r.motivoFalha).toBe('provedor')
+  })
+
+  test('erro sem status conhecido erra para o lado de "tente de novo"', async () => {
+    // Afirmar "é problema nosso" sobre um erro que não conhecemos é pior que
+    // sugerir uma tentativa a mais.
+    comportamentoDoEnvio = 418
+    const r = await convidar(semRegistro().client)
+    expect(r.motivoFalha).toBe('provedor')
+  })
+
+  test('`enviado: false` sem exceção também é falta de configuração', async () => {
+    // É o caminho de fora de produção, e ele sai do MESMO ramo de "sem chave ou
+    // sem remetente" que o 500 sinaliza — a causa é a mesma.
+    comportamentoDoEnvio = 'simulado'
+    const r = await convidar(semRegistro().client)
+    expect(r.emailEnviado).toBe(false)
+    expect(r.motivoFalha).toBe('nao_configurado')
+  })
+
+  test('o cadastro NÃO é desfeito quando o e-mail falha', async () => {
+    // A regra que já existia e que estes casos novos não podem ter quebrado: o
+    // vínculo recém-criado sobrevive, e o reenvio resolve.
+    comportamentoDoEnvio = 500
+    const r = await convidar(semRegistro().client)
+    expect(r.cliente.id).toBe('pu-1')
+  })
 })
 
 describe('caso 1 — a conta nasce agora', () => {
@@ -237,7 +316,7 @@ describe('o e-mail em si', () => {
 
     await convidar(client)
 
-    expect(enviados[0]?.remetente).toEqual({ nome: NOME_IMOB, replyTo: 'contato@olmi.com.br' })
+    expect(enviados[0]?.remetente).toEqual(REMETENTE)
     // Normalizado: o índice único do banco é sobre lower(email).
     expect(enviados[0]?.para).toBe('giane@exemplo.com')
   })

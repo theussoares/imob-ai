@@ -1,4 +1,5 @@
 import { emailRecuperacaoSenha } from '~~/server/utils/email-templates'
+import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 import { enviarEmail } from '~~/server/utils/mailer'
 import { portalOrigin, urlDefinirSenha } from '~~/server/utils/portal-origin'
 
@@ -100,7 +101,11 @@ export default defineEventHandler(async (event) => {
       assunto: corpo.assunto,
       html: corpo.html,
       texto: corpo.texto,
-      remetente: { nome: tenant.name, replyTo: tenant.email },
+      remetente: {
+        nome: tenant.name,
+        endereco: await remetenteDoTenant(tenant),
+        replyTo: tenant.email,
+      },
     })
   } catch (e) {
     // `enviarEmail` já registrou a causa. Aqui só garantimos que a falha não

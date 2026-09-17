@@ -17,6 +17,37 @@ Node puro.
 
 **Spec:** [docs/superpowers/specs/2026-09-17-remetente-por-tenant-design.md](../specs/2026-09-17-remetente-por-tenant-design.md)
 
+**Branch:** `claude/remetente-por-tenant`
+
+## Como retomar isto de outra sessão
+
+O estado desta implementação mora no **git**, não na conversa. Não existe nada
+para recuperar de uma sessão anterior além do que está abaixo.
+
+```bash
+git fetch origin claude/remetente-por-tenant
+git checkout claude/remetente-por-tenant
+pnpm install
+```
+
+**Onde parei:** a primeira caixa `- [ ]` não marcada, de cima para baixo. As
+marcadas (`- [x]`) já foram feitas e commitadas — cada tarefa termina num commit
+próprio, então `git log --oneline` confirma o que a marcação diz.
+
+**Antes de continuar,** rode `pnpm typecheck && pnpm test` para confirmar que a
+árvore está verde. Se não estiver, a última tarefa ficou pela metade: leia o
+diff do `git status` antes de seguir, porque o plano supõe que cada tarefa
+começa a partir de uma árvore limpa.
+
+**Se a marcação e o `git log` discordarem**, o `git log` tem razão — a marcação
+é commitada junto com a tarefa, então a divergência só acontece se alguém editou
+o plano à mão.
+
+**Destino do merge é decisão em aberto.** Esta branch saiu da `develop` (que já
+contém a `main`). Levá-la para a `main` por PR arrastaria junto todo o trabalho
+que só existe na `develop` — PWA do painel, "Quem somos", endereço estruturado.
+Decida no fim: merge na `develop`, ou rebase em cima da `main` para um PR limpo.
+
 ## Global Constraints
 
 - **Idioma:** comentários, mensagens de commit e nomes de domínio em português;
@@ -71,7 +102,7 @@ Node puro.
 - Produces: tabela `public.tenant_mail_sender (tenant_id uuid pk, from_address text not null, notes text, created_at timestamptz, updated_at timestamptz)`; tipo
   `Database['public']['Tables']['tenant_mail_sender']`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Crie `test/server/remetente-por-tenant.test.ts`:
 
@@ -121,12 +152,12 @@ describe('a tabela do remetente não é gravável pela imobiliária', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: FAIL — `ENOENT: no such file or directory ... 0038_tenant_mail_sender.sql`
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 Crie `supabase/migrations/0038_tenant_mail_sender.sql`:
 
@@ -197,7 +228,7 @@ create trigger trg_tenant_mail_sender_updated before update on public.tenant_mai
   for each row execute function public.set_updated_at();
 ```
 
-- [ ] **Step 4: Write the rollback**
+- [x] **Step 4: Write the rollback**
 
 Crie `supabase/migrations/rollback/0038_rollback.sql`:
 
@@ -212,12 +243,12 @@ Crie `supabase/migrations/rollback/0038_rollback.sql`:
 drop table if exists public.tenant_mail_sender;
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: PASS (3 testes)
 
-- [ ] **Step 6: Add the table type**
+- [x] **Step 6: Add the table type**
 
 Em `shared/types/database.types.ts`, dentro de `public.Tables`: **logo depois do
 bloco `tenant_features` e antes de `tenant_domains`**. (O arquivo não está em
@@ -259,12 +290,12 @@ tente reordenar nada; só insira ali.)
       }
 ```
 
-- [ ] **Step 7: Verify the whole suite and the types**
+- [x] **Step 7: Verify the whole suite and the types**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: typecheck sem erro novo, todos os testes passando.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add supabase/migrations/0038_tenant_mail_sender.sql supabase/migrations/rollback/0038_rollback.sql shared/types/database.types.ts test/server/remetente-por-tenant.test.ts
@@ -285,7 +316,7 @@ git commit -m "feat(email): tabela do remetente por imobiliária, sem policy de 
   `from_address` do tenant, ou `useRuntimeConfig().mailFrom` quando não há linha
   **ou** quando a leitura falha.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `test/server/remetente-por-tenant.test.ts` (o import de
 `remetenteDoTenant` vai no topo do arquivo, junto dos outros):
@@ -383,12 +414,12 @@ describe('remetenteDoTenant', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: FAIL — `Failed to resolve import "~~/server/utils/mail-sender"`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Crie `server/utils/mail-sender.ts`:
 
@@ -455,12 +486,12 @@ export async function remetenteDoTenant(tenant: Tenant): Promise<string> {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: PASS (9 testes — 3 da Task 1, 6 desta)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/utils/mail-sender.ts test/server/remetente-por-tenant.test.ts
@@ -482,7 +513,7 @@ git commit -m "feat(email): fonte única do remetente por tenant, que falha para
   - `interface Remetente { nome: string; endereco: string; replyTo: string | null }`
   - `enderecoDeEnvio(endereco: string | null | undefined, fallback: string): string`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `test/server/mailer.test.ts` (e inclua `enderecoDeEnvio` no import
 que já existe no topo do arquivo, vindo de `~~/server/utils/mailer`):
@@ -530,12 +561,12 @@ describe('enderecoDeEnvio', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/mailer.test.ts`
 Expected: FAIL — `enderecoDeEnvio is not a function` (ou erro de import)
 
-- [ ] **Step 3: Add `endereco` to the interface**
+- [x] **Step 3: Add `endereco` to the interface**
 
 Em `server/utils/mailer.ts`, no `export interface Remetente`:
 
@@ -553,7 +584,7 @@ export interface Remetente {
 }
 ```
 
-- [ ] **Step 4: Add the pure validator**
+- [x] **Step 4: Add the pure validator**
 
 No mesmo arquivo, logo depois de `replyToValido`:
 
@@ -582,12 +613,12 @@ export function enderecoDeEnvio(
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npx vitest run test/server/mailer.test.ts`
 Expected: PASS
 
-- [ ] **Step 6: Wire it into `enviarEmail`**
+- [x] **Step 6: Wire it into `enviarEmail`**
 
 Em `server/utils/mailer.ts`, dentro de `enviarEmail`, substitua
 
@@ -612,13 +643,13 @@ O guard `if (!chave || !remetenteEndereco)` acima continua intacto: sem
 dedicado **e** sem `MAIL_FROM`, `enderecoDeEnvio` devolve `''` e o erro alto em
 produção segue valendo.
 
-- [ ] **Step 7: Verify nothing else broke**
+- [x] **Step 7: Verify nothing else broke**
 
 Run: `pnpm test`
 Expected: os dois chamadores ainda não passam `endereco`, então o **typecheck**
 vai reclamar — isso é esperado e é a Task 4. Os testes devem passar.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/utils/mailer.ts test/server/mailer.test.ts
@@ -648,7 +679,7 @@ convite sairia com o e-mail da imobiliária no lugar do nome, e ninguém
 descobriria até um cliente reclamar. Passar o `Remetente`, que é o objeto que o
 `enviarEmail` já consome, remove dois parâmetros e acrescenta um.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `test/server/remetente-por-tenant.test.ts`:
 
@@ -691,12 +722,12 @@ describe('os dois caminhos de envio usam a fonte única', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: FAIL nos quatro testes deste `describe`.
 
-- [ ] **Step 3: Change the repository signature**
+- [x] **Step 3: Change the repository signature**
 
 Em `server/repositories/portal-invite.repository.ts`:
 
@@ -729,7 +760,7 @@ Dentro do corpo, troque as três leituras:
 - `remetente: { nome: tenantNome, replyTo: tenantEmail }` na chamada de
   `enviarEmail` → `remetente` (o objeto recebido, sem remontar).
 
-- [ ] **Step 4: Update the invite endpoint**
+- [x] **Step 4: Update the invite endpoint**
 
 Em `server/api/admin/portal-users.post.ts`, dentro do handler, depois de
 `const origem = await portalOrigin(service, tenant)`:
@@ -757,7 +788,7 @@ E acrescente o import no topo:
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 ```
 
-- [ ] **Step 5: Update the password-recovery endpoint**
+- [x] **Step 5: Update the password-recovery endpoint**
 
 Em `server/api/portal/recuperar-senha.post.ts`, troque
 
@@ -781,18 +812,18 @@ E acrescente o import no topo:
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: PASS (13 testes)
 
-- [ ] **Step 7: Full validation**
+- [x] **Step 7: Full validation**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: typecheck sem erro novo (os dois de `tenant.mapper.ts` na `main` não
 existem na `develop`), todos os testes passando.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/repositories/portal-invite.repository.ts server/api/admin/portal-users.post.ts server/api/portal/recuperar-senha.post.ts test/server/remetente-por-tenant.test.ts
