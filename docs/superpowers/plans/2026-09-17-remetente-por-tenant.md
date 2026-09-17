@@ -679,7 +679,7 @@ convite sairia com o e-mail da imobiliária no lugar do nome, e ninguém
 descobriria até um cliente reclamar. Passar o `Remetente`, que é o objeto que o
 `enviarEmail` já consome, remove dois parâmetros e acrescenta um.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `test/server/remetente-por-tenant.test.ts`:
 
@@ -722,12 +722,12 @@ describe('os dois caminhos de envio usam a fonte única', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: FAIL nos quatro testes deste `describe`.
 
-- [ ] **Step 3: Change the repository signature**
+- [x] **Step 3: Change the repository signature**
 
 Em `server/repositories/portal-invite.repository.ts`:
 
@@ -760,7 +760,7 @@ Dentro do corpo, troque as três leituras:
 - `remetente: { nome: tenantNome, replyTo: tenantEmail }` na chamada de
   `enviarEmail` → `remetente` (o objeto recebido, sem remontar).
 
-- [ ] **Step 4: Update the invite endpoint**
+- [x] **Step 4: Update the invite endpoint**
 
 Em `server/api/admin/portal-users.post.ts`, dentro do handler, depois de
 `const origem = await portalOrigin(service, tenant)`:
@@ -788,7 +788,7 @@ E acrescente o import no topo:
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 ```
 
-- [ ] **Step 5: Update the password-recovery endpoint**
+- [x] **Step 5: Update the password-recovery endpoint**
 
 Em `server/api/portal/recuperar-senha.post.ts`, troque
 
@@ -812,18 +812,18 @@ E acrescente o import no topo:
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: PASS (13 testes)
 
-- [ ] **Step 7: Full validation**
+- [x] **Step 7: Full validation**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: typecheck sem erro novo (os dois de `tenant.mapper.ts` na `main` não
 existem na `develop`), todos os testes passando.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server/repositories/portal-invite.repository.ts server/api/admin/portal-users.post.ts server/api/portal/recuperar-senha.post.ts test/server/remetente-por-tenant.test.ts
