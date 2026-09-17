@@ -316,7 +316,7 @@ git commit -m "feat(email): tabela do remetente por imobiliária, sem policy de 
   `from_address` do tenant, ou `useRuntimeConfig().mailFrom` quando não há linha
   **ou** quando a leitura falha.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescente a `test/server/remetente-por-tenant.test.ts` (o import de
 `remetenteDoTenant` vai no topo do arquivo, junto dos outros):
@@ -414,12 +414,12 @@ describe('remetenteDoTenant', () => {
 })
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: FAIL — `Failed to resolve import "~~/server/utils/mail-sender"`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Crie `server/utils/mail-sender.ts`:
 
@@ -486,12 +486,12 @@ export async function remetenteDoTenant(tenant: Tenant): Promise<string> {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run test/server/remetente-por-tenant.test.ts`
 Expected: PASS (9 testes — 3 da Task 1, 6 desta)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/utils/mail-sender.ts test/server/remetente-por-tenant.test.ts
