@@ -80,3 +80,72 @@ describe('itensDoMenu', () => {
     expect(itensDoMenu(null, WA).map((i) => i.label)).toEqual(['Quero alugar', 'Quero vender'])
   })
 })
+
+describe('o menu não linka para a página em que você está', () => {
+  /**
+   * ⚠️ Em `/quero-vender` o menu tinha TRÊS itens e DOIS eram links para a
+   * própria página — "Quero alugar" e "Quero vender" apontam para o mesmo
+   * destino. No celular isso é pior: a pessoa abre o burger e dois terços do
+   * que aparece não leva a lugar nenhum.
+   *
+   * O padrão usual seria marcar o item atual com `aria-current`, não removê-lo.
+   * Ele não serve aqui **por causa dos dois rótulos para uma página só**:
+   * marcar "o atual" acenderia os dois ao mesmo tempo, e duas coisas destacadas
+   * juntas lê como defeito, não como orientação.
+   *
+   * Isto NÃO é o menu reordenando entre páginas — o que o teste da ordem
+   * canônica acima proíbe. O item de volta ocupa exatamente a posição das
+   * pretensões que saíram, então nada muda de lugar.
+   */
+  const CHEIO = { portalEnabled: true, whatsapp: '5567999999999' }
+
+  test('fora da página de pretensão, nada muda', () => {
+    expect(itensDoMenu(tenant(CHEIO), WA, '/').map((i) => i.label)).toEqual([
+      'Área do Cliente',
+      'Quero alugar',
+      'Quero vender',
+      'Falar no WhatsApp',
+    ])
+  })
+
+  test('na própria página de pretensão, os dois rótulos saem', () => {
+    const labels = itensDoMenu(tenant(CHEIO), WA, '/quero-vender').map((i) => i.label)
+    expect(labels).not.toContain('Quero alugar')
+    expect(labels).not.toContain('Quero vender')
+  })
+
+  test('entra a volta para o catálogo, no lugar que eles ocupavam', () => {
+    // A posição importa: o item de volta herda a vaga das pretensões, entre a
+    // Área do Cliente e o WhatsApp. Jogá-lo no começo ou no fim faria os
+    // vizinhos trocarem de lugar ao navegar.
+    const itens = itensDoMenu(tenant(CHEIO), WA, '/quero-vender')
+    expect(itens.map((i) => i.label)).toEqual([
+      'Área do Cliente',
+      'Ver imóveis',
+      'Falar no WhatsApp',
+    ])
+    expect(itens.find((i) => i.label === 'Ver imóveis')?.to).toBe('/')
+  })
+
+  test('NENHUM item aponta para a rota atual', () => {
+    // A regra geral, não o caso particular. Um destino novo que casasse com a
+    // página atual voltaria a produzir link morto sem ninguém perceber.
+    for (const rota of ['/', '/quero-vender']) {
+      const itens = itensDoMenu(tenant(CHEIO), WA, rota)
+      expect(itens.filter((i) => !i.externo).map((i) => i.to)).not.toContain(rota)
+    }
+  })
+
+  test('a barra no fim não engana', () => {
+    // `/quero-vender/` é a mesma página. Comparar cru deixaria os links mortos
+    // de volta só porque a URL veio com barra.
+    const labels = itensDoMenu(tenant(CHEIO), WA, '/quero-vender/').map((i) => i.label)
+    expect(labels).toContain('Ver imóveis')
+  })
+
+  test('sem rota, o menu é o completo', () => {
+    // O header renderiza em contextos onde a rota pode não ter resolvido. Melhor
+    // um link morto eventual que um menu sem as pretensões em toda página.
+    expect(itensDoMenu(tenant(CHEIO), WA).map((i) => i.label)).toContain('Quero vender')
+  })
+})

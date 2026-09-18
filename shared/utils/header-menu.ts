@@ -20,6 +20,16 @@ export interface ItemDoMenu {
  */
 const PRETENSAO = '/quero-vender'
 
+/** Para onde o menu manda de volta: a home É o catálogo neste app. */
+const CATALOGO = '/'
+
+/** Ignora a barra final: `/quero-vender` e `/quero-vender/` são a mesma página. */
+function mesmaPagina(rota: string | undefined, destino: string): boolean {
+  if (!rota) return false
+  const podar = (p: string) => (p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p)
+  return podar(rota) === podar(destino)
+}
+
 /**
  * O que aparece no header desta imobiliária.
  *
@@ -42,6 +52,7 @@ const PRETENSAO = '/quero-vender'
 export function itensDoMenu(
   tenant: Pick<Tenant, 'portalEnabled' | 'whatsapp'> | null | undefined,
   whatsappHref: string,
+  rotaAtual?: string,
 ): ItemDoMenu[] {
   const itens: ItemDoMenu[] = []
 
@@ -49,7 +60,31 @@ export function itensDoMenu(
     itens.push({ label: 'Área do Cliente', to: '/area-cliente' })
   }
 
-  itens.push({ label: 'Quero alugar', to: PRETENSAO }, { label: 'Quero vender', to: PRETENSAO })
+  /**
+   * Na própria página de pretensão, os dois rótulos viram link morto.
+   *
+   * Eram TRÊS itens e DOIS apontavam para a página aberta. No celular a conta
+   * fica pior: a pessoa toca no burger e dois terços do painel não levam a
+   * lugar nenhum.
+   *
+   * ⚠️ O padrão usual seria MARCAR o item atual (`aria-current`), não removê-lo
+   * — menu que muda de página para página faz procurar duas vezes. Ele não
+   * serve aqui por causa da decisão de dois rótulos para uma página só: marcar
+   * "o atual" acenderia os dois ao mesmo tempo, e duas coisas destacadas juntas
+   * lê como defeito, não como orientação.
+   *
+   * A troca é no LUGAR, não na ordem: o item de volta herda a vaga das
+   * pretensões, entre a Área do Cliente e o WhatsApp, então nada em volta muda
+   * de posição — que é o que o teste da ordem canônica protege.
+   *
+   * A logo já leva para a home, mas ela não se lê como "voltar para os
+   * imóveis"; e sem este item a barra ficaria só com o WhatsApp solto.
+   */
+  if (mesmaPagina(rotaAtual, PRETENSAO)) {
+    itens.push({ label: 'Ver imóveis', to: CATALOGO })
+  } else {
+    itens.push({ label: 'Quero alugar', to: PRETENSAO }, { label: 'Quero vender', to: PRETENSAO })
+  }
 
   if (tenant?.whatsapp) {
     itens.push({ label: 'Falar no WhatsApp', to: whatsappHref, externo: true })

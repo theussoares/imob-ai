@@ -11,7 +11,7 @@ const route = useRoute();
  * registrada no `vitest.config.ts`) e a condição da Área do Cliente já quebrou
  * antes, sem deixar erro.
  */
-const itens = computed(() => itensDoMenu(tenant.value, whatsappLink()));
+const itens = computed(() => itensDoMenu(tenant.value, whatsappLink(), route.path));
 
 const aberto = ref(false);
 const barra = ref<HTMLElement | null>(null);
