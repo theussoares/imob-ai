@@ -11,8 +11,8 @@ let _serviceClient: SupabaseClient<Database> | null = null
 export function publicSupabase(): SupabaseClient<Database> {
   if (_publicClient) return _publicClient
   const config = useRuntimeConfig()
-  const url = config.public.supabaseUrl
-  const key = config.public.supabaseKey
+  const url = segredoDeRuntime(config.public.supabaseUrl, 'SUPABASE_URL')
+  const key = segredoDeRuntime(config.public.supabaseKey, 'SUPABASE_KEY')
   if (!url || !key) {
     throw createError({ statusCode: 500, statusMessage: 'Supabase não configurado (SUPABASE_URL / SUPABASE_KEY).' })
   }
@@ -39,8 +39,8 @@ export function publicSupabase(): SupabaseClient<Database> {
 export function serviceSupabase(): SupabaseClient<Database> {
   if (_serviceClient) return _serviceClient
   const config = useRuntimeConfig()
-  const url = config.public.supabaseUrl
-  const key = config.supabaseServiceKey
+  const url = segredoDeRuntime(config.public.supabaseUrl, 'SUPABASE_URL')
+  const key = segredoDeRuntime(config.supabaseServiceKey, 'SUPABASE_SERVICE_ROLE_KEY')
   if (!url || !key) {
     // Config faltando derruba toda escrita pública (formulários). Precisa gritar
     // no log — o sintoma que chega é "o formulário parou", sem causa aparente.

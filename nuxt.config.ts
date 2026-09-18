@@ -124,13 +124,17 @@ export default defineNuxtConfig({
     // `public`: chave de API no bundle do navegador é chave vazada.
     // Sem as duas, o servidor não envia — em dev registra no log, em produção
     // erra alto. Ver `server/utils/mailer.ts`.
-    // ⚠️ Lida no BUILD, não no runtime. O Nuxt só sobrescreve `runtimeConfig`
-    // em execução com variável prefixada por `NUXT_` (aqui seria
-    // `NUXT_MAIL_API_KEY`); sem o prefixo, o valor é assado no bundle.
+    // ⚠️ Este arquivo roda no BUILD: o valor abaixo é assado no bundle, não
+    // lido em produção. Em execução o Nitro só sobrescreve `runtimeConfig` com
+    // variável prefixada por `NUXT_` (aqui, `NUXT_MAIL_API_KEY`).
     //
-    // Consequência que custou uma tarde de depuração em 17/09: marcar a
-    // variável na Vercel **não basta**, é preciso redeploy. O sintoma é convite
-    // que não sai num deploy onde a variável aparece configurada no painel.
+    // Custou uma tarde de depuração em 17/09: a variável aparecia configurada
+    // na Vercel e o convite não saía, sem log nenhum.
+    //
+    // NÃO leia esta chave direto do config no servidor. Use
+    // `segredoDeRuntime(config.mailApiKey, 'MAIL_API_KEY')`, que aceita também
+    // o nome sem prefixo lido em execução — há um teste que cobra isso
+    // (`test/server/segredos-em-runtime.test.ts`).
     mailApiKey: process.env.MAIL_API_KEY || '',
     // Endereço remetente, no domínio VERIFICADO da plataforma.
     // Ex.: nao-responda@usemoradi.com.br

@@ -26,7 +26,10 @@ export async function requirePortalUser(event: H3Event) {
   }
 
   const config = useRuntimeConfig()
-  const client = createClient<Database>(config.public.supabaseUrl, config.public.supabaseKey, {
+  const client = createClient<Database>(
+    segredoDeRuntime(config.public.supabaseUrl, 'SUPABASE_URL'),
+    segredoDeRuntime(config.public.supabaseKey, 'SUPABASE_KEY'),
+    {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   })

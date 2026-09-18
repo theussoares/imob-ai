@@ -22,7 +22,7 @@ function requestIpHash(event: H3Event): string | null {
   const ip = clientIpFrom((name) => getHeader(event, name))
   if (!ip) return null
 
-  const salt = useRuntimeConfig().rateLimitIpSalt || ''
+  const salt = segredoDeRuntime(useRuntimeConfig().rateLimitIpSalt, 'RATE_LIMIT_IP_SALT')
   if (!salt) {
     // Precisa gritar: sem isto a segunda trava fica desligada em silêncio.
     logWarn('ratelimit.ip_salt_missing', {})

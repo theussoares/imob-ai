@@ -179,8 +179,15 @@ describe('os dois caminhos de envio usam a fonte única', () => {
     // 629 testes, e voltaria todo tenant com domínio dedicado, em silêncio,
     // para o domínio da plataforma. Esta asserção olha a chamada exata:
     // `msg.remetente.endereco` tem que ser o primeiro argumento.
+    //
+    // O segundo argumento deixou de ser `config.mailFrom` direto: ele agora
+    // passa por `segredoDeRuntime`, porque lido só do config ele é `''` em
+    // produção (ver `server/utils/segredo.ts`). O que esta asserção protege
+    // continua igual — quem manda é `msg.remetente.endereco`, e o endereço da
+    // plataforma é SÓ o fallback.
     const f = fonte('server', 'utils', 'mailer.ts')
-    expect(f).toMatch(/enderecoDeEnvio\(\s*msg\.remetente\.endereco\s*,\s*config\.mailFrom\s*\)/)
+    expect(f).toMatch(/enderecoDeEnvio\(\s*msg\.remetente\.endereco\s*,\s*daPlataforma\s*\)/)
+    expect(f).toMatch(/const daPlataforma = segredoDeRuntime\(config\.mailFrom/)
   })
 
   test('o repositório recebe o Remetente pronto, não nome e e-mail soltos', () => {
