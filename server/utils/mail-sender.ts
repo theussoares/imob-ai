@@ -21,7 +21,7 @@ import type { Tenant } from '~~/shared/models/tenant'
  * fora de qualquer sessão de usuário (a recuperação de senha é pública).
  */
 export async function remetenteDoTenant(tenant: Tenant): Promise<string> {
-  const plataforma = useRuntimeConfig().mailFrom || ''
+  const plataforma = segredoDeRuntime(useRuntimeConfig().mailFrom, 'MAIL_FROM')
 
   try {
     const { data, error } = await serviceSupabase()

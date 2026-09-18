@@ -1,4 +1,5 @@
 import { createError } from 'h3'
+import { segredoDeRuntime } from '~~/server/utils/segredo'
 
 /**
  * O Nuxt auto-importa helpers do h3 no código de servidor; fora do runtime dele
@@ -17,3 +18,12 @@ Object.assign(globalThis, {
   logError: () => {},
   errMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 })
+
+/**
+ * `segredoDeRuntime` (server/utils/segredo.ts) também é auto-import.
+ *
+ * Aqui vai a implementação DE VERDADE, não um no-op: ela decide de onde o
+ * segredo vem, e um dublê que devolvesse sempre o primeiro argumento esconderia
+ * exatamente a regressão que ela existe para evitar.
+ */
+Object.assign(globalThis, { segredoDeRuntime })
