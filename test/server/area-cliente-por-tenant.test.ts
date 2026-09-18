@@ -159,11 +159,29 @@ describe('o link no site público segue o recurso, não só o interruptor', () =
   test('o header e o rodapé continuam lendo um campo só', () => {
     // Eles NÃO precisam mudar — é o payload que passou a ser honesto. Se algum
     // dia lerem outra coisa, esta trava avisa que a regra se espalhou.
+    //
+    // O rodapé lê direto. O header passou a montar a lista de itens numa função
+    // pura (`shared/utils/header-menu.ts`), então a leitura mudou de arquivo —
+    // mas NÃO de natureza, e é isso que este teste continua exigindo.
+    expect(fonte('app', 'components', 'AppFooter.vue')).toContain('tenant?.portalEnabled')
+    expect(fonte('shared', 'utils', 'header-menu.ts')).toContain('tenant?.portalEnabled')
+  })
+
+  test('nem o header nem o menu buscam o entitlement por fora', () => {
+    // O negativo é o que dá força ao teste acima: um campo só, vindo do payload
+    // público que já colapsa o valor efetivo. Ir buscar a verdade em outro lugar
+    // — a tabela, o endpoint do painel, um segundo campo — desfaria o colapso
+    // que existe por PRIVACIDADE: com duas fontes, "tem o recurso mas escondeu o
+    // link" e "não tem o recurso" voltam a ser distinguíveis de fora.
     for (const arquivo of [
       ['app', 'components', 'AppHeader.vue'],
       ['app', 'components', 'AppFooter.vue'],
+      ['shared', 'utils', 'header-menu.ts'],
     ]) {
-      expect(fonte(...arquivo)).toContain('tenant?.portalEnabled')
+      const f = fonte(...arquivo)
+      for (const vazamento of ['areaClienteAtiva', 'tenant_features', 'api/admin/features']) {
+        expect(f, `${arquivo.join('/')} não pode consultar ${vazamento}`).not.toContain(vazamento)
+      }
     }
   })
 
