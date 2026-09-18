@@ -1,11 +1,19 @@
 <script setup lang="ts">
+import { credencialDaUrl, validarNovaSenha } from "~~/shared/utils/auth-credencial";
+
 /**
  * Destino do link de convite: aqui a pessoa define a própria senha.
  *
  * Não usa o middleware `admin` de propósito — quem chega ainda não tem sessão
  * estabelecida; é justamente o token da URL que vai criá-la.
+ *
+ * A leitura da credencial mora em `shared/utils/auth-credencial.ts`, junto com
+ * a da Área do Cliente: era o mesmo bloco copiado nos dois arquivos, e o que
+ * difere de verdade é só o client do Supabase e o destino depois de salvar.
  */
 definePageMeta({ layout: false });
+
+const tenant = useTenant();
 
 const password = ref("");
 const confirmPassword = ref("");
@@ -16,29 +24,23 @@ const error = ref("");
 
 onMounted(async () => {
   const client = await getAdminSupabase();
-
-  // O Supabase entrega a credencial de duas formas conforme o fluxo do projeto:
-  // PKCE devolve `?code=`, o implícito devolve tokens no fragmento (`#`). Qual
-  // deles chega depende de configuração do projeto, então trato os dois — errar
-  // aqui deixaria a pessoa numa tela morta, sem explicação.
-  const url = new URL(window.location.href);
-  const code = url.searchParams.get("code");
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const accessToken = hash.get("access_token");
-  const refreshToken = hash.get("refresh_token");
+  const credencial = credencialDaUrl(window.location.href);
 
   try {
-    if (code) {
-      const { error: e } = await client.auth.exchangeCodeForSession(code);
+    if (credencial?.tipo === "code") {
+      const { error: e } = await client.auth.exchangeCodeForSession(
+        credencial.code,
+      );
       if (e) throw e;
-    } else if (accessToken && refreshToken) {
+    } else if (credencial?.tipo === "tokens") {
       const { error: e } = await client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
+        access_token: credencial.accessToken,
+        refresh_token: credencial.refreshToken,
       });
       if (e) throw e;
     } else {
-      // Também cobre quem já estava logado e abriu a URL direto.
+      // Sem credencial na URL não quer dizer link inválido: também é o caso de
+      // quem já estava logado e abriu o endereço direto.
       const { data } = await client.auth.getSession();
       if (!data.session) {
         state.value = "invalido";
@@ -47,7 +49,7 @@ onMounted(async () => {
     }
     // Tira a credencial da barra de endereço: sem isto ela fica no histórico e
     // em qualquer print que a pessoa mandar pedindo ajuda.
-    history.replaceState(null, "", url.pathname);
+    history.replaceState(null, "", window.location.pathname);
     state.value = "pronto";
   } catch {
     state.value = "invalido";
@@ -55,12 +57,9 @@ onMounted(async () => {
 });
 
 async function save() {
-  if (password.value.length < 8) {
-    error.value = "A senha precisa ter pelo menos 8 caracteres.";
-    return;
-  }
-  if (password.value !== confirmPassword.value) {
-    error.value = "As duas senhas não são iguais.";
+  const problema = validarNovaSenha(password.value, confirmPassword.value);
+  if (problema) {
+    error.value = problema;
     return;
   }
   state.value = "salvando";
@@ -79,7 +78,7 @@ async function save() {
 }
 
 useHead({
-  title: "Definir senha · Painel",
+  title: "Definir senha do painel",
   // Página de credencial não tem por que ser indexada.
   meta: [{ name: "robots", content: "noindex, nofollow" }],
 });
@@ -88,7 +87,35 @@ useHead({
 <template>
   <div class="wrap">
     <div class="card">
-      <h1>Definir sua senha</h1>
+      <!--
+        Esta tela precisa dizer ONDE a pessoa está, e por um motivo concreto:
+        ela é gêmea de `/area-cliente/definir-senha`, e um convite de cliente
+        que caísse aqui por engano era indistinguível do certo — foi exatamente
+        assim que um bug de redirecionamento passou despercebido, com a pessoa
+        preenchendo a senha inteira antes de descobrir que estava no lugar
+        errado.
+
+        O markup é PRÓPRIO, e não a classe `.brand` que o `admin/login.vue`
+        usa: aquela é compartilhada com o header do site público, onde `.mark`
+        virou um espaço de logo de 140×65 (commit e7fe27a) e ficou grande
+        demais para o ícone de 22px que as telas de acesso põem dentro dela —
+        o login está com o bloco desalinhado desde então.
+      -->
+      <div class="quem">
+        <img
+          v-if="tenant?.logoUrl"
+          :src="tenant.logoUrl"
+          :alt="tenant?.name || ''"
+          class="quem-logo"
+        />
+        <span v-else class="quem-icone"><AppIcon name="home" /></span>
+        <span class="quem-txt">
+          <b>{{ tenant?.name || "Painel" }}</b>
+          <small>Área administrativa</small>
+        </span>
+      </div>
+
+      <h1>Definir sua senha do painel</h1>
 
       <p v-if="state === 'verificando'" class="muted">Verificando convite...</p>
 
@@ -106,7 +133,8 @@ useHead({
 
       <template v-else>
         <p class="muted">
-          Escolha uma senha para entrar no painel. Só você vai saber qual é.
+          Escolha uma senha para entrar no painel da {{ tenant?.name || "imobiliária" }}.
+          Só você vai saber qual é.
         </p>
         <form @submit.prevent="save">
           <label class="admin-label" for="senha">Nova senha</label>
@@ -127,15 +155,19 @@ useHead({
             autocomplete="new-password"
           />
 
-          <p v-if="error" class="err">{{ error }}</p>
+          <p v-if="error" class="err" role="alert">{{ error }}</p>
 
+          <!-- O rótulo diz para onde leva: é a última chance de perceber que se
+               está na tela errada antes de entregar a senha. -->
           <button
             class="admin-btn full"
             type="submit"
             :disabled="state === 'salvando'"
           >
             {{
-              state === "salvando" ? "Salvando..." : "Definir senha e entrar"
+              state === "salvando"
+                ? "Salvando..."
+                : "Definir senha e entrar no painel"
             }}
           </button>
         </form>
@@ -160,6 +192,51 @@ useHead({
   background: var(--paper);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
+}
+.quem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+/* Altura fixa e largura livre: a logo de cada imobiliária tem proporção
+   própria, e travar a largura é o que achatou o bloco equivalente do login. */
+.quem-logo {
+  height: 38px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  flex: none;
+}
+.quem-icone {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+}
+.quem-icone :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+.quem-txt {
+  min-width: 0;
+}
+.quem-txt b {
+  display: block;
+  font-size: 14px;
+  line-height: 1.25;
+}
+.quem-txt small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
 }
 h1 {
   font-family: "Space Grotesk", sans-serif;

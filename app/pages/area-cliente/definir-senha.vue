@@ -1,12 +1,19 @@
 <script setup lang="ts">
+import { credencialDaUrl, validarNovaSenha } from '~~/shared/utils/auth-credencial'
+
 /**
  * Destino do link de convite do cliente.
  *
  * Sem o middleware `portal` de propósito: quem chega ainda não tem sessão — é o
- * token da URL que vai criá-la. É o mesmo desenho de
- * `app/pages/admin/definir-senha.vue`, com o client do PORTAL.
+ * token da URL que vai criá-la.
+ *
+ * A leitura da credencial mora em `shared/utils/auth-credencial.ts`, junto com
+ * a do painel: era o mesmo bloco copiado nos dois arquivos, e o que difere de
+ * verdade é só o client do Supabase e o destino depois de salvar.
  */
 definePageMeta({ layout: 'portal' })
+
+const tenant = useTenant()
 
 const password = ref('')
 const confirmPassword = ref('')
@@ -15,29 +22,21 @@ const error = ref('')
 
 onMounted(async () => {
   const client = await getPortalSupabase()
-
-  // O Supabase entrega a credencial de duas formas conforme o fluxo do projeto:
-  // PKCE devolve `?code=`, o implícito devolve tokens no fragmento (`#`). Tratar
-  // só um deixaria a pessoa numa tela morta, sem explicação — e aqui ela é um
-  // cliente final, que não tem a quem recorrer além do WhatsApp da imobiliária.
-  const url = new URL(window.location.href)
-  const code = url.searchParams.get('code')
-  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-  const accessToken = hash.get('access_token')
-  const refreshToken = hash.get('refresh_token')
+  const credencial = credencialDaUrl(window.location.href)
 
   try {
-    if (code) {
-      const { error: e } = await client.auth.exchangeCodeForSession(code)
+    if (credencial?.tipo === 'code') {
+      const { error: e } = await client.auth.exchangeCodeForSession(credencial.code)
       if (e) throw e
-    } else if (accessToken && refreshToken) {
+    } else if (credencial?.tipo === 'tokens') {
       const { error: e } = await client.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
+        access_token: credencial.accessToken,
+        refresh_token: credencial.refreshToken,
       })
       if (e) throw e
     } else {
-      // Também cobre quem já estava logado e abriu a URL direto.
+      // Sem credencial na URL não quer dizer link inválido: também é o caso de
+      // quem já estava logado e abriu o endereço direto.
       const { data } = await client.auth.getSession()
       if (!data.session) {
         state.value = 'invalido'
@@ -46,7 +45,7 @@ onMounted(async () => {
     }
     // Tira a credencial da barra de endereço: sem isto ela fica no histórico e
     // em qualquer print que a pessoa mandar pedindo ajuda.
-    history.replaceState(null, '', url.pathname)
+    history.replaceState(null, '', window.location.pathname)
     state.value = 'pronto'
   } catch {
     state.value = 'invalido'
@@ -54,12 +53,9 @@ onMounted(async () => {
 })
 
 async function salvar() {
-  if (password.value.length < 8) {
-    error.value = 'A senha precisa ter pelo menos 8 caracteres.'
-    return
-  }
-  if (password.value !== confirmPassword.value) {
-    error.value = 'As duas senhas não são iguais.'
+  const problema = validarNovaSenha(password.value, confirmPassword.value)
+  if (problema) {
+    error.value = problema
     return
   }
   state.value = 'salvando'
@@ -70,14 +66,18 @@ async function salvar() {
     if (e) throw e
     await navigateTo('/area-cliente')
   } catch (e: unknown) {
-    const err = e as { message?: string }
-    error.value = err?.message || 'Não foi possível definir a senha.'
+    // Antes isto mostrava `err.message` cru, que vem do Supabase em INGLÊS.
+    // `friendly-error.ts` existe exatamente para isso ("nunca a frase crua do
+    // banco") e o painel já usava; a cópia daqui tinha derivado. O lado pior
+    // para derivar: quem lê esta tela é o cliente final, que não tem a quem
+    // recorrer além do WhatsApp da imobiliária.
+    error.value = friendlyErrorMessage(e, 'Não foi possível definir a senha.')
     state.value = 'pronto'
   }
 }
 
 useHead({
-  title: 'Definir senha · Área do Cliente',
+  title: 'Definir senha da Área do Cliente',
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 </script>
@@ -85,7 +85,17 @@ useHead({
 <template>
   <div class="senha-wrap">
     <div class="senha-card">
-      <h1>Definir sua senha</h1>
+      <!--
+        O título nomeia o destino, e não por preciosismo: esta tela é gêmea de
+        `/admin/definir-senha`, e um convite que caísse na errada era
+        indistinguível do certo — foi assim que um bug de redirecionamento
+        passou despercebido, com a pessoa preenchendo a senha inteira antes de
+        descobrir que estava no lugar errado.
+
+        O layout `portal` já põe logo e nome da imobiliária no topo; o que
+        faltava era dizer QUAL acesso está sendo criado.
+      -->
+      <h1>Definir sua senha da Área do Cliente</h1>
 
       <p v-if="state === 'verificando'" class="muted">Verificando o convite…</p>
 
@@ -101,33 +111,42 @@ useHead({
         <NuxtLink to="/area-cliente/login" class="link">Ir para o login</NuxtLink>
       </div>
 
-      <form v-else @submit.prevent="salvar">
-        <label class="lbl" for="senha">Nova senha</label>
-        <input
-          id="senha"
-          v-model="password"
-          class="inp"
-          type="password"
-          autocomplete="new-password"
-          required
-        >
+      <template v-else>
+        <p class="muted">
+          Escolha uma senha para acessar seus contratos e documentos
+          <template v-if="tenant?.name">na {{ tenant.name }}</template>.
+        </p>
 
-        <label class="lbl" for="confirma">Repita a senha</label>
-        <input
-          id="confirma"
-          v-model="confirmPassword"
-          class="inp"
-          type="password"
-          autocomplete="new-password"
-          required
-        >
+        <form @submit.prevent="salvar">
+          <label class="lbl" for="senha">Nova senha</label>
+          <input
+            id="senha"
+            v-model="password"
+            class="inp"
+            type="password"
+            autocomplete="new-password"
+            required
+          >
 
-        <p v-if="error" class="erro" role="alert">{{ error }}</p>
+          <label class="lbl" for="confirma">Repita a senha</label>
+          <input
+            id="confirma"
+            v-model="confirmPassword"
+            class="inp"
+            type="password"
+            autocomplete="new-password"
+            required
+          >
 
-        <button class="btn" type="submit" :disabled="state === 'salvando'">
-          {{ state === 'salvando' ? 'Salvando…' : 'Salvar e entrar' }}
-        </button>
-      </form>
+          <p v-if="error" class="erro" role="alert">{{ error }}</p>
+
+          <!-- O rótulo diz para onde leva: é a última chance de perceber que se
+               está na tela errada antes de entregar a senha. -->
+          <button class="btn" type="submit" :disabled="state === 'salvando'">
+            {{ state === 'salvando' ? 'Salvando…' : 'Definir senha e entrar na Área do Cliente' }}
+          </button>
+        </form>
+      </template>
     </div>
   </div>
 </template>
