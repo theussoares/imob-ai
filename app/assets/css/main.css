@@ -154,36 +154,108 @@ summary,
   color: var(--ink-soft);
   letter-spacing: 0.02em;
 }
-.bar-cta {
-  margin-left: auto;
+/* ---------- Menu do site ---------- */
+/*
+ * Com a Área do Cliente ligada são quatro destinos, e a barra deixa de caber no
+ * celular. Burger lá; no desktop os itens ficam na PRÓPRIA barra, porque menu
+ * escondido atrás de um clique numa tela larga esconde "Quero vender", que é
+ * caminho de conversão.
+ *
+ * Os itens estão sempre no DOM — quem mostra e esconde é este CSS, não `v-if`.
+ * É o que os faz valerem como navegação interna no HTML do SSR mesmo com o menu
+ * fechado, e o que permite o mesmo markup virar uma linha no desktop sem
+ * `!important` brigando com estilo inline.
+ */
+.bar-in {
+  /* Âncora do painel no celular. Fica no `.bar-in` e não no `.bar`: a barra vai
+     de ponta a ponta da tela, e em monitor largo o painel descolaria do
+     conteúdo, encostado na borda da janela. */
+  position: relative;
 }
-.wa-btn {
-  display: inline-flex;
+.menu {
+  margin-left: auto;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+}
+.menu.aberto {
+  display: flex;
+}
+.menu-item {
+  display: flex;
   align-items: center;
   gap: 8px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14.5px;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.menu-item:hover {
+  background: var(--brand-ghost);
+}
+/* O WhatsApp continua sendo a ação que converte: mantém peso de botão em vez de
+   virar mais uma linha de texto igual às outras. */
+.menu-item.destaque {
   background: var(--wa);
   color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-  padding: 11px 15px;
-  border-radius: 11px;
-  text-decoration: none;
-  border: none;
-  transition:
-    background 0.15s,
-    transform 0.15s;
 }
-.wa-btn:hover {
+.menu-item.destaque:hover {
   background: var(--wa-dark);
-  transform: translateY(-1px);
 }
-.wa-btn svg {
+.menu-item svg {
   width: 17px;
   height: 17px;
-  fill: #fff;
+  fill: currentColor;
 }
-.bar-cta .label-desk {
-  display: none;
+.burger {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.burger svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 767px) {
+  /* Flutua em vez de empurrar: quem tocou no burger enquanto lia um anúncio
+     veria o anúncio pular tela abaixo. */
+  .menu.aberto {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 240px;
+    padding: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    z-index: 50;
+  }
+}
+
+@media (min-width: 768px) {
+  /* No desktop os itens já estão na barra: o burger não tem o que abrir. */
+  .burger {
+    display: none;
+  }
+  .menu {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+  }
 }
 
 /* ---------- Eyebrow (usado no Hero.vue e no error.vue) ---------- */
@@ -775,6 +847,42 @@ a.btn-detail:hover {
 /* Captura no fim do catálogo, para quem percorreu a lista e não gostou.
    Mais discreta que a do estado vazio: ali o formulário É a saída da tela,
    aqui ele fecha uma página que já cumpriu o trabalho dela. */
+/* Revela o proximo lote de cards na home (ver shared/utils/catalog-lote.ts).
+   Contornado, nao preenchido: o botao preenchido da marca ja e o do WhatsApp e
+   o do formulario de captura. Este aqui e navegacao, nao conversao, e disputar
+   o mesmo peso visual tiraria atencao de quem de fato traz contato. */
+.ver-mais {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+}
+/* Largo de proposito: a recomendacao de usabilidade para lista de produto e um
+   unico botao grande no fim da grade — alvo pequeno no fim de uma rolagem longa
+   e onde a pessoa desiste. */
+.ver-mais button {
+  width: 100%;
+  max-width: 420px;
+  padding: 14px 24px;
+  background: var(--paper);
+  color: var(--brand);
+  border: 1.5px solid var(--brand);
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+.ver-mais button:hover {
+  background: var(--brand);
+  color: #fff;
+}
+.ver-mais-conta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 .browse-lead {
   max-width: 460px;
   margin: 40px auto 0;
@@ -902,9 +1010,6 @@ a.btn-detail:hover {
   }
   .search-go {
     grid-column: 1 / -1;
-  }
-  .bar-cta .label-desk {
-    display: inline;
   }
 }
 @media (min-width: 820px) {

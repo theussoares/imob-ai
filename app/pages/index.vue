@@ -14,6 +14,7 @@ import {
   allCategories,
 } from "~~/shared/utils/category";
 import { qualifyingNeighborhoods } from "~~/shared/utils/neighborhood";
+import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 
 const tenant = useTenant();
 const requestFetch = useRequestFetch();
@@ -42,6 +43,29 @@ const list = computed(() => properties.value ?? []);
 // requisição, ao contrário de um objeto solto no escopo do módulo).
 const filters = useState("catalog-filters", createCatalogFilters).value;
 const { filtered, reset } = useCatalog(list, filters);
+
+/**
+ * Quantos lotes de card a home já revelou.
+ *
+ * `useState` pelo mesmo motivo dos filtros logo acima: quem abriu o 40º imóvel
+ * e voltou precisa encontrar a lista como deixou. Um `ref` local resetaria na
+ * volta e o card que a pessoa acabou de ver teria sumido da página.
+ */
+const lotes = useState("catalog-lotes", () => 1);
+const lote = computed(() => loteDoCatalogo(filtered.value, lotes.value));
+
+/**
+ * Trocar de filtro recomeça do primeiro lote.
+ *
+ * Sem isto, quem expandiu até 48 e depois mexeu no filtro recebe outra parede
+ * de cards — e o corte deixa de existir na prática a partir da primeira
+ * interação. Vale também para a ordenação: pedir "menor preço" e continuar
+ * olhando 48 resultados esconde justamente o que a pessoa pediu para ver
+ * primeiro.
+ */
+watch(filters, () => {
+  lotes.value = 1;
+});
 
 // ---- Captura de quem filtrou e não achou nada ----
 // Devolve os critérios em voz para a pessoa: mostrar que entendemos o pedido é o
@@ -236,12 +260,35 @@ useHead(() => ({
         <!-- stagger limitado a 8 cards: sem o teto, 50 imóveis deixam o último
              invisível por ~2s (e 200 imóveis, por 8s) por causa do fill-mode both. -->
         <LazyPropertyCard
-          v-for="(p, i) in filtered"
+          v-for="(p, i) in lote.visiveis"
           :key="p.id"
           :property="p"
           :index="i"
           :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
         />
+      </div>
+
+      <!--
+        Só a HOME corta a lista. As páginas de categoria e de bairro continuam
+        renderizando tudo, e é de propósito: o que fica atrás deste botão some
+        do HTML como link interno, e alguma página do site precisa linkar os
+        imóveis todos. O sitemap mantém cada um descobrível, mas sitemap não é
+        link interno — não diz ao Google o que é importante.
+
+        Botão, e não scroll infinito: com a lista se estendendo sozinha, o
+        formulário de captura logo abaixo nunca ficaria ao alcance.
+      -->
+      <div v-if="lote.restantes" class="ver-mais">
+        <button type="button" @click="lotes++">
+          Ver mais {{ lote.proximoLote }}
+          {{ lote.proximoLote === 1 ? "imóvel" : "imóveis" }}
+        </button>
+        <!-- `aria-live` porque os cards novos entram abaixo do botão, fora de
+             onde o leitor de tela está: sem o aviso, o clique não produz
+             resposta audível nenhuma. -->
+        <p class="ver-mais-conta" aria-live="polite">
+          Mostrando {{ lote.visiveis.length }} de {{ filtered.length }}
+        </p>
       </div>
 
       <div v-else class="empty">
