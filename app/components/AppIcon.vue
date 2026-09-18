@@ -12,6 +12,7 @@ const icons: Record<string, string> = {
   area: 'tabler:ruler-2',
   pin: 'tabler:map-pin',
   close: 'tabler:x',
+  menu: 'tabler:menu-2',
   phone: 'tabler:phone',
   mail: 'tabler:mail',
   'chevron-left': 'tabler:chevron-left',
