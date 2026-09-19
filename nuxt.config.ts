@@ -17,7 +17,7 @@ export default defineNuxtConfig({
     families: [
       { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Space Grotesk', provider: 'google', weights: [400, 500, 600, 700] },
-      { name: 'Montserrat', provider: 'google', weights: [400, 500, 600, 700] },
+      { name: 'Plus Jakarta Sans', provider: 'google', weights: [500, 600, 700, 800] },
     ],
   },
 
