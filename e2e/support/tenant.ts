@@ -182,6 +182,31 @@ export async function apagarAmbiente(slug: string): Promise<void> {
   const { data: tenant } = await sb.from('tenants').select('id').eq('slug', slug).maybeSingle()
   if (!tenant) return
 
+  // Confere que o bucket ficou mesmo vazio para este slug ANTES de apagar
+  // qualquer coisa que dependa da linha de `tenants` existir — e é por isso
+  // que essa linha morre por ÚLTIMA nesta função, nunca antes dela.
+  //
+  // A linha é o ÍNDICE que `varrerAmbientesAntigos` usa para achar sobra: ela
+  // consulta só `public.tenants`, nunca lista `portal-docs` por prefixo — a
+  // raiz do bucket guarda documento de quatro imobiliárias reais, e listar
+  // tudo ali seria varredura ampla demais para um utilitário de teste
+  // (alternativa descartada). Sem a linha, um arquivo que sobrou por falha de
+  // rede, rate limit do Storage ou qualquer outro motivo no meio da remoção
+  // acima fica invisível para sempre: nada mais no banco aponta para aquele
+  // slug.
+  //
+  // Por isso: se sobrou pasta, lança erro aqui e para — sem tocar em conta de
+  // Auth, sem apagar a linha. Um vazamento que a PRÓXIMA chamada a esta
+  // função (manual ou pela varredura) ainda consegue achar é recuperável; um
+  // vazamento sem tenant não é.
+  const { data: restou } = await sb.storage.from('portal-docs').list(slug, { limit: 1000 })
+  if ((restou ?? []).length > 0) {
+    throw new Error(
+      `bucket não ficou vazio para "${slug}" (${restou!.length} pasta(s) restante(s)) — ` +
+        'mantendo a linha do tenant para a próxima chamada achar e tentar de novo',
+    )
+  }
+
   // As contas do Auth não penduram em `tenant_id` — saem uma a uma, pelos
   // `user_id` que o tenant conhece, antes de o cascade apagar as linhas que os
   // apontam.
