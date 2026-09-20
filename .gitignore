@@ -44,3 +44,8 @@ pnpm-debug.log*
 # Scratch das skills (pacotes de revisão, ledger de execução). Nunca versionado:
 # é material de trabalho de uma sessão, não do projeto.
 .superpowers/
+
+# Playwright
+/test-results
+/playwright-report
+/e2e/.auth

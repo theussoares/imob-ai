@@ -11,7 +11,8 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@nuxt/icon": "^2.5.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@nuxt/fonts": "^0.14.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.10.0",
     "@vite-pwa/nuxt": "^1.1.1",
