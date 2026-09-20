@@ -1,4 +1,4 @@
-import { areaClienteAtiva } from '~~/server/utils/entitlement'
+import { areaClienteAtiva, quemSomosAtiva } from '~~/server/utils/entitlement'
 
 /**
  * Quais recursos opcionais estão ligados para ESTA imobiliária.
@@ -15,5 +15,14 @@ import { areaClienteAtiva } from '~~/server/utils/entitlement'
  */
 export default defineEventHandler(async (event) => {
   const { tenant } = await requireTenantMember(event)
-  return { areaCliente: await areaClienteAtiva(tenant.id) }
+
+  // Em paralelo, e numa resposta só: o middleware de rota espera esta chamada
+  // antes de decidir o redirect, e uma requisição por recurso multiplicaria a
+  // espera na primeira navegação do painel.
+  const [areaCliente, quemSomos] = await Promise.all([
+    areaClienteAtiva(tenant.id),
+    quemSomosAtiva(tenant.id),
+  ])
+
+  return { areaCliente, quemSomos }
 })

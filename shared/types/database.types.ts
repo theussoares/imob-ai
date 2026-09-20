@@ -691,6 +691,7 @@ export type Database = {
           hero_subtitle: string | null
           hero_title: string | null
           about_content: Json
+          about_enabled: boolean
           footer_links: Json
           footer_pages: Json
           footer_text: string | null
@@ -733,6 +734,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           about_content?: Json
+          about_enabled?: boolean
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
@@ -775,6 +777,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           about_content?: Json
+          about_enabled?: boolean
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null

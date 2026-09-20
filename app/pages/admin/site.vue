@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { STATIC_FOOTER_PAGES } from "~~/shared/utils/footer-pages";
+import { STATIC_FOOTER_PAGES, paginasDisponiveis } from "~~/shared/utils/footer-pages";
 import {
   FOOTER_LINKS_MAX,
   isSafeFooterHref,
@@ -52,7 +52,13 @@ const {
 // ---- Páginas do site no rodapé ----
 // A lista vem do código; o cliente só ajusta rótulo e visibilidade. Assim ele
 // descobre que a página existe — nunca a digitaria — e não há caminho quebrado.
-const sitePages = STATIC_FOOTER_PAGES;
+// Pelo ENTITLEMENT, não por `tenant.aboutEnabled`: quem tem o recurso e
+// desligou a página precisa continuar vendo a linha para religá-la.
+const { quemSomos, carregar: carregarRecursos } = useAdminFeatures();
+onMounted(carregarRecursos);
+const sitePages = computed(() =>
+  paginasDisponiveis(STATIC_FOOTER_PAGES, { about: quemSomos.value }),
+);
 function pageOverride(path: string) {
   const atual = form.footerPages ?? {};
   if (!atual[path]) form.footerPages = { ...atual, [path]: {} };

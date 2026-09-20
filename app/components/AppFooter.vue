@@ -57,7 +57,11 @@ const profiles = computed(() =>
  * link interno quebrado no rodapé de todas as páginas.
  */
 const pages = computed(() =>
-  resolveFooterPages(STATIC_FOOTER_PAGES, tenant.value?.footerPages ?? {}),
+  // `aboutEnabled` aqui já é o valor EFETIVO (recurso × interruptor): o payload
+  // público colapsa os dois, então o rodapé continua lendo um campo só.
+  resolveFooterPages(STATIC_FOOTER_PAGES, tenant.value?.footerPages ?? {}, {
+    about: tenant.value?.aboutEnabled === true,
+  }),
 );
 
 const links = computed(() => tenant.value?.footerLinks ?? []);

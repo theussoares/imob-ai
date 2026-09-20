@@ -4,7 +4,7 @@ const { signOut } = useAdminAuth();
 const route = useRoute();
 const siteUrl = usePublicSiteUrl();
 
-const { areaCliente, carregar } = useAdminFeatures();
+const { areaCliente, quemSomos, carregar } = useAdminFeatures();
 onMounted(carregar);
 
 const TODOS = [
@@ -24,14 +24,24 @@ const TODOS = [
   // "Meu site" (edição do dia a dia) antes de "Configurações" (setup técnico):
   // a ordem do menu é a frequência de uso, não a hierarquia conceitual.
   { to: "/admin/site", label: "Meu site", exact: false },
-  { to: "/admin/quem-somos", label: "Quem somos", exact: false },
+  { to: "/admin/quem-somos", label: "Quem somos", exact: false, recurso: "quemSomos" },
   { to: "/admin/usuarios", label: "Usuários", exact: false },
   { to: "/admin/config", label: "Configurações", exact: false },
 ];
 
-const links = computed(() =>
-  TODOS.filter((l) => !l.recurso || (l.recurso === "areaCliente" && areaCliente.value)),
-);
+/**
+ * O estado de cada recurso, por chave — a mesma que o item usa em `recurso`.
+ *
+ * Era uma comparação com a string "areaCliente" na mão. Um recurso novo marcado
+ * no item e esquecido aqui NÃO some do menu e nada reclama: a marca vira
+ * enfeite, que é o modo de falha silencioso que a trava existia para impedir.
+ */
+const RECURSOS = computed<Record<string, boolean>>(() => ({
+  areaCliente: areaCliente.value,
+  quemSomos: quemSomos.value,
+}));
+
+const links = computed(() => TODOS.filter((l) => !l.recurso || RECURSOS.value[l.recurso] === true));
 
 function isActive(l: { to: string; exact: boolean }) {
   return l.exact ? route.path === l.to : route.path.startsWith(l.to);

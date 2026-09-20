@@ -18,7 +18,7 @@
  * lado seguro enquanto não se sabe), e a próxima navegação tenta de novo.
  */
 export function useAdminFeatures() {
-  const estado = useState<{ areaCliente: boolean } | null>('admin:features', () => null)
+  const estado = useState<Recursos | null>('admin:features', () => null)
 
   async function carregar() {
     if (estado.value) return
@@ -39,7 +39,7 @@ export function useAdminFeatures() {
 
   async function buscar() {
     try {
-      estado.value = await adminFetch<{ areaCliente: boolean }>('/api/admin/features')
+      estado.value = await adminFetch<Recursos>('/api/admin/features')
     } catch {
       // Sem barulho na tela e SEM gravar: o menu não oferece o que não deu para
       // confirmar, e a próxima navegação pergunta outra vez.
@@ -48,9 +48,16 @@ export function useAdminFeatures() {
 
   return {
     areaCliente: computed(() => estado.value?.areaCliente === true),
+    quemSomos: computed(() => estado.value?.quemSomos === true),
     carregar,
     carregado: computed(() => estado.value !== null),
   }
+}
+
+/** O que `/api/admin/features` devolve. Um campo por recurso opcional. */
+interface Recursos {
+  areaCliente: boolean
+  quemSomos: boolean
 }
 
 /**

@@ -45,6 +45,10 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
     throw createError({ statusCode: 422, statusMessage: 'Valor inválido para a Área do Cliente.' })
   }
 
+  if (t.aboutEnabled !== undefined && typeof t.aboutEnabled !== 'boolean') {
+    throw createError({ statusCode: 422, statusMessage: 'Valor inválido para a página Quem somos.' })
+  }
+
   if (t.heroImagePosition !== undefined && !HERO_POSITIONS.includes(t.heroImagePosition as string)) {
     throw createError({ statusCode: 422, statusMessage: 'Posição da imagem do hero inválida.' })
   }

@@ -2,13 +2,13 @@
 import { ABOUT_BLOCK_TYPE_LABELS, ABOUT_BLOCK_TYPES, emptyAboutBlock } from "~~/shared/models/about-page";
 import type { AboutBlock, AboutBlockType } from "~~/shared/models/about-page";
 import { ABOUT_BLOCKS_MAX, GALLERY_IMAGES_MAX, LOGOS_MAX } from "~~/shared/utils/about-content";
-definePageMeta({ layout: "admin", middleware: "admin" });
+definePageMeta({ layout: "admin", middleware: ['admin', 'quem-somos'] });
 
 // Tela própria (em vez de mais uma seção em "Meu site"): a edição aqui é por
 // bloco — adicionar, reordenar, remover — um editor pequeno, não mais um grupo
 // de campos. Cada tipo de bloco (shared/models/about-page.ts) é uma peça de
 // Lego que a imobiliária encaixa na ordem que quiser.
-const { form, saving, saved, error, save: persist } = useTenantSettings(["aboutContent"]);
+const { form, saving, saved, error, save: persist } = useTenantSettings(["aboutContent", "aboutEnabled"]);
 
 const blocks = computed(() => form.aboutContent?.blocks ?? []);
 const newBlockType = ref<AboutBlockType>("heading");
@@ -125,10 +125,26 @@ useHead({ title: "Quem somos · Painel" });
     </p>
 
     <form class="admin-card" @submit.prevent="save">
+<!--
+        O interruptor fica AQUI e não em "Configurações": publicar é a última
+        coisa que se faz depois de montar os blocos, e a decisão precisa estar
+        na mesma tela do conteúdo que ela publica.
+      -->
+      <label class="ab-publicar">
+        <input v-model="form.aboutEnabled" type="checkbox">
+        <span>
+          <b>Publicar a página no site</b>
+          <small>
+            Desligado, <code>/quem-somos</code> não existe para o visitante e o
+            link some do rodapé. Deixe assim enquanto a página não tiver
+            conteúdo — página em branco no ar é pior que página nenhuma.
+          </small>
+        </span>
+      </label>
+
       <div v-if="!blocks.length" class="ab-empty">
-        Nenhum bloco ainda. A página <code>/quem-somos</code> existe, mas fica em
-        branco até você adicionar o primeiro. Se ainda não quiser divulgá-la,
-        esconda o link em "Meu site" → Páginas do seu site.
+        Nenhum bloco ainda. Adicione o primeiro abaixo; enquanto isso, deixe a
+        publicação desligada.
       </div>
 
       <div v-for="(b, i) in blocks" :key="i" class="ab-block">
@@ -345,6 +361,33 @@ useHead({ title: "Quem somos · Painel" });
 </template>
 
 <style scoped>
+.ab-publicar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 10px;
+  background: #f9fafb;
+  cursor: pointer;
+}
+.ab-publicar input {
+  margin-top: 3px;
+  flex: none;
+}
+.ab-publicar b {
+  display: block;
+  font-size: 14px;
+}
+.ab-publicar small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft, #6b7280);
+  line-height: 1.45;
+}
+
 .ab-empty {
   color: var(--ink-soft);
   font-size: 14px;

@@ -28,6 +28,14 @@ export interface Tenant {
    * `tenant_features` lida dentro de `is_portal_user()`) e ainda não existe.
    */
   portalEnabled: boolean
+  /**
+   * A página "Quem somos" aparece no site desta imobiliária.
+   *
+   * Mesma dupla do `portalEnabled`: esta coluna é a escolha da imobiliária, e
+   * `tenant_features` diz se ela tem o recurso. O payload público carrega só o
+   * produto dos dois — ver `comLinksEfetivos` em `server/utils/tenant.ts`.
+   */
+  aboutEnabled: boolean
   city: string | null
   state: string | null
   /** Endereço estruturado, para mostrar no rodapé com mapa e alimentar o schema.org. Tudo opcional. */
@@ -85,6 +93,7 @@ export interface TenantSettingsInput {
   email?: string | null
   creci?: string | null
   portalEnabled?: boolean
+  aboutEnabled?: boolean
   city?: string | null
   state?: string | null
   addressStreet?: string | null

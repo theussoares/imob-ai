@@ -8,6 +8,21 @@ const { whatsappLink } = useContact();
 const requestFetch = useRequestFetch();
 
 /**
+ * Recurso desligado: esta página não existe para esta imobiliária.
+ *
+ * 404, e não `noindex` como nas telas do portal — a diferença é o que a página
+ * seria se respondesse 200. Um login `noindex` ainda serve a alguém; um "Quem
+ * somos" de quem nunca escreveu nada é conteúdo fino no domínio de um cliente
+ * real, com um `canonical` afirmando ser a versão autoritativa.
+ *
+ * `aboutEnabled` já vem EFETIVO do payload (recurso × interruptor), então isto
+ * cobre tanto quem não contratou quanto quem despublicou.
+ */
+if (!tenant.value?.aboutEnabled) {
+  throw createError({ statusCode: 404, statusMessage: "Página não encontrada." });
+}
+
+/**
  * Dois títulos, e a diferença é qual deles passa pelo `titleTemplate`.
  *
  * O `title` passa — o `app.vue` acrescenta "· <imobiliária>" a todo título — e

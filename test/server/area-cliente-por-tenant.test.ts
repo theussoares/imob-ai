@@ -146,11 +146,11 @@ describe('o link no site público segue o recurso, não só o interruptor', () =
    */
   test('o payload devolve o valor EFETIVO, não a coluna crua', () => {
     const f = fonte('server', 'utils', 'tenant.ts')
-    expect(f).toContain('comLinkDoPortalEfetivo')
+    expect(f).toContain('comLinksEfetivos')
     expect(f).toContain('areaClienteAtiva')
     // Antes de cachear: o cache guarda o tenant pronto, e colapsar depois
     // deixaria a versão crua viver 60s na memória da instância.
-    const iColapso = f.indexOf('await comLinkDoPortalEfetivo(tenant)')
+    const iColapso = f.indexOf('await comLinksEfetivos(tenant)')
     const iCache = f.indexOf("setCached('host:' + hostname, tenant)")
     expect(iColapso).toBeGreaterThan(-1)
     expect(iCache).toBeGreaterThan(iColapso)
@@ -192,7 +192,7 @@ describe('o link no site público segue o recurso, não só o interruptor', () =
     expect(f).toContain('delete body.portalEnabled')
     expect(f).toContain('areaClienteAtiva')
     // E a resposta sai com o mesmo valor efetivo do GET.
-    expect(f).toContain('updated.portalEnabled && temRecurso')
+    expect(f).toContain('updated.portalEnabled && temPortal')
   })
 
   test('a coluna crua é preservada, não zerada', () => {
