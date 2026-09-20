@@ -7,7 +7,20 @@ const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true });
 const { whatsappLink } = useContact();
 const requestFetch = useRequestFetch();
 
-const titulo = computed(() => `Quem somos${tenant.value?.name ? " · " + tenant.value.name : ""}`);
+/**
+ * Dois títulos, e a diferença é qual deles passa pelo `titleTemplate`.
+ *
+ * O `title` passa — o `app.vue` acrescenta "· <imobiliária>" a todo título — e
+ * por isso este NÃO pode trazer o nome, senão sai duplicado na aba.
+ *
+ * `ogTitle` e o `name` do JSON-LD NÃO passam por template nenhum, e aí o nome
+ * precisa estar escrito: sem ele o card do WhatsApp vira só "Quem somos", sem
+ * dizer de quem. Foi por isso que a correção não pôde ser apagar a interpolação.
+ */
+const titulo = "Quem somos";
+const tituloCompleto = computed(
+  () => `Quem somos${tenant.value?.name ? " · " + tenant.value.name : ""}`,
+);
 const canonical = `${url.origin}/quem-somos`;
 
 const blocks = computed<AboutBlock[]>(() => tenant.value?.aboutContent?.blocks ?? []);
@@ -58,9 +71,9 @@ const description = computed(() => {
 });
 
 useSeoMeta({
-  title: () => titulo.value,
+  title: titulo,
   description: () => description.value,
-  ogTitle: () => titulo.value,
+  ogTitle: () => tituloCompleto.value,
   ogType: "website",
 });
 
@@ -82,7 +95,7 @@ useHead(() => ({
           {
             "@type": "AboutPage",
             url: canonical,
-            name: titulo.value,
+            name: tituloCompleto.value,
             description: description.value,
             mainEntity: tenant.value?.name
               ? { "@type": "RealEstateAgent", name: tenant.value.name, url: url.origin }

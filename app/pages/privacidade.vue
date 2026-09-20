@@ -33,7 +33,11 @@ const nome = computed(() => tenant.value?.name || 'a imobiliária')
 // `STATIC_FOOTER_PAGES`, ESTA LINHA SAI JUNTO — publicar no rodapé e continuar
 // pedindo para não indexar é contradição.
 useHead(() => ({
-  title: `Privacidade · ${tenant.value?.name || 'Área do Cliente'}`,
+  // Sem o nome da imobiliária: o `titleTemplate` do `app.vue` já o acrescenta
+  // a todo título, e somar os dois rendia "Privacidade · OLMI · OLMI". (O
+  // fallback anterior era pior que a duplicação: numa página sem tenant
+  // resolvido, o título da política virava "Área do Cliente".)
+  title: 'Privacidade',
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
   link: [{ rel: 'canonical', href: `${url.origin}/privacidade` }],
 }))
