@@ -199,7 +199,20 @@ export async function apagarAmbiente(slug: string): Promise<void> {
   // Auth, sem apagar a linha. Um vazamento que a PRÓXIMA chamada a esta
   // função (manual ou pela varredura) ainda consegue achar é recuperável; um
   // vazamento sem tenant não é.
-  const { data: restou } = await sb.storage.from('portal-docs').list(slug, { limit: 1000 })
+  const { data: restou, error: erroRestou } = await sb.storage
+    .from('portal-docs')
+    .list(slug, { limit: 1000 })
+  if (erroRestou) {
+    // Falhar ABERTO aqui reabriria o buraco que este bloco existe para
+    // fechar: rede caindo e rate limit do Storage são os mesmos motivos
+    // citados acima para a linha sobreviver, e um `list()` que erra não prova
+    // que o bucket esvaziou — prova só que não dá para saber. "Não sei" tem
+    // que contar como "não está vazio". Falhar fechado é barato: a linha
+    // sobrevive e a próxima chamada tenta de novo; o custo do outro lado —
+    // apagar a linha sem nunca ter confirmado — é exatamente o vazamento
+    // indescobrível que a fix anterior fechou.
+    throw new Error(`não consegui confirmar se o bucket esvaziou para "${slug}": ${erroRestou.message}`)
+  }
   if ((restou ?? []).length > 0) {
     throw new Error(
       `bucket não ficou vazio para "${slug}" (${restou!.length} pasta(s) restante(s)) — ` +
@@ -235,6 +248,24 @@ export async function varrerAmbientesAntigos(): Promise<number> {
     .like('slug', `${PREFIXO}%`)
     .lt('created_at', limite)
 
-  for (const t of data ?? []) await apagarAmbiente(t.slug as string)
-  return (data ?? []).length
+  // Um ambiente preso não pode travar a limpeza dos outros — é para isso que
+  // a varredura existe. `apagarAmbiente` agora lança quando o bucket não
+  // ficou vazio; sem o try/catch aqui, esse throw se propagaria pelo `for` e
+  // abortaria a passada inteira no primeiro ambiente problemático. Como a
+  // query acima não tem `.order()`, a ordem não é garantida — um único órfão
+  // travado bloquearia a limpeza de TODOS os outros, em toda execução, para
+  // sempre. O erro vai para o log (não é engolido); o retorno conta só o que
+  // de fato saiu, então uma varredura parcial aparece como um número menor do
+  // que o total de candidatos, nunca como sucesso silencioso.
+  let apagados = 0
+  for (const t of data ?? []) {
+    const slug = t.slug as string
+    try {
+      await apagarAmbiente(slug)
+      apagados++
+    } catch (erro) {
+      console.error(`varredura não conseguiu apagar "${slug}":`, erro)
+    }
+  }
+  return apagados
 }
