@@ -1,14 +1,22 @@
+import { isPwaPath } from '~~/server/utils/pwa'
+
 /** Resolve o tenant (imobiliária) por domínio/subdomínio em cada requisição. */
 export default defineEventHandler(async (event) => {
   const path = event.path || ''
   // Ignora assets internos e endpoints que não dependem de tenant
   // (robots.txt e /.well-known/* só usam a origin — não devem falhar por causa do banco).
+  //
+  // O manifest do PWA entra pela mesma razão, e ela é mais forte nele: o
+  // navegador o busca junto com a página, resolve o tenant por conta própria e
+  // já tem fallback de nome e cor. Passando por aqui, banco fora derrubava a
+  // rota com 500 antes de o fallback ter chance de existir.
   if (
     path.startsWith('/_') ||
     path.startsWith('/__') ||
     path.startsWith('/favicon') ||
     path === '/robots.txt' ||
-    path.startsWith('/.well-known/')
+    path.startsWith('/.well-known/') ||
+    isPwaPath(path)
   ) {
     return
   }

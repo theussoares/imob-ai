@@ -7,5 +7,7 @@ export default defineEventHandler(async (event) => {
   const id = idDeRota(getRouterParam(event, 'id'))
   const body = await readBody<BrokerInput>(event)
   assertBrokerInput(body)
-  return updateBroker(client, tenant.id, id, body)
+  const broker = await updateBroker(client, tenant.id, id, body)
+  await invalidateTenantCache(tenant.id)
+  return broker
 })

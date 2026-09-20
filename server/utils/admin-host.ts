@@ -1,4 +1,5 @@
 import { ADMIN_HOST_PREFIX, isAdminHost } from '~~/server/utils/tenant'
+import { isPwaPath } from '~~/server/utils/pwa'
 
 /**
  * O que fazer com uma requisição que chegou no host do painel.
@@ -33,7 +34,12 @@ function ehInfra(path: string): boolean {
     path.startsWith('/favicon') ||
     path.startsWith('/.well-known/') ||
     // Continua servido, com Disallow: / — ver robots.txt.get.ts.
-    path === '/robots.txt'
+    path === '/robots.txt' ||
+    // O PWA do painel VIVE neste host: manifest, service worker e os
+    // assets do Workbox. Redirecioná-los para /admin devolveria HTML onde o
+    // navegador espera JSON ou JavaScript — o app instalado para de atualizar
+    // e a instalação deixa de ser oferecida, sem erro visível.
+    isPwaPath(path)
   )
 }
 

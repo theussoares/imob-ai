@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { STATIC_FOOTER_PAGES } from "~~/shared/utils/footer-pages";
+import { STATIC_FOOTER_PAGES, paginasDisponiveis } from "~~/shared/utils/footer-pages";
 import {
   FOOTER_LINKS_MAX,
   isSafeFooterHref,
 } from "~~/shared/utils/footer-links";
+import { googleMapsEmbedSrc, hasStructuredAddress } from "~~/shared/utils/address";
 import type { Tenant } from "~~/shared/models/tenant";
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -32,6 +33,13 @@ const {
   "email",
   "city",
   "state",
+  "addressStreet",
+  "addressNumber",
+  "addressComplement",
+  "addressNeighborhood",
+  "addressZip",
+  "latitude",
+  "longitude",
   "footerText",
   "footerLinks",
   "footerPages",
@@ -44,7 +52,13 @@ const {
 // ---- Páginas do site no rodapé ----
 // A lista vem do código; o cliente só ajusta rótulo e visibilidade. Assim ele
 // descobre que a página existe — nunca a digitaria — e não há caminho quebrado.
-const sitePages = STATIC_FOOTER_PAGES;
+// Pelo ENTITLEMENT, não por `tenant.aboutEnabled`: quem tem o recurso e
+// desligou a página precisa continuar vendo a linha para religá-la.
+const { quemSomos, carregar: carregarRecursos } = useAdminFeatures();
+onMounted(carregarRecursos);
+const sitePages = computed(() =>
+  paginasDisponiveis(STATIC_FOOTER_PAGES, { about: quemSomos.value }),
+);
 function pageOverride(path: string) {
   const atual = form.footerPages ?? {};
   if (!atual[path]) form.footerPages = { ...atual, [path]: {} };
@@ -133,6 +147,31 @@ const previewTenant = computed<Tenant | null>(() =>
         heroCtaLabel: form.heroCtaLabel || null,
         heroCtaHref: form.heroCtaHref || null,
       }
+    : null,
+);
+
+// Coordenadas ficam em número|null no form, mas <input type="number"> só
+// entende texto — string vazia vira null em vez de ficar presa como "".
+const latText = computed<number | string>({
+  get: () => form.latitude ?? "",
+  set: (v) => {
+    const n = String(v).trim();
+    form.latitude = n === "" ? null : Number(n);
+  },
+});
+const lngText = computed<number | string>({
+  get: () => form.longitude ?? "",
+  set: (v) => {
+    const n = String(v).trim();
+    form.longitude = n === "" ? null : Number(n);
+  },
+});
+
+// Preview ao vivo do mapa: por coordenada se as duas estiverem preenchidas,
+// senão pelo endereço em texto — o mesmo fallback usado no site público.
+const mapPreviewSrc = computed(() =>
+  hasStructuredAddress(form) || (form.latitude != null && form.longitude != null)
+    ? googleMapsEmbedSrc(form)
     : null,
 );
 
@@ -363,6 +402,63 @@ useHead({ title: "Meu site · Painel" });
           <label class="admin-label">UF</label>
           <input v-model="form.state" class="admin-input" maxlength="2" />
         </div>
+      </div>
+
+      <h3 class="section-t">
+        Localização <span class="section-hint">(aparece no rodapé, com mapa)</span>
+      </h3>
+      <p class="hint-text">
+        Preencha ao menos a rua para o endereço aparecer no rodapé do site.
+      </p>
+      <div class="form-grid">
+        <div>
+          <label class="admin-label">Rua/Av.</label>
+          <input v-model="form.addressStreet" class="admin-input" placeholder="Av. Brasil" />
+        </div>
+        <div>
+          <label class="admin-label">Número</label>
+          <input v-model="form.addressNumber" class="admin-input" placeholder="1234" />
+        </div>
+        <div>
+          <label class="admin-label">Complemento</label>
+          <input v-model="form.addressComplement" class="admin-input" placeholder="Sala 2" />
+        </div>
+        <div>
+          <label class="admin-label">Bairro</label>
+          <input v-model="form.addressNeighborhood" class="admin-input" placeholder="Centro" />
+        </div>
+        <div>
+          <label class="admin-label">CEP</label>
+          <input v-model="form.addressZip" class="admin-input" placeholder="00000-000" inputmode="numeric" />
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top: 14px">
+        <div>
+          <label class="admin-label">Latitude</label>
+          <input v-model="latText" class="admin-input" type="number" step="any" placeholder="-20.789" />
+        </div>
+        <div>
+          <label class="admin-label">Longitude</label>
+          <input v-model="lngText" class="admin-input" type="number" step="any" placeholder="-51.678" />
+        </div>
+      </div>
+      <p class="hint-text">
+        Opcional — deixa o pino do mapa exato. Sem coordenadas, o mapa é montado
+        pelo endereço em texto. Para pegar as suas: abra o local no Google Maps,
+        clique com o botão direito sobre o ponto e copie os números que aparecem
+        no topo do menu.
+      </p>
+
+      <div v-if="mapPreviewSrc" class="map-preview-wrap">
+        <span class="hero-preview-label">Pré-visualização do mapa</span>
+        <iframe
+          class="map-preview"
+          :src="mapPreviewSrc"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          title="Localização no mapa"
+        />
       </div>
 
       <h2 class="section-t">Rodapé</h2>
@@ -766,6 +862,15 @@ useHead({ title: "Meu site · Painel" });
   border-radius: 14px;
   overflow: hidden;
   background: var(--surface);
+}
+.map-preview-wrap {
+  margin-top: 14px;
+}
+.map-preview {
+  width: 100%;
+  height: 220px;
+  border: 1.5px solid var(--line-2);
+  border-radius: 14px;
 }
 @media (min-width: 720px) {
   .form-grid {

@@ -30,25 +30,21 @@ function initialOf(name: string): string {
   return (match?.[0] ?? '?').toUpperCase()
 }
 
-/** Só aceita cor hex, para não injetar conteúdo arbitrário no SVG. */
-function safeColor(value: string | undefined, fallback: string): string {
-  return value && /^#[0-9a-f]{3,8}$/i.test(value) ? value : fallback
-}
-
-const DEFAULT_COLOR = '#0f3d38'
+// A validação de cor mora em server/utils/brand.ts: o manifest do PWA usa a
+// mesma regra, e uma cópia aqui deixaria as duas livres para divergir.
 
 export default defineEventHandler(async (event) => {
   const hostname = getHostname(event)
 
   let letter = 'M' // domínio-raiz da plataforma (Moradi)
-  let color = DEFAULT_COLOR
+  let color = DEFAULT_BRAND_COLOR
 
   if (!isPlatformRootHost(hostname)) {
     try {
       const tenant = await resolveTenantForHost(hostname)
       if (tenant) {
         letter = initialOf(tenant.name)
-        color = safeColor(tenant.brandPrimary, DEFAULT_COLOR)
+        color = safeBrandColor(tenant.brandPrimary)
       }
     } catch (e) {
       // Banco fora: devolve o ícone neutro em vez de estourar erro numa rota

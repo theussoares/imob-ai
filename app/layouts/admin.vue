@@ -9,6 +9,9 @@ const route = useRoute();
       <!-- Antes do conteúdo: quando a sessão cai, TODA ação da tela falha, e a
            causa precisa ser a primeira coisa que a pessoa lê. -->
       <AdminSessionExpiredBanner />
+      <!-- Depois do de sessão: se as duas coisas acontecerem juntas, a sessão
+           expirada é a que impede de trabalhar; a atualização pode esperar. -->
+      <AdminUpdateBanner />
       <!-- Sem `mode="out-in"`: ele adia a montagem da tela que entra até o leave
            terminar, e é no setup dela que o `useLazyAsyncData` dispara o fetch —
            ou seja, atrasaria em ~180ms justamente a requisição que as telas

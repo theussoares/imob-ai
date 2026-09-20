@@ -7,7 +7,7 @@ import {
   emailConvitePortal,
   type CorpoEmail,
 } from '~~/server/utils/email-templates'
-import { enviarEmail } from '~~/server/utils/mailer'
+import { enviarEmail, type Remetente } from '~~/server/utils/mailer'
 
 type Client = SupabaseClient<Database>
 
@@ -28,6 +28,36 @@ export interface ResultadoConvite {
   semToken: boolean
   /** O e-mail foi realmente despachado. */
   emailEnviado: boolean
+  /**
+   * Por que não saiu, quando não saiu. `null` quando saiu.
+   *
+   * Existe porque a tela não tem como adivinhar: antes disto o `catch` abaixo
+   * engolia a causa num log e devolvia só `emailEnviado: false`, e a única frase
+   * possível virava "tente de novo em instantes" — que é **mentira** quando a
+   * causa é configuração. Quem clicou tenta de novo, falha de novo, e não
+   * descobre que o problema não é dele.
+   *
+   * Dois valores e não a mensagem pronta: a decisão de como dizer é da tela, e
+   * mandar texto do servidor para o painel espalha copy por duas camadas.
+   *
+   *   - `nao_configurado`: falta chave ou remetente. Tentar de novo não resolve
+   *     nada, e o problema é da PLATAFORMA, não da imobiliária.
+   *   - `provedor`: o provedor recusou o envio. Aí tentar de novo faz sentido.
+   */
+  motivoFalha: 'nao_configurado' | 'provedor' | null
+}
+
+/**
+ * Traduz a falha de envio no motivo que a tela precisa.
+ *
+ * O `mailer` já separa os dois casos por status: 500 para "não configurado"
+ * (erra alto de propósito, porque convite que não sai precisa falhar visível) e
+ * 502 para o provedor ter recusado. Qualquer outra coisa é tratada como
+ * provedor: é o lado que sugere tentar de novo, e sugerir uma tentativa a mais
+ * custa menos que afirmar "é problema nosso" sobre um erro que não conhecemos.
+ */
+function motivoDaFalha(e: unknown): 'nao_configurado' | 'provedor' {
+  return (e as { statusCode?: number })?.statusCode === 500 ? 'nao_configurado' : 'provedor'
 }
 
 /** Acha o usuário do Auth por e-mail, quando `generateLink` recusa por já existir. */
@@ -172,8 +202,10 @@ async function linkDeRedefinicao(
 export async function convidarClientePortal(
   service: Client,
   tenantId: string,
-  tenantNome: string,
-  tenantEmail: string | null,
+  // O remetente inteiro, e não nome/e-mail soltos: a assinatura já tinha sete
+  // posicionais, e um terceiro `string` adjacente tornaria uma troca de ordem
+  // invisível para o compilador.
+  remetente: Remetente,
   input: PortalUserInput,
   redirectTo: string,
   urlPortal: string,
@@ -246,7 +278,7 @@ export async function convidarClientePortal(
     // Caso 1: a conta nasceu agora.
     corpo = emailConvitePortal({
       nomeCliente: cliente.name,
-      nomeImobiliaria: tenantNome,
+      nomeImobiliaria: remetente.nome,
       link: acesso.linkConvite,
     })
   } else if (vinculoConfirmado) {
@@ -254,8 +286,8 @@ export async function convidarClientePortal(
     const link = await linkDeRedefinicao(service, email, redirectTo)
     semToken = !link
     corpo = link
-      ? emailConvitePortal({ nomeCliente: cliente.name, nomeImobiliaria: tenantNome, link })
-      : emailAcessoLiberado({ nomeCliente: cliente.name, nomeImobiliaria: tenantNome, urlPortal })
+      ? emailConvitePortal({ nomeCliente: cliente.name, nomeImobiliaria: remetente.nome, link })
+      : emailAcessoLiberado({ nomeCliente: cliente.name, nomeImobiliaria: remetente.nome, urlPortal })
   } else {
     // Caso 3: conta preexistente de terceiro, ou reenvio de um cadastro que
     // nasceu assim e ninguém confirmou. NENHUM token, quantas vezes for.
@@ -266,22 +298,29 @@ export async function convidarClientePortal(
     })
     corpo = emailAcessoLiberado({
       nomeCliente: cliente.name,
-      nomeImobiliaria: tenantNome,
+      nomeImobiliaria: remetente.nome,
       urlPortal,
     })
   }
 
   let emailEnviado = false
+  let motivoFalha: 'nao_configurado' | 'provedor' | null = null
   try {
     const r = await enviarEmail({
       para: email,
       assunto: corpo.assunto,
       html: corpo.html,
       texto: corpo.texto,
-      remetente: { nome: tenantNome, replyTo: tenantEmail },
+      remetente,
     })
     emailEnviado = r.enviado
+    // `enviado: false` sem exceção é o caminho de fora de produção, e ele sai do
+    // MESMO ramo de "sem chave ou sem remetente" — ou seja, a causa é a mesma
+    // que o 500 sinaliza. Dizer `nao_configurado` aqui é preciso, não uma
+    // aproximação.
+    if (!emailEnviado) motivoFalha = 'nao_configurado'
   } catch (e) {
+    motivoFalha = motivoDaFalha(e)
     // O cadastro já está feito e não é desfeito por falha de envio: desfazer
     // perderia o vínculo recém-criado, e o reenvio resolve. Mas a tela precisa
     // saber que o e-mail não saiu, senão a imobiliária fica esperando um
@@ -295,5 +334,6 @@ export async function convidarClientePortal(
     contaPreexistente: acesso.preexistente && !existente,
     semToken,
     emailEnviado,
+    motivoFalha,
   }
 }

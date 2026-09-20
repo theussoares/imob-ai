@@ -1,7 +1,8 @@
-import type { Database } from '~~/shared/types/database.types'
+import type { Database, Json } from '~~/shared/types/database.types'
 import type { HeroImagePosition, Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import { sanitizeFooterLinks } from '~~/shared/utils/footer-links'
 import { sanitizeFooterPageOverrides } from '~~/shared/utils/footer-pages'
+import { sanitizeAboutContent } from '~~/shared/utils/about-content'
 
 type TenantRow = Database['public']['Tables']['tenants']['Row']
 type TenantUpdate = Database['public']['Tables']['tenants']['Update']
@@ -23,8 +24,16 @@ export function toTenantModel(row: TenantRow): Tenant {
     email: row.email,
     creci: row.creci,
     portalEnabled: row.portal_enabled ?? false,
+    aboutEnabled: row.about_enabled ?? false,
     city: row.city,
     state: row.state,
+    addressStreet: row.address_street,
+    addressNumber: row.address_number,
+    addressComplement: row.address_complement,
+    addressNeighborhood: row.address_neighborhood,
+    addressZip: row.address_zip,
+    latitude: row.latitude,
+    longitude: row.longitude,
     brandPrimary: row.brand_primary,
     brandAccent: row.brand_accent,
     whatsappButtonColor: row.whatsapp_button_color,
@@ -39,6 +48,9 @@ export function toTenantModel(row: TenantRow): Tenant {
     // colocar um href arbitrário no rodapé público.
     footerLinks: sanitizeFooterLinks(row.footer_links),
     footerPages: sanitizeFooterPageOverrides(row.footer_pages),
+    // Mesma razão do footerLinks: saneia também na leitura, para uma linha
+    // gravada antes do saneador existir (ou por SQL direto) não quebrar a página.
+    aboutContent: sanitizeAboutContent(row.about_content),
     active: row.active,
   }
 }
@@ -59,8 +71,16 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.email !== undefined) row.email = input.email
   if (input.creci !== undefined) row.creci = input.creci
   if (input.portalEnabled !== undefined) row.portal_enabled = input.portalEnabled
+  if (input.aboutEnabled !== undefined) row.about_enabled = input.aboutEnabled
   if (input.city !== undefined) row.city = input.city
   if (input.state !== undefined) row.state = input.state
+  if (input.addressStreet !== undefined) row.address_street = input.addressStreet
+  if (input.addressNumber !== undefined) row.address_number = input.addressNumber
+  if (input.addressComplement !== undefined) row.address_complement = input.addressComplement
+  if (input.addressNeighborhood !== undefined) row.address_neighborhood = input.addressNeighborhood
+  if (input.addressZip !== undefined) row.address_zip = input.addressZip
+  if (input.latitude !== undefined) row.latitude = input.latitude
+  if (input.longitude !== undefined) row.longitude = input.longitude
   if (input.brandPrimary !== undefined) row.brand_primary = input.brandPrimary
   if (input.brandAccent !== undefined) row.brand_accent = input.brandAccent
   if (input.whatsappButtonColor !== undefined) row.whatsapp_button_color = input.whatsappButtonColor
@@ -70,7 +90,12 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.website !== undefined) row.website = input.website
   if (input.alternateNames !== undefined) row.alternate_names = input.alternateNames
   if (input.footerText !== undefined) row.footer_text = input.footerText
-  if (input.footerLinks !== undefined) row.footer_links = sanitizeFooterLinks(input.footerLinks)
-  if (input.footerPages !== undefined) row.footer_pages = sanitizeFooterPageOverrides(input.footerPages)
+  // As casts para Json são o supabase-js exigindo um índice `[key: string]:
+  // Json` que os tipos de domínio (FooterLink, AboutPageContent...) não têm por
+  // serem interfaces com campos nomeados — a forma real gravada no JSONB já é
+  // exatamente esta, o saneador é quem garante isso, não o TypeScript aqui.
+  if (input.footerLinks !== undefined) row.footer_links = sanitizeFooterLinks(input.footerLinks) as unknown as Json
+  if (input.footerPages !== undefined) row.footer_pages = sanitizeFooterPageOverrides(input.footerPages) as unknown as Json
+  if (input.aboutContent !== undefined) row.about_content = sanitizeAboutContent(input.aboutContent) as unknown as Json
   return row
 }

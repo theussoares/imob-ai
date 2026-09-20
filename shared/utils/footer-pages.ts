@@ -1,7 +1,23 @@
+/**
+ * Recurso opcional de que uma página pode depender.
+ *
+ * Mesma chave de `tenant_features.feature`, e isso é de propósito: quem lê o
+ * registro precisa achar a linha no banco sem tradução no meio.
+ */
+export type FooterPageFeature = 'about'
+
+/** Quais recursos estão ligados para esta imobiliária. */
+export type FooterPageFeatures = Partial<Record<FooterPageFeature, boolean>>
+
 /** Uma página do site que pode ser linkada no rodapé. */
 export interface FooterPage {
   path: string
   label: string
+  /**
+   * Recurso que precisa estar ligado para a página existir. Ausente = a página
+   * serve a qualquer imobiliária.
+   */
+  requires?: FooterPageFeature
 }
 
 /** O que o cliente ajustou numa página. Ausente = padrão. */
@@ -24,7 +40,13 @@ const LABEL_MAX = 40
  * Estar aqui já é a decisão de que a página pode ser linkada; por isso o padrão
  * é visível, e esconder é escolha do cliente.
  */
-export const STATIC_FOOTER_PAGES: FooterPage[] = [{ path: '/quero-vender', label: 'Quero vender ou alugar' }]
+export const STATIC_FOOTER_PAGES: FooterPage[] = [
+  { path: '/quero-vender', label: 'Quero vender ou alugar' },
+  // O Quem somos é o único que depende de recurso. Sem a marca, ele volta ao
+  // rodapé de TODA imobiliária — e três das quatro têm `about_content` vazio,
+  // ou seja, receberiam um link para uma página em branco.
+  { path: '/quem-somos', label: 'Quem somos', requires: 'about' },
+]
 
 /**
  * Junta o registro do código com os ajustes do cliente.
@@ -33,9 +55,31 @@ export const STATIC_FOOTER_PAGES: FooterPage[] = [{ path: '/quero-vender', label
  * de fora toda página criada depois, e o cliente que salvou uma vez nunca mais
  * veria novidade.
  */
-export function resolveFooterPages(registro: FooterPage[], overrides: FooterPageOverrides): FooterPage[] {
+/**
+ * Só as páginas cujo recurso está ligado.
+ *
+ * Separada de `resolveFooterPages` porque o painel precisa dela SEM os ajustes
+ * do cliente: em "Meu site" a linha tem que aparecer mesmo quando a imobiliária
+ * escondeu a página, senão não há como reexibi-la.
+ */
+export function paginasDisponiveis(
+  registro: FooterPage[],
+  features: FooterPageFeatures = {},
+): FooterPage[] {
+  // O recurso vem ANTES do ajuste do cliente: ter o recurso é poder mostrar, e
+  // não ter é a página não existir — nem para o cliente esconder.
+  return registro.filter((p) => !p.requires || features[p.requires] === true)
+}
+
+export function resolveFooterPages(
+  registro: FooterPage[],
+  overrides: FooterPageOverrides,
+  // Omitir = nenhum recurso ligado. Falha fechado de propósito: o erro barato é
+  // o link sumir de quem tem direito; o caro é a página vazia ficar no ar.
+  features: FooterPageFeatures = {},
+): FooterPage[] {
   const out: FooterPage[] = []
-  for (const page of registro) {
+  for (const page of paginasDisponiveis(registro, features)) {
     const ajuste = overrides[page.path]
     if (ajuste?.visible === false) continue
     const label = ajuste?.label?.trim()

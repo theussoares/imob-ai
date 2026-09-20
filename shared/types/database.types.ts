@@ -571,6 +571,38 @@ export type Database = {
           },
         ]
       }
+      tenant_mail_sender: {
+        Row: {
+          created_at: string
+          from_address: string
+          notes: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          from_address: string
+          notes?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          from_address?: string
+          notes?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_mail_sender_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_domains: {
         Row: {
           created_at: string
@@ -639,6 +671,13 @@ export type Database = {
         Row: {
           active: boolean
           alternate_names: string[]
+          address_street: string | null
+          address_number: string | null
+          address_complement: string | null
+          address_neighborhood: string | null
+          address_zip: string | null
+          latitude: number | null
+          longitude: number | null
           brand_accent: string
           brand_primary: string
           city: string | null
@@ -651,6 +690,8 @@ export type Database = {
           hero_image_position: string
           hero_subtitle: string | null
           hero_title: string | null
+          about_content: Json
+          about_enabled: boolean
           footer_links: Json
           footer_pages: Json
           footer_text: string | null
@@ -673,6 +714,13 @@ export type Database = {
         Insert: {
           active?: boolean
           alternate_names?: string[]
+          address_street?: string | null
+          address_number?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_zip?: string | null
+          latitude?: number | null
+          longitude?: number | null
           brand_accent?: string
           brand_primary?: string
           city?: string | null
@@ -685,6 +733,8 @@ export type Database = {
           hero_image_position?: string
           hero_subtitle?: string | null
           hero_title?: string | null
+          about_content?: Json
+          about_enabled?: boolean
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
@@ -707,6 +757,13 @@ export type Database = {
         Update: {
           active?: boolean
           alternate_names?: string[]
+          address_street?: string | null
+          address_number?: string | null
+          address_complement?: string | null
+          address_neighborhood?: string | null
+          address_zip?: string | null
+          latitude?: number | null
+          longitude?: number | null
           brand_accent?: string
           brand_primary?: string
           city?: string | null
@@ -719,6 +776,8 @@ export type Database = {
           hero_image_position?: string
           hero_subtitle?: string | null
           hero_title?: string | null
+          about_content?: Json
+          about_enabled?: boolean
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null

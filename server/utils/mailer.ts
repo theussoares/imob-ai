@@ -16,8 +16,26 @@
  */
 
 export interface Remetente {
-  /** Nome de exibição: o nome da imobiliária. */
+  /**
+   * Nome de exibição: o nome da imobiliária.
+   *
+   * Dois lugares leem este mesmo valor com propósitos diferentes: aqui,
+   * `montarFrom` o sanitiza para o cabeçalho `From` (contra injeção de
+   * cabeçalho); em `portal-invite.repository.ts`, os templates de e-mail o
+   * usam como `nomeImobiliaria` — CONTEÚDO DO CORPO, sem passar por
+   * `nomeExibicaoSeguro`. Hoje os dois valem `tenant.name` e não há problema.
+   * Se algum dia o `From` precisar de sanitização mais dura (truncar mais
+   * curto, remover mais caracteres) e alguém endurecer só `nomeExibicaoSeguro`
+   * sem olhar o texto do convite, o `From` fica correto e o corpo do e-mail
+   * passa a mostrar um nome truncado ou vazio — silenciosamente, porque nada
+   * aqui os mantém em sincronia.
+   */
   nome: string
+  /**
+   * Endereço do `From`. Vem de `remetenteDoTenant` (server/utils/mail-sender.ts),
+   * que já resolve dedicado vs. plataforma — este arquivo não conhece a tabela.
+   */
+  endereco: string
   /** Para onde vai a resposta do cliente: o e-mail real da imobiliária. */
   replyTo: string | null
 }
@@ -65,6 +83,29 @@ export function replyToValido(v: string | null): string | undefined {
   return /^[^@\s<>",]+@[^@\s<>",]+\.[^@\s<>",]+$/.test(limpo) ? limpo : undefined
 }
 
+/**
+ * Endereço utilizável no cabeçalho `From`, ou o fallback.
+ *
+ * `montarFrom` limpa o NOME contra injeção de cabeçalho. O endereço nunca
+ * precisou do mesmo cuidado porque era constante de configuração; desde que ele
+ * passou a vir de `tenant_mail_sender`, é dado de linha — e uma quebra de linha
+ * num `From` acrescenta um `Bcc:` e transforma o convite num disparo para
+ * terceiros.
+ *
+ * Recusa em vez de limpar: um endereço "consertado" enviaria de um lugar que
+ * ninguém escolheu. Cair no fallback manda do domínio da plataforma, que é
+ * sempre um destino legítimo.
+ */
+const ENDERECO = /^[^@\s<>",;\\]+@[^@\s<>",;\\]+\.[^@\s<>",;\\]+$/
+
+export function enderecoDeEnvio(
+  endereco: string | null | undefined,
+  fallback: string,
+): string {
+  const limpo = (endereco || '').trim()
+  return ENDERECO.test(limpo) ? limpo : fallback
+}
+
 export type ResultadoEnvio = { enviado: boolean; provedor: string }
 
 /**
@@ -83,7 +124,10 @@ export type ResultadoEnvio = { enviado: boolean; provedor: string }
 export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
   const config = useRuntimeConfig()
   const chave = config.mailApiKey
-  const remetenteEndereco = config.mailFrom
+  // O endereço do tenant, com o da plataforma como fallback. Quem resolve qual
+  // é qual é `remetenteDoTenant`; aqui só se valida o que chegou, porque é este
+  // arquivo que monta o cabeçalho.
+  const remetenteEndereco = enderecoDeEnvio(msg.remetente.endereco, config.mailFrom)
 
   if (!chave || !remetenteEndereco) {
     if (process.env.NODE_ENV === 'production') {

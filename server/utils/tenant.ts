@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import type { Tenant } from '~~/shared/models/tenant'
 import { getTenantByDomain, getTenantBySlug } from '~~/server/repositories/tenant.repository'
-import { areaClienteAtiva } from '~~/server/utils/entitlement'
+import { areaClienteAtiva, quemSomosAtiva } from '~~/server/utils/entitlement'
 
 declare module 'h3' {
   interface H3EventContext {
@@ -19,16 +19,11 @@ export function isPlatformRootHost(hostname: string): boolean {
   return hostname === platform || hostname === 'www.' + platform
 }
 
-/**
- * Convenção da plataforma: `painel.<dominio-do-cliente>` serve exclusivamente o
- * admin. É prefixo em vez de configuração por tenant justamente pra que todo
- * cliente novo ganhe o painel no próprio domínio sem cadastro extra.
- */
-export const ADMIN_HOST_PREFIX = 'painel.'
-
-export function isAdminHost(hostname: string): boolean {
-  return hostname.startsWith(ADMIN_HOST_PREFIX)
-}
+// A regra do host de painel mora em shared/: o navegador também precisa dela,
+// para decidir se registra o service worker. Reexportado aqui porque o código
+// de servidor já a importa deste módulo.
+export { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
+import { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
 
 // Cache curto: mudanças de branding/config no painel refletem no site em ~1 min.
 // (Em serverless a invalidação só alcança uma instância, então o TTL é o que garante.)
@@ -55,9 +50,13 @@ export function getHostname(event: H3Event): string {
  * - `<slug>.localhost` (dev) -> slug
  * - Genérico (sem platform configurado): primeiro rótulo de um host com
  *   subdomínio (>= 3 partes) que não seja "www"
+ *
+ * `platform` entra por parâmetro em vez de sair do `useRuntimeConfig()` para
+ * que esta regra — que é pura — possa ser testada sem subir o Nuxt, como o
+ * resto da lógica de host.
  */
-function subdomainSlug(hostname: string): string | null {
-  const platform = (useRuntimeConfig().platformDomain || '').toLowerCase()
+export function subdomainSlug(hostname: string, platform: string): string | null {
+  platform = (platform || '').toLowerCase()
   const parts = hostname.split('.')
 
   if (platform && hostname.endsWith('.' + platform)) {
@@ -71,6 +70,25 @@ function subdomainSlug(hostname: string): string | null {
     return parts[0]
   }
   return null
+}
+
+/**
+ * O slug de tenant para um host, já descontando o prefixo do painel.
+ *
+ * O `painel.` sai antes de derivar o slug. Sem isso, o primeiro rótulo de
+ * `painel.<slug>.<platform>` é "painel", a busca vira `getTenantBySlug('painel')`
+ * — que não é tenant de ninguém — e o painel não resolve.
+ *
+ * Isso passou despercebido porque o passo 3 de `resolveTenantForHost` cobre o
+ * caso quando o domínio-base está cadastrado em `tenant_domains`, e três dos
+ * quatro tenants têm o subdomínio da plataforma cadastrado lá. `tres-lagoas`
+ * não tem: para ele, `painel.tres-lagoas.usemoradi.com.br` chegava até aqui e
+ * devolvia nulo. Depender daquele cadastro é frágil — ele é opcional e nada o
+ * exige na criação de um tenant.
+ */
+export function tenantSlugForHost(hostname: string, platform: string): string | null {
+  const base = isAdminHost(hostname) ? hostname.slice(ADMIN_HOST_PREFIX.length) : hostname
+  return subdomainSlug(base, platform)
 }
 
 /** Resolve o tenant a partir do hostname (domínio próprio OU subdomínio da plataforma). */
@@ -95,9 +113,21 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
     tenant = await getTenantByDomain(client, hostname.slice(ADMIN_HOST_PREFIX.length))
   }
 
-  // 4) Subdomínio da plataforma (slug)
+  /**
+   * 4) Subdomínio da plataforma (slug).
+   *
+   * O `painel.` sai antes de derivar o slug. Sem isso, o primeiro rótulo de
+   * `painel.<slug>.<platform>` é "painel" e a busca vira `getTenantBySlug('painel')`,
+   * que não é tenant de ninguém — o painel simplesmente não resolvia.
+   *
+   * Isso passou despercebido porque o passo 3 cobre o caso quando o domínio-base
+   * está cadastrado em `tenant_domains`, e três dos quatro tenants têm o
+   * subdomínio da plataforma cadastrado lá. `tres-lagoas` não tem: para ele,
+   * `painel.tres-lagoas.usemoradi.com.br` caía aqui e devolvia nulo. Depender
+   * daquele cadastro é frágil — ele é opcional e nada o exige.
+   */
   if (!tenant) {
-    const slug = subdomainSlug(hostname)
+    const slug = tenantSlugForHost(hostname, useRuntimeConfig().platformDomain || '')
     if (slug) tenant = await getTenantBySlug(client, slug)
   }
 
@@ -105,7 +135,7 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
   // resolvido é o middleware (redirect, landing ou — só em dev — tenant padrão).
   // Deixar o fallback dentro desta função fazia QUALQUER host resolver em dev,
   // mascarando esses caminhos e tornando-os impossíveis de testar localmente.
-  tenant = await comLinkDoPortalEfetivo(tenant)
+  tenant = await comLinksEfetivos(tenant)
 
   setCached('host:' + hostname, tenant)
   return tenant
@@ -135,11 +165,20 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
  * A coluna crua NÃO é alterada: quando o recurso voltar, a escolha dela volta
  * junto. Por isso `tenant.put.ts` recusa gravar o campo sem entitlement.
  */
-async function comLinkDoPortalEfetivo(tenant: Tenant | null): Promise<Tenant | null> {
-  // Curto-circuito: quem não ligou o link não paga a consulta. É a maioria, e
-  // isto roda a cada resolução de host com cache frio.
-  if (!tenant?.portalEnabled) return tenant
-  return { ...tenant, portalEnabled: await areaClienteAtiva(tenant.id) }
+async function comLinksEfetivos(tenant: Tenant | null): Promise<Tenant | null> {
+  if (!tenant) return tenant
+
+  // Curto-circuito por flag: quem não ligou o link não paga a consulta dele. É
+  // a maioria em ambos, e isto roda a cada resolução de host com cache frio.
+  //
+  // As duas consultas vão juntas quando os dois estão ligados. Sequenciar seria
+  // somar duas idas ao banco no caminho mais quente do site.
+  const [portalEnabled, aboutEnabled] = await Promise.all([
+    tenant.portalEnabled ? areaClienteAtiva(tenant.id) : Promise.resolve(false),
+    tenant.aboutEnabled ? quemSomosAtiva(tenant.id) : Promise.resolve(false),
+  ])
+
+  return { ...tenant, portalEnabled, aboutEnabled }
 }
 
 /**

@@ -5,5 +5,6 @@ export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
   const id = idDeRota(getRouterParam(event, 'id'))
   await deleteBroker(client, tenant.id, id)
+  await invalidateTenantCache(tenant.id)
   return { ok: true }
 })

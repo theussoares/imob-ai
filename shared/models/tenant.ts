@@ -1,5 +1,6 @@
 import type { FooterLink } from '~~/shared/utils/footer-links'
 import type { FooterPageOverrides } from '~~/shared/utils/footer-pages'
+import type { AboutPageContent } from '~~/shared/models/about-page'
 
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
@@ -27,8 +28,25 @@ export interface Tenant {
    * `tenant_features` lida dentro de `is_portal_user()`) e ainda não existe.
    */
   portalEnabled: boolean
+  /**
+   * A página "Quem somos" aparece no site desta imobiliária.
+   *
+   * Mesma dupla do `portalEnabled`: esta coluna é a escolha da imobiliária, e
+   * `tenant_features` diz se ela tem o recurso. O payload público carrega só o
+   * produto dos dois — ver `comLinksEfetivos` em `server/utils/tenant.ts`.
+   */
+  aboutEnabled: boolean
   city: string | null
   state: string | null
+  /** Endereço estruturado, para mostrar no rodapé com mapa e alimentar o schema.org. Tudo opcional. */
+  addressStreet: string | null
+  addressNumber: string | null
+  addressComplement: string | null
+  addressNeighborhood: string | null
+  addressZip: string | null
+  /** Coordenadas do pino no mapa. Junto com o endereço, mas independentes: um pode faltar sem o outro. */
+  latitude: number | null
+  longitude: number | null
   brandPrimary: string
   brandAccent: string
   /** Cor do botão/CTA de WhatsApp. Vazio cai no verde padrão do WhatsApp (`--wa` em main.css). */
@@ -55,6 +73,8 @@ export interface Tenant {
   footerLinks: FooterLink[]
   /** Ajustes do cliente sobre as páginas internas — só o que ele mudou. */
   footerPages: FooterPageOverrides
+  /** Conteúdo da página "Quem somos", em blocos. Ver shared/models/about-page.ts. */
+  aboutContent: AboutPageContent
   active: boolean
 }
 
@@ -73,8 +93,16 @@ export interface TenantSettingsInput {
   email?: string | null
   creci?: string | null
   portalEnabled?: boolean
+  aboutEnabled?: boolean
   city?: string | null
   state?: string | null
+  addressStreet?: string | null
+  addressNumber?: string | null
+  addressComplement?: string | null
+  addressNeighborhood?: string | null
+  addressZip?: string | null
+  latitude?: number | null
+  longitude?: number | null
   brandPrimary?: string
   brandAccent?: string
   whatsappButtonColor?: string | null
@@ -86,4 +114,5 @@ export interface TenantSettingsInput {
   footerText?: string | null
   footerLinks?: FooterLink[]
   footerPages?: FooterPageOverrides
+  aboutContent?: AboutPageContent
 }

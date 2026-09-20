@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { montarFrom, nomeExibicaoSeguro, replyToValido } from '~~/server/utils/mailer'
+import { enderecoDeEnvio, montarFrom, nomeExibicaoSeguro, replyToValido } from '~~/server/utils/mailer'
 import {
   emailAcessoLiberado,
   emailConvitePortal,
@@ -78,6 +78,47 @@ describe('replyToValido', () => {
   test('recusa e-mail com caractere de cabeçalho', () => {
     expect(replyToValido('a@b.com,c@d.com')).toBeUndefined()
     expect(replyToValido('a@b.com>')).toBeUndefined()
+  })
+})
+
+describe('enderecoDeEnvio', () => {
+  const FALLBACK = 'nao-responda@usemoradi.com.br'
+
+  test('aceita o endereço dedicado', () => {
+    expect(enderecoDeEnvio('nao-responda@olmiimoveis.com.br', FALLBACK)).toBe(
+      'nao-responda@olmiimoveis.com.br',
+    )
+  })
+
+  test('vazio ou nulo cai no fallback', () => {
+    for (const v of [null, undefined, '', '   ']) {
+      expect(enderecoDeEnvio(v, FALLBACK)).toBe(FALLBACK)
+    }
+  })
+
+  test('recusa quebra de linha — o vetor de injeção de cabeçalho', () => {
+    // `montarFrom` já limpa o NOME. O endereço nunca precisou disso porque era
+    // constante de configuração; virando dado de linha, precisa da mesma
+    // validação. Um `\r\n` aqui acrescenta um `Bcc:` ao e-mail.
+    expect(enderecoDeEnvio('x@y.com\r\nBcc: alguem@exemplo.com', FALLBACK)).toBe(FALLBACK)
+  })
+
+  test('recusa o que quebra a sintaxe de `Nome <endereco>`', () => {
+    for (const v of ['a<b@y.com', 'a>b@y.com', 'a"b@y.com', 'a;b@y.com', 'a,b@y.com']) {
+      expect(enderecoDeEnvio(v, FALLBACK), v).toBe(FALLBACK)
+    }
+  })
+
+  test('recusa o que não é endereço', () => {
+    for (const v of ['semarroba', 'sem@dominio', '@y.com', 'a@b']) {
+      expect(enderecoDeEnvio(v, FALLBACK), v).toBe(FALLBACK)
+    }
+  })
+
+  test('fallback vazio continua vazio — quem trata é o guard de configuração', () => {
+    // `enviarEmail` erra alto em produção quando não há remetente nenhum. Esta
+    // função não inventa um endereço para esconder isso.
+    expect(enderecoDeEnvio('lixo', '')).toBe('')
   })
 })
 

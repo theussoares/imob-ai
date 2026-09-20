@@ -23,6 +23,27 @@ describe('adminHostAction', () => {
     }
   })
 
+  test('o PWA do painel passa direto — ele VIVE neste host', () => {
+    // Nasceu da reconciliação entre `develop` e `main`: a `develop` liberava
+    // estes caminhos na lista de infra do middleware, e a `main` reescreveu essa
+    // lista como `ehInfra`. Sem dobrar um no outro, o manifest e o service worker
+    // passariam a receber o redirect para /admin — HTML onde o navegador espera
+    // JSON ou JavaScript. O app instalado para de atualizar e a instalação deixa
+    // de ser oferecida, e nada disso lança erro: é o modo de falha que só
+    // aparece semanas depois, como "o painel não atualiza no celular".
+    for (const p of ['/manifest.webmanifest', '/sw.js', '/workbox-2fbc6a65.js']) {
+      expect(adminHostAction(PAINEL, p).kind, p).toBe('passa')
+    }
+  })
+
+  test('página comum continua indo para /admin, não vira exceção do PWA', () => {
+    // A contraprova: `isPwaPath` é uma lista fechada mais o prefixo do Workbox.
+    // Se ela virasse um `startsWith` largo, o host do painel voltaria a servir
+    // catálogo — que é o que este middleware inteiro existe para impedir.
+    expect(adminHostAction(PAINEL, '/sw.js.map').kind).toBe('admin')
+    expect(adminHostAction(PAINEL, '/imovel/casa-3-quartos/NC-0231').kind).toBe('admin')
+  })
+
   test('a área do cliente vai para o domínio público, não para /admin', () => {
     // Mandar para /admin colocaria o inquilino na tela de login da imobiliária,
     // onde a senha dele não funciona.
