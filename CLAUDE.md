@@ -12,6 +12,7 @@ Tailwind v4 · TypeScript · Vitest.
 pnpm dev          # http://localhost:3000 (site) | /admin (painel)
 pnpm typecheck    # vue-tsc — roda antes de dar qualquer coisa por pronta
 pnpm test         # vitest, Node puro, sem subir o Nuxt (segundos)
+pnpm test:e2e     # Playwright, sobe o app — minutos, não segundos. Roda sob demanda.
 ```
 
 Não existe script de lint. `pnpm typecheck && pnpm test` é a validação completa.
@@ -127,6 +128,11 @@ segundos e faz ninguém rodar o teste. O preço é não ter auto-imports do Nuxt
 
 Teste o que tem regra: lógica pura em `shared/`, repositories com
 `fakeSupabase`, e invariantes de segurança. Não teste CRUD trivial.
+
+Além disso existe `e2e/` (Playwright), fora do `pnpm test` de propósito: sobe o
+Nuxt de verdade e leva minutos, não segundos — rodar em toda suíte faria
+ninguém rodar o `pnpm test`. Cada execução cria e apaga um tenant `e2e-*` no
+MESMO projeto Supabase de produção (ver `e2e/support/tenant.ts`).
 
 ## Estilo de comentário
 
