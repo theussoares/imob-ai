@@ -124,8 +124,8 @@ id              uuid pk
 tenant_id       uuid not null  → tenants
 contract_id     uuid not null  → contracts
 kind            text not null default 'mensal'  ('mensal' | 'avulsa')
-competence      date not null            -- primeiro dia do mês de referência
-due_on          date not null
+competence      date not null            -- 1º dia do mês de OCUPAÇÃO (ver abaixo)
+due_on          date not null            -- quando vence; normalmente no mês SEGUINTE
 issued_amount   numeric(12,2)            -- o que foi EMITIDO; congelado
 canceled_at     timestamptz
 canceled_by     uuid
@@ -152,6 +152,23 @@ cobrança é rascunho e é gravado na emissão.
 Índice único parcial em `(contract_id, competence) where kind = 'mensal' and
 canceled_at is null`: impede cobrar o mesmo mês duas vezes, sem bloquear cobrança
 avulsa nem recriar depois de cancelar.
+
+⚠️ **`competence` é o mês de OCUPAÇÃO, não o mês do vencimento — e a diferença
+não é semântica.**
+
+A Lei do Inquilinato estabelece **aluguel vencido** como regra: o aluguel de
+janeiro se paga até o sexto dia útil de fevereiro. Antecipado é exceção
+restrita — locação por temporada de até 90 dias, ou contrato sem garantia
+nenhuma (art. 42). Exigir antecipado fora disso é contravenção penal, com multa
+de três a doze aluguéis.
+
+Na prática: para a competência `2026-01-01`, o `due_on` típico cai em fevereiro.
+As duas datas pertencem a meses diferentes, e é por isso que são colunas
+separadas em vez de uma só com deslocamento calculado.
+
+**Quem confundir as duas quebra o fiscal, não a aplicação.** O DIMOB e o informe
+de rendimentos saem com o mês errado, nada falha em tempo de execução, e o erro
+aparece na malha fina de outra pessoa — meses depois, sem rastro até aqui.
 
 ## C. `charge_items` — a discriminação do lado do inquilino
 
@@ -336,6 +353,32 @@ Todas as seis:
 serve quatro imobiliárias. É a invariante #3 do repositório — "leitura pública
 não devolve coluna interna" — aplicada a uma tabela que nasce **inteira** como
 coluna interna. O `revoke` não é formalidade.
+
+## I. O teste do critério: o modelo produz DIMOB sem migração?
+
+O escopo declara sucesso como "quando o primeiro boleto existir, não haverá
+migração de dado a fazer". O DIMOB é a obrigação futura mais exigente, então
+vale testar a afirmação contra ela.
+
+A exigência é **pagamentos efetuados no ano, discriminados mensalmente**, mais
+identificação das partes.
+
+| o que o DIMOB pede | de onde sai | tem? |
+|---|---|---|
+| valor pago, por mês | `charge_settlements.settled_on` + `amount` | sim |
+| CPF/CNPJ e nome das partes | `portal_users.doc`, `portal_users.name` | sim |
+| comissão recebida pela imobiliária | `payout_items` com `kind = 'taxa_adm'` | sim |
+| vigência do contrato | `contracts.started_on`, `ends_on` | sim |
+| endereço do imóvel | `properties` / `contracts.address_label` | **parcial** |
+
+⚠️ **A única lacuna está fora destas tabelas.** `properties` tem `neighborhood`,
+`city` e `state`, mas **não tem logradouro nem número** — e `contracts.address_label`
+é texto livre. `tenants` ganhou endereço estruturado na 0028; `properties` não.
+
+Isso não bloqueia esta spec, e conscientemente não vou resolver aqui: é coluna em
+tabela existente, com seu próprio impacto no site público e no schema.org. Mas
+fica registrado que o DIMOB vai precisar, e que descobrir isso na véspera da
+entrega é pior que agora.
 
 ## Fora do escopo, por decisão
 
