@@ -30,7 +30,7 @@ Identificadores de código em inglês, seguindo o que já existe no arquivo.
 ```
 app/                 SSR público + painel /admin (SPA, Supabase Auth sob demanda)
 server/
-  api/               endpoints — públicos (cache 10 min) e admin (protegidos)
+  api/               endpoints — públicos (cache 60s) e admin (protegidos)
   repositories/      acesso a dados, SEMPRE escopado por tenant_id
   mappers/           row do banco (snake_case) <-> modelo de domínio (camelCase)
   middleware/        resolve o tenant pelo Host
@@ -160,7 +160,7 @@ antes do código, com: motivo, escopo, **fora do escopo por decisão** e uma tab
 `server/middleware/tenant.ts` resolve o tenant por requisição: domínio próprio em
 `tenant_domains` → subdomínio da plataforma (`<slug>.<NUXT_PLATFORM_DOMAIN>`) →
 fallback `NUXT_DEFAULT_TENANT`. Resultado em `event.context.tenant`, cacheado
-10 min.
+60s (`TTL_MS` em `server/utils/tenant.ts`).
 
 Cores da marca vêm de `tenants.brand_primary`/`brand_accent` e são injetadas como
 CSS vars no SSR — trocar de tenant muda o tema sem rebuild.

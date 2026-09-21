@@ -45,6 +45,17 @@ test('a tela diz quem vai ver antes de publicar, e o portal obedece', async ({ p
   await expect(linha).not.toContainText('rascunho')
 })
 
+// Depende do teste anterior ter enviado E publicado "Administração E2E" —
+// `workers: 1`/`fullyParallel: false` garantem a ordem, e os dois dividirem o
+// mesmo documento é desenho aceitável, não acidente.
+//
+// O custo dessa dependência: se o teste acima abortar antes de publicar (por
+// exemplo, se a asserção da frase `p.regra b` falhar), o documento nunca é
+// criado, e a primeira asserção AQUI — a visibilidade do proprietário — falha
+// por ausência do documento, não por causa da audiência do inquilino. Quem vir
+// só este teste vermelho vai investigar a regra de audiência do inquilino
+// quando o problema real está no upload do teste anterior. Por isso: teste
+// anterior vermelho, olhar ele primeiro.
 test('publicado, o proprietário vê e o inquilino não', async ({ page }) => {
   await entrarNoPortal(page, amb.slug, amb.proprietario)
   await page.getByRole('link', { name: /Rua de Teste/ }).click()
