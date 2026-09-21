@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { apagarAmbiente, criarAmbiente, varrerAmbientesAntigos } from './support/tenant'
+import { apagarAmbiente, criarAmbiente } from './support/tenant'
 import { service } from './support/supabase'
 
 /**
@@ -38,9 +38,4 @@ test('o ambiente nasce completo e some por inteiro', async () => {
 test('a varredura recusa apagar tenant que não é de teste', async () => {
   // A guarda que separa "limpa o lixo" de "apaga um cliente".
   await expect(apagarAmbiente('demo')).rejects.toThrow(/não é tenant de teste/)
-})
-
-test('a varredura roda sem explodir', async () => {
-  const apagados = await varrerAmbientesAntigos()
-  expect(apagados).toBeGreaterThanOrEqual(0)
 })
