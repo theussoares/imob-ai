@@ -40,10 +40,10 @@ supabase/migrations/ schema, RLS, storage — numeradas, idempotentes
 test/                unidade em Node puro
 ```
 
-Tabelas financeiras (0041) existem VAZIAS e sem lógica: cobrança, liquidação,
-repasse e destino de pagamento. Ver a spec antes de escrever a primeira query —
-`competence` é mês de ocupação, não de vencimento, e as linhas de valor são
-append-only.
+Tabelas financeiras (0041 + 0042, uma unidade só) existem VAZIAS e sem lógica:
+cobrança, liquidação, repasse e destino de pagamento. Ver a spec antes de
+escrever a primeira query — `competence` é mês de ocupação, não de vencimento, e
+as linhas de valor são append-only.
 
 **Repository nunca devolve row cru.** Ele devolve modelo de `shared/models/*`,
 convertido pelo mapper. O schema do Postgres não vaza para a UI. Um endpoint que
