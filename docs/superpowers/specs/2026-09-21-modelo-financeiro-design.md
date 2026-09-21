@@ -83,11 +83,12 @@ kind              text not null  ('pix' | 'conta_bancaria')
 pix_key_type      text           ('cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria')
 pix_key           text
 
-bank_code         text           -- 3 dígitos (compe)
+bank_code         text           -- COMPE, 3 dígitos
+bank_ispb         text           -- ISPB, 8 dígitos
 branch            text
 account           text
 account_digit     text
-account_type      text           ('corrente' | 'poupanca')
+account_type      text           ('corrente' | 'poupanca' | 'pagamento')
 
 holder_name       text not null
 holder_doc        text not null
@@ -101,7 +102,20 @@ provedor exige na hora de cobrar. São os quatro tipos do Banco Central — CPF/
 e-mail, telefone e aleatória (EVP).
 
 Um CHECK garante coerência: `kind = 'pix'` exige `pix_key_type` e `pix_key`;
-`kind = 'conta_bancaria'` exige `bank_code`, `branch` e `account`.
+`kind = 'conta_bancaria'` exige `branch`, `account`, **e pelo menos um** entre
+`bank_code` e `bank_ispb`.
+
+⚠️ **Por que dois identificadores de banco, e não um.** A primeira versão tinha
+só `bank_code`, de 3 dígitos, assumindo que toda instituição tem COMPE. Não tem:
+o **ISPB**, de 8 dígitos, existe justamente para as que não possuem COMPE — caso
+de parte das fintechs. Com um campo só, um proprietário com conta numa dessas
+não teria como ser cadastrado, e o erro só apareceria no primeiro repasse que
+falhasse.
+
+⚠️ **E `account_type` inclui `pagamento`.** A primeira versão tinha só
+`corrente` e `poupanca`. Conta de pagamento é um tipo distinto no arranjo
+brasileiro, e é onde boa parte das pessoas recebe hoje. Enumerar de memória em
+vez de verificar foi o mesmo erro que produziu o `ir_retido`.
 
 ## B. `contract_charges` — o que o inquilino deve
 
@@ -158,6 +172,14 @@ created_by        uuid
 estorno usam o mesmo mecanismo, não campos separados.
 
 Sem `updated_at`: a linha nunca muda.
+
+A lista de `kind` foi conferida contra o que compõe um boleto de aluguel na
+prática: aluguel, condomínio, IPTU (tipicamente rateado em doze parcelas
+mensais), seguro incêndio, multa e juros por atraso, e acordos negociados entre
+as partes — estes últimos caem em `outros`, com a razão na `description`.
+
+O IPTU parcelado não pede estrutura nova: cada mês é um item da cobrança daquele
+mês, e a `description` carrega "parcela 4/12".
 
 ## D. `charge_settlements` — a liquidação, e a peça que compra os três modelos
 
@@ -345,6 +367,18 @@ exatamente o argumento da análise de mercado que motivou isto.
 **O modelo assume locação.** Venda tem comissão, parcela e distrato, que não se
 encaixam em cobrança mensal com competência. Se venda entrar, é desenho à parte,
 não extensão deste.
+
+**Listas fechadas escritas por quem não opera o negócio.** Três dos valores desta
+spec nasceram errados por inferência, não por descuido — `ir_retido`, a ausência
+de `conta de pagamento` e a ausência do ISPB. Todos foram corrigidos depois de
+checagem, e todos tinham a mesma causa: enumerar de memória ou deduzir regra
+fiscal a partir de material de marketing de concorrente.
+
+O risco que fica: **pode haver mais.** As listas de `kind` são as mais expostas,
+porque parecem óbvias e ninguém as questiona em revisão de código. Antes de a
+primeira implementação encostar nelas, vale conferir cada valor com quem opera
+uma carteira de locação de verdade — uma conversa de vinte minutos vale mais que
+qualquer outra checagem que eu consiga fazer daqui.
 
 ## Pendente fora do código
 
