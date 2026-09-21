@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["node", "@playwright/test"],
+    // `shared/**` usa o alias `~~` do Nuxt (ver CLAUDE.md), e código de
+    // `shared/` é importado por `e2e/support/dados.ts`. Sem este mapeamento,
+    // a checagem falha no arquivo errado — não em `e2e/`, no `shared/` que ele
+    // importa — e o erro real (implicit any em cascata) esconde a causa.
+    "baseUrl": "..",
+    "paths": {
+      "~~": ["."],
+      "~~/*": ["./*"]
+    }
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}
