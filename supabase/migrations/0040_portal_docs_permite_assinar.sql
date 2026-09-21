@@ -4,7 +4,20 @@
 -- recebe erro. O servidor loga `portal.assinatura_falhou` e responde 502; o
 -- Storage devolve "Object not found" na chamada de assinatura.
 --
--- A 0028 previu exatamente isto. O comentário dela diz, sobre a lista de
+-- ⚠️ A BASE DE COMPARAÇÃO NÃO É A 0028, e confundir isso é perigoso aqui.
+--
+-- A policy que estava em produção vinha de
+-- `aplicadas-em-producao/20260912190434__corrigir_recursao_policies_portal.sql`
+-- mais a `0034`, que trocaram o `exists (...)` inline por
+-- `portal_can_read_doc_path(name)` para quebrar uma recursão infinita (42P17).
+-- O README desta pasta avisa: **nunca recrie uma policy do portal no formato da
+-- `client_area`** — a forma antiga reintroduz a recursão e derruba o portal.
+--
+-- Esta migration reproduz a policy VIVA (lida de `pg_policies`), não o que o
+-- arquivo da 0028 diz. Quem comparar com a 0028 vai achar que uma condição
+-- sumiu; ela não sumiu, virou a função, antes deste diff.
+--
+-- A 0028 previu o defeito abaixo. O comentário dela diz, sobre a lista de
 -- operações: "se a operação usada pela assinatura tiver outro nome nesta versão
 -- do Storage, o download para de funcionar de forma VISÍVEL (falha fechada, que
 -- é o modo certo de errar aqui) e o nome correto entra nesta lista. Conferir no
