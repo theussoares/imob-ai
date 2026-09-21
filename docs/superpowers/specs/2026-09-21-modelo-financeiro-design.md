@@ -41,7 +41,7 @@ dinheiro que estão em aberto:
 | `owner_payouts.paid_at` no próprio cabeçalho | tabela de liquidação de repasse, espelhando a da cobrança | assimetria real do negócio: o inquilino paga em parcelas, a imobiliária transfere **uma vez**. Se repasse parcial aparecer, vira tabela — e aí é `add table`, não migração |
 | FK composta `(pai_id, tenant_id)` nas tabelas de item | FK simples só pelo id do pai | sem ela, uma linha poderia ter `tenant_id` de A com pai do tenant B — e a invariante #1 do repo cairia dentro da própria tabela que deveria respeitá-la |
 | valores **assinados** nos itens | coluna de valor + coluna de sinal, ou `kind` decidindo o sinal | desconto, abatimento e estorno são o mesmo mecanismo; separar multiplicaria os caminhos de soma |
-| totais derivados por agregação | total desnormalizado no cabeçalho | saldo derivado é a prática das referências; com dezenas de linhas por mês a leitura é irrelevante, e materializar depois não migra dado |
+| **os dois**: `issued_amount` congelado no cabeçalho **e** total corrente derivado dos itens | só um dos dois | são coisas diferentes e eu tratava como uma. `issued_amount` é o que foi **emitido** — o valor impresso no boleto, que não pode mudar. O derivado é o que se **deve hoje**, depois de estornos. Com append-only a soma dos itens muda; ela não serve de retrato |
 | `payout_destinations` é tabela | colunas de Pix/conta em `portal_users` | a mesma pessoa tem destinos diferentes por contrato, destinos mudam, e **um repasse passado precisa continuar apontando para o destino que usou** |
 | `holder_name` / `holder_doc` no destino | assumir titular = proprietário | a conta é frequentemente do cônjuge, do espólio ou de quem tem procuração; assumir quebra no primeiro inventário |
 | `tenant_id` também nas tabelas de item | herdar pelo pai | é o que `portal_documents` já faz, e torna a policy direta em vez de um join |
@@ -112,6 +112,7 @@ contract_id     uuid not null  → contracts
 kind            text not null default 'mensal'  ('mensal' | 'avulsa')
 competence      date not null            -- primeiro dia do mês de referência
 due_on          date not null
+issued_amount   numeric(12,2)            -- o que foi EMITIDO; congelado
 canceled_at     timestamptz
 canceled_by     uuid
 cancel_reason   text
@@ -119,8 +120,20 @@ created_at      timestamptz not null default now()
 created_by      uuid
 ```
 
-**Sem coluna de valor.** O total é a soma dos itens — consequência direta de
-append-only com discriminação por item.
+**Dois valores, e eles respondem perguntas diferentes.**
+
+`issued_amount` é o que foi **emitido** — o número impresso no boleto, a quantia
+que se pediu ao inquilino. Congelado: preenchido uma vez, nunca alterado. É o
+retrato documental que as referências de faturamento chamam de *frozen snapshot*,
+e é o que se compara contra o extrato bancário.
+
+O total **corrente** é a soma dos itens, derivada. É o que se deve **hoje**,
+depois de descontos e estornos.
+
+A primeira versão desta spec tinha só o derivado, e estava errada: com
+append-only a soma dos itens **muda** quando há correção. Ela nunca poderia
+servir de retrato do que foi cobrado. `issued_amount` fica nulo enquanto a
+cobrança é rascunho e é gravado na emissão.
 
 Índice único parcial em `(contract_id, competence) where kind = 'mensal' and
 canceled_at is null`: impede cobrar o mesmo mês duas vezes, sem bloquear cobrança
@@ -173,6 +186,12 @@ liquidação vinda de webhook não tem usuário.
 linha é gravada à mão pelo painel; no 2, pelo webhook; no 3, pelo evento de
 split. A forma é a mesma.
 
+⚠️ **`settled_on` é data fiscal, não conveniência de modelagem.** Para fins de
+imposto de renda, a data de recebimento do proprietário é **a do pagamento do
+locatário**, independentemente de quando o repasse saiu. Colapsar `settled_on`
+em `owner_payouts.paid_at` — que era a simplificação óbvia — deixaria o modelo
+fiscalmente errado, e o erro só apareceria na declaração de alguém.
+
 ## E. `owner_payouts` — o repasse ao proprietário
 
 ```
@@ -203,7 +222,7 @@ id                uuid pk
 tenant_id         uuid not null  → tenants
 payout_id         uuid not null  → owner_payouts
 kind              text not null
-                  ('bruto'|'taxa_adm'|'ir_retido'|'abatimento'|'reembolso'|'ajuste')
+                  ('bruto'|'taxa_adm'|'retencao'|'abatimento'|'reembolso'|'ajuste')
 description       text
 amount            numeric(12,2) not null   -- ASSINADO; negativo = retido
 source_charge_id  uuid           → contract_charges
@@ -213,7 +232,22 @@ created_by        uuid
 ```
 
 É o "extrato discriminado" que o mercado entrega: bruto, menos taxa de
-administração, menos IR retido, menos o reparo abatido.
+administração, menos o reparo abatido.
+
+⚠️ **`retencao` é genérico de propósito, e a primeira versão desta spec errava
+aqui.** Ela tinha um tipo `ir_retido`, assumindo que a imobiliária retém imposto
+de renda. **Ela não retém.** A imobiliária não é fonte pagadora — recebe o
+aluguel como mandatária do proprietário. Quem retém é a **pessoa jurídica
+locatária**, quando o inquilino é PJ e o proprietário é PF; com inquilino pessoa
+física não há retenção alguma, e o proprietário recolhe por carnê-leão.
+
+Nesse caso o IRRF já veio descontado do que o inquilino pagou — aparece como
+`bruto` menor, não como retenção nossa. `retencao` fica para o que a imobiliária
+de fato retém por acordo contratual, com a razão na `description`.
+
+O que a taxa de administração é, fiscalmente: **dedutível do bruto antes do
+cálculo do imposto** do proprietário. Por isso ela precisa aparecer discriminada
+no extrato — é insumo da declaração dele, não só transparência.
 
 `source_charge_id` liga o item bruto à cobrança que o originou — é o que permite
 a linha dizer *"referente ao aluguel de setembro"* em vez de um número solto.
@@ -241,6 +275,29 @@ Vale para `charge_items`, `charge_settlements` e `payout_items`. O mesmo para
 `owner_payouts.destination_id` contra `payout_destinations (id, tenant_id)`.
 
 Custa um índice por pai e torna a violação **impossível**, não apenas improvável.
+É o padrão recomendado para multitenancy em Postgres, e a formulação das
+referências é a mesma: torna a referência cruzada *estruturalmente impossível*,
+em vez de meramente improvável.
+
+**E os índices de consulta começam por `tenant_id`.** O `unique (id, tenant_id)`
+acima existe para a FK; ele **não** serve às leituras. A RLS acrescenta o
+predicado de tenant a toda consulta, então o índice precisa casar com ele:
+
+```sql
+create index on contract_charges (tenant_id, contract_id, competence);
+create index on charge_items      (tenant_id, charge_id);
+create index on charge_settlements(tenant_id, charge_id);
+create index on owner_payouts     (tenant_id, contract_id, competence);
+create index on payout_items      (tenant_id, payout_id);
+create index on payout_destinations (tenant_id, portal_user_id);
+```
+
+⚠️ **Checagem de integridade referencial ignora RLS.** Unique, PK e FK são
+verificados fora da política — é assim por desenho, para a integridade não depender
+de quem consulta. A consequência prática: a mensagem de erro de uma violação pode
+revelar que existe linha em outro tenant. Não é leitura de dado, mas é sinal, e
+o tratamento de erro dos endpoints não deve repassar a mensagem crua do banco —
+que já é a regra da casa (`friendly-error.ts`).
 
 ## H. RLS e grants — onde este repositório já sangrou
 
