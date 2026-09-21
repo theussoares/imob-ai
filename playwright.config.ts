@@ -31,9 +31,16 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev',
     url: 'http://localhost:3000',
-    // Reusa o dev server que já estiver de pé: subir o Nuxt leva dezenas de
-    // segundos e quem roda isto local costuma já ter um aberto.
-    reuseExistingServer: true,
+    // Padrão do Playwright, não `true` fixo: local, reusa o dev server que já
+    // estiver de pé na 3000 — subir o Nuxt leva dezenas de segundos e quem
+    // roda isto na máquina costuma já ter um aberto (a conveniência que este
+    // comentário sempre existiu para justificar). No CI, `!process.env.CI`
+    // vira `false` e força um servidor novo: sem isso, uma porta 3000 ocupada
+    // por outra branch faria a suíte — que existe para travar regressão antes
+    // do merge, com `retries: 0` — rodar contra código que não é o desta PR e
+    // reportar verde sobre ele. Um verde falso aqui custa o propósito inteiro
+    // da suíte.
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 })

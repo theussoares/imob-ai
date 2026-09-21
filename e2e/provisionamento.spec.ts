@@ -31,8 +31,15 @@ test('o ambiente nasce completo e some por inteiro', async () => {
 
   // Os arquivos também: o cascade não os leva, e esquecer disso só apareceria
   // meses depois, como bucket crescendo sem motivo.
-  const { data: sobrou } = await sb.storage.from('portal-docs').list(amb.slug)
-  expect(sobrou ?? []).toHaveLength(0)
+  //
+  // Sem o `?? []`, de propósito: `list()` devolve `{ data: null, error }` em
+  // falha, e `sobrou ?? []` virava `[]` — o teste passava afirmando que o
+  // bucket esvaziou sem nunca ter conseguido olhar. É o único fail-open que
+  // existia neste arquivo; as outras asserções acima recebem `data` cru e
+  // falham alto quando a consulta falha.
+  const { data: sobrou, error: erroSobrou } = await sb.storage.from('portal-docs').list(amb.slug)
+  expect(erroSobrou).toBeNull()
+  expect(sobrou).toHaveLength(0)
 })
 
 test('a varredura recusa apagar tenant que não é de teste', async () => {

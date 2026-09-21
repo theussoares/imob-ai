@@ -20,7 +20,11 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await apagarAmbiente(amb.slug)
+  // Guarda: se `criarAmbiente()` lançar no `beforeAll`, o Playwright roda o
+  // `afterAll` do mesmo jeito, e `amb` nunca foi atribuído. Sem o `if`, o
+  // `TypeError` de `amb.slug` undefined entra no relatório como uma SEGUNDA
+  // falha, na frente do erro de provisionamento — que é o real — escondendo-o.
+  if (amb) await apagarAmbiente(amb.slug)
 })
 
 test('o fiador define a senha e entra', async ({ page }) => {

@@ -196,7 +196,20 @@ export async function apagarAmbiente(slug: string): Promise<void> {
     if (caminhos.length) await sb.storage.from('portal-docs').remove(caminhos)
   }
 
-  const { data: tenant } = await sb.from('tenants').select('id').eq('slug', slug).maybeSingle()
+  // Falhar aberto aqui é o pior lugar do arquivo para falhar: a remoção do
+  // bucket já rodou (linhas acima). `error` descartado faz "a consulta falhou"
+  // parecer "não há tenant" — a função dá `return`, quem chamou lê sucesso, e
+  // `varrerAmbientesAntigos` incrementa `apagados` por um ambiente que não
+  // apagou nada do banco. Ficam para trás a linha de `tenants` e as contas de
+  // Auth, exatamente o estado que o resto desta função existe para evitar.
+  const { data: tenant, error: erroBusca } = await sb
+    .from('tenants')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle()
+  if (erroBusca) {
+    throw new Error(`não consegui checar se o tenant "${slug}" existe: ${erroBusca.message}`)
+  }
   if (!tenant) return
 
   // Confere que o bucket ficou mesmo vazio para este slug ANTES de apagar
@@ -282,7 +295,16 @@ export async function apagarAmbiente(slug: string): Promise<void> {
     }
   }
 
-  await sb.from('tenants').delete().eq('id', tenant.id)
+  // Último passo, e o índice de que `varrerAmbientesAntigos` depende (ver o
+  // comentário acima). `supabase-js` não lança aqui, devolve `{ error }` — igual
+  // ao `deleteUser` de cima, que já é tratado. Descartar este `error` faz FK,
+  // timeout ou erro transitório passar como remoção bem-sucedida: `apagados++`
+  // conta uma linha que continua no banco, e o log da varredura mente sobre o
+  // que de fato saiu.
+  const { error: erroDeleteTenant } = await sb.from('tenants').delete().eq('id', tenant.id)
+  if (erroDeleteTenant) {
+    throw new Error(`não apaguei a linha do tenant "${slug}": ${erroDeleteTenant.message}`)
+  }
 }
 
 /**
@@ -295,11 +317,22 @@ export async function apagarAmbiente(slug: string): Promise<void> {
  */
 export async function varrerAmbientesAntigos(): Promise<number> {
   const limite = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  const { data } = await service()
+  // Esta é a ÚNICA rede quando o teardown de um spec não roda (`Ctrl+C`,
+  // processo morto no meio). `data ?? []` descartando `error` transforma "não
+  // sei se há órfão" em "não há órfão": o `for` abaixo não itera, a função
+  // devolve `0`, e como `global-setup.ts` só loga quando `apagados > 0`, a
+  // varredura inteira passa sem NENHUMA saída — um tenant órfão de ontem
+  // continua no banco dos clientes reais e ninguém percebe que a rede de
+  // proteção não rodou. Lança em vez de engolir, para não confundir "varri e
+  // não achei nada" com "não consegui olhar".
+  const { data, error: erroVarredura } = await service()
     .from('tenants')
     .select('slug')
     .like('slug', `${PREFIXO}%`)
     .lt('created_at', limite)
+  if (erroVarredura) {
+    throw new Error(`varredura não conseguiu listar tenants órfãos: ${erroVarredura.message}`)
+  }
 
   // Um ambiente preso não pode travar a limpeza dos outros — é para isso que
   // a varredura existe. `apagarAmbiente` agora lança quando o bucket não
