@@ -80,7 +80,18 @@ export async function criarAmbiente(): Promise<Ambiente> {
   const { error: erroMembro } = await sb
     .from('tenant_members')
     .insert({ tenant_id: tenantId, user_id: membro.userId, role: 'owner' })
-  if (erroMembro) throw new Error(`não vinculou o membro: ${erroMembro.message}`)
+  if (erroMembro) {
+    // A conta do Auth já existe neste ponto, e nenhuma linha aponta para ela
+    // ainda — nem `tenant_members`, que acabou de falhar. `apagarAmbiente` só
+    // encontra conta órfã pelos `user_id` de `portal_users`/`tenant_members`;
+    // sem este cleanup ela ficaria para sempre, e nem a varredura por
+    // `tenants` a acharia, porque o tenant em si é apagado por quem chamar
+    // `apagarAmbiente` depois — a conta continuaria viva. É o segundo caminho
+    // de vazamento descrito no comentário de `apagarAmbiente`, fechado aqui em
+    // vez de só documentado.
+    await sb.auth.admin.deleteUser(membro.userId)
+    throw new Error(`não vinculou o membro: ${erroMembro.message}`)
+  }
 
   const { data: contrato, error: erroContrato } = await sb
     .from('contracts')
@@ -110,7 +121,13 @@ export async function criarAmbiente(): Promise<Ambiente> {
       })
       .select('id')
       .single()
-    if (error || !data) throw new Error(`não criou o cliente ${papel}: ${error?.message}`)
+    if (error || !data) {
+      // Mesmo raciocínio do membro acima: a conta nasceu, mas ainda nenhuma
+      // linha em `portal_users` aponta para ela — sem apagar aqui, ela vaza
+      // sem que nada no banco saiba que ela existiu.
+      await sb.auth.admin.deleteUser(conta.userId)
+      throw new Error(`não criou o cliente ${papel}: ${error?.message}`)
+    }
 
     const { error: erroParte } = await sb
       .from('contract_parties')
@@ -223,10 +240,46 @@ export async function apagarAmbiente(slug: string): Promise<void> {
   // As contas do Auth não penduram em `tenant_id` — saem uma a uma, pelos
   // `user_id` que o tenant conhece, antes de o cascade apagar as linhas que os
   // apontam.
-  const { data: clientes } = await sb.from('portal_users').select('user_id').eq('tenant_id', tenant.id)
-  const { data: membros } = await sb.from('tenant_members').select('user_id').eq('tenant_id', tenant.id)
-  for (const u of [...(clientes ?? []), ...(membros ?? [])]) {
-    if (u.user_id) await sb.auth.admin.deleteUser(u.user_id)
+  //
+  // MESMA forma do vazamento do bucket acima, e o mesmo remédio. Antes, os dois
+  // `select` caíam em `?? []` — o que transforma "a consulta falhou, não sei se
+  // tem linha" em "não tem nenhuma linha" — e o retorno de `deleteUser` (que
+  // não lança, devolve `{ error }`) era descartado sem ninguém olhar. Com as
+  // duas coisas juntas, uma rede instável podia deixar a conta de Auth viva e,
+  // mesmo assim, a função seguia até apagar a linha de `tenants` — o índice que
+  // `varrerAmbientesAntigos` usa. Um vazamento que a PRÓXIMA chamada ainda acha
+  // (porque a linha do tenant sobrevive) é recuperável; sem tenant, não há mais
+  // nada no banco que aponte para aquela conta.
+  const { data: clientes, error: erroClientes } = await sb
+    .from('portal_users')
+    .select('user_id')
+    .eq('tenant_id', tenant.id)
+  if (erroClientes) {
+    throw new Error(
+      `não consegui listar os clientes de "${slug}" para confirmar que as contas saem: ${erroClientes.message}`,
+    )
+  }
+  const { data: membros, error: erroMembros } = await sb
+    .from('tenant_members')
+    .select('user_id')
+    .eq('tenant_id', tenant.id)
+  if (erroMembros) {
+    throw new Error(
+      `não consegui listar os membros de "${slug}" para confirmar que as contas saem: ${erroMembros.message}`,
+    )
+  }
+
+  for (const u of [...clientes, ...membros]) {
+    if (!u.user_id) continue
+    const { error: erroDelete } = await sb.auth.admin.deleteUser(u.user_id)
+    // 404 conta como sucesso: é o estado de uma reexecução desta função depois
+    // de uma falha parcial anterior (a conta já saiu, a linha de `tenants`
+    // não chegou a sair). Qualquer outro erro para aqui, com a linha do
+    // tenant intacta para a próxima chamada — manual ou da varredura —
+    // tentar de novo.
+    if (erroDelete && erroDelete.status !== 404) {
+      throw new Error(`não apaguei a conta ${u.user_id} de "${slug}": ${erroDelete.message}`)
+    }
   }
 
   await sb.from('tenants').delete().eq('id', tenant.id)
@@ -293,6 +346,17 @@ export async function varrerAmbientesAntigos(): Promise<number> {
 export async function tokensDeConvite(
   email: string,
 ): Promise<{ accessToken: string; refreshToken: string }> {
+  // Mesmo hábito do prefixo `e2e-` em `apagarAmbiente`: esta é a única função
+  // de suporte que cria sessão REAL no Auth de produção para um e-mail
+  // arbitrário, sem checagem nenhuma. Hoje só é chamada com `@e2e.invalid`,
+  // mas nada além da disciplina de quem escreve o próximo teste impede um
+  // e-mail de cliente de verdade passar aqui amanhã — e o filtro redundante é
+  // exatamente o que esta branch já consagrou para `apagarAmbiente`: barreira
+  // que não depende de ninguém lembrar.
+  if (!email.endsWith('@e2e.invalid')) {
+    throw new Error(`recusando gerar sessão para "${email}": não é e-mail de teste`)
+  }
+
   const sb = service()
   const { data, error } = await sb.auth.admin.generateLink({ type: 'recovery', email })
   if (error || !data.properties?.hashed_token) {
