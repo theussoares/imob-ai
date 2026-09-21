@@ -30,3 +30,56 @@ export async function entrarNoPortal(page: Page, slug: string, cliente: Cliente)
   await page.getByRole('button', { name: 'Entrar' }).click()
   await expect(page.getByRole('heading', { name: 'Meus contratos' })).toBeVisible()
 }
+
+/**
+ * Conta os documentos que a policy `portal_documents_read` (migration 0028,
+ * reescrita sem recursão na 20260912190434) deixa passar para ESTE cliente,
+ * batendo direto no PostgREST com o token dele — sem passar pelo endpoint
+ * `/api/portal/contratos/[id]/documentos`.
+ *
+ * Existe porque `listDocumentsForClient` filtra a MESMA regra duas vezes: a
+ * RLS decide no banco, `visibleDocumentsFor` decide de novo em TypeScript, e
+ * `toHaveCount` no fim do endpoint não distingue qual das duas produziu o
+ * número. Derrubar a policy sozinha não move aquele `toHaveCount` nem um
+ * pouco, porque o filtro de TS cobre o buraco — é a mesma lacuna que o
+ * download já fechou para o bucket (a policy de storage não tem gêmea em TS),
+ * e aqui não tinha sido fechada.
+ *
+ * Os filtros da query (`tenant_id`, `contract_id`, `published_at not null`)
+ * são exatamente os que `listDocumentsForClient` aplica antes de chamar
+ * `visibleDocumentsFor` — o que sobra depois deles é só o que a RLS decidiu
+ * por audiência. Se um dia a policy e `defaultAudienceFor`/`canClientSeeDocument`
+ * discordarem, é este número — não o do endpoint — que muda primeiro.
+ */
+export async function contarDocumentosPelaRLS(
+  page: Page,
+  tenantId: string,
+  contratoId: string,
+): Promise<number> {
+  const url = process.env.SUPABASE_URL
+  const anon = process.env.SUPABASE_KEY
+  if (!url || !anon) {
+    throw new Error('SUPABASE_URL e SUPABASE_KEY precisam estar no .env para o E2E rodar.')
+  }
+
+  return page.evaluate(
+    async ({ url, anon, tenantId, contratoId }) => {
+      const sessao = JSON.parse(localStorage.getItem('imob-portal-auth') || '{}')
+      const params = new URLSearchParams({
+        select: 'id',
+        tenant_id: `eq.${tenantId}`,
+        contract_id: `eq.${contratoId}`,
+        published_at: 'not.is.null',
+      })
+      const r = await fetch(`${url}/rest/v1/portal_documents?${params}`, {
+        headers: { apikey: anon, Authorization: `Bearer ${sessao.access_token}` },
+      })
+      const linhas: unknown = await r.json()
+      if (!Array.isArray(linhas)) {
+        throw new Error(`resposta inesperada do PostgREST (status ${r.status}): ${JSON.stringify(linhas)}`)
+      }
+      return linhas.length
+    },
+    { url, anon, tenantId, contratoId },
+  )
+}
