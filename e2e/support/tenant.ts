@@ -269,3 +269,46 @@ export async function varrerAmbientesAntigos(): Promise<number> {
   }
   return apagados
 }
+
+/**
+ * Troca um link de convite por tokens de sessão, do lado do servidor.
+ *
+ * Existe para a tela `definir-senha` ser exercitada de verdade sem depender de
+ * e-mail nem da allowlist de Redirect URLs do Supabase — que é configuração fora
+ * deste repositório e apontaria para o domínio do tenant, não para o localhost.
+ *
+ * `generateLink` devolve o `hashed_token`; `verifyOtp` o troca por sessão. Com os
+ * dois tokens em mãos, a página é aberta no ramo `tipo === 'tokens'`, que é o
+ * mesmo caminho do fluxo implícito real.
+ *
+ * O tipo é `recovery`, não `invite`: `criarAmbiente` já criou a conta de
+ * inquilino/proprietário/fiador via `admin.createUser` (para o login com senha
+ * de `audiencia.spec.ts` funcionar), e `generateLink({type:'invite'})` recusa
+ * com "already registered" quando o e-mail já tem conta — é o mesmo motivo
+ * documentado em `portal-invite.repository.ts` (`obterAcesso`). `recovery` é o
+ * tipo certo para conta que já existe, e devolve o mesmo par de tokens no
+ * fluxo implícito: a página não distingue de onde o token veio, só que
+ * `tipo === 'tokens'`.
+ */
+export async function tokensDeConvite(
+  email: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const sb = service()
+  const { data, error } = await sb.auth.admin.generateLink({ type: 'recovery', email })
+  if (error || !data.properties?.hashed_token) {
+    throw new Error(`não gerou o convite de ${email}: ${error?.message}`)
+  }
+
+  const { data: sessao, error: erroOtp } = await sb.auth.verifyOtp({
+    type: 'recovery',
+    token_hash: data.properties.hashed_token,
+  })
+  if (erroOtp || !sessao.session) {
+    throw new Error(`não trocou o token de ${email}: ${erroOtp?.message}`)
+  }
+
+  return {
+    accessToken: sessao.session.access_token,
+    refreshToken: sessao.session.refresh_token,
+  }
+}
