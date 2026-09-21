@@ -12,6 +12,7 @@ Tailwind v4 · TypeScript · Vitest.
 pnpm dev          # http://localhost:3000 (site) | /admin (painel)
 pnpm typecheck    # vue-tsc — roda antes de dar qualquer coisa por pronta
 pnpm test         # vitest, Node puro, sem subir o Nuxt (segundos)
+pnpm test:e2e     # Playwright, sobe o app — minutos, não segundos. Roda sob demanda.
 ```
 
 Não existe script de lint. `pnpm typecheck && pnpm test` é a validação completa.
@@ -29,7 +30,7 @@ Identificadores de código em inglês, seguindo o que já existe no arquivo.
 ```
 app/                 SSR público + painel /admin (SPA, Supabase Auth sob demanda)
 server/
-  api/               endpoints — públicos (cache 10 min) e admin (protegidos)
+  api/               endpoints — públicos (cache 60s) e admin (protegidos)
   repositories/      acesso a dados, SEMPRE escopado por tenant_id
   mappers/           row do banco (snake_case) <-> modelo de domínio (camelCase)
   middleware/        resolve o tenant pelo Host
@@ -128,6 +129,11 @@ segundos e faz ninguém rodar o teste. O preço é não ter auto-imports do Nuxt
 Teste o que tem regra: lógica pura em `shared/`, repositories com
 `fakeSupabase`, e invariantes de segurança. Não teste CRUD trivial.
 
+Além disso existe `e2e/` (Playwright), fora do `pnpm test` de propósito: sobe o
+Nuxt de verdade e leva minutos, não segundos — rodar em toda suíte faria
+ninguém rodar o `pnpm test`. Cada execução cria e apaga um tenant `e2e-*` no
+MESMO projeto Supabase de produção (ver `e2e/support/tenant.ts`).
+
 ## Estilo de comentário
 
 Este repositório tem uma convenção forte e incomum: **comentário explica por
@@ -154,7 +160,7 @@ antes do código, com: motivo, escopo, **fora do escopo por decisão** e uma tab
 `server/middleware/tenant.ts` resolve o tenant por requisição: domínio próprio em
 `tenant_domains` → subdomínio da plataforma (`<slug>.<NUXT_PLATFORM_DOMAIN>`) →
 fallback `NUXT_DEFAULT_TENANT`. Resultado em `event.context.tenant`, cacheado
-10 min.
+60s (`TTL_MS` em `server/utils/tenant.ts`).
 
 Cores da marca vêm de `tenants.brand_primary`/`brand_accent` e são injetadas como
 CSS vars no SSR — trocar de tenant muda o tema sem rebuild.
