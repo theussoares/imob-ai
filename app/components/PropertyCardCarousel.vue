@@ -19,8 +19,21 @@ const props = withDefaults(
     alt: string;
     to: string;
     index?: number;
+    /**
+     * A página permite que o primeiro card dispute `fetchpriority="high"`?
+     *
+     * Só um elemento por página é o LCP. Na home existe o hero, que já se
+     * marca como alta prioridade (ver Hero.vue) — com o primeiro card fazendo
+     * o mesmo, os dois disputam banda e o navegador não tem como saber qual
+     * dos dois a pessoa vai ver. Nas páginas sem hero (categoria, bairro) o
+     * primeiro card É o LCP, e aí a dica vale.
+     *
+     * Padrão `true` para não mudar o comportamento de quem não passa nada:
+     * quem tem hero é que precisa abrir mão.
+     */
+    lcpCandidate?: boolean;
   }>(),
-  { index: 99 },
+  { index: 99, lcpCandidate: true },
 );
 
 const {
@@ -73,7 +86,7 @@ function onTap() {
       sizes="(min-width: 1040px) 360px, (min-width: 820px) 50vw, 100vw"
       :alt="alt"
       :loading="isAboveFold ? 'eager' : 'lazy'"
-      :fetchpriority="index === 0 ? 'high' : 'auto'"
+      :fetchpriority="lcpCandidate && index === 0 ? 'high' : 'auto'"
       decoding="async"
       @load="onImageLoad"
       @error="onImageLoad"

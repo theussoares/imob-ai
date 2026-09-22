@@ -5,7 +5,11 @@ import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 import { formatArea, formatPropertyCode } from '~~/shared/utils/property-specs'
 
-const props = withDefaults(defineProps<{ property: PropertyCard; index?: number }>(), { index: 99 })
+// `lcpCandidate` só atravessa daqui para o carrossel — ver o porquê lá.
+const props = withDefaults(
+  defineProps<{ property: PropertyCard; index?: number; lcpCandidate?: boolean }>(),
+  { index: 99, lcpCandidate: true },
+)
 
 const { whatsappLink } = useContact()
 
@@ -50,6 +54,7 @@ const detailPath = computed(() => propertyPath(props.property))
       <PropertyCardCarousel
         :images="property.images"
         :index="index"
+        :lcp-candidate="lcpCandidate"
         :to="detailPath"
         :alt="local ? `${tipoLabel} em ${local}` : tipoLabel"
       />
