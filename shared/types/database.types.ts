@@ -14,6 +14,46 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          input_tokens: number
+          kind: string
+          model: string
+          output_tokens: number
+          property_id: string | null
+          /** `reservada` nasce antes da chamada — ver reservar_geracao_ia. */
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_tokens?: number
+          kind: string
+          model: string
+          output_tokens?: number
+          property_id?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_tokens?: number
+          kind?: string
+          model?: string
+          output_tokens?: number
+          property_id?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       brokers: {
         Row: {
           active: boolean
@@ -1143,6 +1183,7 @@ export type Database = {
           address_number: string | null
           address_street: string | null
           address_zip: string | null
+          ai_tone: string
           alternate_names: string[]
           brand_accent: string
           brand_primary: string
@@ -1186,6 +1227,7 @@ export type Database = {
           address_number?: string | null
           address_street?: string | null
           address_zip?: string | null
+          ai_tone?: string
           alternate_names?: string[]
           brand_accent?: string
           brand_primary?: string
@@ -1229,6 +1271,7 @@ export type Database = {
           address_number?: string | null
           address_street?: string | null
           address_zip?: string | null
+          ai_tone?: string
           alternate_names?: string[]
           brand_accent?: string
           brand_primary?: string
@@ -1291,6 +1334,18 @@ export type Database = {
           party_role: Database["public"]["Enums"]["contract_party_role"]
           tenant_id: string
         }[]
+      }
+      reservar_geracao_ia: {
+        Args: {
+          p_tenant_id: string
+          p_created_by: string
+          p_property_id: string | null
+          p_kind: string
+          p_model: string
+          p_cota_mes: number
+          p_cota_minuto: number
+        }
+        Returns: string
       }
     }
     Enums: {
