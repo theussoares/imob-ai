@@ -179,6 +179,27 @@ describe('0041 — toda tabela nasce fechada', () => {
       expect(SQL_SEM_COMENTARIOS).toMatch(new RegExp(`revoke all on public\\.${t}\\s+from anon`))
     })
 
+    test(`${t}: revoke da escrita do authenticated`, () => {
+      // Aqui a policy ATRAPALHA: as seis são `for all`, então a escrita está
+      // explicitamente permitida pela RLS, e o painel roda um client Supabase
+      // no NAVEGADOR com a anon key e o JWT do usuário. Sem este revoke,
+      // qualquer membro — `admin`, não só `owner` — abre o devtools, dá
+      // `update` no `issued_amount` que a 0041 descreve como congelado ou
+      // apaga a linha de estorno que registra a correção. O append-only da
+      // spec vira convenção de quem escrever o código.
+      //
+      // Mesmo conserto que a 0036 aplicou em `portal_document_access` e
+      // `tenant_features`, e pelo mesmo custo zero: a escrita validada vai por
+      // `serviceSupabase()`, que o revoke não toca.
+      //
+      // Lê a unidade de schema porque o revoke é da 0042. E é
+      // `insert, update, delete, truncate`, nunca `all`: o `select` do
+      // `authenticated` é como o painel lê.
+      expect(UNIDADE_SEM_COMENTARIOS).toMatch(
+        new RegExp(`revoke insert, update, delete, truncate on public\\.${t}\\s+from authenticated`),
+      )
+    })
+
     test(`${t}: policy de membro`, () => {
       const daTabela = POLICIES_DAS_SEIS.filter(p => p.alvo === t)
       expect(daTabela.length, `${t} não tem nenhuma create policy`).toBeGreaterThan(0)
@@ -364,8 +385,29 @@ describe('0041 — o que a spec decidiu, travado', () => {
   // `unique` só de `owner_payouts` — o caso "webhook de repasse reenviado paga
   // duas vezes numa conta bancária real" — passava no teste.
   for (const t of ['charge_settlements', 'owner_payouts']) {
-    test(`${t}: a chave de idempotência é única`, () => {
-      expect(bloco(SQL_SEM_COMENTARIOS, t)).toMatch(/idempotency_key text unique/)
+    test(`${t}: a chave de idempotência é única POR TENANT`, () => {
+      // Lê a unidade de schema, e não o texto da 0041: lá o `unique` é de
+      // coluna, portanto GLOBAL, e a 0042 o derruba em favor do par. Continuar
+      // afirmando o texto da 0041 seria travar um estado que o banco não vai
+      // mais ter — e deixaria a remoção do único composto sem teste nenhum,
+      // que é o pior dos dois mundos: sem proteção global e sem a por tenant.
+      expect(
+        UNIDADE_SEM_COMENTARIOS,
+        `${t} não tem unique (tenant_id, idempotency_key)`,
+      ).toMatch(
+        new RegExp(`alter table public\\.${t}\\s+add constraint [a-z_]+\\s+unique \\(tenant_id, idempotency_key\\)`),
+      )
+
+      // E o global não pode sobreviver. As quatro imobiliárias têm conta
+      // PRÓPRIA no mesmo PSP, e vários PSPs brasileiros numeram evento por
+      // conta: `asaas:88912` chega para o tenant A e, semanas depois, para o B.
+      // Com o único global o segundo insert levanta 23505, o handler
+      // idempotente lê isso como "já processei", e o pagamento real do B é
+      // engolido em silêncio — sem erro em lugar nenhum.
+      expect(
+        UNIDADE_SEM_COMENTARIOS,
+        `o unique global de ${t}.idempotency_key (0041) não é derrubado`,
+      ).toMatch(new RegExp(`drop constraint if exists ${t}_idempotency_key_key`))
     })
   }
 
