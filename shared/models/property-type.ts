@@ -64,6 +64,26 @@ export const PROPERTY_TYPE_REGISTRY = {
     // 'Residential / Home' e todo sobrado chegava ao portal como casa genérica.
     vrsync: 'Residential / Sobrado',
   },
+  condominio: {
+    label: 'Casa de Condomínio',
+    plural: 'Casas de Condomínio',
+    // Primeiro slug com hífen, e é o que a busca real pede: ninguém digita
+    // "condomínios à venda", digita "casas de condomínio à venda". Foi por isso
+    // que o teste do registro deixou de exigir uma palavra só — a categoria
+    // ainda não tinha sido publicada, e mudar slug indexado depois custa
+    // redirect eterno.
+    slug: 'casas-de-condominio',
+    temQuartos: true,
+    schema: 'House',
+    // 'Residential / Home' é conservador de propósito. A ontologia do Grupo OLX
+    // tem, ao que tudo indica, um valor próprio para casa de condomínio, mas a
+    // documentação deles está fora do ar aqui e não deu para confirmar a string
+    // exata. Valor inventado não degrada: o portal RECUSA o anúncio inteiro.
+    // Então repetimos a escolha que o sobrado fez até ganhar o valor próprio —
+    // chega como casa genérica, mas chega. A VALIDAR no Canal Pro: confirmada a
+    // string, trocar aqui resolve o feed todo.
+    vrsync: 'Residential / Home',
+  },
   kitnet: {
     label: 'Kitnet',
     plural: 'Kitnets',

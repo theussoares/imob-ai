@@ -37,9 +37,24 @@ describe('registro de tipos', () => {
     expect(new Set(slugs).size).toBe(slugs.length)
   })
 
+  /**
+   * O hífen passou a ser aceito quando entrou 'casas-de-condominio': a regra
+   * anterior exigia uma palavra só, o que é mais estrito do que a URL precisa e
+   * forçava um slug pior do que o termo que as pessoas buscam.
+   *
+   * O que a regra ainda barra é o que quebra de verdade: acento e maiúscula
+   * (viram percent-encoding ou URL que só abre numa caixa), espaço, e hífen
+   * solto na ponta ou dobrado no meio — este último produziria dois slugs
+   * diferentes para a mesma categoria, dependendo de quem montou a string.
+   *
+   * Hífen no slug é seguro para o `parseCategorySlug` porque ele compara a
+   * string inteira contra as combinações enumeradas, em vez de partir no
+   * primeiro hífen. E um slug não engole o sufixo do outro: toda categoria
+   * termina em 'a-venda' ou 'para-alugar', que não são sufixo um do outro.
+   */
   test('os slugs também são seguros para URL', () => {
     for (const t of Object.values(PROPERTY_TYPE_REGISTRY)) {
-      expect(t.slug, t.slug).toMatch(/^[a-z]+$/)
+      expect(t.slug, t.slug).toMatch(/^[a-z]+(-[a-z]+)*$/)
     }
   })
 
