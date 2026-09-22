@@ -18,6 +18,7 @@ export interface EntradaDescricao {
   purpose: 'venda' | 'aluguel'
   neighborhood: string | null
   city: string | null
+  state: string | null
   bedrooms: number
   suites: number
   bathrooms: number
@@ -85,6 +86,9 @@ export function sanitizarEntradaDescricao(body: unknown, supabaseUrl: string): E
     purpose,
     neighborhood: texto(b.neighborhood, 120, 'O bairro'),
     city: texto(b.city, 120, 'A cidade'),
+    // Cidades homônimas em estados diferentes (Três Lagoas existe em mais de
+    // uma UF) perdem a única desambiguação sem este campo — spec "Prompt".
+    state: texto(b.state, 120, 'O estado'),
     bedrooms: inteiro(b.bedrooms),
     suites: inteiro(b.suites),
     bathrooms: inteiro(b.bathrooms),
@@ -112,11 +116,24 @@ export function sanitizarEntradaDescricao(body: unknown, supabaseUrl: string): E
 function validarImagem(v: unknown, supabaseUrl: string): string | null {
   if (v === undefined || v === null || !String(v).trim()) return null
   const bruta = String(v).trim()
-  let url: URL
+
+  // `supabaseUrl` é config de ambiente, não entrada do usuário — por isso o
+  // parse dela fica FORA do try da URL enviada no body. Misturar os dois faz
+  // um `config.public.supabaseUrl` vazio ou malformado virar "endereço de
+  // imagem inválido" pra sempre, sem log, e quem investiga procura o defeito
+  // na foto errada. Sem foto o efeito é invisível, então aparece intermitente
+  // meses depois. Aqui é 500 (defeito nosso) e não 422 (entrada ruim dele).
   let base: URL
   try {
-    url = new URL(bruta)
     base = new URL(supabaseUrl)
+  } catch (err) {
+    logError('descricao_ia.supabase_url_invalido', { reason: errMessage(err) })
+    throw createError({ statusCode: 500, statusMessage: 'Configuração de storage inválida.' })
+  }
+
+  let url: URL
+  try {
+    url = new URL(bruta)
   } catch {
     throw createError({ statusCode: 422, statusMessage: 'Endereço de imagem inválido.' })
   }
@@ -163,6 +180,7 @@ export function montarPrompt(e: EntradaDescricao, tom: AiTone): { system: string
     `Finalidade: ${e.purpose === 'venda' ? 'venda' : 'aluguel'}`,
     e.neighborhood ? `Bairro: ${e.neighborhood}` : null,
     e.city ? `Cidade: ${e.city}` : null,
+    e.state ? `Estado: ${e.state}` : null,
     e.bedrooms ? `Quartos: ${e.bedrooms}` : null,
     e.suites ? `Suítes: ${e.suites}` : null,
     e.bathrooms ? `Banheiros: ${e.bathrooms}` : null,
