@@ -65,8 +65,13 @@ export const PROPERTY_TYPE_REGISTRY = {
     vrsync: 'Residential / Sobrado',
   },
   condominio: {
-    label: 'Condomínio',
-    plural: 'Condomínios',
+    label: 'Casa de Condomínio',
+    plural: 'Casas de Condomínio',
+    // O slug não acompanha o plural de propósito: ele é uma palavra só porque a
+    // chave e o slug entram em URL e o teste do registro exige /^[a-z]+$/.
+    // 'casas-de-condominio' casaria melhor com a busca real, mas trocar isso
+    // depois que a categoria estiver indexada custa redirect — se for pra mudar,
+    // é antes de publicar.
     slug: 'condominios',
     temQuartos: true,
     schema: 'House',
