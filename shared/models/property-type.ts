@@ -67,12 +67,12 @@ export const PROPERTY_TYPE_REGISTRY = {
   condominio: {
     label: 'Casa de Condomínio',
     plural: 'Casas de Condomínio',
-    // O slug não acompanha o plural de propósito: ele é uma palavra só porque a
-    // chave e o slug entram em URL e o teste do registro exige /^[a-z]+$/.
-    // 'casas-de-condominio' casaria melhor com a busca real, mas trocar isso
-    // depois que a categoria estiver indexada custa redirect — se for pra mudar,
-    // é antes de publicar.
-    slug: 'condominios',
+    // Primeiro slug com hífen, e é o que a busca real pede: ninguém digita
+    // "condomínios à venda", digita "casas de condomínio à venda". Foi por isso
+    // que o teste do registro deixou de exigir uma palavra só — a categoria
+    // ainda não tinha sido publicada, e mudar slug indexado depois custa
+    // redirect eterno.
+    slug: 'casas-de-condominio',
     temQuartos: true,
     schema: 'House',
     // 'Residential / Home' é conservador de propósito. A ontologia do Grupo OLX
