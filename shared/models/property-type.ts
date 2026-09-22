@@ -12,7 +12,18 @@
  *
  * Campos:
  * - `label`/`plural`: o que a pessoa lê. Plural alimenta "Casas à venda".
- * - `slug`: entra na URL da categoria (/imoveis/casas-a-venda). Sem acento.
+ * - `slug`: entra na URL da CATEGORIA (/imoveis/casas-a-venda). Sem acento.
+ * - `urlSegment`: entra na URL do IMÓVEL (/casa-3-quartos-centro/NC-0231). É
+ *   igual à chave em todo tipo menos o condomínio, e é por isso que existe: a
+ *   chave precisa ser uma palavra só (é valor de enum do Postgres), o segmento
+ *   decorativo não. Sem ele, "Casa de Condomínio" aparecia na URL como
+ *   `condominio`, perdendo o "casa de" — que é o que as pessoas digitam.
+ *
+ *   ALTERNATIVA DESCARTADA: derivar de `slugify(label)`. Funcionaria hoje —
+ *   conferido, reproduz a chave nos onze tipos antigos e dá
+ *   `casa-de-condominio` no novo, sem campo nenhum. Mas amarra a URL a texto de
+ *   tela: renomear "Kitnet" para "Kitnet / Studio" mudaria a URL de todo kitnet
+ *   sem ninguém pedir. Declarado, mudar a URL é uma decisão visível no diff.
  * - `temQuartos`: se a ficha e o título anunciam quartos ou área.
  * - `schema`: tipo do schema.org no JSON-LD da página de detalhe.
  * - `vrsync`: valor da ontologia do Grupo OLX (ZAP/VivaReal). Precisa ser um
@@ -32,6 +43,7 @@ export interface PropertyTypeInfo {
   label: string
   plural: string
   slug: string
+  urlSegment: string
   temQuartos: boolean
   schema: string
   vrsync: string
@@ -42,6 +54,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Casa',
     plural: 'Casas',
     slug: 'casas',
+    urlSegment: 'casa',
     temQuartos: true,
     schema: 'House',
     vrsync: 'Residential / Home',
@@ -50,6 +63,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Apartamento',
     plural: 'Apartamentos',
     slug: 'apartamentos',
+    urlSegment: 'apartamento',
     temQuartos: true,
     schema: 'Apartment',
     vrsync: 'Residential / Apartment',
@@ -58,6 +72,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Sobrado',
     plural: 'Sobrados',
     slug: 'sobrados',
+    urlSegment: 'sobrado',
     temQuartos: true,
     schema: 'House',
     // O VRSync tem valor próprio para sobrado. Até aqui mandávamos
@@ -73,6 +88,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     // ainda não tinha sido publicada, e mudar slug indexado depois custa
     // redirect eterno.
     slug: 'casas-de-condominio',
+    urlSegment: 'casa-de-condominio',
     temQuartos: true,
     schema: 'House',
     // 'Residential / Home' é conservador de propósito. A ontologia do Grupo OLX
@@ -88,6 +104,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Kitnet',
     plural: 'Kitnets',
     slug: 'kitnets',
+    urlSegment: 'kitnet',
     temQuartos: true,
     schema: 'Apartment',
     vrsync: 'Residential / Kitnet',
@@ -96,6 +113,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Chácara',
     plural: 'Chácaras',
     slug: 'chacaras',
+    urlSegment: 'chacara',
     temQuartos: true,
     schema: 'House',
     vrsync: 'Residential / Farm Ranch',
@@ -104,6 +122,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Rancho',
     plural: 'Ranchos',
     slug: 'ranchos',
+    urlSegment: 'rancho',
     temQuartos: true,
     schema: 'House',
     // Mesmo valor da chácara: a ontologia deles não separa os dois. Dois tipos
@@ -115,6 +134,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Terreno',
     plural: 'Terrenos',
     slug: 'terrenos',
+    urlSegment: 'terreno',
     temQuartos: false,
     schema: 'Place',
     vrsync: 'Residential / Land Lot',
@@ -123,6 +143,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Barracão',
     plural: 'Barracões',
     slug: 'barracoes',
+    urlSegment: 'barracao',
     temQuartos: false,
     schema: 'Place',
     // A ontologia do VRSync não tem "barracão" nem "galpão"; 'Industrial' é o
@@ -134,6 +155,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Sala',
     plural: 'Salas',
     slug: 'salas',
+    urlSegment: 'sala',
     temQuartos: false,
     schema: 'Place',
     vrsync: 'Commercial / Office',
@@ -142,6 +164,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Salão',
     plural: 'Salões',
     slug: 'saloes',
+    urlSegment: 'salao',
     temQuartos: false,
     schema: 'Place',
     vrsync: 'Commercial / Business',
@@ -150,6 +173,7 @@ export const PROPERTY_TYPE_REGISTRY = {
     label: 'Prédio',
     plural: 'Prédios',
     slug: 'predios',
+    urlSegment: 'predio',
     temQuartos: false,
     schema: 'Place',
     vrsync: 'Commercial / Edificio Comercial',

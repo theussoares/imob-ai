@@ -17,6 +17,7 @@ describe('registro de tipos', () => {
       expect(t.label, `${chave}.label`).toBeTruthy()
       expect(t.plural, `${chave}.plural`).toBeTruthy()
       expect(t.slug, `${chave}.slug`).toBeTruthy()
+      expect(t.urlSegment, `${chave}.urlSegment`).toBeTruthy()
       expect(t.vrsync, `${chave}.vrsync`).toBeTruthy()
       expect(typeof t.temQuartos, `${chave}.temQuartos`).toBe('boolean')
     }
@@ -62,6 +63,46 @@ describe('registro de tipos', () => {
   test('todo vrsync usa o formato "Categoria / Tipo" documentado', () => {
     for (const t of Object.values(PROPERTY_TYPE_REGISTRY)) {
       expect(t.vrsync, t.vrsync).toMatch(/^(Residential|Commercial) \/ .+$/)
+    }
+  })
+
+  test('os urlSegment também são seguros para URL', () => {
+    for (const t of Object.values(PROPERTY_TYPE_REGISTRY)) {
+      expect(t.urlSegment, t.urlSegment).toMatch(/^[a-z]+(-[a-z]+)*$/)
+    }
+  })
+
+  /**
+   * O segmento decorativo dos tipos que JÁ TÊM imóvel publicado, fixado à mão.
+   *
+   * Ele é decorativo e a página redireciona quando envelhece, então mexer aqui
+   * não quebra link — mas invalida toda URL que já foi indexada, compartilhada
+   * no WhatsApp ou mandada para o portal, e troca por um redirect. É barato
+   * demais para acontecer sem ninguém decidir.
+   *
+   * Tipo novo não encosta neste teste: ele só lista o que existia antes de
+   * `urlSegment` ser um campo. É o mesmo formato do teste logo abaixo, que pina
+   * as chaves que o cliente já usa.
+   */
+  test('a URL dos tipos já publicados não muda', () => {
+    const fixados: Record<string, string> = {
+      casa: 'casa',
+      apartamento: 'apartamento',
+      sobrado: 'sobrado',
+      kitnet: 'kitnet',
+      chacara: 'chacara',
+      rancho: 'rancho',
+      terreno: 'terreno',
+      barracao: 'barracao',
+      sala: 'sala',
+      salao: 'salao',
+      predio: 'predio',
+    }
+    for (const [chave, esperado] of Object.entries(fixados)) {
+      expect(
+        PROPERTY_TYPE_REGISTRY[chave as keyof typeof PROPERTY_TYPE_REGISTRY].urlSegment,
+        chave,
+      ).toBe(esperado)
     }
   })
 
