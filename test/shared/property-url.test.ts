@@ -27,6 +27,25 @@ describe('propertySlug', () => {
     expect(s).toBe('terreno-village-do-lago')
   })
 
+  /**
+   * O único tipo cujo segmento de URL não é a própria chave. A chave é
+   * `condominio` porque é valor de enum do Postgres e precisa ser uma palavra
+   * só; a URL não tem essa restrição, e sem o "casa de" ela perde justamente o
+   * termo que as pessoas buscam.
+   */
+  test('condomínio usa o segmento próprio, não a chave', () => {
+    const s = propertySlug({
+      type: 'condominio',
+      bedrooms: 3,
+      neighborhood: 'Village do Lago',
+      code: 'NC-9001',
+    })
+    expect(s).toBe('casa-de-condominio-3-quartos-village-do-lago')
+    // Começar com a chave crua é exatamente a regressão a evitar. `toContain`
+    // não serve aqui: 'condominio-3' é substring do valor certo.
+    expect(s.startsWith('condominio-'), s).toBe(false)
+  })
+
   test('imóvel sem bairro omite o trecho, sem deixar hífen sobrando', () => {
     const s = propertySlug({ type: 'casa', bedrooms: 3, neighborhood: null, code: 'NC-0301' })
     expect(s).toBe('casa-3-quartos')
