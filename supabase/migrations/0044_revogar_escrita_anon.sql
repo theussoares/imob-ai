@@ -1,5 +1,9 @@
 -- O papel `anon` tinha INSERT, UPDATE, DELETE e TRUNCATE em cinco tabelas.
 --
+-- Identidade no banco: version=20260922184833, name=revogar_escrita_anon.
+-- Anotada aqui porque o número do arquivo e a versão no banco não coincidem —
+-- é a divergência que o README desta pasta documenta. Já aplicada: não reaplicar.
+--
 -- Achado em 22/09, de lado: ao conferir no banco se uma coluna nova em
 -- `tenants` seria legível pelo anon, a consulta de grants devolveu muito mais
 -- do que a pergunta pedia. `tenants`, `tenant_domains`, `tenant_members`,
