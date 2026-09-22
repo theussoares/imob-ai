@@ -25,41 +25,98 @@ import { Constants } from '~~/shared/types/database.types'
  */
 const DIR = join(process.cwd(), 'supabase/migrations')
 
-/** Valores de `property_type` declarados no SQL: o create da 0001 + cada alter. */
-function valoresDeclaradosNoSql(): Set<string> {
+/**
+ * Valores de `property_type` declarados num texto SQL: o create da 0001 mais
+ * cada alter.
+ *
+ * Comentário é removido ANTES de procurar, e essa linha é a que importa. Sem
+ * ela, um ALTER comentado — que é como se adia um valor ("o cliente ainda vai
+ * decidir se quer barracão") — contava como declarado, e o guarda ficava verde
+ * exatamente no caso que ele existe para pegar. Conferido: a versão anterior
+ * achava `barracao` num `-- alter type ... 'barracao';`.
+ *
+ * Extraída do acesso ao disco para ser testada por si só, como
+ * `containsRawImovelPath` em test/server/property-url-callers.test.ts: uma
+ * regra que só roda sobre arquivos reais não tem como provar que rejeita o que
+ * deve rejeitar.
+ *
+ * A remoção é textual, então um `--` dentro de string literal levaria junto o
+ * resto da linha. Nas migrations isso não acontece: os literais aqui são
+ * valores de enum, `[a-z]+`.
+ */
+function valoresDeclaradosNoSql(sql: string): Set<string> {
+  const semComentario = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--.*$/gm, '')
   const encontrados = new Set<string>()
-  for (const arquivo of readdirSync(DIR).filter((f) => f.endsWith('.sql'))) {
-    const sql = readFileSync(join(DIR, arquivo), 'utf8')
 
-    for (const m of sql.matchAll(
-      /alter\s+type\s+property_type\s+add\s+value\s+(?:if\s+not\s+exists\s+)?'([^']+)'/gi,
-    )) {
-      encontrados.add(m[1]!)
-    }
+  for (const m of semComentario.matchAll(
+    /alter\s+type\s+property_type\s+add\s+value\s+(?:if\s+not\s+exists\s+)?'([^']+)'/gi,
+  )) {
+    encontrados.add(m[1]!)
+  }
 
-    const criacao = sql.match(/create\s+type\s+property_type\s+as\s+enum\s*\(([^)]*)\)/i)
-    if (criacao) {
-      for (const m of criacao[1]!.matchAll(/'([^']+)'/g)) encontrados.add(m[1]!)
-    }
+  const criacao = semComentario.match(/create\s+type\s+property_type\s+as\s+enum\s*\(([^)]*)\)/i)
+  if (criacao) {
+    for (const m of criacao[1]!.matchAll(/'([^']+)'/g)) encontrados.add(m[1]!)
   }
   return encontrados
 }
 
+/** O mesmo, sobre a pasta inteira de migrations. */
+function valoresNasMigrations(): Set<string> {
+  const todos = new Set<string>()
+  for (const arquivo of readdirSync(DIR).filter((f) => f.endsWith('.sql'))) {
+    for (const v of valoresDeclaradosNoSql(readFileSync(join(DIR, arquivo), 'utf8'))) {
+      todos.add(v)
+    }
+  }
+  return todos
+}
+
+describe('leitura do SQL', () => {
+  test('acha o valor de um alter', () => {
+    expect(valoresDeclaradosNoSql("alter type property_type add value 'casa';")).toEqual(
+      new Set(['casa']),
+    )
+  })
+
+  test('acha os valores do create original', () => {
+    expect(
+      valoresDeclaradosNoSql("create type property_type as enum ('casa', 'apartamento');"),
+    ).toEqual(new Set(['casa', 'apartamento']))
+  })
+
+  // O caso que motivou extrair esta função. Um ALTER comentado é uma declaração
+  // que NÃO aconteceu no banco — contá-la é pior do que não olhar, porque dá a
+  // garantia sem o fato.
+  test('ignora alter comentado', () => {
+    const sql = [
+      '-- Adiar o barracão: o cliente ainda vai decidir.',
+      "-- alter type property_type add value if not exists 'barracao';",
+      "alter type property_type add value if not exists 'sala';",
+    ].join('\n')
+    expect(valoresDeclaradosNoSql(sql)).toEqual(new Set(['sala']))
+  })
+
+  test('ignora alter dentro de bloco /* */', () => {
+    const sql = "/* alter type property_type add value 'barracao'; */"
+    expect(valoresDeclaradosNoSql(sql)).toEqual(new Set())
+  })
+})
+
 describe('todo tipo do registro existe no enum do banco', () => {
+  /**
+   * Se a regex algum dia parar de casar com o SQL real, este teste não fica
+   * verde por vacuidade: `noSql` vem vazio e ele falha listando o registro
+   * inteiro. É por isso que não existe aqui um teste separado de "a leitura não
+   * voltou vazia" — ele seria implicado por este e nunca falharia sozinho.
+   */
   test('cada chave tem migration que a declara', () => {
-    const noSql = valoresDeclaradosNoSql()
+    const noSql = valoresNasMigrations()
     const faltando = PROPERTY_TYPES.filter((t) => !noSql.has(t))
     expect(
       faltando,
       `sem "alter type property_type add value" em supabase/migrations/: ${faltando.join(', ')}`,
     ).toEqual([])
-  })
-
-  // A regex acima só vale enquanto casa com o SQL real. Se alguém mudar o
-  // formato dos ALTERs e ela passar a não achar nada, o teste acima ficaria
-  // verde por vacuidade — verde justamente porque parou de olhar.
-  test('a leitura do SQL não está devolvendo vazio', () => {
-    expect(valoresDeclaradosNoSql().size).toBeGreaterThanOrEqual(PROPERTY_TYPES.length)
   })
 
   /**
