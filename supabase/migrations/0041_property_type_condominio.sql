@@ -1,0 +1,15 @@
+-- Novo tipo de imóvel: condomínio.
+--
+-- `properties.type` é um ENUM do Postgres (`create type property_type`, na
+-- 0001), não um texto com CHECK. Sem este ALTER, o painel ofereceria a opção
+-- (ela já está no registro de shared/models/property-type.ts, de onde o
+-- formulário deriva) e o salvar quebraria com "invalid input value for enum
+-- property_type" — erro do banco na cara de quem cadastra.
+--
+-- `if not exists` deixa a migration idempotente: ela roda igual num banco limpo
+-- e em produção, onde a 0027 já acrescentou os outros sete valores.
+--
+-- A chave vem sem acento porque é gravada aqui E entra na URL pública do imóvel
+-- (/condominio-3-quartos-centro/VD-010). O rótulo com acento fica em
+-- shared/models/property-type.ts, que é a fonte única do resto.
+alter type property_type add value if not exists 'condominio';
