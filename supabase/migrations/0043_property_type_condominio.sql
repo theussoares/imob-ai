@@ -9,6 +9,11 @@
 -- `if not exists` deixa a migration idempotente: ela roda igual num banco limpo
 -- e em produção, onde a 0027 já acrescentou os outros sete valores.
 --
+-- Numerada 0043, e não 0041, porque a branch feat/modelo-financeiro já ocupa
+-- 0041 e 0042 — nenhuma das duas aplicada ainda. Número repetido em duas
+-- branches vivas é o que o README desta pasta descreve tendo acontecido com a
+-- 0013 e a 0031: quem vier depois não tem como saber qual das duas rodou.
+--
 -- A chave vem sem acento porque é gravada aqui E entra na URL pública do imóvel
 -- (/condominio-3-quartos-centro/VD-010). O rótulo com acento fica em
 -- shared/models/property-type.ts, que é a fonte única do resto.
