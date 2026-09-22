@@ -93,6 +93,15 @@ declare
   v_id uuid;
   v_inicio_mes timestamptz;
 begin
+  -- Sem esta guarda, `p_created_by is null` some com o freio por minuto em
+  -- silêncio: `created_by = null` nunca é verdadeiro, o `count(*)` abaixo dá 0
+  -- pra qualquer volume de chamadas, e a segunda checagem nunca dispara. A
+  -- coluna é nullable (createdBy pode faltar num script interno) e o parâmetro
+  -- aceita nulo — o erro explícito aqui é melhor que um limite que não limita.
+  if p_created_by is null then
+    raise exception 'reservar_geracao_ia: p_created_by não pode ser nulo';
+  end if;
+
   perform pg_advisory_xact_lock(hashtext(p_tenant_id::text));
 
   -- Fuso da plataforma, não UTC: em UTC a cota vira às 21h do último dia do
@@ -100,14 +109,21 @@ begin
   v_inicio_mes := date_trunc('month', now() at time zone 'America/Sao_Paulo')
                     at time zone 'America/Sao_Paulo';
 
+  -- `and kind = p_kind` nas duas contagens, não só no insert: `kind` existe
+  -- (ver shared/models/ai-generation.ts) para o segundo uso de IA não pedir
+  -- tabela nova. Sem o filtro aqui, o dia em que 'titulo' nascer, gerar título
+  -- consome a MESMA cota de descrição — e o sintoma no cliente é "não consigo
+  -- gerar descrição", sem nada no banco que explique.
   if (select count(*) from public.ai_generations
-       where tenant_id = p_tenant_id and created_at >= v_inicio_mes) >= p_cota_mes then
+       where tenant_id = p_tenant_id and kind = p_kind
+         and created_at >= v_inicio_mes) >= p_cota_mes then
     return null;
   end if;
 
   if (select count(*) from public.ai_generations
        where tenant_id = p_tenant_id
          and created_by = p_created_by
+         and kind = p_kind
          and created_at >= now() - interval '1 minute') >= p_cota_minuto then
     return null;
   end if;
@@ -119,9 +135,32 @@ begin
   return v_id;
 end $$;
 
--- ⚠️ Obrigatório, não simetria. A função é SECURITY DEFINER: roda com os
--- privilégios do dono e ignora a RLS que o revoke acima acabou de estabelecer.
--- Com o `grant execute` default do Postgres, quem tem a anon key ganharia de
--- volta exatamente o caminho que INSERE linha de cota.
+-- ⚠️ `from anon, authenticated` SOZINHO não fecha nada — foi um achado de
+-- revisão, confirmado consultando o `proacl` de função existente em produção
+-- (`is_tenant_member`, `is_portal_user`, `set_updated_at`): toda função nasce
+-- com EXECUTE para PUBLIC (`=X/postgres`, entrada sem beneficiário antes do
+-- `=`), e `anon`/`authenticated` herdam esse grant como qualquer role. Revogar
+-- só o nominal deles deixa o de PUBLIC de pé, e a função é SECURITY DEFINER:
+-- roda com os privilégios do dono e ignora a RLS que o revoke da tabela
+-- estabeleceu. Sem revogar PUBLIC, quem tem a anon key continua podendo
+-- chamar `POST /rest/v1/rpc/reservar_geracao_ia` passando `p_cota_mes` alto —
+-- é parâmetro do CHAMADOR — e inserir linha de cota à vontade.
+--
+-- O `grant` para `service_role` depois do `revoke from public` não é simetria:
+-- sem ele, o `serviceSupabase()` do servidor perderia o próprio caminho que
+-- esta função existe para servir.
+--
+-- ⚠️ Isto é o OPOSTO do que `0028_client_area.sql` (`is_portal_user`) e a 0029
+-- (`is_tenant_member`) mandam fazer, e a diferença não é descuido: aquelas
+-- funções são chamadas de DENTRO de `using`/`with check` de policy, então a
+-- checagem de EXECUTE roda com o privilégio de quem faz a consulta — revogar
+-- delas quebra toda policy que as invoca, com `permission denied for
+-- function`, testado naquele caso. `reservar_geracao_ia` nunca é chamada de
+-- dentro de uma expressão de policy; ela só é invocada como RPC direto, pelo
+-- server com `serviceSupabase()`. É esse uso diferente que torna revogar
+-- seguro AQUI e um incidente LÁ — não copie este revoke de volta para
+-- `is_tenant_member`/`is_portal_user` por analogia.
 revoke execute on function public.reservar_geracao_ia(uuid, uuid, uuid, text, text, int, int)
-  from anon, authenticated;
+  from public, anon, authenticated;
+grant execute on function public.reservar_geracao_ia(uuid, uuid, uuid, text, text, int, int)
+  to service_role;
