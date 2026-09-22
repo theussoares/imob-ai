@@ -1345,7 +1345,8 @@ export type Database = {
           p_cota_mes: number
           p_cota_minuto: number
         }
-        Returns: string
+        /** `null` = cota (mês ou minuto) estourada — não é o id de uma reserva. */
+        Returns: string | null
       }
     }
     Enums: {
