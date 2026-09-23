@@ -9,6 +9,7 @@ import {
 } from '~~/server/repositories/property.repository'
 import { getTenantBySlug } from '~~/server/repositories/tenant.repository'
 import { fakeSupabase } from '../helpers/fake-supabase'
+import { stripComments } from '../helpers/strip-comments'
 
 /**
  * Guardrail do payload público.
@@ -179,11 +180,6 @@ const SELECT_ALL_PERMITIDO: Record<string, string> = {
   // o teste de payload acima cobre isso.
   getTenantByDomain: 'público, coberto pelo teste de payload de tenant',
   getTenantBySlug: 'público, coberto pelo teste de payload de tenant',
-}
-
-/** Remove comentários: `select('*')` citado em doc comment não conta. */
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 }
 
 /** Nomes das funções do arquivo que chamam `.select('*')` / `.select(`*, ...`)`. */

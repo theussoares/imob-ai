@@ -1,7 +1,7 @@
 import { descricaoIaAtiva } from '~~/server/utils/entitlement'
 import { anthropicClient, gerarTexto } from '~~/server/utils/ai'
-import { COTA_MENSAL_DESCRICAO } from '~~/shared/models/ai-generation'
-import { montarPrompt, resolverPropertyId, sanitizarEntradaDescricao } from '~~/server/utils/descricao-prompt'
+import { sanitizarEntradaDescricao } from '~~/server/utils/descricao-prompt'
+import { gerarDescricao } from '~~/server/utils/gerar-descricao'
 import {
   concluirGeracao,
   contarNoMes,
@@ -20,12 +20,11 @@ import { getAiTone } from '~~/server/repositories/tenant.repository'
  * pode inventar atributo a partir da foto (ver `descricao-prompt.ts`) —, e ela
  * só vale enquanto não existir caminho que publique sem revisão humana.
  *
- * O id de rota tem a forma conferida por `resolverPropertyId`, que chama
- * `ehUuid(...)` dentro de `descricao-prompt.ts` — não aqui, porque o teste
- * deste arquivo precisaria de `defineEventHandler`, que não existe fora do
- * runtime do Nuxt (ver o comentário de `resolverPropertyId`). Malformado
- * responde 404, não 400: é o mesmo endpoint que já trata "de outra
- * imobiliária" como 404, e as duas respostas precisam ser indistinguíveis.
+ * A ordem das guardas de cota (reserva antes do provedor, `marcarFalha` no
+ * catch, client resolvido antes da reserva) mora em `gerar-descricao.ts`, não
+ * aqui — é o que permite testar essa ordem sem subir o Nuxt. Este arquivo faz
+ * só o que depende do request: autentica, confere entitlement, resolve e
+ * confere posse do imóvel, saneia a entrada e lê o tom.
  */
 export default defineEventHandler(async (event) => {
   const { tenant, user } = await requireTenantMember(event)
@@ -39,7 +38,15 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const propertyId = resolverPropertyId(getRouterParam(event, 'id') ?? '')
+  // `idDeRota` (não `resolverPropertyId`, removida): a forma do id precisa ser
+  // uma chamada real NESTE arquivo, porque `test/server/id-de-rota.test.ts`
+  // varre o texto de cada endpoint atrás dela — um helper que a chama em outro
+  // arquivo passa no teste sem garantir nada se alguém trocar a linha abaixo
+  // por um `getRouterParam` cru. Malformado é 400 (id nunca existe, não há o
+  // que confirmar); "de outra imobiliária" continua sendo 404, abaixo.
+  const bruto = getRouterParam(event, 'id') ?? ''
+  const propertyId = bruto === 'novo' ? null : idDeRota(bruto, 'Imóvel')
+
   const db = serviceSupabase()
 
   // Imóvel de OUTRA imobiliária é 404, não 403. O tenant sai do contexto,
@@ -52,50 +59,24 @@ export default defineEventHandler(async (event) => {
 
   const config = useRuntimeConfig()
   const entrada = sanitizarEntradaDescricao(await readBody(event), config.public.supabaseUrl)
-  // Antes da reserva de cota: se a leitura do tom falhar, é defeito de
-  // configuração/banco, não vale gastar uma reserva por isso.
   const tom = await getAiTone(db, tenant.id)
 
-  // Reserva ANTES de chamar o provedor — senão não é cota, é contagem de
-  // gasto que já aconteceu.
-  const geracaoId = await reservarGeracao(db, {
-    tenantId: tenant.id,
-    createdBy: user.id,
-    propertyId,
-    kind: 'descricao',
-    model: config.aiModel,
-  })
-  if (!geracaoId) {
-    throw createError({
-      statusCode: 429,
-      statusMessage: `Limite de ${COTA_MENSAL_DESCRICAO} gerações deste mês atingido.`,
-    })
-  }
-
-  const { system, prompt } = montarPrompt(entrada, tom)
-
-  let resultado
-  try {
-    resultado = await gerarTexto(anthropicClient(), { system, prompt, imagemUrl: entrada.imagemUrl })
-  } catch (e) {
-    // A reserva CONTINUA contando: tentativa que falha consome cota, e é isso
-    // que faz o freio valer contra um loop de erro. Só o status da linha muda.
-    await marcarFalha(db, geracaoId, tenant.id)
-    throw e
-  }
-
-  try {
-    await concluirGeracao(db, geracaoId, tenant.id, {
-      inputTokens: resultado.inputTokens,
-      outputTokens: resultado.outputTokens,
-      model: resultado.model,
-    })
-  } catch (e) {
-    // Não derruba a resposta — o corretor recebe o texto. Mas grita: é consumo
-    // real sem contagem de token, e descobrir isso pela fatura é o pior caminho.
-    logError('ia.registro_falhou', { tenant: tenant.id, id: geracaoId, reason: errMessage(e) })
-  }
-
-  const usadas = await contarNoMes(db, tenant.id, 'descricao').catch(() => COTA_MENSAL_DESCRICAO)
-  return { texto: resultado.texto, restanteNoMes: Math.max(0, COTA_MENSAL_DESCRICAO - usadas) }
+  return gerarDescricao(
+    {
+      reservarGeracao: (opts) => reservarGeracao(db, opts),
+      concluirGeracao: (id, tenantId, dados) => concluirGeracao(db, id, tenantId, dados),
+      marcarFalha: (id, tenantId) => marcarFalha(db, id, tenantId),
+      contarNoMes: (tenantId, kind) => contarNoMes(db, tenantId, kind),
+      gerarTexto,
+      anthropicClient,
+    },
+    {
+      tenantId: tenant.id,
+      userId: user.id,
+      propertyId,
+      entrada,
+      tom,
+      model: config.aiModel,
+    },
+  )
 })

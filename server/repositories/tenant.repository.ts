@@ -62,13 +62,14 @@ export async function updateTenantSettings(
 /**
  * Tom da descrição por IA, para o endpoint de geração.
  *
- * Não é campo de `Tenant`/`toTenantModel`: aquele modelo viaja INTEIRO no
- * payload público — `server/api/tenant.get.ts` devolve `useTenantContext(event)`
- * sem seleção de campo nenhuma —, então qualquer propriedade que entrasse ali
- * sairia para o site do cliente. Uma função própria, com `select('ai_tone')`
- * explícito (nunca `select('*')`), mantém o tom fora de todo caminho público
- * POR CONSTRUÇÃO, e não por um guardrail que pega o vazamento depois de já ter
- * acontecido.
+ * O tom NÃO é dado sensível — `anon` tem `GRANT SELECT` na tabela `tenants`
+ * inteira e conseguiria ler `ai_tone` direto pelo PostgREST com a chave que já
+ * vai no HTML de qualquer site. O que esta função garante é mais estreito: o
+ * tom fica fora do payload de `/api/tenant`, porque não é campo de
+ * `Tenant`/`toTenantModel` — e aquele endpoint devolve `useTenantContext(event)`
+ * INTEIRO, sem seleção de campo nenhuma, então qualquer propriedade que
+ * entrasse no modelo sairia junto. `select('ai_tone')` explícito (nunca
+ * `select('*')`) é só higiene de leitura, não a barreira de privacidade.
  */
 export async function getAiTone(client: Client, tenantId: string): Promise<AiTone> {
   const { data, error } = await client
