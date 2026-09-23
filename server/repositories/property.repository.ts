@@ -248,6 +248,33 @@ function assertCodigoLivre(error: unknown, code: string): void {
   })
 }
 
+/**
+ * Grafias de bairro já cadastradas na imobiliária, da mais usada para a menos.
+ *
+ * Alimenta duas coisas: a canonização na escrita (`canonicalNeighborhood`) e a
+ * lista de sugestões do formulário. A ordem por frequência importa nas duas —
+ * é a grafia que a imobiliária mais usa que deve vencer, não a primeira que
+ * alguém digitou.
+ *
+ * Lê `status` nenhum de propósito: rascunho também conta, senão o segundo
+ * imóvel de um bairro novo não encontraria o primeiro.
+ */
+export async function listNeighborhoods(client: Client, tenantId: string): Promise<string[]> {
+  const { data, error } = await client
+    .from('properties')
+    .select('neighborhood')
+    .eq('tenant_id', tenantId)
+    .not('neighborhood', 'is', null)
+  if (error) throw error
+
+  const freq = new Map<string, number>()
+  for (const row of data ?? []) {
+    const v = (row.neighborhood || '').trim()
+    if (v) freq.set(v, (freq.get(v) ?? 0) + 1)
+  }
+  return [...freq.entries()].sort((a, b) => b[1] - a[1]).map(([v]) => v)
+}
+
 export async function createProperty(
   client: Client,
   tenantId: string,
