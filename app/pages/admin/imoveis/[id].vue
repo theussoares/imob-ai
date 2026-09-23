@@ -243,12 +243,38 @@ async function save() {
 }
 
 // Estado da geração de descrição por IA: dicas digitadas, progresso da
-// chamada, texto anterior (para "desfazer") e o saldo mensal que o endpoint
-// devolve junto com o texto.
+// chamada, texto anterior e último texto gerado (os dois juntos decidem se
+// "desfazer" pode aparecer — ver `podeDesfazer` abaixo) e o saldo mensal que
+// o endpoint devolve junto com o texto.
 const dicasIa = ref("");
 const gerandoIa = ref(false);
 const descricaoAnterior = ref<string | null>(null);
+const ultimoGerado = ref<string | null>(null);
 const saldoIa = ref<number | null>(null);
+
+/**
+ * "Desfazer" só existe enquanto `form.description` ainda for, ao pé da
+ * letra, o texto que a última geração devolveu — não basta ter gerado em
+ * algum momento. Round 1 de revisão: sem essa condição, um corretor que gera,
+ * depois edita à mão (acrescenta um parágrafo, corrige um dado) e clica
+ * "Desfazer" perde a edição em silêncio, porque o botão reverte para
+ * `descricaoAnterior` (o texto de ANTES da IA) sem saber que o textarea mudou
+ * de novo por baixo.
+ *
+ * Alternativa descartada: manter o botão sempre visível depois de gerar e
+ * abrir um `confirm()` antes de sobrescrever. Resolveria o mesmo caso, mas
+ * cobra uma pergunta de confirmação em TODO clique em "Desfazer" — inclusive
+ * nos 99% das vezes em que não há edição manual para proteger. O `computed`
+ * evita a pergunta redundante ao tornar a condição impossível de violar: não
+ * há `watch` para dessincronizar, é função pura do estado atual.
+ *
+ * Custo aceito: quem editou à mão depois de gerar e quer voltar ao texto
+ * pré-IA não tem mais o botão — precisa desfazer a edição manualmente. É a
+ * troca certa: o botão sumir é menos grave que ele apagar trabalho sem aviso.
+ */
+const podeDesfazer = computed(
+  () => descricaoAnterior.value !== null && form.description === ultimoGerado.value,
+);
 
 /**
  * O endpoint só devolve o texto — quem grava é o `save()` acima, depois que o
@@ -293,18 +319,26 @@ async function gerarDescricao() {
         },
       },
     );
-    // Guardado ANTES de sobrescrever, e sempre — mesmo na segunda geração em
-    // diante. É desfazer de UM nível (como Ctrl+Z), não uma pilha até o texto
-    // anterior a qualquer IA: gerar duas vezes seguidas e desfazer volta para
-    // o texto da PRIMEIRA geração, não para o que estava escrito antes dela.
-    // A alternativa — travar `descricaoAnterior` no valor pré-IA e nunca
+    // `descricaoAnterior` guardado ANTES de sobrescrever, e sempre — mesmo na
+    // segunda geração em diante (ou na segunda depois de uma edição manual: é
+    // o texto que estava no campo NESTE clique, seja lá de onde ele veio). É
+    // desfazer de UM nível (como Ctrl+Z), não uma pilha até o texto anterior a
+    // qualquer IA: gerar duas vezes seguidas e desfazer volta para o texto da
+    // PRIMEIRA geração, não para o que estava escrito antes dela. A
+    // alternativa — travar `descricaoAnterior` no valor pré-IA e nunca
     // regravar — foi descartada: ela tornaria a segunda geração impossível de
     // desfazer isoladamente, e é exatamente o caso de quem clicou "Melhorar
     // com IA" de novo porque o resultado anterior já estava bom, só querendo
     // um ajuste fino — desfazer devolveria ao texto original, descartando sem
     // aviso a tentativa boa que existia no meio.
+    //
+    // `ultimoGerado` anda junto: é o texto desta geração, o mesmo que vai
+    // para `form.description` na linha de baixo. As duas ficam coerentes em
+    // qualquer sequência de gerações porque são escritas juntas, sempre neste
+    // par — nunca uma sem a outra.
     descricaoAnterior.value = form.description;
     form.description = r.texto;
+    ultimoGerado.value = r.texto;
     saldoIa.value = r.restanteNoMes;
   } catch (e: unknown) {
     // Mesmo formato do `save()` acima: o `statusMessage` do servidor cai em
@@ -320,9 +354,13 @@ async function gerarDescricao() {
 }
 
 function desfazerIa() {
-  if (descricaoAnterior.value === null) return;
+  // Guarda redundante: o botão só existe (`v-if="podeDesfazer"`) quando isto
+  // já é verdade. Fica aqui porque a função não deveria confiar cegamente em
+  // quem a chama.
+  if (!podeDesfazer.value || descricaoAnterior.value === null) return;
   form.description = descricaoAnterior.value;
   descricaoAnterior.value = null;
+  ultimoGerado.value = null;
 }
 
 useHead(() => ({
@@ -497,10 +535,18 @@ useHead(() => ({
                   : "Gerar com IA"
             }}
           </button>
+          <!--
+            `podeDesfazer`, não `descricaoAnterior !== null`: some assim que o
+            corretor edita o textarea à mão depois de gerar, porque nesse
+            ponto "Desfazer" deixaria de significar "voltar de uma geração" e
+            passaria a significar "apagar o que acabei de escrever". Ver o
+            comentário do `computed` no script.
+          -->
           <button
-            v-if="descricaoAnterior !== null"
+            v-if="podeDesfazer"
             type="button"
             class="admin-btn ghost sm"
+            :disabled="gerandoIa"
             @click="desfazerIa"
           >
             Desfazer
