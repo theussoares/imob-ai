@@ -281,6 +281,7 @@ useHead(() => ({
           :key="p.id"
           :property="p"
           :index="i"
+          :lcp-candidate="!tenant?.heroImage"
           :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
         />
       </div>
