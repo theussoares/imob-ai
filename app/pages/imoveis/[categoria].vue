@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PropertyCard } from '~~/shared/models/property'
 import { createCatalogFilters } from '~/composables/useCatalog'
+import { propertyPath } from '~~/shared/utils/property-url'
 import {
   parseCategorySlug,
   categoryLabel,
@@ -113,6 +114,37 @@ useHead(() => ({
           { '@type': 'ListItem', position: 1, name: 'Início', item: url.origin + '/' },
           { '@type': 'ListItem', position: 2, name: heading.value, item: canonical },
         ],
+      }),
+    },
+    /**
+     * A lista dos imóveis da categoria.
+     *
+     * Antes daqui, a página de categoria só declarava a própria trilha: o robô
+     * via o título e nada sobre o que a página lista. `ItemList` é o que diz
+     * que estas 56 URLs são o conteúdo desta página, e não links soltos de
+     * menu — é a diferença entre uma página de categoria e um índice qualquer.
+     *
+     * Vai a categoria inteira, não só o primeiro lote: o "Ver mais" revela o
+     * resto sem trocar de URL, então a página É todas elas. São ~120 bytes por
+     * item, contra os 479 KB que o corte em lote tirou.
+     *
+     * Só `url` e `name` por item. Preço e foto ficam na página de cada imóvel,
+     * onde o JSON-LD completo já existe — repetir aqui dobraria o payload para
+     * dizer ao robô o que ele encontra a um clique.
+     */
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: heading.value,
+        numberOfItems: inCategory.value.length,
+        itemListElement: inCategory.value.map((p, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: p.title,
+          url: url.origin + propertyPath(p),
+        })),
       }),
     },
   ],

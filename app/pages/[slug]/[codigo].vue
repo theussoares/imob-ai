@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Property } from "~~/shared/models/property";
 import { PROPERTY_TYPE_LABELS } from "~~/shared/models/property";
-import { PROPERTY_TYPE_REGISTRY } from "~~/shared/models/property";
+import { propertyJsonLd } from "~~/shared/utils/property-jsonld";
 import { propertyPath, propertySlug } from "~~/shared/utils/property-url";
 import { propertyTitle } from "~~/shared/utils/property-title";
 import { formatPropertyCode } from "~~/shared/utils/property-specs";
@@ -82,31 +82,8 @@ useOgCard(() => ({
   alt: propertyTitle(p),
 }));
 
-const schemaType = PROPERTY_TYPE_REGISTRY[p.type].schema;
-
 const jsonLd = computed(() => [
-  {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: p.title,
-    sku: p.code,
-    category: PROPERTY_TYPE_LABELS[p.type],
-    description: p.description || undefined,
-    image: p.images.map((i) => i.url),
-    brand: { "@type": "Brand", name: tenant.value?.name },
-    offers: {
-      "@type": "Offer",
-      price: p.price,
-      priceCurrency: "BRL",
-      availability: "https://schema.org/InStock",
-      url: canonical,
-      businessFunction:
-        p.purpose === "aluguel"
-          ? "http://purl.org/goodrelations/v1#LeaseOut"
-          : "http://purl.org/goodrelations/v1#Sell",
-    },
-    additionalType: `https://schema.org/${schemaType}`,
-  },
+  propertyJsonLd(p, { tenantName: tenant.value?.name, canonical }),
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
