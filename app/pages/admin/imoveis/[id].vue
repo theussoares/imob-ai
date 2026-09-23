@@ -73,6 +73,23 @@ const { data: brokers } = await useAsyncData(
   },
 );
 
+/**
+ * Bairros que a imobiliária já usa, para a lista de sugestões do campo.
+ *
+ * O servidor alinha a grafia no salvar (ver `canonicalNeighborhood`), mas só
+ * alcança o que se LÊ igual: "Jardim dos Ipês 2" e "Jardim dos Ipes3" são
+ * bairros distintos para qualquer normalizador. Mostrar o que já existe ANTES
+ * de digitar é o que evita o terceiro "Jardim dos Ipês" nascer torto.
+ */
+const { data: bairros } = await useAsyncData(
+  "admin:neighborhoods",
+  () => adminFetch<string[]>("/api/admin/neighborhoods"),
+  {
+    server: false,
+    default: () => [] as string[],
+  },
+);
+
 const { load: loadMembers, nameFor } = useMemberNames();
 onMounted(loadMembers);
 
@@ -313,7 +330,18 @@ useHead(() => ({
         </div>
         <div>
           <label class="admin-label">Bairro</label>
-          <input v-model="form.neighborhood" class="admin-input" />
+          <!-- `datalist` e não `select`: bairro continua texto livre, porque o
+               primeiro imóvel de um bairro novo precisa poder criá-lo. A lista
+               só sugere o que já existe. -->
+          <input
+            v-model="form.neighborhood"
+            class="admin-input"
+            list="bairros-cadastrados"
+            autocomplete="off"
+          />
+          <datalist id="bairros-cadastrados">
+            <option v-for="b in bairros" :key="b" :value="b" />
+          </datalist>
         </div>
         <div>
           <label class="admin-label">Cidade</label>
