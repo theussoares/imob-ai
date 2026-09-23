@@ -30,6 +30,39 @@ describe('categoria só de pretensão', () => {
     expect(categorySlug({ type: 'casa', purpose: 'venda' })).toBe('casas-a-venda')
   })
 
+  /**
+   * 'casas-de-condominio' é o primeiro slug de tipo com hífen — e o hífen é
+   * exatamente o que `categorySlug` usa para colar slug e pretensão. Enquanto
+   * todo slug era uma palavra só, um parse ingênuo (partir no primeiro hífen)
+   * funcionaria por acidente; agora ele devolveria `type: 'casas'`, que não
+   * existe, e a categoria mais buscada do catálogo responderia 404.
+   */
+  test('slug com hífen faz ida e volta', () => {
+    expect(categorySlug({ type: 'condominio', purpose: 'venda' })).toBe(
+      'casas-de-condominio-a-venda',
+    )
+    expect(parseCategorySlug('casas-de-condominio-a-venda')).toEqual({
+      type: 'condominio',
+      purpose: 'venda',
+    })
+    expect(parseCategorySlug('casas-de-condominio-para-alugar')).toEqual({
+      type: 'condominio',
+      purpose: 'aluguel',
+    })
+  })
+
+  /**
+   * O registro já garante que dois tipos não compartilham slug. Isto aqui é o
+   * degrau seguinte, que só passou a fazer sentido com hífen liberado: duas
+   * COMBINAÇÕES diferentes gerando a mesma URL. Uma delas simplesmente nunca
+   * abriria — `parseCategorySlug` devolve a primeira que casar — e o sitemap
+   * publicaria o link mesmo assim.
+   */
+  test('nenhuma combinação de tipo e pretensão gera o mesmo slug', () => {
+    const slugs = allCategories().map(categorySlug)
+    expect(new Set(slugs).size).toBe(slugs.length)
+  })
+
   test('slug inválido continua devolvendo null', () => {
     expect(parseCategorySlug('qualquer-coisa')).toBeNull()
     expect(parseCategorySlug('')).toBeNull()

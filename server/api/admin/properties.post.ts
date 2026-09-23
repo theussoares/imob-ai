@@ -1,5 +1,6 @@
 import type { PropertyInput } from '~~/shared/models/property'
-import { createProperty } from '~~/server/repositories/property.repository'
+import { canonicalNeighborhood } from '~~/shared/utils/neighborhood'
+import { createProperty, listNeighborhoods } from '~~/server/repositories/property.repository'
 
 /**
  * Cria um imóvel.
@@ -17,6 +18,16 @@ export default defineEventHandler(async (event) => {
   const { tenant, user } = await requireTenantMember(event)
   const body = await readBody<PropertyInput>(event)
   assertPropertyInput(body)
+
+  // Alinha o bairro à grafia que a imobiliária já usa. Sem isto, "Bela vista
+  // da lagoa " entra como bairro novo e fragmenta a página do bairro — em
+  // produção uma imobiliária tinha SEIS grafias do mesmo lugar. A lista sai
+  // escopada pelo tenant, como todo o resto.
+  body.neighborhood = canonicalNeighborhood(
+    body.neighborhood,
+    await listNeighborhoods(serviceSupabase(), tenant.id),
+  )
+
   const property = await createProperty(serviceSupabase(), tenant.id, body, user.id)
   await invalidateTenantCache(tenant.id)
   return property

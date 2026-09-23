@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { PropertyCard } from '~~/shared/models/property'
 import { createCatalogFilters } from '~/composables/useCatalog'
+import { propertyPath } from '~~/shared/utils/property-url'
 import {
   parseCategorySlug,
   categoryLabel,
   categorySlug,
   CATEGORY_MIN_PROPERTIES,
 } from '~~/shared/utils/category'
+import { loteDoCatalogo } from '~~/shared/utils/catalog-lote'
 
 const route = useRoute()
 const tenant = useTenant()
@@ -56,6 +58,25 @@ filters.purpose = category.purpose
 if (category.type) filters.type = category.type
 const { filtered } = useCatalog(inCategory, filters)
 
+/**
+ * Mesmo corte em lotes que a home já fazia, e pelo mesmo motivo — ver
+ * `catalog-lote.ts`. A categoria ficou de fora quando o lote foi criado, e na
+ * maior imobiliária de hoje isso são 56 cards de uma vez: 479 KB de HTML numa
+ * página que a busca orgânica abre primeiro, quase sempre no celular.
+ *
+ * O ganho é DOM e parse, não banda: o catálogo inteiro continua chegando no
+ * payload, de propósito, porque é sobre ele que os filtros e os chips de
+ * bairro rodam em memória.
+ */
+const lotes = ref(1)
+const lote = computed(() => loteDoCatalogo(filtered.value, lotes.value))
+
+// Trocar de bairro/filtro recomeça do primeiro lote — sem isso, quem expandiu
+// e depois filtrou recebe outra parede de cards.
+watch(filters, () => {
+  lotes.value = 1
+})
+
 const { whatsappLink } = useContact()
 
 const cityLabel = computed(() => (tenant.value?.city ? ` em ${tenant.value.city}` : ''))
@@ -93,6 +114,37 @@ useHead(() => ({
           { '@type': 'ListItem', position: 1, name: 'Início', item: url.origin + '/' },
           { '@type': 'ListItem', position: 2, name: heading.value, item: canonical },
         ],
+      }),
+    },
+    /**
+     * A lista dos imóveis da categoria.
+     *
+     * Antes daqui, a página de categoria só declarava a própria trilha: o robô
+     * via o título e nada sobre o que a página lista. `ItemList` é o que diz
+     * que estas 56 URLs são o conteúdo desta página, e não links soltos de
+     * menu — é a diferença entre uma página de categoria e um índice qualquer.
+     *
+     * Vai a categoria inteira, não só o primeiro lote: o "Ver mais" revela o
+     * resto sem trocar de URL, então a página É todas elas. São ~120 bytes por
+     * item, contra os 479 KB que o corte em lote tirou.
+     *
+     * Só `url` e `name` por item. Preço e foto ficam na página de cada imóvel,
+     * onde o JSON-LD completo já existe — repetir aqui dobraria o payload para
+     * dizer ao robô o que ele encontra a um clique.
+     */
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: heading.value,
+        numberOfItems: inCategory.value.length,
+        itemListElement: inCategory.value.map((p, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: p.title,
+          url: url.origin + propertyPath(p),
+        })),
       }),
     },
   ],
@@ -138,15 +190,33 @@ useHead(() => ({
     </div>
 
     <main class="wrap">
-      <div v-if="filtered.length" class="grid">
-        <PropertyCard
-          v-for="(p, i) in filtered"
-          :key="p.id"
-          :property="p"
-          :index="i"
-          :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
-        />
-      </div>
+      <!-- O <template> segura grade e botão sob o MESMO v-if. Com o botão solto
+           entre os dois, o v-else de baixo grudava no v-if dele: toda categoria
+           com até um lote mostrava os cards e, logo abaixo, "ainda não temos". -->
+      <template v-if="filtered.length">
+        <div class="grid">
+          <PropertyCard
+            v-for="(p, i) in lote.visiveis"
+            :key="p.id"
+            :property="p"
+            :index="i"
+            :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
+          />
+        </div>
+
+        <div v-if="lote.restantes" class="ver-mais">
+          <button type="button" @click="lotes++">
+            Ver mais {{ lote.proximoLote }}
+            {{ lote.proximoLote === 1 ? 'imóvel' : 'imóveis' }}
+          </button>
+          <!-- aria-live: os cards novos entram ABAIXO do botão, fora de onde o
+               leitor de tela está — sem o aviso o clique não produz resposta
+               audível nenhuma. -->
+          <p class="ver-mais-conta" aria-live="polite">
+            Mostrando {{ lote.visiveis.length }} de {{ filtered.length }}
+          </p>
+        </div>
+      </template>
       <div v-else class="cat-vazio">
         <p>
           Ainda não temos {{ categoryLabel(category).toLowerCase() }}{{ cityLabel }} publicados no

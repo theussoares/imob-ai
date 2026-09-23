@@ -1363,18 +1363,7 @@ export type Database = {
         | "contrato_administracao"
       property_purpose: "venda" | "aluguel"
       property_status: "active" | "sold" | "rented" | "draft"
-      property_type:
-        | "casa"
-        | "apartamento"
-        | "sobrado"
-        | "terreno"
-        | "kitnet"
-        | "chacara"
-        | "rancho"
-        | "barracao"
-        | "sala"
-        | "salao"
-        | "predio"
+      property_type: "casa" | "apartamento" | "sobrado" | "kitnet" | "chacara" | "rancho" | "terreno" | "barracao" | "sala" | "salao" | "predio" | "condominio"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1516,19 +1505,7 @@ export const Constants = {
       ],
       property_purpose: ["venda", "aluguel"],
       property_status: ["active", "sold", "rented", "draft"],
-      property_type: [
-        "casa",
-        "apartamento",
-        "sobrado",
-        "terreno",
-        "kitnet",
-        "chacara",
-        "rancho",
-        "barracao",
-        "sala",
-        "salao",
-        "predio",
-      ],
+      property_type: ["casa", "apartamento", "sobrado", "kitnet", "chacara", "rancho", "terreno", "barracao", "sala", "salao", "predio", "condominio"],
     },
   },
 } as const
