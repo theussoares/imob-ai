@@ -119,7 +119,7 @@ function validarImagem(v: unknown, supabaseUrl: string): string | null {
 
   // `supabaseUrl` é config de ambiente, não entrada do usuário — por isso o
   // parse dela fica FORA do try da URL enviada no body. Misturar os dois faz
-  // um `config.public.supabaseUrl` vazio ou malformado virar "endereço de
+  // uma `supabaseUrl` de ambiente vazia ou malformada virar "endereço de
   // imagem inválido" pra sempre, sem log, e quem investiga procura o defeito
   // na foto errada. Sem foto o efeito é invisível, então aparece intermitente
   // meses depois. Aqui é 500 (defeito nosso) e não 422 (entrada ruim dele).

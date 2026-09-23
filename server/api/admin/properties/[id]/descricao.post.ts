@@ -58,7 +58,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig()
-  const entrada = sanitizarEntradaDescricao(await readBody(event), config.public.supabaseUrl)
+  const entrada = sanitizarEntradaDescricao(
+    await readBody(event),
+    segredoDeRuntime(config.public.supabaseUrl, 'SUPABASE_URL'),
+  )
   const tom = await getAiTone(db, tenant.id)
 
   return gerarDescricao(
