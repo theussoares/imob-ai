@@ -2,6 +2,26 @@ import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~~/shared/models/property-
 import type { PropertyType } from '~~/shared/models/property-type'
 import { AI_TONE_INSTRUCOES } from '~~/shared/models/ai-tone'
 import type { AiTone } from '~~/shared/models/ai-tone'
+import { ehUuid } from '~~/shared/utils/uuid'
+
+/**
+ * O id da rota do endpoint de geração, exportado daqui — e não do próprio
+ * endpoint — para o teste poder importar sem executar `defineEventHandler`.
+ * O endpoint chama esse helper no topo do módulo; `test/setup.ts` não registra
+ * `defineEventHandler` porque o código de servidor real nunca precisa dele fora
+ * do runtime do Nuxt, e um import do arquivo do endpoint estouraria antes do
+ * primeiro `expect`.
+ *
+ * `'novo'` é o imóvel que ainda não existe — o botão de gerar descrição
+ * precisa funcionar DURANTE o cadastro, antes de haver linha no banco. Id
+ * malformado é 404 e não 400: a resposta não pode distinguir "não existe" de
+ * "não é seu" para quem está sondando ids de outra imobiliária.
+ */
+export function resolverPropertyId(id: string): string | null {
+  if (id === 'novo') return null
+  if (!ehUuid(id)) throw createError({ statusCode: 404, statusMessage: 'Imóvel não encontrado.' })
+  return id
+}
 
 /**
  * O que a IA pode ver de um imóvel. Tipo FECHADO, de propósito.

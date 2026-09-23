@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import type { TenantMember } from '~~/shared/models/member'
+import type { AiTone } from '~~/shared/models/ai-tone'
+import { tomValido } from '~~/shared/models/ai-tone'
 import { toTenantModel, toTenantUpdateRow } from '~~/server/mappers/tenant.mapper'
 
 type Client = SupabaseClient<Database>
@@ -55,6 +57,27 @@ export async function updateTenantSettings(
     .single()
   if (error) throw error
   return toTenantModel(data)
+}
+
+/**
+ * Tom da descrição por IA, para o endpoint de geração.
+ *
+ * Não é campo de `Tenant`/`toTenantModel`: aquele modelo viaja INTEIRO no
+ * payload público — `server/api/tenant.get.ts` devolve `useTenantContext(event)`
+ * sem seleção de campo nenhuma —, então qualquer propriedade que entrasse ali
+ * sairia para o site do cliente. Uma função própria, com `select('ai_tone')`
+ * explícito (nunca `select('*')`), mantém o tom fora de todo caminho público
+ * POR CONSTRUÇÃO, e não por um guardrail que pega o vazamento depois de já ter
+ * acontecido.
+ */
+export async function getAiTone(client: Client, tenantId: string): Promise<AiTone> {
+  const { data, error } = await client
+    .from('tenants')
+    .select('ai_tone')
+    .eq('id', tenantId)
+    .maybeSingle()
+  if (error) throw error
+  return tomValido(data?.ai_tone)
 }
 
 export async function getMembership(
