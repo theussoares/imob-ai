@@ -76,6 +76,9 @@ const { data: brokers } = await useAsyncData(
 const { load: loadMembers, nameFor } = useMemberNames();
 onMounted(loadMembers);
 
+const { descricaoIa, carregar } = useAdminFeatures();
+onMounted(carregar);
+
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
   async () =>
@@ -239,6 +242,89 @@ async function save() {
   }
 }
 
+// Estado da geração de descrição por IA: dicas digitadas, progresso da
+// chamada, texto anterior (para "desfazer") e o saldo mensal que o endpoint
+// devolve junto com o texto.
+const dicasIa = ref("");
+const gerandoIa = ref(false);
+const descricaoAnterior = ref<string | null>(null);
+const saldoIa = ref<number | null>(null);
+
+/**
+ * O endpoint só devolve o texto — quem grava é o `save()` acima, depois que o
+ * corretor leu. Não é um detalhe de implementação a preservar: é a trava
+ * contra publicidade enganosa (a IA pode inventar um atributo a partir da
+ * foto), e só vale enquanto não existir caminho que publique sem revisão
+ * humana. Gerar aqui e chamar `save()` sozinho por trás apagaria essa leitura.
+ */
+async function gerarDescricao() {
+  gerandoIa.value = true;
+  error.value = "";
+  try {
+    const r = await adminFetch<{ texto: string; restanteNoMes: number }>(
+      `/api/admin/properties/${isNew.value ? "novo" : id.value}/descricao`,
+      {
+        method: "POST",
+        body: {
+          title: form.title,
+          type: form.type,
+          purpose: form.purpose,
+          neighborhood: form.neighborhood,
+          city: form.city,
+          state: form.state,
+          bedrooms: form.bedrooms,
+          suites: form.suites,
+          bathrooms: form.bathrooms,
+          parking: form.parking,
+          area: form.area,
+          highStandard: form.highStandard,
+          features: featuresText.value
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean),
+          dicas: dicasIa.value,
+          // Modo reescrita é derivado disto: sem parâmetro de modo, não há
+          // dois lugares para a mesma informação discordar.
+          descricaoAtual: form.description,
+          imagemUrl:
+            form.images.find((i) => i.isCover)?.url ??
+            form.images[0]?.url ??
+            null,
+        },
+      },
+    );
+    // Guardado ANTES de sobrescrever, e sempre — mesmo na segunda geração em
+    // diante. É desfazer de UM nível (como Ctrl+Z), não uma pilha até o texto
+    // anterior a qualquer IA: gerar duas vezes seguidas e desfazer volta para
+    // o texto da PRIMEIRA geração, não para o que estava escrito antes dela.
+    // A alternativa — travar `descricaoAnterior` no valor pré-IA e nunca
+    // regravar — foi descartada: ela tornaria a segunda geração impossível de
+    // desfazer isoladamente, e é exatamente o caso de quem clicou "Melhorar
+    // com IA" de novo porque o resultado anterior já estava bom, só querendo
+    // um ajuste fino — desfazer devolveria ao texto original, descartando sem
+    // aviso a tentativa boa que existia no meio.
+    descricaoAnterior.value = form.description;
+    form.description = r.texto;
+    saldoIa.value = r.restanteNoMes;
+  } catch (e: unknown) {
+    // Mesmo formato do `save()` acima: o `statusMessage` do servidor cai em
+    // `error.value` e aparece no topo do formulário, sem sair da página — o
+    // que foi digitado continua na tela. É por isso que o 429 da cota e o 403
+    // do recurso não contratado têm mensagem legível no servidor.
+    const err = e as { data?: { statusMessage?: string } };
+    error.value =
+      err?.data?.statusMessage || "Não foi possível gerar a descrição agora.";
+  } finally {
+    gerandoIa.value = false;
+  }
+}
+
+function desfazerIa() {
+  if (descricaoAnterior.value === null) return;
+  form.description = descricaoAnterior.value;
+  descricaoAnterior.value = null;
+}
+
 useHead(() => ({
   title: (isNew.value ? "Novo imóvel" : "Editar imóvel") + " · Painel",
 }));
@@ -382,6 +468,49 @@ useHead(() => ({
       </div>
 
       <label class="admin-label" style="margin-top: 14px">Descrição</label>
+
+      <!--
+        `v-if="descricaoIa"` é conveniência de tela, não controle de acesso —
+        quem recusa a geração é o endpoint. Esconder o bloco aqui só evita
+        oferecer um botão que o servidor rejeitaria de qualquer forma para
+        quem não contratou o recurso.
+      -->
+      <div v-if="descricaoIa" class="ia-bloco">
+        <input
+          v-model="dicasIa"
+          class="admin-input"
+          maxlength="500"
+          placeholder="Dicas para a IA (opcional): o que destacar neste imóvel"
+        />
+        <div class="ia-acoes">
+          <button
+            type="button"
+            class="admin-btn sm"
+            :disabled="gerandoIa"
+            @click="gerarDescricao"
+          >
+            {{
+              gerandoIa
+                ? "Gerando…"
+                : form.description
+                  ? "Melhorar com IA"
+                  : "Gerar com IA"
+            }}
+          </button>
+          <button
+            v-if="descricaoAnterior !== null"
+            type="button"
+            class="admin-btn ghost sm"
+            @click="desfazerIa"
+          >
+            Desfazer
+          </button>
+          <span v-if="saldoIa !== null" class="ia-saldo"
+            >restam {{ saldoIa }} gerações este mês</span
+          >
+        </div>
+      </div>
+
       <textarea v-model="form.description" class="admin-textarea" rows="4" />
 
       <label class="admin-label" style="margin-top: 14px"
@@ -530,6 +659,27 @@ useHead(() => ({
   .form-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* Bloco de geração de descrição por IA, entre o label e o textarea que ele
+   preenche — cinza neutro para não competir com o aviso âmbar de baixo. */
+.ia-bloco {
+  margin: 8px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.ia-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.ia-saldo {
+  font-size: 12.5px;
+  color: var(--ink-soft);
 }
 
 /* Bloco de avisos de conferência do cadastro. Âmbar, não vermelho: vermelho
