@@ -8,6 +8,7 @@ import {
   categorySlug,
   CATEGORY_MIN_PROPERTIES,
 } from '~~/shared/utils/category'
+import { loteDoCatalogo } from '~~/shared/utils/catalog-lote'
 
 const route = useRoute()
 const tenant = useTenant()
@@ -56,6 +57,25 @@ const filters = reactive(createCatalogFilters())
 filters.purpose = category.purpose
 if (category.type) filters.type = category.type
 const { filtered } = useCatalog(inCategory, filters)
+
+/**
+ * Mesmo corte em lotes que a home já fazia, e pelo mesmo motivo — ver
+ * `catalog-lote.ts`. A categoria ficou de fora quando o lote foi criado, e na
+ * maior imobiliária de hoje isso são 56 cards de uma vez: 479 KB de HTML numa
+ * página que a busca orgânica abre primeiro, quase sempre no celular.
+ *
+ * O ganho é DOM e parse, não banda: o catálogo inteiro continua chegando no
+ * payload, de propósito, porque é sobre ele que os filtros e os chips de
+ * bairro rodam em memória.
+ */
+const lotes = ref(1)
+const lote = computed(() => loteDoCatalogo(filtered.value, lotes.value))
+
+// Trocar de bairro/filtro recomeça do primeiro lote — sem isso, quem expandiu
+// e depois filtrou recebe outra parede de cards.
+watch(filters, () => {
+  lotes.value = 1
+})
 
 const { whatsappLink } = useContact()
 
@@ -170,15 +190,33 @@ useHead(() => ({
     </div>
 
     <main class="wrap">
-      <div v-if="filtered.length" class="grid">
-        <PropertyCard
-          v-for="(p, i) in filtered"
-          :key="p.id"
-          :property="p"
-          :index="i"
-          :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
-        />
-      </div>
+      <!-- O <template> segura grade e botão sob o MESMO v-if. Com o botão solto
+           entre os dois, o v-else de baixo grudava no v-if dele: toda categoria
+           com até um lote mostrava os cards e, logo abaixo, "ainda não temos". -->
+      <template v-if="filtered.length">
+        <div class="grid">
+          <PropertyCard
+            v-for="(p, i) in lote.visiveis"
+            :key="p.id"
+            :property="p"
+            :index="i"
+            :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
+          />
+        </div>
+
+        <div v-if="lote.restantes" class="ver-mais">
+          <button type="button" @click="lotes++">
+            Ver mais {{ lote.proximoLote }}
+            {{ lote.proximoLote === 1 ? 'imóvel' : 'imóveis' }}
+          </button>
+          <!-- aria-live: os cards novos entram ABAIXO do botão, fora de onde o
+               leitor de tela está — sem o aviso o clique não produz resposta
+               audível nenhuma. -->
+          <p class="ver-mais-conta" aria-live="polite">
+            Mostrando {{ lote.visiveis.length }} de {{ filtered.length }}
+          </p>
+        </div>
+      </template>
       <div v-else class="cat-vazio">
         <p>
           Ainda não temos {{ categoryLabel(category).toLowerCase() }}{{ cityLabel }} publicados no

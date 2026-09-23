@@ -4,6 +4,7 @@ import {
   findNeighborhood,
   propertiesInNeighborhood,
 } from "~~/shared/utils/neighborhood";
+import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 
 const route = useRoute();
 const tenant = useTenant();
@@ -37,6 +38,13 @@ if (!neighborhood.value) {
 const inNeighborhood = computed(() =>
   propertiesInNeighborhood(properties.value ?? [], bairroSlug),
 );
+
+/**
+ * Mesmo corte em lotes da home e da categoria — ver `catalog-lote.ts`. Aqui
+ * não há filtro na tela, então não há o que reiniciar: o lote só cresce.
+ */
+const lotes = ref(1);
+const lote = computed(() => loteDoCatalogo(inNeighborhood.value, lotes.value));
 
 const { whatsappLink } = useContact();
 
@@ -93,12 +101,24 @@ useHead(() => ({
     <main class="wrap">
       <div class="grid">
         <PropertyCard
-          v-for="(p, i) in inNeighborhood"
+          v-for="(p, i) in lote.visiveis"
           :key="p.id"
           :property="p"
           :index="i"
           :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
         />
+      </div>
+
+      <div v-if="lote.restantes" class="ver-mais">
+        <button type="button" @click="lotes++">
+          Ver mais {{ lote.proximoLote }}
+          {{ lote.proximoLote === 1 ? "imóvel" : "imóveis" }}
+        </button>
+        <!-- aria-live: os cards novos entram abaixo do botão, fora de onde o
+             leitor de tela está. -->
+        <p class="ver-mais-conta" aria-live="polite">
+          Mostrando {{ lote.visiveis.length }} de {{ inNeighborhood.length }}
+        </p>
       </div>
     </main>
   </div>
