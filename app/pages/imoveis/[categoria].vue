@@ -158,28 +158,33 @@ useHead(() => ({
     </div>
 
     <main class="wrap">
-      <div v-if="filtered.length" class="grid">
-        <PropertyCard
-          v-for="(p, i) in lote.visiveis"
-          :key="p.id"
-          :property="p"
-          :index="i"
-          :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
-        />
-      </div>
+      <!-- O <template> segura grade e botão sob o MESMO v-if. Com o botão solto
+           entre os dois, o v-else de baixo grudava no v-if dele: toda categoria
+           com até um lote mostrava os cards e, logo abaixo, "ainda não temos". -->
+      <template v-if="filtered.length">
+        <div class="grid">
+          <PropertyCard
+            v-for="(p, i) in lote.visiveis"
+            :key="p.id"
+            :property="p"
+            :index="i"
+            :style="`animation: fade .4s ease ${Math.min(i, 8) * 0.04}s both`"
+          />
+        </div>
 
-      <div v-if="lote.restantes" class="ver-mais">
-        <button type="button" @click="lotes++">
-          Ver mais {{ lote.proximoLote }}
-          {{ lote.proximoLote === 1 ? 'imóvel' : 'imóveis' }}
-        </button>
-        <!-- aria-live: os cards novos entram ABAIXO do botão, fora de onde o
-             leitor de tela está — sem o aviso o clique não produz resposta
-             audível nenhuma. -->
-        <p class="ver-mais-conta" aria-live="polite">
-          Mostrando {{ lote.visiveis.length }} de {{ filtered.length }}
-        </p>
-      </div>
+        <div v-if="lote.restantes" class="ver-mais">
+          <button type="button" @click="lotes++">
+            Ver mais {{ lote.proximoLote }}
+            {{ lote.proximoLote === 1 ? 'imóvel' : 'imóveis' }}
+          </button>
+          <!-- aria-live: os cards novos entram ABAIXO do botão, fora de onde o
+               leitor de tela está — sem o aviso o clique não produz resposta
+               audível nenhuma. -->
+          <p class="ver-mais-conta" aria-live="polite">
+            Mostrando {{ lote.visiveis.length }} de {{ filtered.length }}
+          </p>
+        </div>
+      </template>
       <div v-else class="cat-vazio">
         <p>
           Ainda não temos {{ categoryLabel(category).toLowerCase() }}{{ cityLabel }} publicados no
