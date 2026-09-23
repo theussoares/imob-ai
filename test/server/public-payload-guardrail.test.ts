@@ -143,6 +143,14 @@ describe('payload público de tenant', () => {
     const tenant = await getTenantBySlug(client, 'tres-lagoas')
 
     expect(Object.keys(tenant ?? {})).not.toContain('updatedBy')
+
+    // `aiTone` foi deliberadamente mantido fora do modelo `Tenant`: `/api/tenant`
+    // devolve `useTenantContext(event)` INTEIRO ao público, sem seleção de
+    // campo, então qualquer propriedade mapeada em `toTenantModel` sai junto.
+    // Não é segredo — o `anon` já lê a tabela `tenants` inteira pelo PostgREST —,
+    // mas o payload público não tem motivo para carregar configuração interna.
+    // Se um dia alguém mapear `ai_tone` aqui "por conveniência", esta linha cai.
+    expect(Object.keys(tenant ?? {})).not.toContain('aiTone')
   })
 })
 

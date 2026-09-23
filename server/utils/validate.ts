@@ -6,6 +6,7 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
+import { AI_TONES } from '~~/shared/models/ai-tone'
 import type {
   ContractInput,
   ContractInternalInput,
@@ -80,6 +81,15 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
   }
   if (hasLng && (typeof t.longitude !== 'number' || Number.isNaN(t.longitude) || t.longitude < -180 || t.longitude > 180)) {
     throw createError({ statusCode: 422, statusMessage: 'Longitude inválida (-180 a 180).' })
+  }
+
+  // `tenant.put.ts` grava com o client do usuário (papel `authenticated`), não
+  // com a service_role: a `check` do banco na coluna `ai_tone` é a barreira
+  // real contra quem escreve direto pelo PostgREST (a tabela nunca recebeu
+  // `revoke update`), mas devolveria um erro cru do Postgres em vez de uma
+  // mensagem legível na tela de configurações. Esta guarda é só isso.
+  if (t.aiTone !== undefined && !(AI_TONES as readonly unknown[]).includes(t.aiTone)) {
+    throw createError({ statusCode: 422, statusMessage: 'Tom da descrição por IA inválido.' })
   }
 }
 
