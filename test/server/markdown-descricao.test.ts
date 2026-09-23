@@ -15,9 +15,15 @@ describe('escaparMarkdown', () => {
   })
 
   test('neutraliza item de lista no início de linha', () => {
-    for (const marca of ['- item', '* item', '+ item', '1. item']) {
-      expect(escaparMarkdown(marca)).not.toMatch(/^[-*+]\s|^\d+\.\s/m)
-    }
+    expect(escaparMarkdown('- item')).not.toMatch(/^-\s/m)
+    expect(escaparMarkdown('* item')).not.toMatch(/^\*\s/m)
+    expect(escaparMarkdown('+ item')).not.toMatch(/^\+\s/m)
+  })
+
+  test('escapa ponto em lista numerada, não o dígito', () => {
+    expect(escaparMarkdown('1. item')).toBe('1\\. item')
+    expect(escaparMarkdown('2. dormitórios')).toBe('2\\. dormitórios')
+    expect(escaparMarkdown('99. andar')).toBe('99\\. andar')
   })
 
   test('não mexe em hífen no meio da frase', () => {
