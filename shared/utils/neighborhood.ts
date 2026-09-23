@@ -51,6 +51,42 @@ export function qualifyingNeighborhoods(items: { neighborhood?: string | null }[
     .sort((a, b) => b.count - a.count)
 }
 
+/**
+ * A grafia canônica de um bairro dentro da imobiliária.
+ *
+ * O agrupamento por `slugify` (acima) já une "Mais Parque", "Mais parque " e
+ * "Mais Parque " numa página só — mas o valor CRU continua no banco, e é ele
+ * que aparece no título, no card e na URL do imóvel. Em produção, "Bela Vista
+ * da Lagoa" existia como SEIS strings diferentes na mesma imobiliária.
+ *
+ * Aqui o cadastro novo se alinha ao que já existe: se o que foi digitado se lê
+ * como um bairro já cadastrado, grava-se a grafia dele. Assim o acervo converge
+ * sozinho, sem ninguém corrigir nada à mão.
+ *
+ * O que esta função NÃO resolve, de propósito: "Jardim dos Ipês 2" e "Jardim
+ * dos Ipes3" se leem diferente de "Jardim dos Ipês" e continuam bairros
+ * distintos. Adivinhar que são o mesmo lugar juntaria bairros que de fato
+ * existem separados — quem evita esse caso é a lista de sugestões do
+ * formulário, não o servidor.
+ */
+export function canonicalNeighborhood(
+  input: string | null | undefined,
+  existentes: string[],
+): string | null {
+  // Espaço na ponta e no meio some sempre: é digitação, nunca intenção. Em
+  // produção há "Vila piloto " e "V.L DE Leon" cadastrados assim.
+  const limpo = (input || '').trim().replace(/\s+/g, ' ')
+  if (!limpo) return null
+
+  const alvo = slugify(limpo)
+  if (!alvo) return limpo
+
+  // A primeira grafia já cadastrada que se lê igual. Empate não importa: o que
+  // vale é convergir para UMA delas, e a ordem vem do banco, estável.
+  const existente = existentes.find((e) => slugify(e) === alvo)
+  return existente ? existente.trim().replace(/\s+/g, ' ') : limpo
+}
+
 /** slug -> grupo (já com o piso de conteúdo aplicado), ou null. Resolve a rota da página de bairro. */
 export function findNeighborhood(items: { neighborhood?: string | null }[], slug: string): NeighborhoodGroup | null {
   return qualifyingNeighborhoods(items).find((g) => g.slug === slug) ?? null

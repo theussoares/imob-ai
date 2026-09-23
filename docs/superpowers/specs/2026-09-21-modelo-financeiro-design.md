@@ -390,6 +390,38 @@ entrega é pior que agora.
 - **Split via conta digital.** O modelo acomoda (a liquidação já tem forma e
   idempotência), mas as contas do arranjo de pagamento são desenho próprio.
 - **Qualquer lógica, endpoint ou tela.** Esta spec entrega tabelas vazias.
+- **Imutabilidade de `payout_destinations` — e esta sai do escopo como DECISÃO
+  OBRIGATÓRIA de quem construir a tela, não como coisa que se esquece.**
+
+  Esta spec justifica a existência de `payout_destinations` dizendo que "um
+  repasse passado precisa continuar apontando para o destino que ele de fato
+  usou". Só que `owner_payouts.destination_id` aponta para uma linha EDITÁVEL:
+  a tabela não tem nada que a torne imutável, e o schema sozinho não tem como
+  ter.
+
+  O cenário é o caminho normal, não o excepcional. O proprietário troca de
+  banco. Qualquer tela de cadastro — a forma óbvia, a que se escreve sem
+  pensar — oferece EDITAR a linha existente. No instante em que alguém salva,
+  o comprovante do repasse de junho passa a dizer que o dinheiro foi para uma
+  conta que só passou a existir em outubro. Não há erro, não há aviso, e não
+  há rastro: o valor antigo foi sobrescrito. Quem for conferir seis meses
+  depois — o proprietário, o contador dele, ou nós — vai ler um documento que
+  afirma com todas as letras uma coisa que não aconteceu.
+
+  A **regra** é: editar destino CRIA LINHA NOVA e marca a antiga
+  `active = false`. A coluna `active` já existe na 0041 exatamente para isso;
+  o que não existe é quem a respeite. E isso é LÓGICA de aplicação, que esta
+  entrega decidiu não ter.
+
+  O que o schema pôde fazer, já fez: o `revoke insert, update, delete,
+  truncate ... from authenticated` da 0042 tira o `update` do papel do
+  navegador, então nenhum membro reescreve um destino pelo devtools. Mas a
+  escrita legítima passa a ir toda por `serviceSupabase()`, que **ignora RLS e
+  faz o que o código mandar** — inclusive o `update` errado. O revoke fecha a
+  porta de fora; a de dentro depende de quem escrever o endpoint.
+
+  Quem for construir o cadastro de destino decide isto ANTES de escrever o
+  primeiro `update` — e se decidir contra, registra o porquê aqui.
 - **Leitura pelo portal.** O extrato continua chegando como PDF por
   `portal_documents`, pelo caminho já coberto por teste E2E.
 
