@@ -100,7 +100,7 @@ export async function marcarFalha(client: Client, id: string, tenantId: string):
  * alimenta o saldo da tela.
  *
  * ⚠️ Este recorte tem que ser o MESMO de `reservar_geracao_ia`
- * (`supabase/migrations/0043_descricao_ia.sql`), senão o saldo mostrado
+ * (`supabase/migrations/0045_descricao_ia.sql`), senão o saldo mostrado
  * discorda do limite aplicado e o cliente vê "restam 40" enquanto recebe 429.
  * Duas armadilhas já pegaram esta função uma vez cada:
  *

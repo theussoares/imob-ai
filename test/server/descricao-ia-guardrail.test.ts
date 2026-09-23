@@ -5,7 +5,7 @@ import { AI_TONES } from '../../shared/models/ai-tone'
 import { AI_GENERATION_KINDS, AI_GENERATION_STATUSES } from '../../shared/models/ai-generation'
 
 /**
- * As invariantes de segurança da 0043, travadas por leitura do SQL.
+ * As invariantes de segurança da 0045, travadas por leitura do SQL.
  *
  * Mesmo padrão de `financeiro-guardrail.test.ts` e `public-payload-guardrail.test.ts`:
  * roda em `pnpm test`, sem banco, em segundos — e é o que fez este arquivo
@@ -24,7 +24,7 @@ import { AI_GENERATION_KINDS, AI_GENERATION_STATUSES } from '../../shared/models
  */
 
 const SQL = readFileSync(
-  join(process.cwd(), 'supabase', 'migrations', '0043_descricao_ia.sql'),
+  join(process.cwd(), 'supabase', 'migrations', '0045_descricao_ia.sql'),
   'utf8',
 )
 
@@ -91,7 +91,7 @@ function corpoDaFuncao(sql: string): string {
   return sql.slice(inicio, fim)
 }
 
-describe('0043 — entitlement não desliga recurso pago em silêncio', () => {
+describe('0045 — entitlement não desliga recurso pago em silêncio', () => {
   test('tenant_features_feature_check lista os três valores, não só "ai"', () => {
     // A ameaça: recriar a constraint só com o valor novo (`in ('ai')`) desliga
     // Área do Cliente e Quem Somos de toda imobiliária que paga, sem erro em
@@ -101,11 +101,11 @@ describe('0043 — entitlement não desliga recurso pago em silêncio', () => {
   })
 })
 
-describe('0043 — ai_generations nasce fechada', () => {
+describe('0045 — ai_generations nasce fechada', () => {
   test('RLS ligada e revoke all para anon e authenticated', () => {
     // RLS com zero policies já fecha para `authenticated`; o revoke fecha
     // para `anon`, porque o Supabase dá GRANT default e policy sozinha não
-    // basta (0011, 0028 e agora 0043 no mesmo padrão).
+    // basta (0011, 0028 e agora 0045 no mesmo padrão).
     expect(SQL_SEM_COMENTARIOS).toMatch(
       /alter table public\.ai_generations\s+enable row level security/,
     )
@@ -136,7 +136,7 @@ describe('0043 — ai_generations nasce fechada', () => {
   })
 })
 
-describe('0043 — tenants.ai_tone é lista fechada', () => {
+describe('0045 — tenants.ai_tone é lista fechada', () => {
   test('tenants_ai_tone_check bate com AI_TONES', () => {
     // Campo aberto aqui é instrução do cliente indo direto ao prompt de IA —
     // é a mesma classe de risco que motivou o CHECK, e o teste garante que a
@@ -146,7 +146,7 @@ describe('0043 — tenants.ai_tone é lista fechada', () => {
   })
 })
 
-describe('0043 — reservar_geracao_ia', () => {
+describe('0045 — reservar_geracao_ia', () => {
   const corpo = corpoDaFuncao(SQL_SEM_COMENTARIOS)
 
   test('o advisory lock é tomado ANTES da primeira contagem', () => {

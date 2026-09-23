@@ -133,7 +133,7 @@ enganam quem ler as migrations:
   verdade, migrations 0005/0011). A assimetria é real; o reflexo de
   "coluna nova exige grant" não se aplica aqui.
 
-## Esquema — migration `0043_descricao_ia.sql`
+## Esquema — migration `0045_descricao_ia.sql`
 
 Três coisas no mesmo arquivo porque são a mesma unidade: o recurso não existe sem
 o contador, e o tom não existe sem a constraint.
@@ -365,7 +365,7 @@ validação contra a mesma lista de `shared/models/ai-tone.ts`.
 
 | Arquivo | O que muda |
 |---|---|
-| `supabase/migrations/0043_descricao_ia.sql` | **novo** — constraint, `ai_tone`, `ai_generations` e `reservar_geracao_ia` |
+| `supabase/migrations/0045_descricao_ia.sql` | **novo** — constraint, `ai_tone`, `ai_generations` e `reservar_geracao_ia` |
 | `server/utils/markdown.ts` | escapa início de linha da `description` |
 | `package.json` | `+ @anthropic-ai/sdk` |
 | `nuxt.config.ts` | `anthropicApiKey`, `aiModel` em runtimeConfig privado |

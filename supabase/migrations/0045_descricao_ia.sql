@@ -33,7 +33,7 @@ alter table public.tenants
   add constraint tenants_ai_tone_check check (ai_tone in ('sobrio', 'caloroso', 'alto_padrao'));
 
 comment on column public.tenants.ai_tone is
-  'Tom da descrição gerada por IA. Rótulos em shared/models/ai-tone.ts — ver 0043.';
+  'Tom da descrição gerada por IA. Rótulos em shared/models/ai-tone.ts — ver 0045.';
 
 -- 3. Consumo, uma linha por TENTATIVA.
 --

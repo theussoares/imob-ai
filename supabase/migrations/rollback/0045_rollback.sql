@@ -1,4 +1,4 @@
--- Rollback da 0043.
+-- Rollback da 0045.
 --
 -- ⚠️ A ORDEM importa. Apagar as linhas `ai` tem que vir ANTES de reapertar o
 -- CHECK: com linhas `ai` na tabela, o `add constraint` é validado contra o que
