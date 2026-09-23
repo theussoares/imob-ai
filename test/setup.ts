@@ -17,3 +17,12 @@ Object.assign(globalThis, {
   logError: () => {},
   errMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
 })
+
+/**
+ * `useRuntimeConfig` também é auto-import do Nuxt — só existe dentro do
+ * runtime dele. `gerarTexto`/`anthropicClient` (server/utils/ai.ts) chamam
+ * direto, então o teste precisa de um valor fixo aqui.
+ */
+Object.assign(globalThis, {
+  useRuntimeConfig: () => ({ aiModel: 'claude-haiku-4-5', anthropicApiKey: 'test' }),
+})

@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import type { TenantMember } from '~~/shared/models/member'
+import type { AiTone } from '~~/shared/models/ai-tone'
+import { tomValido } from '~~/shared/models/ai-tone'
 import { toTenantModel, toTenantUpdateRow } from '~~/server/mappers/tenant.mapper'
 
 type Client = SupabaseClient<Database>
@@ -55,6 +57,28 @@ export async function updateTenantSettings(
     .single()
   if (error) throw error
   return toTenantModel(data)
+}
+
+/**
+ * Tom da descrição por IA, para o endpoint de geração.
+ *
+ * O tom NÃO é dado sensível — `anon` tem `GRANT SELECT` na tabela `tenants`
+ * inteira e conseguiria ler `ai_tone` direto pelo PostgREST com a chave que já
+ * vai no HTML de qualquer site. O que esta função garante é mais estreito: o
+ * tom fica fora do payload de `/api/tenant`, porque não é campo de
+ * `Tenant`/`toTenantModel` — e aquele endpoint devolve `useTenantContext(event)`
+ * INTEIRO, sem seleção de campo nenhuma, então qualquer propriedade que
+ * entrasse no modelo sairia junto. `select('ai_tone')` explícito (nunca
+ * `select('*')`) é só higiene de leitura, não a barreira de privacidade.
+ */
+export async function getAiTone(client: Client, tenantId: string): Promise<AiTone> {
+  const { data, error } = await client
+    .from('tenants')
+    .select('ai_tone')
+    .eq('id', tenantId)
+    .maybeSingle()
+  if (error) throw error
+  return tomValido(data?.ai_tone)
 }
 
 export async function getMembership(

@@ -21,7 +21,7 @@
 - **Migrations idempotentes**, com comentário no topo explicando o porquê (o sintoma), não o quê.
 - **Comentário explica por quê**, com a alternativa descartada e o custo dela. Nada de `// valida o nome`.
 - **Validação completa:** `pnpm typecheck && pnpm test`. Não existe lint.
-- **Número da migration:** `0043`. A `0044` já existe (revogação de escrita do `anon`).
+- **Número da migration:** `0045`. A `0043` (tipo condomínio, do trabalho de SEO) e a `0044` (revogação de escrita do `anon`) já existem — ela nasceu 0043 e foi renumerada ao encontrar a do condomínio na `develop`.
 
 ---
 
@@ -160,11 +160,11 @@ git commit -m "feat(ia): listas fechadas de tom e de geracao"
 
 ---
 
-### Task 2: Migration 0043 e tipos do banco
+### Task 2: Migration 0045 e tipos do banco
 
 **Files:**
-- Create: `supabase/migrations/0043_descricao_ia.sql`
-- Create: `supabase/migrations/rollback/0043_rollback.sql`
+- Create: `supabase/migrations/0045_descricao_ia.sql`
+- Create: `supabase/migrations/rollback/0045_rollback.sql`
 - Modify: `shared/types/database.types.ts`
 
 **Interfaces:**
@@ -176,7 +176,7 @@ git commit -m "feat(ia): listas fechadas de tom e de geracao"
 - [ ] **Step 1: Escreva a migration**
 
 ```sql
--- supabase/migrations/0043_descricao_ia.sql
+-- supabase/migrations/0045_descricao_ia.sql
 -- Descrição de imóvel gerada por IA: entitlement, tom por imobiliária e o
 -- contador de consumo.
 --
@@ -212,7 +212,7 @@ alter table public.tenants
   add constraint tenants_ai_tone_check check (ai_tone in ('sobrio', 'caloroso', 'alto_padrao'));
 
 comment on column public.tenants.ai_tone is
-  'Tom da descrição gerada por IA. Rótulos em shared/models/ai-tone.ts — ver 0043.';
+  'Tom da descrição gerada por IA. Rótulos em shared/models/ai-tone.ts — ver 0045.';
 
 -- 3. Consumo, uma linha por TENTATIVA.
 --
@@ -309,8 +309,8 @@ revoke execute on function public.reservar_geracao_ia(uuid, uuid, uuid, text, te
 - [ ] **Step 2: Escreva o rollback**
 
 ```sql
--- supabase/migrations/rollback/0043_rollback.sql
--- Rollback da 0043.
+-- supabase/migrations/rollback/0045_rollback.sql
+-- Rollback da 0045.
 --
 -- ⚠️ A ORDEM importa. Apagar as linhas `ai` tem que vir ANTES de reapertar o
 -- CHECK: com linhas `ai` na tabela, o `add constraint` é validado contra o que
@@ -337,7 +337,7 @@ alter table public.tenants drop column if exists ai_tone;
 Regra 4 do `supabase/migrations/README.md`: *"Commite antes de aplicar. Foi a regra que faltou."*
 
 ```bash
-git add supabase/migrations/0043_descricao_ia.sql supabase/migrations/rollback/0043_rollback.sql
+git add supabase/migrations/0045_descricao_ia.sql supabase/migrations/rollback/0045_rollback.sql
 git commit -m "feat(ia): migration do entitlement, do tom e do contador de consumo"
 ```
 
@@ -426,8 +426,8 @@ Expected: exit 0, zero `error TS`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add shared/types/database.types.ts supabase/migrations/0043_descricao_ia.sql
-git commit -m "chore(ia): tipos das tabelas novas e identidade da 0043 no banco"
+git add shared/types/database.types.ts supabase/migrations/0045_descricao_ia.sql
+git commit -m "chore(ia): tipos das tabelas novas e identidade da 0045 no banco"
 ```
 
 ---
@@ -1892,6 +1892,6 @@ e2e fora do escopo.
 ## Antes de dar por pronto
 
 - `pnpm typecheck && pnpm test` verdes.
-- `NUXT_ANTHROPIC_API_KEY` marcada na Vercel (**com** o prefixo) e a 0043 aplicada em produção com a identidade anotada no arquivo.
+- `NUXT_ANTHROPIC_API_KEY` marcada na Vercel (**com** o prefixo) e a 0045 aplicada em produção com a identidade anotada no arquivo.
 - `tenant_features` com `feature='ai'` ligado para os tenants que contrataram — **ausência de linha significa desligado**, que é o default seguro.
 - Uma geração real feita e conferida à mão: o texto não inventa atributo que não está nos campos, e não traz preço nem markdown.

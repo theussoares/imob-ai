@@ -93,6 +93,9 @@ const { data: bairros } = await useAsyncData(
 const { load: loadMembers, nameFor } = useMemberNames();
 onMounted(loadMembers);
 
+const { descricaoIa, carregar } = useAdminFeatures();
+onMounted(carregar);
+
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
   async () =>
@@ -256,6 +259,127 @@ async function save() {
   }
 }
 
+// Estado da geração de descrição por IA: dicas digitadas, progresso da
+// chamada, texto anterior e último texto gerado (os dois juntos decidem se
+// "desfazer" pode aparecer — ver `podeDesfazer` abaixo) e o saldo mensal que
+// o endpoint devolve junto com o texto.
+const dicasIa = ref("");
+const gerandoIa = ref(false);
+const descricaoAnterior = ref<string | null>(null);
+const ultimoGerado = ref<string | null>(null);
+const saldoIa = ref<number | null>(null);
+
+/**
+ * "Desfazer" só existe enquanto `form.description` ainda for, ao pé da
+ * letra, o texto que a última geração devolveu — não basta ter gerado em
+ * algum momento. Round 1 de revisão: sem essa condição, um corretor que gera,
+ * depois edita à mão (acrescenta um parágrafo, corrige um dado) e clica
+ * "Desfazer" perde a edição em silêncio, porque o botão reverte para
+ * `descricaoAnterior` (o texto de ANTES da IA) sem saber que o textarea mudou
+ * de novo por baixo.
+ *
+ * Alternativa descartada: manter o botão sempre visível depois de gerar e
+ * abrir um `confirm()` antes de sobrescrever. Resolveria o mesmo caso, mas
+ * cobra uma pergunta de confirmação em TODO clique em "Desfazer" — inclusive
+ * nos 99% das vezes em que não há edição manual para proteger. O `computed`
+ * evita a pergunta redundante ao tornar a condição impossível de violar: não
+ * há `watch` para dessincronizar, é função pura do estado atual.
+ *
+ * Custo aceito: quem editou à mão depois de gerar e quer voltar ao texto
+ * pré-IA não tem mais o botão — precisa desfazer a edição manualmente. É a
+ * troca certa: o botão sumir é menos grave que ele apagar trabalho sem aviso.
+ */
+const podeDesfazer = computed(
+  () => descricaoAnterior.value !== null && form.description === ultimoGerado.value,
+);
+
+/**
+ * O endpoint só devolve o texto — quem grava é o `save()` acima, depois que o
+ * corretor leu. Não é um detalhe de implementação a preservar: é a trava
+ * contra publicidade enganosa (a IA pode inventar um atributo a partir da
+ * foto), e só vale enquanto não existir caminho que publique sem revisão
+ * humana. Gerar aqui e chamar `save()` sozinho por trás apagaria essa leitura.
+ */
+async function gerarDescricao() {
+  gerandoIa.value = true;
+  error.value = "";
+  try {
+    const r = await adminFetch<{ texto: string; restanteNoMes: number }>(
+      `/api/admin/properties/${isNew.value ? "novo" : id.value}/descricao`,
+      {
+        method: "POST",
+        body: {
+          title: form.title,
+          type: form.type,
+          purpose: form.purpose,
+          neighborhood: form.neighborhood,
+          city: form.city,
+          state: form.state,
+          bedrooms: form.bedrooms,
+          suites: form.suites,
+          bathrooms: form.bathrooms,
+          parking: form.parking,
+          area: form.area,
+          highStandard: form.highStandard,
+          features: featuresText.value
+            .split("\n")
+            .map((f) => f.trim())
+            .filter(Boolean),
+          dicas: dicasIa.value,
+          // Modo reescrita é derivado disto: sem parâmetro de modo, não há
+          // dois lugares para a mesma informação discordar.
+          descricaoAtual: form.description,
+          imagemUrl:
+            form.images.find((i) => i.isCover)?.url ??
+            form.images[0]?.url ??
+            null,
+        },
+      },
+    );
+    // `descricaoAnterior` guardado ANTES de sobrescrever, e sempre — mesmo na
+    // segunda geração em diante (ou na segunda depois de uma edição manual: é
+    // o texto que estava no campo NESTE clique, seja lá de onde ele veio). É
+    // desfazer de UM nível (como Ctrl+Z), não uma pilha até o texto anterior a
+    // qualquer IA: gerar duas vezes seguidas e desfazer volta para o texto da
+    // PRIMEIRA geração, não para o que estava escrito antes dela. A
+    // alternativa — travar `descricaoAnterior` no valor pré-IA e nunca
+    // regravar — foi descartada: ela tornaria a segunda geração impossível de
+    // desfazer isoladamente, e é exatamente o caso de quem clicou "Melhorar
+    // com IA" de novo porque o resultado anterior já estava bom, só querendo
+    // um ajuste fino — desfazer devolveria ao texto original, descartando sem
+    // aviso a tentativa boa que existia no meio.
+    //
+    // `ultimoGerado` anda junto: é o texto desta geração, o mesmo que vai
+    // para `form.description` na linha de baixo. As duas ficam coerentes em
+    // qualquer sequência de gerações porque são escritas juntas, sempre neste
+    // par — nunca uma sem a outra.
+    descricaoAnterior.value = form.description;
+    form.description = r.texto;
+    ultimoGerado.value = r.texto;
+    saldoIa.value = r.restanteNoMes;
+  } catch (e: unknown) {
+    // Mesmo formato do `save()` acima: o `statusMessage` do servidor cai em
+    // `error.value` e aparece no topo do formulário, sem sair da página — o
+    // que foi digitado continua na tela. É por isso que o 429 da cota e o 403
+    // do recurso não contratado têm mensagem legível no servidor.
+    const err = e as { data?: { statusMessage?: string } };
+    error.value =
+      err?.data?.statusMessage || "Não foi possível gerar a descrição agora.";
+  } finally {
+    gerandoIa.value = false;
+  }
+}
+
+function desfazerIa() {
+  // Guarda redundante: o botão só existe (`v-if="podeDesfazer"`) quando isto
+  // já é verdade. Fica aqui porque a função não deveria confiar cegamente em
+  // quem a chama.
+  if (!podeDesfazer.value || descricaoAnterior.value === null) return;
+  form.description = descricaoAnterior.value;
+  descricaoAnterior.value = null;
+  ultimoGerado.value = null;
+}
+
 useHead(() => ({
   title: (isNew.value ? "Novo imóvel" : "Editar imóvel") + " · Painel",
 }));
@@ -410,6 +534,57 @@ useHead(() => ({
       </div>
 
       <label class="admin-label" style="margin-top: 14px">Descrição</label>
+
+      <!--
+        `v-if="descricaoIa"` é conveniência de tela, não controle de acesso —
+        quem recusa a geração é o endpoint. Esconder o bloco aqui só evita
+        oferecer um botão que o servidor rejeitaria de qualquer forma para
+        quem não contratou o recurso.
+      -->
+      <div v-if="descricaoIa" class="ia-bloco">
+        <input
+          v-model="dicasIa"
+          class="admin-input"
+          maxlength="500"
+          placeholder="Dicas para a IA (opcional): o que destacar neste imóvel"
+        />
+        <div class="ia-acoes">
+          <button
+            type="button"
+            class="admin-btn sm"
+            :disabled="gerandoIa"
+            @click="gerarDescricao"
+          >
+            {{
+              gerandoIa
+                ? "Gerando…"
+                : form.description
+                  ? "Melhorar com IA"
+                  : "Gerar com IA"
+            }}
+          </button>
+          <!--
+            `podeDesfazer`, não `descricaoAnterior !== null`: some assim que o
+            corretor edita o textarea à mão depois de gerar, porque nesse
+            ponto "Desfazer" deixaria de significar "voltar de uma geração" e
+            passaria a significar "apagar o que acabei de escrever". Ver o
+            comentário do `computed` no script.
+          -->
+          <button
+            v-if="podeDesfazer"
+            type="button"
+            class="admin-btn ghost sm"
+            :disabled="gerandoIa"
+            @click="desfazerIa"
+          >
+            Desfazer
+          </button>
+          <span v-if="saldoIa !== null" class="ia-saldo"
+            >restam {{ saldoIa }} gerações este mês</span
+          >
+        </div>
+      </div>
+
       <textarea v-model="form.description" class="admin-textarea" rows="4" />
 
       <label class="admin-label" style="margin-top: 14px"
@@ -558,6 +733,27 @@ useHead(() => ({
   .form-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* Bloco de geração de descrição por IA, entre o label e o textarea que ele
+   preenche — cinza neutro para não competir com o aviso âmbar de baixo. */
+.ia-bloco {
+  margin: 8px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.ia-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.ia-saldo {
+  font-size: 12.5px;
+  color: var(--ink-soft);
 }
 
 /* Bloco de avisos de conferência do cadastro. Âmbar, não vermelho: vermelho

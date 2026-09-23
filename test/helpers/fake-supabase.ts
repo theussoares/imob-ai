@@ -1,6 +1,10 @@
 interface QueryResult {
   data: unknown
   error: unknown
+  // Opcional: só quem simula `.select(..., { count: 'exact', head: true })`
+  // (contagem sem linhas) precisa dele. Ausente, fica `undefined`, igual ao
+  // Supabase real quando a query não pede contagem.
+  count?: number
 }
 
 export interface RecordedCall {
@@ -20,7 +24,12 @@ export interface RecordedCall {
  * `results` aceita uma lista por tabela quando a mesma tabela é consultada mais
  * de uma vez na sequência (o update e a releitura do imóvel, por exemplo).
  */
-export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]>) {
+export function fakeSupabase(
+  results: Record<string, QueryResult | QueryResult[]>,
+  // Segundo argumento OPCIONAL: os ~70 usos existentes continuam válidos sem
+  // tocar em nenhum deles.
+  rpcResults: Record<string, QueryResult | QueryResult[]> = {},
+) {
   const calls: RecordedCall[] = []
   const consumed: Record<string, number> = {}
 
@@ -35,7 +44,11 @@ export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]
 
   function from(table: string) {
     const chain: Record<string, unknown> = {}
-    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'maybeSingle', 'single']
+    // `gte` entra aqui porque `contarNoMes` (ai-generation.repository) e
+    // `assertSubmitRateLimit` (rate-limit) encadeiam ambos `.eq(...).gte(...)`
+    // — sem o método a cadeia quebra em runtime com "gte is not a function",
+    // só visível ao escrever o primeiro teste que exercita esse caminho.
+    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'gte', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'maybeSingle', 'single']
     for (const m of methods) {
       chain[m] = (...args: unknown[]) => {
         calls.push({ table, method: m, args })
@@ -47,8 +60,21 @@ export function fakeSupabase(results: Record<string, QueryResult | QueryResult[]
     return chain
   }
 
+  // `rpc` não é encadeável como o `from`: devolve a promessa direto. Registrado
+  // como `rpc:<nome>` para o teste afirmar sobre os argumentos enviados — que é
+  // onde mora o tenant, e o tenant é o que o advisory lock usa.
+  function rpc(name: string, args: unknown) {
+    calls.push({ table: `rpc:${name}`, method: 'rpc', args: [args] })
+    const r = rpcResults[name]
+    if (!r) return Promise.resolve({ data: null, error: null })
+    if (!Array.isArray(r)) return Promise.resolve(r)
+    const i = consumed[`rpc:${name}`] ?? 0
+    consumed[`rpc:${name}`] = i + 1
+    return Promise.resolve(r[i] ?? { data: null, error: null })
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { client: { from } as any, calls }
+  return { client: { from, rpc } as any, calls }
 }
 
 export interface FakeAuthUser {
