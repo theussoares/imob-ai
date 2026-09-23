@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AI_TONES, AI_TONE_LABELS, type AiTone } from "~~/shared/models/ai-tone";
+
 definePageMeta({ layout: "admin", middleware: "admin" });
 
 // Setup e ajustes técnicos: mexe-se uma vez, no onboarding. O que a cliente
@@ -15,8 +17,59 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "portalEnabled",
   ]);
 
-const { areaCliente, carregar } = useAdminFeatures();
+const { areaCliente, descricaoIa, carregar } = useAdminFeatures();
 onMounted(carregar);
+
+/*
+ * Widget do tom de IA, independente de `useTenantSettings`.
+ *
+ * `useTenantSettings` inicializa o formulário a partir de `useTenant()` — o
+ * payload PÚBLICO de `/api/tenant` — e o tom foi deliberadamente mantido fora
+ * dele (ver shared/models/tenant.ts e server/repositories/tenant.repository.ts).
+ * Declarar `aiTone` naquele formulário faria ele nascer sempre `'sobrio'`, e
+ * salvar QUALQUER seção desta tela sobrescreveria o tom escolhido pela
+ * imobiliária com o default, em silêncio. Por isso este widget lê e grava por
+ * um caminho próprio (`/api/admin/ai-tone` e um PUT parcial com só `aiTone`),
+ * sem passar pelo `form` nem pelo `save()` de cima.
+ */
+const aiTone = ref<AiTone>("sobrio");
+const aiToneLoading = ref(true);
+const aiToneSaving = ref(false);
+const aiToneSaved = ref(false);
+const aiToneError = ref("");
+
+onMounted(async () => {
+  try {
+    const resposta = await adminFetch<{ aiTone: AiTone }>("/api/admin/ai-tone");
+    aiTone.value = resposta.aiTone;
+  } catch {
+    // Sem barulho: o select fica no default 'sobrio' e o próximo salvamento
+    // manda o valor explícito de qualquer forma — não há gravação silenciosa
+    // de um valor que não foi confirmado como o real.
+  } finally {
+    aiToneLoading.value = false;
+  }
+});
+
+async function saveAiTone() {
+  aiToneSaving.value = true;
+  aiToneSaved.value = false;
+  aiToneError.value = "";
+  try {
+    // Só { aiTone }: o update do painel é parcial (toTenantUpdateRow só toca
+    // no que vem definido), então isto não mexe em nenhum outro campo do tenant.
+    await adminFetch("/api/admin/tenant", {
+      method: "PUT",
+      body: { aiTone: aiTone.value },
+    });
+    aiToneSaved.value = true;
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string } };
+    aiToneError.value = err?.data?.statusMessage || "Não foi possível salvar o tom.";
+  } finally {
+    aiToneSaving.value = false;
+  }
+}
 
 // Preview ao vivo das cores
 watch(
@@ -210,6 +263,49 @@ useHead({ title: "Configurações · Painel" });
       <div style="margin-top: 18px">
         <button class="admin-btn" type="submit" :disabled="saving">
           {{ saving ? "Salvando..." : "Salvar configurações" }}
+        </button>
+      </div>
+    </form>
+
+    <!--
+      Fora do formulário de cima e com salvamento próprio, de propósito: ver o
+      comentário no script. Só aparece para quem contratou o recurso — o painel
+      não oferece tela de recurso que a imobiliária não tem (mesmo raciocínio
+      do `v-if="areaCliente"` acima).
+    -->
+    <form
+      v-if="descricaoIa"
+      class="admin-card"
+      style="margin-top: 18px"
+      @submit.prevent="saveAiTone()"
+    >
+      <h3 class="section-t">Descrição por IA</h3>
+      <div class="form-grid">
+        <div>
+          <label class="admin-label">Tom da descrição</label>
+          <select v-model="aiTone" class="admin-input" :disabled="aiToneLoading">
+            <option v-for="t in AI_TONES" :key="t" :value="t">
+              {{ AI_TONE_LABELS[t] }}
+            </option>
+          </select>
+          <p class="field-hint">
+            Aplica-se a toda descrição gerada por IA para esta imobiliária, a
+            partir da próxima geração.
+          </p>
+        </div>
+      </div>
+
+      <p v-if="aiToneError" style="color: #b91c1c; margin-top: 14px">{{ aiToneError }}</p>
+      <p
+        v-if="aiToneSaved"
+        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+      >
+        Tom salvo! ✅
+      </p>
+
+      <div style="margin-top: 18px">
+        <button class="admin-btn" type="submit" :disabled="aiToneSaving || aiToneLoading">
+          {{ aiToneSaving ? "Salvando..." : "Salvar tom" }}
         </button>
       </div>
     </form>
