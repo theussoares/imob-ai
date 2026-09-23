@@ -30,9 +30,10 @@ export async function requirePortalUser(event: H3Event) {
     segredoDeRuntime(config.public.supabaseUrl, 'SUPABASE_URL'),
     segredoDeRuntime(config.public.supabaseKey, 'SUPABASE_KEY'),
     {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  )
 
   const {
     data: { user },

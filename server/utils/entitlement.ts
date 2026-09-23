@@ -1,7 +1,16 @@
 import { recursoAtivo } from '~~/shared/utils/portal-access'
 
 /**
- * A Área do Cliente está valendo para esta imobiliária?
+ * Recursos opcionais, pela chave gravada em `tenant_features.feature`.
+ *
+ * Mesmas strings do banco e do registro de páginas do rodapé
+ * (`FooterPageFeature`): uma tradução no meio faria quem lê o código procurar
+ * uma linha que não existe com aquele nome.
+ */
+export type RecursoOpcional = 'portal' | 'about' | 'ai'
+
+/**
+ * Este recurso está valendo para esta imobiliária?
  *
  * Fonte única do entitlement no servidor. Existe para não haver duas leituras
  * de `tenant_features` com tratamentos de erro diferentes — que foi o achado da
@@ -24,18 +33,22 @@ import { recursoAtivo } from '~~/shared/utils/portal-access'
  * Service role porque `tenant_features` não tem policy de leitura para
  * `authenticated` nem grant para `anon` — é assim que ela fica fora do alcance
  * de quem não deve mexer no que é cobrado.
+ *
+ * ⚠️ É a ÚNICA leitura de `tenant_features` do servidor, e continua tendo que
+ * ser: um recurso novo que trouxesse a própria consulta traria junto o próprio
+ * tratamento de erro, que foi exatamente o defeito descrito acima.
  */
-export async function areaClienteAtiva(tenantId: string): Promise<boolean> {
+async function recursoLigado(tenantId: string, feature: RecursoOpcional): Promise<boolean> {
   try {
     const { data, error } = await serviceSupabase()
       .from('tenant_features')
       .select('enabled, grace_until')
       .eq('tenant_id', tenantId)
-      .eq('feature', 'portal')
+      .eq('feature', feature)
       .maybeSingle()
 
     if (error) {
-      logError('entitlement.leitura_falhou', { tenant: tenantId, reason: error.message })
+      logError('entitlement.leitura_falhou', { tenant: tenantId, feature, reason: error.message })
       return false
     }
 
@@ -46,7 +59,35 @@ export async function areaClienteAtiva(tenantId: string): Promise<boolean> {
     // `serviceSupabase()` lança quando a chave não está configurada. Sem este
     // catch, uma variável de ambiente ausente derrubaria a resolução de tenant
     // — ou seja, o site inteiro — em vez de esconder um item de menu.
-    logError('entitlement.leitura_falhou', { tenant: tenantId, reason: errMessage(e) })
+    logError('entitlement.leitura_falhou', { tenant: tenantId, feature, reason: errMessage(e) })
     return false
   }
+}
+
+/** A Área do Cliente está valendo para esta imobiliária? */
+export function areaClienteAtiva(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'portal')
+}
+
+/**
+ * A página "Quem somos" está valendo para esta imobiliária?
+ *
+ * Recurso separado do portal e não um "extra" dele: são coisas que uma
+ * imobiliária contrata em momentos diferentes, e amarrar as duas na mesma linha
+ * faria desligar uma derrubar a outra.
+ */
+export function quemSomosAtiva(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'about')
+}
+
+/**
+ * A descrição por IA está valendo para esta imobiliária?
+ *
+ * Reusa `recursoLigado` — a leitura de `tenant_features` continua sendo a ÚNICA
+ * do servidor, que é o que o aviso no topo deste arquivo exige. Um recurso novo
+ * com a própria consulta traria o próprio tratamento de erro, que foi
+ * exatamente o defeito do PR #27.
+ */
+export function descricaoIaAtiva(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'ai')
 }

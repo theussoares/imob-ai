@@ -4,6 +4,38 @@ import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 
+/**
+ * Neutraliza marcação no INÍCIO de linha de um texto que vai para dentro do
+ * catálogo markdown.
+ *
+ * Só início de linha: escapar `-` no meio da frase transformaria
+ * "bem-localizada" em "bem\-localizada" na saída, que é pior que o problema.
+ *
+ * O prompt da IA já proíbe markdown, e isso NÃO basta — prompt não é garantia,
+ * e a descrição também pode ter sido digitada à mão pelo corretor.
+ *
+ * Quantificadores (`#+`, `>+`) são necessários porque markdown permite `##`,
+ * `###`, etc., e `[#>*+-]` (classe de um caractere) não casaria `## ` ou `### `.
+ * Alternativa descartada: `[#>*+-]` deixaria passar `## Sobre`, reintroduzindo
+ * silenciosamente o bug.
+ */
+export function escaparMarkdown(texto: string): string {
+  // Escapar headings, blockquotes e listas com `-*+`: escapar a marcação inteira.
+  texto = texto.replace(/^(\s*)(#+|>+|[-*+])(\s)/gm, '$1\\$2$3')
+
+  // Escapar listas numeradas: apenas o PONTO, não o dígito.
+  // Em CommonMark apenas pontuação ASCII é escapável; dígito não é.
+  // Logo `\1` permaneceria visível no texto publicado e no llms.txt.
+  // Escapar o `.` é válido (pontuação escapável) e destrói a sequência `\d+\.`
+  // que o parser reconheceria como marcador de lista — o backslash desaparece
+  // na renderização, e a descrição fica legível.
+  // Alternativa descartada: caractere invisível (zero-width space) — pior porque
+  // corrompe a description no llms.txt servido a agentes de IA.
+  texto = texto.replace(/^(\s*)(\d+)(\.)(\s)/gm, '$1$2\\$3$4')
+
+  return texto
+}
+
 function brl(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
@@ -52,7 +84,7 @@ export function tenantCatalogMarkdown(tenant: Tenant, properties: Property[], or
       lines.push(`- Características: ${specsLine(p)}`)
       if (p.highStandard) lines.push(`- Alto padrão`)
       if (p.features.length) lines.push(`- Diferenciais: ${p.features.join(', ')}`)
-      if (p.description) lines.push(`- ${p.description}`)
+      if (p.description) lines.push(`- ${escaparMarkdown(p.description)}`)
       lines.push(`- Página: ${origin}${propertyPath(p)}`)
     }
   }
@@ -113,7 +145,7 @@ export function propertyMarkdown(tenant: Tenant, p: Property, origin: string): s
   if (loc) lines.push(`\nLocalização: ${loc}`)
   lines.push(`\nCaracterísticas: ${specsLine(p)}`)
   if (p.highStandard) lines.push(`\nAlto padrão.`)
-  if (p.description) lines.push(`\n## Sobre o imóvel\n\n${p.description}`)
+  if (p.description) lines.push(`\n## Sobre o imóvel\n\n${escaparMarkdown(p.description)}`)
   if (p.features.length) lines.push(`\n## Diferenciais\n\n${p.features.map((f) => `- ${f}`).join('\n')}`)
   const contact = contactBlock(tenant)
   if (contact) lines.push(`\n## Contato\n\n${contact}`)

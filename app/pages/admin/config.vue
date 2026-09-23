@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AI_TONES, AI_TONE_LABELS, type AiTone } from "~~/shared/models/ai-tone";
+
 definePageMeta({ layout: "admin", middleware: "admin" });
 
 // Setup e ajustes técnicos: mexe-se uma vez, no onboarding. O que a cliente
@@ -15,8 +17,80 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "portalEnabled",
   ]);
 
-const { areaCliente, carregar } = useAdminFeatures();
+const { areaCliente, descricaoIa, carregar } = useAdminFeatures();
 onMounted(carregar);
+
+/*
+ * Widget do tom de IA, independente de `useTenantSettings`.
+ *
+ * `useTenantSettings` inicializa o formulário a partir de `useTenant()` — o
+ * payload PÚBLICO de `/api/tenant` — e o tom foi deliberadamente mantido fora
+ * dele (ver shared/models/tenant.ts e server/repositories/tenant.repository.ts).
+ * Declarar `aiTone` naquele formulário faria ele nascer sempre `'sobrio'`, e
+ * salvar QUALQUER seção desta tela sobrescreveria o tom escolhido pela
+ * imobiliária com o default, em silêncio. Por isso este widget lê e grava por
+ * um caminho próprio (`/api/admin/ai-tone` e um PUT parcial com só `aiTone`),
+ * sem passar pelo `form` nem pelo `save()` de cima.
+ */
+// `null`, não `'sobrio'`: um default aqui seria indistinguível de um tom
+// carregado com sucesso — ver o `catch` de `carregarAiTone` abaixo, que é onde
+// isso realmente importa.
+const aiTone = ref<AiTone | null>(null);
+const aiToneLoading = ref(true);
+const aiToneLoadError = ref(false);
+const aiToneSaving = ref(false);
+const aiToneSaved = ref(false);
+const aiToneError = ref("");
+
+async function carregarAiTone() {
+  aiToneLoading.value = true;
+  aiToneLoadError.value = false;
+  try {
+    const resposta = await adminFetch<{ aiTone: AiTone }>("/api/admin/ai-tone");
+    aiTone.value = resposta.aiTone;
+  } catch {
+    // NÃO cair num default. A alternativa óbvia — deixar `aiTone` em 'sobrio'
+    // e seguir — foi o Critical do round 1: o select mostraria "Sóbrio" como
+    // se fosse o valor carregado, indistinguível do caso de sucesso, e
+    // "Salvar tom" gravaria esse default por cima do tom real da imobiliária
+    // na primeira falha de rede (timeout, cold start, 500 transitório) — o
+    // mesmo incidente que motivou tirar `aiTone` de `useTenantSettings`,
+    // reaberto por este widget em vez do formulário genérico.
+    //
+    // `aiTone` fica `null` (o template só desenha o <select> quando não é
+    // `null`, então o navegador nunca escolhe a primeira <option> sozinho) e
+    // `aiToneLoadError` liga a mensagem com "tentar de novo" no template.
+    aiToneLoadError.value = true;
+  } finally {
+    aiToneLoading.value = false;
+  }
+}
+onMounted(carregarAiTone);
+
+async function saveAiTone() {
+  // Defesa extra: o botão já fica desabilitado enquanto `aiTone` é `null`
+  // (carregando ou falha), mas um valor não confirmado nunca pode virar PUT,
+  // não importa por onde o submit chegasse.
+  if (aiTone.value === null) return;
+
+  aiToneSaving.value = true;
+  aiToneSaved.value = false;
+  aiToneError.value = "";
+  try {
+    // Só { aiTone }: o update do painel é parcial (toTenantUpdateRow só toca
+    // no que vem definido), então isto não mexe em nenhum outro campo do tenant.
+    await adminFetch("/api/admin/tenant", {
+      method: "PUT",
+      body: { aiTone: aiTone.value },
+    });
+    aiToneSaved.value = true;
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string } };
+    aiToneError.value = err?.data?.statusMessage || "Não foi possível salvar o tom.";
+  } finally {
+    aiToneSaving.value = false;
+  }
+}
 
 // Preview ao vivo das cores
 watch(
@@ -210,6 +284,69 @@ useHead({ title: "Configurações · Painel" });
       <div style="margin-top: 18px">
         <button class="admin-btn" type="submit" :disabled="saving">
           {{ saving ? "Salvando..." : "Salvar configurações" }}
+        </button>
+      </div>
+    </form>
+
+    <!--
+      Fora do formulário de cima e com salvamento próprio, de propósito: ver o
+      comentário no script. Só aparece para quem contratou o recurso — o painel
+      não oferece tela de recurso que a imobiliária não tem (mesmo raciocínio
+      do `v-if="areaCliente"` acima).
+    -->
+    <form
+      v-if="descricaoIa"
+      class="admin-card"
+      style="margin-top: 18px"
+      @submit.prevent="saveAiTone()"
+    >
+      <h3 class="section-t">Descrição por IA</h3>
+      <div class="form-grid">
+        <div>
+          <label class="admin-label">Tom da descrição</label>
+          <!--
+            O <select> só existe no DOM quando `aiTone` já é um valor
+            confirmado. Um v-model apontando para `null` sobre estas <option>
+            faria o PRÓPRIO NAVEGADOR escolher a primeira ('Sóbrio') sozinho —
+            visualmente idêntico a ter carregado 'sobrio' de verdade. Por isso
+            os estados de carregando/erro são parágrafos à parte, nunca o
+            select "meio carregado".
+          -->
+          <select v-if="aiTone !== null" v-model="aiTone" class="admin-input">
+            <option v-for="t in AI_TONES" :key="t" :value="t">
+              {{ AI_TONE_LABELS[t] }}
+            </option>
+          </select>
+          <p v-else-if="aiToneLoading" class="field-hint">Carregando tom atual…</p>
+          <p v-else style="color: #b91c1c; margin: 0; font-size: 13px">
+            Não foi possível carregar o tom atual.
+            <button type="button" class="admin-btn ghost" @click="carregarAiTone">
+              Tentar de novo
+            </button>
+          </p>
+          <p class="field-hint">
+            Aplica-se a toda descrição gerada por IA para esta imobiliária, a
+            partir da próxima geração.
+          </p>
+        </div>
+      </div>
+
+      <p v-if="aiToneError" style="color: #b91c1c; margin-top: 14px">{{ aiToneError }}</p>
+      <p
+        v-if="aiToneSaved"
+        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+      >
+        Tom salvo! ✅
+      </p>
+
+      <div style="margin-top: 18px">
+        <!--
+          `aiTone === null` cobre carregando E falha de carregamento ao mesmo
+          tempo: não existe estado em que o botão fica habilitado sem um valor
+          confirmado por trás. Ver o comentário de `carregarAiTone` no script.
+        -->
+        <button class="admin-btn" type="submit" :disabled="aiToneSaving || aiTone === null">
+          {{ aiToneSaving ? "Salvando..." : "Salvar tom" }}
         </button>
       </div>
     </form>

@@ -77,7 +77,7 @@ export default defineNuxtConfig({
     families: [
       { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Space Grotesk', provider: 'google', weights: [400, 500, 600, 700] },
-      { name: 'Montserrat', provider: 'google', weights: [400, 500, 600, 700] },
+      { name: 'Plus Jakarta Sans', provider: 'google', weights: [500, 600, 700, 800] },
     ],
   },
 
@@ -139,6 +139,16 @@ export default defineNuxtConfig({
     // Endereço remetente, no domínio VERIFICADO da plataforma.
     // Ex.: nao-responda@usemoradi.com.br
     mailFrom: process.env.MAIL_FROM || '',
+    // Chave do provedor de IA (descrição de imóvel). FORA de `public`: chave de
+    // API no bundle do navegador é chave vazada.
+    //
+    // ⚠️ SEM default vindo de `process.env`, e o nome da variável é
+    // NUXT_ANTHROPIC_API_KEY — com o prefixo. `mailApiKey` usa MAIL_API_KEY sem
+    // prefixo, que o Nuxt lê no BUILD: marcar na Vercel não basta, precisa
+    // redeploy, e isso custou uma tarde em 17/09. Com o prefixo, marcar já vale.
+    anthropicApiKey: '',
+    // Trocar de modelo é variável de ambiente, não deploy de código.
+    aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {
       // Não existe URL canônica global: cada tenant se auto-canonicaliza no
       // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.

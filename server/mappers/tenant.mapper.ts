@@ -24,6 +24,7 @@ export function toTenantModel(row: TenantRow): Tenant {
     email: row.email,
     creci: row.creci,
     portalEnabled: row.portal_enabled ?? false,
+    aboutEnabled: row.about_enabled ?? false,
     city: row.city,
     state: row.state,
     addressStreet: row.address_street,
@@ -70,6 +71,7 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.email !== undefined) row.email = input.email
   if (input.creci !== undefined) row.creci = input.creci
   if (input.portalEnabled !== undefined) row.portal_enabled = input.portalEnabled
+  if (input.aboutEnabled !== undefined) row.about_enabled = input.aboutEnabled
   if (input.city !== undefined) row.city = input.city
   if (input.state !== undefined) row.state = input.state
   if (input.addressStreet !== undefined) row.address_street = input.addressStreet
@@ -88,6 +90,10 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.website !== undefined) row.website = input.website
   if (input.alternateNames !== undefined) row.alternate_names = input.alternateNames
   if (input.footerText !== undefined) row.footer_text = input.footerText
+  // `undefined` não vira coluna no update do PostgREST: salvar outra seção da
+  // tela de configurações, sem declarar `aiTone`, não sobrescreve o tom já
+  // escolhido pela imobiliária com o default.
+  if (input.aiTone !== undefined) row.ai_tone = input.aiTone
   // As casts para Json são o supabase-js exigindo um índice `[key: string]:
   // Json` que os tipos de domínio (FooterLink, AboutPageContent...) não têm por
   // serem interfaces com campos nomeados — a forma real gravada no JSONB já é

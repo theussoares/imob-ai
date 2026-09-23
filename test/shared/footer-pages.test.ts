@@ -125,3 +125,59 @@ describe('rascunho de política de privacidade', () => {
     }
   })
 })
+
+describe('página que depende de recurso', () => {
+  /**
+   * O Quem somos nasce no registro como qualquer outra página, mas só existe
+   * para quem contratou. Sem esta marca ele voltaria ao rodapé de TODA
+   * imobiliária — foi exatamente assim que três das quatro receberiam um link
+   * para uma página em branco, porque só uma tinha conteúdo escrito.
+   *
+   * A marca fica no REGISTRO, não numa lista paralela de exceções: quem
+   * adiciona uma página vê a coluna do lado e decide na hora.
+   */
+  const comRecurso = [
+    { path: '/quero-vender', label: 'Quero vender ou alugar' },
+    { path: '/quem-somos', label: 'Quem somos', requires: 'about' as const },
+  ]
+
+  test('recurso ligado: a página entra', () => {
+    const r = resolveFooterPages(comRecurso, {}, { about: true })
+    expect(r.map((p) => p.path)).toEqual(['/quero-vender', '/quem-somos'])
+  })
+
+  test('recurso desligado: a página some', () => {
+    const r = resolveFooterPages(comRecurso, {}, { about: false })
+    expect(r.map((p) => p.path)).toEqual(['/quero-vender'])
+  })
+
+  test('sem informação de recurso, some — falha fechado', () => {
+    // Chamador que esquecer de passar os flags esconde a página em vez de
+    // publicá-la. O erro barato é o link sumir; o caro é a página vazia no ar.
+    const r = resolveFooterPages(comRecurso, {})
+    expect(r.map((p) => p.path)).toEqual(['/quero-vender'])
+  })
+
+  test('página sem marca não é afetada pelos flags', () => {
+    // A trava não pode virar hábito: "Quero vender" serve a qualquer
+    // imobiliária e não depende de nada.
+    const r = resolveFooterPages(comRecurso, {}, { about: false })
+    expect(r.map((p) => p.path)).toContain('/quero-vender')
+  })
+
+  test('o cliente ainda consegue esconder uma página que tem o recurso', () => {
+    // Ter o recurso é poder mostrar, não ser obrigado a mostrar.
+    const r = resolveFooterPages(comRecurso, { '/quem-somos': { visible: false } }, { about: true })
+    expect(r.map((p) => p.path)).toEqual(['/quero-vender'])
+  })
+})
+
+describe('o registro marca o Quem somos', () => {
+  test('a entrada real exige o recurso', () => {
+    // O teste acima usa registro de mentira. Este olha o de verdade: sem a
+    // marca aqui, toda a trava acima vira código morto.
+    const entrada = STATIC_FOOTER_PAGES.find((p) => p.path === '/quem-somos')
+    expect(entrada, '/quem-somos saiu do registro').toBeTruthy()
+    expect(entrada!.requires).toBe('about')
+  })
+})

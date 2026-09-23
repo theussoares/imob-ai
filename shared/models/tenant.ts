@@ -1,6 +1,7 @@
 import type { FooterLink } from '~~/shared/utils/footer-links'
 import type { FooterPageOverrides } from '~~/shared/utils/footer-pages'
 import type { AboutPageContent } from '~~/shared/models/about-page'
+import type { AiTone } from '~~/shared/models/ai-tone'
 
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
@@ -28,6 +29,14 @@ export interface Tenant {
    * `tenant_features` lida dentro de `is_portal_user()`) e ainda não existe.
    */
   portalEnabled: boolean
+  /**
+   * A página "Quem somos" aparece no site desta imobiliária.
+   *
+   * Mesma dupla do `portalEnabled`: esta coluna é a escolha da imobiliária, e
+   * `tenant_features` diz se ela tem o recurso. O payload público carrega só o
+   * produto dos dois — ver `comLinksEfetivos` em `server/utils/tenant.ts`.
+   */
+  aboutEnabled: boolean
   city: string | null
   state: string | null
   /** Endereço estruturado, para mostrar no rodapé com mapa e alimentar o schema.org. Tudo opcional. */
@@ -85,6 +94,7 @@ export interface TenantSettingsInput {
   email?: string | null
   creci?: string | null
   portalEnabled?: boolean
+  aboutEnabled?: boolean
   city?: string | null
   state?: string | null
   addressStreet?: string | null
@@ -106,4 +116,11 @@ export interface TenantSettingsInput {
   footerLinks?: FooterLink[]
   footerPages?: FooterPageOverrides
   aboutContent?: AboutPageContent
+  /**
+   * Tom da descrição por IA. Fica em `TenantSettingsInput` (escrita), NUNCA em
+   * `Tenant` (leitura): `/api/tenant` devolve o modelo `Tenant` inteiro ao
+   * público, e o tom é lido à parte por `getAiTone` com `select('ai_tone')`
+   * explícito. Ver `server/repositories/tenant.repository.ts`.
+   */
+  aiTone?: AiTone
 }

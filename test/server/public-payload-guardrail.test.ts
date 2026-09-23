@@ -9,6 +9,7 @@ import {
 } from '~~/server/repositories/property.repository'
 import { getTenantBySlug } from '~~/server/repositories/tenant.repository'
 import { fakeSupabase } from '../helpers/fake-supabase'
+import { stripComments } from '../helpers/strip-comments'
 
 /**
  * Guardrail do payload público.
@@ -142,6 +143,14 @@ describe('payload público de tenant', () => {
     const tenant = await getTenantBySlug(client, 'tres-lagoas')
 
     expect(Object.keys(tenant ?? {})).not.toContain('updatedBy')
+
+    // `aiTone` foi deliberadamente mantido fora do modelo `Tenant`: `/api/tenant`
+    // devolve `useTenantContext(event)` INTEIRO ao público, sem seleção de
+    // campo, então qualquer propriedade mapeada em `toTenantModel` sai junto.
+    // Não é segredo — o `anon` já lê a tabela `tenants` inteira pelo PostgREST —,
+    // mas o payload público não tem motivo para carregar configuração interna.
+    // Se um dia alguém mapear `ai_tone` aqui "por conveniência", esta linha cai.
+    expect(Object.keys(tenant ?? {})).not.toContain('aiTone')
   })
 })
 
@@ -179,11 +188,6 @@ const SELECT_ALL_PERMITIDO: Record<string, string> = {
   // o teste de payload acima cobre isso.
   getTenantByDomain: 'público, coberto pelo teste de payload de tenant',
   getTenantBySlug: 'público, coberto pelo teste de payload de tenant',
-}
-
-/** Remove comentários: `select('*')` citado em doc comment não conta. */
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 }
 
 /** Nomes das funções do arquivo que chamam `.select('*')` / `.select(`*, ...`)`. */

@@ -65,7 +65,11 @@ async function entrar() {
 }
 
 useHead({
-  title: `Entrar · Área do Cliente${tenant.value?.name ? ' · ' + tenant.value.name : ''}`,
+  // Sem o nome da imobiliária aqui: o `titleTemplate` do `app.vue` já o
+  // acrescenta a TODO título, e somar os dois rendia "Entrar · Área do Cliente
+  // · Aurora Imóveis · Aurora Imóveis" — na aba que o cliente vê ao chegar pelo
+  // link do convite, que é o primeiro contato dele com a imobiliária online.
+  title: 'Entrar · Área do Cliente',
   // A área do cliente não é conteúdo de catálogo e não deve ser indexada.
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })

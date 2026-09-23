@@ -1,5 +1,5 @@
 import type { PropertyType } from '~~/shared/models/property'
-import { temQuartos } from '~~/shared/models/property'
+import { PROPERTY_TYPE_REGISTRY, temQuartos } from '~~/shared/models/property'
 
 /**
  * URL pública do imóvel: /{slug-descritivo}/{codigo}.
@@ -33,7 +33,11 @@ export function slugify(text: string): string {
 export function propertySlug(p: PropertyUrlFields): string {
   // Terreno não tem quartos; imóvel construído com 0 também não deve anunciar.
   const quartos = temQuartos(p.type) && p.bedrooms > 0 ? `${p.bedrooms}-quartos` : ''
-  return [p.type, quartos, p.neighborhood ? slugify(p.neighborhood) : ''].filter(Boolean).join('-')
+  // `urlSegment`, e não `p.type`: a chave é valor de enum do Postgres e precisa
+  // ser uma palavra só, o segmento decorativo não. Os dois só divergem no
+  // condomínio, que aparece como `casa-de-condominio` — ver o registro.
+  const tipo = PROPERTY_TYPE_REGISTRY[p.type].urlSegment
+  return [tipo, quartos, p.neighborhood ? slugify(p.neighborhood) : ''].filter(Boolean).join('-')
 }
 
 /** Caminho completo. O código vai cru: é a chave que a consulta usa. */

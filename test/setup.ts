@@ -27,3 +27,12 @@ Object.assign(globalThis, {
  * exatamente a regressão que ela existe para evitar.
  */
 Object.assign(globalThis, { segredoDeRuntime })
+
+/**
+ * `useRuntimeConfig` também é auto-import do Nuxt — só existe dentro do
+ * runtime dele. `gerarTexto`/`anthropicClient` (server/utils/ai.ts) chamam
+ * direto, então o teste precisa de um valor fixo aqui.
+ */
+Object.assign(globalThis, {
+  useRuntimeConfig: () => ({ aiModel: 'claude-haiku-4-5', anthropicApiKey: 'test' }),
+})

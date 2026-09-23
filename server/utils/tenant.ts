@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import type { Tenant } from '~~/shared/models/tenant'
 import { getTenantByDomain, getTenantBySlug } from '~~/server/repositories/tenant.repository'
-import { areaClienteAtiva } from '~~/server/utils/entitlement'
+import { areaClienteAtiva, quemSomosAtiva } from '~~/server/utils/entitlement'
 
 declare module 'h3' {
   interface H3EventContext {
@@ -135,7 +135,7 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
   // resolvido é o middleware (redirect, landing ou — só em dev — tenant padrão).
   // Deixar o fallback dentro desta função fazia QUALQUER host resolver em dev,
   // mascarando esses caminhos e tornando-os impossíveis de testar localmente.
-  tenant = await comLinkDoPortalEfetivo(tenant)
+  tenant = await comLinksEfetivos(tenant)
 
   setCached('host:' + hostname, tenant)
   return tenant
@@ -165,11 +165,20 @@ export async function resolveTenantForHost(hostname: string): Promise<Tenant | n
  * A coluna crua NÃO é alterada: quando o recurso voltar, a escolha dela volta
  * junto. Por isso `tenant.put.ts` recusa gravar o campo sem entitlement.
  */
-async function comLinkDoPortalEfetivo(tenant: Tenant | null): Promise<Tenant | null> {
-  // Curto-circuito: quem não ligou o link não paga a consulta. É a maioria, e
-  // isto roda a cada resolução de host com cache frio.
-  if (!tenant?.portalEnabled) return tenant
-  return { ...tenant, portalEnabled: await areaClienteAtiva(tenant.id) }
+async function comLinksEfetivos(tenant: Tenant | null): Promise<Tenant | null> {
+  if (!tenant) return tenant
+
+  // Curto-circuito por flag: quem não ligou o link não paga a consulta dele. É
+  // a maioria em ambos, e isto roda a cada resolução de host com cache frio.
+  //
+  // As duas consultas vão juntas quando os dois estão ligados. Sequenciar seria
+  // somar duas idas ao banco no caminho mais quente do site.
+  const [portalEnabled, aboutEnabled] = await Promise.all([
+    tenant.portalEnabled ? areaClienteAtiva(tenant.id) : Promise.resolve(false),
+    tenant.aboutEnabled ? quemSomosAtiva(tenant.id) : Promise.resolve(false),
+  ])
+
+  return { ...tenant, portalEnabled, aboutEnabled }
 }
 
 /**
