@@ -4,6 +4,20 @@ import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 
+/**
+ * Neutraliza marcação no INÍCIO de linha de um texto que vai para dentro do
+ * catálogo markdown.
+ *
+ * Só início de linha: escapar `-` no meio da frase transformaria
+ * "bem-localizada" em "bem\-localizada" na saída, que é pior que o problema.
+ *
+ * O prompt da IA já proíbe markdown, e isso NÃO basta — prompt não é garantia,
+ * e a descrição também pode ter sido digitada à mão pelo corretor.
+ */
+export function escaparMarkdown(texto: string): string {
+  return texto.replace(/^(\s*)(#+|>+|[-*+]|\d+\.)(\s)/gm, '$1\\$2$3')
+}
+
 function brl(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
@@ -52,7 +66,7 @@ export function tenantCatalogMarkdown(tenant: Tenant, properties: Property[], or
       lines.push(`- Características: ${specsLine(p)}`)
       if (p.highStandard) lines.push(`- Alto padrão`)
       if (p.features.length) lines.push(`- Diferenciais: ${p.features.join(', ')}`)
-      if (p.description) lines.push(`- ${p.description}`)
+      if (p.description) lines.push(`- ${escaparMarkdown(p.description)}`)
       lines.push(`- Página: ${origin}${propertyPath(p)}`)
     }
   }
@@ -113,7 +127,7 @@ export function propertyMarkdown(tenant: Tenant, p: Property, origin: string): s
   if (loc) lines.push(`\nLocalização: ${loc}`)
   lines.push(`\nCaracterísticas: ${specsLine(p)}`)
   if (p.highStandard) lines.push(`\nAlto padrão.`)
-  if (p.description) lines.push(`\n## Sobre o imóvel\n\n${p.description}`)
+  if (p.description) lines.push(`\n## Sobre o imóvel\n\n${escaparMarkdown(p.description)}`)
   if (p.features.length) lines.push(`\n## Diferenciais\n\n${p.features.map((f) => `- ${f}`).join('\n')}`)
   const contact = contactBlock(tenant)
   if (contact) lines.push(`\n## Contato\n\n${contact}`)
