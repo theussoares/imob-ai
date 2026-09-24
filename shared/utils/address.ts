@@ -42,6 +42,16 @@ export function formatTenantAddress(t: AddressFields): string {
   return [parte1, parte2, zip].filter(Boolean).join(' - ')
 }
 
+/**
+ * O ponto cai no território brasileiro? Caixa retangular com ~1° de folga
+ * sobre os extremos (Caburaí ao norte, Chuí ao sul, Ponta do Seixas a leste,
+ * nascente do Moa a oeste) — não é fronteira, é o filtro do sinal de menos
+ * esquecido, que é o erro real: ver `assertTenantSettingsInput`.
+ */
+export function dentroDoBrasil(lat: number, lng: number): boolean {
+  return lat >= -35 && lat <= 6.5 && lng >= -75 && lng <= -28
+}
+
 /** Coordenadas do tenant, ou `null` quando ele não marcou um ponto no mapa. */
 export function tenantCoordinates(t: Coordinates): { lat: number; lng: number } | null {
   if (typeof t.latitude !== 'number' || typeof t.longitude !== 'number') return null

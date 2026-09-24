@@ -70,7 +70,10 @@ async function logout() {
           <small style="color: #cfe3dd">Painel administrativo</small>
         </span>
       </NuxtLink>
-      <button class="admin-btn ghost admin-logout" @click="logout">Sair</button>
+      <div class="admin-sidebar-actions">
+        <AdminReloadButton />
+        <button class="admin-btn ghost admin-logout" @click="logout">Sair</button>
+      </div>
     </div>
 
     <nav class="admin-nav">

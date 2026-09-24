@@ -1093,6 +1093,15 @@ a.btn-detail:hover {
 .admin-logout {
   margin-top: 12px;
 }
+/* Recarregar (só no app instalado) e Sair lado a lado na barra do celular. */
+.admin-sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-sidebar-actions .admin-logout {
+  margin-top: 0;
+}
 .admin-nav a:hover {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -1255,6 +1264,11 @@ a.btn-detail:hover {
   }
   .admin-logout {
     margin-top: 0;
+    width: 100%;
+  }
+  .admin-sidebar-actions {
+    flex-direction: column;
+    align-items: stretch;
     width: 100%;
   }
 }
