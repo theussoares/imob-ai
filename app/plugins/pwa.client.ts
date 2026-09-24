@@ -28,6 +28,9 @@ export default defineNuxtPlugin(() => {
       // aberto. Quem decide é a pessoa, pelo aviso na tela.
       estado.temAtualizacao.value = true
     },
+    onRegisteredSW(_url, registro) {
+      if (registro) vigiarAtualizacoes(registro)
+    },
     onRegisterError(erro: unknown) {
       // Falha de registro não pode quebrar o painel: sem SW ele funciona
       // igual, só perde o carregamento a partir do cache.
@@ -43,6 +46,27 @@ export default defineNuxtPlugin(() => {
 
   configurarInstalacao()
 })
+
+/**
+ * Pergunta de novo por versão nova depois do registro — ver
+ * `app/utils/pwa-update-check.ts` para o porquê.
+ *
+ * Só com a janela visível: em segundo plano o navegador congela timers de
+ * qualquer jeito, e a volta para a frente já é um gatilho por si.
+ */
+function vigiarAtualizacoes(registro: ServiceWorkerRegistration) {
+  const verificar = criarVerificadorDeAtualizacao({
+    atualizar: () => registro.update(),
+    online: () => navigator.onLine,
+  })
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') verificar()
+  })
+  window.setInterval(() => {
+    if (document.visibilityState === 'visible') verificar()
+  }, INTERVALO_PERIODICO_MS)
+}
 
 /**
  * O evento que permite instalar dispara UMA vez, logo depois do load, e some
