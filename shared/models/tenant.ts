@@ -1,6 +1,7 @@
 import type { FooterLink } from '~~/shared/utils/footer-links'
 import type { FooterPageOverrides } from '~~/shared/utils/footer-pages'
 import type { AboutPageContent } from '~~/shared/models/about-page'
+import type { AiTone } from '~~/shared/models/ai-tone'
 
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
@@ -115,4 +116,11 @@ export interface TenantSettingsInput {
   footerLinks?: FooterLink[]
   footerPages?: FooterPageOverrides
   aboutContent?: AboutPageContent
+  /**
+   * Tom da descrição por IA. Fica em `TenantSettingsInput` (escrita), NUNCA em
+   * `Tenant` (leitura): `/api/tenant` devolve o modelo `Tenant` inteiro ao
+   * público, e o tom é lido à parte por `getAiTone` com `select('ai_tone')`
+   * explícito. Ver `server/repositories/tenant.repository.ts`.
+   */
+  aiTone?: AiTone
 }

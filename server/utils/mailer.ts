@@ -123,11 +123,12 @@ export type ResultadoEnvio = { enviado: boolean; provedor: string }
  */
 export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
   const config = useRuntimeConfig()
-  const chave = config.mailApiKey
+  const chave = segredoDeRuntime(config.mailApiKey, 'MAIL_API_KEY')
   // O endereço do tenant, com o da plataforma como fallback. Quem resolve qual
   // é qual é `remetenteDoTenant`; aqui só se valida o que chegou, porque é este
   // arquivo que monta o cabeçalho.
-  const remetenteEndereco = enderecoDeEnvio(msg.remetente.endereco, config.mailFrom)
+  const daPlataforma = segredoDeRuntime(config.mailFrom, 'MAIL_FROM')
+  const remetenteEndereco = enderecoDeEnvio(msg.remetente.endereco, daPlataforma)
 
   if (!chave || !remetenteEndereco) {
     if (process.env.NODE_ENV === 'production') {

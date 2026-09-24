@@ -7,7 +7,7 @@ import { recursoAtivo } from '~~/shared/utils/portal-access'
  * (`FooterPageFeature`): uma tradução no meio faria quem lê o código procurar
  * uma linha que não existe com aquele nome.
  */
-export type RecursoOpcional = 'portal' | 'about'
+export type RecursoOpcional = 'portal' | 'about' | 'ai'
 
 /**
  * Este recurso está valendo para esta imobiliária?
@@ -78,4 +78,16 @@ export function areaClienteAtiva(tenantId: string): Promise<boolean> {
  */
 export function quemSomosAtiva(tenantId: string): Promise<boolean> {
   return recursoLigado(tenantId, 'about')
+}
+
+/**
+ * A descrição por IA está valendo para esta imobiliária?
+ *
+ * Reusa `recursoLigado` — a leitura de `tenant_features` continua sendo a ÚNICA
+ * do servidor, que é o que o aviso no topo deste arquivo exige. Um recurso novo
+ * com a própria consulta traria o próprio tratamento de erro, que foi
+ * exatamente o defeito do PR #27.
+ */
+export function descricaoIaAtiva(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'ai')
 }

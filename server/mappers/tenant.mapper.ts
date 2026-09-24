@@ -90,6 +90,10 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.website !== undefined) row.website = input.website
   if (input.alternateNames !== undefined) row.alternate_names = input.alternateNames
   if (input.footerText !== undefined) row.footer_text = input.footerText
+  // `undefined` não vira coluna no update do PostgREST: salvar outra seção da
+  // tela de configurações, sem declarar `aiTone`, não sobrescreve o tom já
+  // escolhido pela imobiliária com o default.
+  if (input.aiTone !== undefined) row.ai_tone = input.aiTone
   // As casts para Json são o supabase-js exigindo um índice `[key: string]:
   // Json` que os tipos de domínio (FooterLink, AboutPageContent...) não têm por
   // serem interfaces com campos nomeados — a forma real gravada no JSONB já é

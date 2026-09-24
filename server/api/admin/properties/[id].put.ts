@@ -1,5 +1,6 @@
 import type { PropertyInput } from '~~/shared/models/property'
-import { updateProperty } from '~~/server/repositories/property.repository'
+import { canonicalNeighborhood } from '~~/shared/utils/neighborhood'
+import { updateProperty, listNeighborhoods } from '~~/server/repositories/property.repository'
 
 /**
  * Atualiza um imóvel.
@@ -23,6 +24,16 @@ export default defineEventHandler(async (event) => {
   // tipo de propósito, para nunca ser confundido com campo gravável.
   const body = await readBody<PropertyInput & { expectedUpdatedAt?: string | null }>(event)
   assertPropertyInput(body)
+
+  // Alinha o bairro à grafia que a imobiliária já usa. Sem isto, "Bela vista
+  // da lagoa " entra como bairro novo e fragmenta a página do bairro — em
+  // produção uma imobiliária tinha SEIS grafias do mesmo lugar. A lista sai
+  // escopada pelo tenant, como todo o resto.
+  body.neighborhood = canonicalNeighborhood(
+    body.neighborhood,
+    await listNeighborhoods(serviceSupabase(), tenant.id),
+  )
+
   const property = await updateProperty(
     serviceSupabase(),
     tenant.id,

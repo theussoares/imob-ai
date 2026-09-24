@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { idDeRota } from '~~/server/utils/validate'
+import { stripComments } from '../helpers/strip-comments'
 
 /**
  * Nenhum id de rota chega ao banco sem ter forma de uuid.
@@ -77,18 +78,38 @@ describe('varredura: todo endpoint com id de rota confere a forma', () => {
   for (const caminho of COM_PARAM) {
     const rel = caminho.slice(caminho.indexOf('server/api'))
     test(rel, () => {
-      const fonte = readFileSync(caminho, 'utf8')
+      // Sem `stripComments`, um comentário que só CITA `ehUuid(`/`idDeRota(`
+      // — sem chamar de verdade — satisfazia este teste. Foi o que aconteceu
+      // com `descricao.post.ts` no round anterior: a checagem real morava em
+      // outro arquivo, e o texto do comentário bastava para passar aqui.
+      const fonte = stripComments(readFileSync(caminho, 'utf8'))
       const confere = fonte.includes('idDeRota(') || fonte.includes('ehUuid(')
       expect(confere, `${rel}: id de rota vai ao banco sem conferir a forma`).toBe(true)
     })
   }
+
+  test('comentário citando ehUuid(/idDeRota( não conta — só chamada real', () => {
+    // Reprodução mínima do que aconteceu com `descricao.post.ts`: o texto
+    // "ehUuid(" só existia num comentário explicativo, e a checagem por
+    // `includes` sozinha aprovava o arquivo mesmo sem nenhuma validação.
+    const fonteComComentarioMagico = `
+      /**
+       * A forma do id é conferida por ehUuid( em outro arquivo.
+       */
+      export default defineEventHandler((event) => {
+        return getRouterParam(event, 'id')
+      })
+    `
+    const stripped = stripComments(fonteComComentarioMagico)
+    expect(stripped.includes('ehUuid(') || stripped.includes('idDeRota(')).toBe(false)
+  })
 
   test('o portal responde 404, o painel 400', () => {
     // A diferença é deliberada: no painel quem chama é membro autenticado e
     // "isso não é um id" ajuda; no portal nada pode distinguir um id de outro,
     // então id inválido responde igual a id que não existe.
     for (const caminho of COM_PARAM) {
-      const fonte = readFileSync(caminho, 'utf8')
+      const fonte = stripComments(readFileSync(caminho, 'utf8'))
       const rel = caminho.slice(caminho.indexOf('server/api'))
       if (!rel.includes('server/api/portal/')) continue
       expect(fonte.includes('ehUuid('), `${rel} deveria usar ehUuid + 404`).toBe(true)
