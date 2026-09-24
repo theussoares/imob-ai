@@ -447,7 +447,8 @@ useHead({ title: "Meu site · Painel" });
         Opcional — deixa o pino do mapa exato. Sem coordenadas, o mapa é montado
         pelo endereço em texto. Para pegar as suas: abra o local no Google Maps,
         clique com o botão direito sobre o ponto e copie os números que aparecem
-        no topo do menu.
+        no topo do menu — com o sinal de menos: no Brasil a longitude é sempre
+        negativa.
       </p>
 
       <div v-if="mapPreviewSrc" class="map-preview-wrap">
