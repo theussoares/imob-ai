@@ -5,7 +5,8 @@
  * carregam decisões que não podem divergir entre elas:
  *
  * - redimensiona e converte pra WebP antes de subir (a foto original do celular
- *   tem 3–4 MB e era servida crua);
+ *   tem 3–4 MB e era servida crua), caindo para JPEG/PNG no navegador que não
+ *   gera WebP — ver `encodeWithFallback`;
  * - `upsert: false` porque o path já é único por timestamp; com upsert o Supabase
  *   checa existência antes de sobrescrever, o que exige policy de SELECT em
  *   storage.objects que não temos — e falharia com erro de RLS;
@@ -38,15 +39,16 @@ export function useBrandUpload(opts: {
     try {
       const client = await getAdminSupabase()
       // Formato que o canvas não abre (SVG, HEIC): sobe como veio.
-      const resizable = isResizableImage(file)
-      const body: Blob = resizable ? await resizeToWebp(file, opts.maxEdge) : file
-      const ext = resizable ? 'webp' : file.name.split('.').pop() || 'png'
-      const path = `${slug}/${opts.prefix}-${Date.now()}.${ext}`
+      // Logo cai para PNG, não JPEG: o fundo transparente viraria preto.
+      const encoded = isResizableImage(file)
+        ? await resizeForUpload(file, opts.maxEdge, opts.bucket === 'tenant-logos' ? 'image/png' : 'image/jpeg')
+        : { blob: file, ext: file.name.split('.').pop() || 'png', contentType: file.type }
+      const path = `${slug}/${opts.prefix}-${Date.now()}.${encoded.ext}`
 
-      const { error } = await client.storage.from(opts.bucket).upload(path, body, {
+      const { error } = await client.storage.from(opts.bucket).upload(path, encoded.blob, {
         upsert: false,
         cacheControl: '31536000',
-        contentType: resizable ? 'image/webp' : file.type,
+        contentType: encoded.contentType,
       })
       if (error) throw error
 
