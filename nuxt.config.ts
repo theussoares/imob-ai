@@ -71,6 +71,25 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   fonts: {
+    /**
+     * Só latino e só normal. O padrão do módulo gera @font-face para cirílico,
+     * grego, vietnamita e latin-ext, em normal E itálico, para cada peso: eram
+     * 149 regras e 54 KB de CSS inline no HTML da home da Olmi (24/09), antes
+     * de qualquer byte de conteúdo — atrás delas ficava o preload do hero.
+     *
+     * Português cabe inteiro no subconjunto `latin` (acentos, ç, ã, travessão).
+     * Um caractere fora dele (nome com ő, por exemplo) cai na fonte de sistema
+     * só naquele glifo — não some.
+     *
+     * Itálico: o CSS usa em dois lugares (nota "sem características" do card e
+     * uma citação do Quem somos) e o <em> da landing. Sem o arquivo, o
+     * navegador sintetiza a inclinação; para uma linha de nota, a diferença não
+     * paga as 60 regras que o itálico real custava.
+     */
+    defaults: {
+      styles: ['normal'],
+      subsets: ['latin'],
+    },
     // Self-hosta os .woff2 (corta 2 hops pro Google) e gera @font-face com
     // size-adjust/ascent-override calculados — sem isso o layout salta na troca
     // da fonte fallback pela real, porque os max-width em `ch` mudam de largura.
