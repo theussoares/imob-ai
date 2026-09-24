@@ -1,6 +1,6 @@
 /**
- * Redimensiona e converte imagens para WebP no próprio navegador, antes do
- * upload. Sem isto, a foto original do celular (3–4 MB, 3000×4000) vai crua pro
+ * Redimensiona e converte imagens (WebP, ou JPEG/PNG onde não há WebP) no
+ * próprio navegador, antes do upload. Sem isto, a foto original do celular (3–4 MB, 3000×4000) vai crua pro
  * Storage e é servida assim até num thumbnail de 84×60 — era o maior custo de
  * bytes do site.
  */
@@ -10,10 +10,72 @@ export const IMAGE_SIZE_LG = 1600
 export const IMAGE_SIZE_SM = 640
 
 /**
- * Reduz a imagem para caber em `maxEdge` (preservando proporção) e devolve WebP.
+ * Para onde cair quando o navegador não codifica WebP. Foto vai para JPEG;
+ * logo vai para PNG, porque JPEG não tem transparência e o fundo do logo
+ * viraria um retângulo preto sobre o header.
+ */
+export type FallbackType = 'image/jpeg' | 'image/png'
+
+export interface EncodedImage {
+  blob: Blob
+  /** Extensão do arquivo, do formato que o navegador DE FATO produziu. */
+  ext: 'webp' | 'jpg' | 'png'
+  contentType: 'image/webp' | 'image/jpeg' | 'image/png'
+}
+
+type Encode = (type: string, quality: number) => Promise<Blob | null>
+
+const EXT: Record<EncodedImage['contentType'], EncodedImage['ext']> = {
+  'image/webp': 'webp',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+}
+
+/**
+ * Pede WebP e confere o que voltou.
+ *
+ * ⚠️ O incidente que motivou isto (24/09): `canvas.toBlob(cb, 'image/webp')`
+ * não falha quando o navegador não sabe codificar WebP — o Safari devolve
+ * **PNG** em silêncio, e a especificação manda fazer exatamente isso. O código
+ * anterior confiava no tipo pedido e subia o PNG com nome `@sm.webp` e
+ * `contentType: image/webp`. Os cards da home da Olmi chegaram a 240–500 KB
+ * cada, em 640×360, quando o WebP de verdade teria ~40 KB: 1,6 MB desperdiçados
+ * por visita no celular, segundo o PageSpeed.
+ *
+ * O PNG não é descartado por ser inválido — ele abre normalmente, e por isso
+ * ninguém viu. É descartado por ser sem perda: foto em PNG é o pior formato
+ * possível para a web.
+ *
+ * Recebe `encode` por parâmetro para ser testável em Node, sem canvas.
+ */
+export async function encodeWithFallback(
+  encode: Encode,
+  fallback: FallbackType,
+  quality: number,
+): Promise<EncodedImage> {
+  const webp = await encode('image/webp', quality)
+  if (webp?.type === 'image/webp') return { blob: webp, ext: 'webp', contentType: 'image/webp' }
+
+  const blob = await encode(fallback, quality)
+  // O PNG não tem parâmetro de qualidade, e JPEG todo navegador codifica —
+  // se nem o fallback vier no tipo pedido, subir seria repetir o bug.
+  if (!blob || blob.type !== fallback) {
+    throw new Error('Este navegador não conseguiu converter a imagem. Tente outro navegador.')
+  }
+  return { blob, ext: EXT[fallback], contentType: fallback }
+}
+
+/**
+ * Reduz a imagem para caber em `maxEdge` (preservando proporção), em WebP
+ * quando o navegador sabe gerar e em `fallback` quando não sabe.
  * Nunca amplia: imagem menor que o alvo é só convertida.
  */
-export async function resizeToWebp(file: File, maxEdge: number, quality = 0.82): Promise<Blob> {
+export async function resizeForUpload(
+  file: File,
+  maxEdge: number,
+  fallback: FallbackType,
+  quality = 0.82,
+): Promise<EncodedImage> {
   const bitmap = await createImageBitmap(file)
   try {
     const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height))
@@ -27,11 +89,11 @@ export async function resizeToWebp(file: File, maxEdge: number, quality = 0.82):
     if (!ctx) throw new Error('Canvas indisponível neste navegador.')
     ctx.drawImage(bitmap, 0, 0, width, height)
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/webp', quality),
+    return await encodeWithFallback(
+      (type, q) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, q)),
+      fallback,
+      quality,
     )
-    if (!blob) throw new Error('Falha ao converter a imagem para WebP.')
-    return blob
   } finally {
     bitmap.close()
   }

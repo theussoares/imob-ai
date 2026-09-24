@@ -53,24 +53,25 @@ async function onFiles(e: Event) {
         continue;
       }
 
-      // Duas derivadas WebP: 1600px (galeria) e 640px (card/thumb, via srcset).
+      // Duas derivadas: 1600px (galeria) e 640px (card/thumb, via srcset).
+      // Extensão e tipo vêm do que o navegador produziu — ver encodeWithFallback.
       const [lg, sm] = await Promise.all([
-        resizeToWebp(file, IMAGE_SIZE_LG),
-        resizeToWebp(file, IMAGE_SIZE_SM),
+        resizeForUpload(file, IMAGE_SIZE_LG, "image/jpeg"),
+        resizeForUpload(file, IMAGE_SIZE_SM, "image/jpeg"),
       ]);
-      const pathLg = `${base}.webp`;
-      const pathSm = `${base}@sm.webp`;
+      const pathLg = `${base}.${lg.ext}`;
+      const pathSm = `${base}@sm.${sm.ext}`;
 
       const [resLg, resSm] = await Promise.all([
-        bucket.upload(pathLg, lg, {
+        bucket.upload(pathLg, lg.blob, {
           cacheControl: "31536000",
           upsert: false,
-          contentType: "image/webp",
+          contentType: lg.contentType,
         }),
-        bucket.upload(pathSm, sm, {
+        bucket.upload(pathSm, sm.blob, {
           cacheControl: "31536000",
           upsert: false,
-          contentType: "image/webp",
+          contentType: sm.contentType,
         }),
       ]);
       if (resLg.error) throw resLg.error;
