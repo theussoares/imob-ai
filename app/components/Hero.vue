@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { Tenant } from '~~/shared/models/tenant'
 
-const props = defineProps<{ tenant: Tenant | null }>()
+const props = defineProps<{
+  tenant: Tenant | null
+  /** Só o site público: a pré-visualização do painel não tem LCP a ganhar. */
+  preload?: boolean
+}>()
 
 const hasImage = computed(() => !!props.tenant?.heroImage)
 const isBackground = computed(() => hasImage.value && props.tenant?.heroImagePosition === 'background')
@@ -43,6 +47,40 @@ const heroSplitSrcset = computed(() => {
     `${supabaseRenderImage(url, { width: 1440, height: 1440, quality: 70 })} 1440w`,
   ].join(', ')
 })
+
+const BG_SIZES = '100vw'
+const SPLIT_SIZES = '(min-width: 860px) 546px, calc(100vw - 36px)'
+
+/**
+ * Preload da foto do hero no `<head>`.
+ *
+ * O PageSpeed no celular (24/09) mostrava o LCP esperando 2,3 s só para
+ * COMEÇAR a baixar: o `<img>` fica no byte ~91 mil do HTML, depois de ~80 KB de
+ * CSS inline, e o navegador não sabe que a foto existe até o parser chegar lá.
+ * O preload, com `tagPriority: 'critical'`, sobe para o topo do `<head>`.
+ *
+ * ⚠️ `imagesrcset` e `imagesizes` têm que ser IDÊNTICOS aos do `<img>` —
+ * por isso saem dos mesmos `computed`/constantes. Se divergirem, o navegador
+ * escolhe candidatos diferentes nas duas pontas e baixa a foto DUAS vezes
+ * (e, no Supabase, com duas transformações em vez de uma).
+ */
+useHead(() => {
+  if (!props.preload || !hasImage.value) return {}
+  return {
+    link: [
+      {
+        key: 'hero-preload',
+        rel: 'preload',
+        as: 'image',
+        href: props.tenant!.heroImage!,
+        imagesrcset: isBackground.value ? heroBgSrcset.value : heroSplitSrcset.value,
+        imagesizes: isBackground.value ? BG_SIZES : SPLIT_SIZES,
+        fetchpriority: 'high',
+        tagPriority: 'critical',
+      },
+    ],
+  }
+})
 </script>
 
 <template>
@@ -52,7 +90,7 @@ const heroSplitSrcset = computed(() => {
       <img
         :src="tenant!.heroImage!"
         :srcset="heroBgSrcset"
-        sizes="100vw"
+        :sizes="BG_SIZES"
         :alt="imageAlt"
         fetchpriority="high"
         decoding="async"
@@ -78,7 +116,7 @@ const heroSplitSrcset = computed(() => {
         <img
           :src="tenant!.heroImage!"
           :srcset="heroSplitSrcset"
-          sizes="(min-width: 860px) 546px, calc(100vw - 36px)"
+          :sizes="SPLIT_SIZES"
           :alt="imageAlt"
           fetchpriority="high"
           decoding="async"
