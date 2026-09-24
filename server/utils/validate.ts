@@ -5,6 +5,7 @@ import type { BrokerInput } from '~~/shared/models/broker'
 import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
+import { dentroDoBrasil } from '~~/shared/utils/address'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
 import { AI_TONES } from '~~/shared/models/ai-tone'
 import type {
@@ -81,6 +82,18 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
   }
   if (hasLng && (typeof t.longitude !== 'number' || Number.isNaN(t.longitude) || t.longitude < -180 || t.longitude > 180)) {
     throw createError({ statusCode: 422, statusMessage: 'Longitude inválida (-180 a 180).' })
+  }
+  // Coordenada válida no planeta mas fora do Brasil é quase sempre o sinal de
+  // menos esquecido: todo o território tem longitude negativa, e quase todo,
+  // latitude negativa. A Olmi foi gravada como 20.78, 51.68 — o pino caía no
+  // Cazaquistão, e a faixa -90..90 acima deixou passar. O produto só atende
+  // imobiliária brasileira (`addressCountry: "BR"` no schema.org da home).
+  // Caixa com folga de ~1° sobre os extremos do território.
+  if (hasLat && hasLng && !dentroDoBrasil(t.latitude as number, t.longitude as number)) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Coordenadas fora do Brasil. No Brasil a longitude é sempre negativa (e a latitude quase sempre) — confira o sinal de menos.',
+    })
   }
 
   // `tenant.put.ts` grava com o client do usuário (papel `authenticated`), não

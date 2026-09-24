@@ -213,6 +213,15 @@ export default defineNuxtConfig({
             // WebSocket do Realtime (contato novo aparecendo no funil na hora)
             // era bloqueado mesmo com o mesmo domínio já liberado acima.
             "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+            // O mapa do rodapé e a pré-visualização do painel são iframes do
+            // Google Maps (shared/utils/address.ts). Sem esta linha, frame-src
+            // herda o default-src 'self' e o navegador bloqueia o iframe em
+            // silêncio — foi assim de 08/09, quando o mapa entrou, até 24/09:
+            // nenhum tenant viu o mapa, e o painel também não, o que escondeu
+            // uma coordenada da Olmi digitada sem o sinal de menos.
+            // Os dois hosts porque maps.google.com responde 301 para
+            // www.google.com/maps/embed, e o CSP confere cada salto.
+            "frame-src https://maps.google.com https://www.google.com",
             "frame-ancestors 'self'", // sucessor do X-Frame-Options
             "base-uri 'self'", // bloqueia injeção de <base> pra sequestrar URLs relativas
             "form-action 'self'",
