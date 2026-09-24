@@ -9,7 +9,7 @@ Asaas, e o cliente decidiu pelo Cora. O desenho de adaptador existe exatamente
 para isso não custar o produto.
 
 As seis tabelas do [modelo financeiro](2026-09-21-modelo-financeiro-design.md)
-já existem e estão vazias (0041 aplicada em produção; 0042 a confirmar). Esta
+já existem e estão vazias (0041 e 0042 aplicadas em produção, conferido em 24/09). Esta
 spec é a primeira coisa que escreve nelas.
 
 ## O que o Cora é, e o que ele não é
@@ -266,5 +266,4 @@ reconsulta — a URL é só roteamento.
   mês); política de reentrega do webhook; limites de requisição; tarifa por
   boleto no plano do cliente; se Integração Direta pode ser operada por software
   de terceiro em nome do cliente; requisitos e prazo da Parceria.
-- **Com a gente:** confirmar se a 0042 já rodou em produção antes de a migration
-  desta spec entrar; criar `NUXT_INTEGRATIONS_KEY` na Vercel.
+- **Com a gente:** criar `NUXT_INTEGRATIONS_KEY` na Vercel.
