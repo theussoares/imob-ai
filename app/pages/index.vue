@@ -207,7 +207,11 @@ useHead(() => ({
 </script>
 
 <template>
-  <MoradiLanding v-if="platformRoot" />
+  <!-- Lazy de propósito, e não por hábito: importado direto, o CSS da landing
+       da plataforma (~63 KB, com a Plus Jakarta Sans inteira) entrava inline na
+       home de TODA imobiliária, que nunca a renderiza — medido em 24/09 no HTML
+       da Olmi. Em chunk próprio, só o domínio da plataforma baixa. -->
+  <LazyMoradiLanding v-if="platformRoot" />
   <div v-else>
     <Hero :tenant="tenant" preload />
 
