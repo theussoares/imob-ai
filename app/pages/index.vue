@@ -209,7 +209,7 @@ useHead(() => ({
 <template>
   <MoradiLanding v-if="platformRoot" />
   <div v-else>
-    <Hero :tenant="tenant" />
+    <Hero :tenant="tenant" preload />
 
     <div class="search">
       <PropertySearch :filters="filters" @search="scrollToResults" />
