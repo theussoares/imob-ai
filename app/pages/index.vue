@@ -20,9 +20,11 @@ import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 const tenant = useTenant();
 const requestUrl = useRequestURL();
 
-// Domínio-raiz da plataforma -> landing da Moradi (sem catálogo/tenant).
+// Domínio-raiz da plataforma -> landing da Moradi (sem catálogo/tenant). O
+// layout é escolhido em middleware/landing.ts: no setup, a troca chega tarde
+// demais no SSR e quebra a hidratação.
+definePageMeta({ middleware: "landing" });
 const platformRoot = useState("platformRoot", () => false);
-if (platformRoot.value) setPageLayout("landing");
 
 const { data: properties } = await useCatalogCards({ vazio: platformRoot.value });
 
