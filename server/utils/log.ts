@@ -33,9 +33,21 @@ export function logWarn(event: string, detail: Detail = {}) {
   emit('warn', event, detail)
 }
 
-/** Extrai mensagem de erro sem arrastar objeto inteiro (que pode conter payload). */
+/**
+ * Extrai mensagem de erro sem arrastar objeto inteiro (que pode conter payload).
+ *
+ * O erro do Supabase (`PostgrestError`) NÃO é `instanceof Error`: é objeto
+ * simples com `message`, e os repositories o lançam cru. Sem o terceiro ramo,
+ * toda falha de banco chegava ao log como "erro desconhecido" — inclusive a de
+ * tabela inexistente, que é a primeira coisa a conferir depois de um deploy com
+ * migration pendente. Pega só o `message`; `details` e `hint` podem trazer o
+ * valor da linha.
+ */
 export function errMessage(e: unknown): string {
   if (e instanceof Error) return e.message
   if (typeof e === 'string') return e
+  if (e && typeof e === 'object' && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message: string }).message
+  }
   return 'erro desconhecido'
 }

@@ -65,7 +65,7 @@ useIntersectionObserver(
       <span class="sc-label">{{ isRent ? 'Aluguel' : 'Valor' }}</span>
       <strong>{{ formatBRL(property.price) }}<span v-if="isRent">/mês</span></strong>
     </div>
-    <a class="btn-wa sc-btn" :href="whatsappLink(property)" target="_blank" rel="noopener">
+    <a class="btn-wa sc-btn" :href="whatsappLink(property)" :data-imovel="property.code" data-wa-origem="barra_fixa" target="_blank" rel="noopener">
       <AppIcon name="wa" /> Tenho interesse
     </a>
   </div>

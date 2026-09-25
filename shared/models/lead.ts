@@ -148,6 +148,11 @@ export interface LeadCreateInput {
   nextContactAt?: string | null
   brokerId?: string | null
   source?: string
+  /**
+   * Clique no WhatsApp de onde este contato saiu. O servidor lê o imóvel do
+   * clique e marca a conversão — ver `server/api/admin/leads.post.ts`.
+   */
+  whatsappClickId?: string | null
 }
 
 /** Edição de um lead no painel (mover no funil, anotar, agendar retorno). */

@@ -95,7 +95,7 @@ const detailPath = computed(() => propertyPath(props.property))
           repetir vira ruído para quem usa leitor de tela.
         -->
         <span class="btn-detail" aria-hidden="true">Ver detalhes</span>
-        <a class="btn-wa" :href="whatsappLink(property)" target="_blank" rel="noopener">
+        <a class="btn-wa" :href="whatsappLink(property)" :data-imovel="property.code" data-wa-origem="card" target="_blank" rel="noopener">
           <AppIcon name="wa" /> WhatsApp
         </a>
       </div>
