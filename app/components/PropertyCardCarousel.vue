@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PropertyImage } from "~~/shared/models/property";
+import type { CardPhoto } from "~~/shared/models/property";
 
 /**
  * Carrossel de fotos dentro do card do catálogo (grid da home, categorias e
@@ -15,7 +15,7 @@ import type { PropertyImage } from "~~/shared/models/property";
  */
 const props = withDefaults(
   defineProps<{
-    images: PropertyImage[];
+    images: CardPhoto[];
     alt: string;
     to: string;
     index?: number;
