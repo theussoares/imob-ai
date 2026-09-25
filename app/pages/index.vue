@@ -23,25 +23,13 @@ import {
 } from "~~/shared/utils/catalog-query";
 
 const tenant = useTenant();
-const requestFetch = useRequestFetch();
 const requestUrl = useRequestURL();
 
 // Domínio-raiz da plataforma -> landing da Moradi (sem catálogo/tenant).
 const platformRoot = useState("platformRoot", () => false);
 if (platformRoot.value) setPageLayout("landing");
 
-const { data: properties } = await useAsyncData(
-  "properties",
-  () =>
-    platformRoot.value
-      ? Promise.resolve([] as PropertyCard[])
-      : requestFetch<PropertyCard[]>("/api/properties"),
-  {
-    default: () => [] as PropertyCard[],
-    getCachedData: (key, nuxtApp) =>
-      nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
-  },
-);
+const { data: properties } = await useCatalogCards({ vazio: platformRoot.value });
 
 const list = computed(() => properties.value ?? []);
 // useState (não reactive local): sobrevive à navegação SPA (voltar do /{slug}/{codigo}
@@ -241,9 +229,13 @@ useHead(() => ({
 </script>
 
 <template>
-  <MoradiLanding v-if="platformRoot" />
+  <!-- Lazy de propósito, e não por hábito: importado direto, o CSS da landing
+       da plataforma (~63 KB e as fontes próprias dela) entrava inline na
+       home de TODA imobiliária, que nunca a renderiza — medido em 24/09 no HTML
+       da Olmi. Em chunk próprio, só o domínio da plataforma baixa. -->
+  <LazyMoradiLanding v-if="platformRoot" />
   <div v-else>
-    <Hero :tenant="tenant" />
+    <Hero :tenant="tenant" preload />
 
     <div class="search">
       <PropertySearch :filters="filters" @search="scrollToResults" />

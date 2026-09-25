@@ -8,20 +8,10 @@ import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 
 const route = useRoute();
 const tenant = useTenant();
-const requestFetch = useRequestFetch();
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true });
 
-// Mesma chave da home e da categoria: navegar entre elas não refaz a
-// requisição, e o payload SSR não é duplicado.
-const { data: properties } = await useAsyncData(
-  "properties",
-  () => requestFetch<PropertyCard[]>("/api/properties"),
-  {
-    default: () => [] as PropertyCard[],
-    getCachedData: (key, nuxtApp) =>
-      nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
-  },
-);
+// Mesma chave e formato da home — ver useCatalogCards.
+const { data: properties } = await useCatalogCards();
 
 const bairroSlug = String(route.params.bairro);
 // O piso de conteúdo (mesmo das categorias) já está embutido aqui: um bairro

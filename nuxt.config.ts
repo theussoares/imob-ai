@@ -6,7 +6,10 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts', '@vite-pwa/nuxt'],
+  // @vercel/analytics e @vercel/speed-insights saíram daqui: os módulos não aceitam
+  // `beforeSend`, e sem ele o painel e a Área do Cliente (com id de contrato na
+  // URL) iam para a Vercel. Quem injeta é app/plugins/observabilidade.client.ts.
+  modules: ['@vueuse/nuxt', '@nuxt/icon', '@nuxt/fonts', '@vite-pwa/nuxt'],
 
   /**
    * PWA do painel. Ver docs/superpowers/specs/2026-09-09-pwa-painel-design.md.
@@ -71,13 +74,39 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   fonts: {
+    /**
+     * Só latino e só normal. O padrão do módulo gera @font-face para cirílico,
+     * grego, vietnamita e latin-ext, em normal E itálico, para cada peso: eram
+     * 149 regras e 54 KB de CSS inline no HTML da home da Olmi (24/09), antes
+     * de qualquer byte de conteúdo — atrás delas ficava o preload do hero.
+     *
+     * Português cabe inteiro no subconjunto `latin` (acentos, ç, ã, travessão).
+     * Um caractere fora dele (nome com ő, por exemplo) cai na fonte de sistema
+     * só naquele glifo — não some.
+     *
+     * Itálico: o CSS usa em dois lugares (nota "sem características" do card e
+     * uma citação do Quem somos) e o <em> da landing. Sem o arquivo, o
+     * navegador sintetiza a inclinação; para uma linha de nota, a diferença não
+     * paga as 60 regras que o itálico real custava.
+     */
+    defaults: {
+      styles: ['normal'],
+      subsets: ['latin'],
+    },
     // Self-hosta os .woff2 (corta 2 hops pro Google) e gera @font-face com
     // size-adjust/ascent-override calculados — sem isso o layout salta na troca
     // da fonte fallback pela real, porque os max-width em `ch` mudam de largura.
     families: [
       { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Space Grotesk', provider: 'google', weights: [400, 500, 600, 700] },
-      { name: 'Plus Jakarta Sans', provider: 'google', weights: [500, 600, 700, 800] },
+      // As três abaixo são só da landing da raiz (MoradiLanding). O @nuxt/fonts
+      // só baixa a face que algum CSS usa, então o site dos clientes não paga.
+      { name: 'Schibsted Grotesk', provider: 'google', weights: [600, 700, 800] },
+      { name: 'Figtree', provider: 'google', weights: [400, 500, 600, 700] },
+      // Só itálico: é o único estilo que a landing usa desta família, uma
+      // palavra por título. Sem declarar, o default `normal` acima baixaria a
+      // face errada e o navegador sintetizaria a inclinação.
+      { name: 'Instrument Serif', provider: 'google', weights: [400], styles: ['italic'] },
     ],
   },
 

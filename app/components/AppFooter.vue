@@ -6,6 +6,7 @@ import {
 import {
   formatTenantAddress,
   googleMapsEmbedSrc,
+  googleMapsLink,
   hasStructuredAddress,
 } from "~~/shared/utils/address";
 const tenant = useTenant();
@@ -21,6 +22,23 @@ const mapSrc = computed(() =>
     ? googleMapsEmbedSrc(tenant.value)
     : null,
 );
+const mapLink = computed(() => (tenant.value ? googleMapsLink(tenant.value) : null));
+
+/**
+ * O mapa só entra quando a pessoa pede.
+ *
+ * O iframe do Google Maps traz o JavaScript do Maps inteiro (main.js,
+ * common.js, embed): no PageSpeed de 24/09 isso subiu o TBT do desktop para
+ * ~500 ms, com tarefas longas de até 129 ms. Ninguém notou antes porque até o
+ * hotfix #50 a CSP bloqueava o iframe — o custo apareceu junto com o mapa.
+ * `loading="lazy"` não bastava: o Chrome carrega iframe a 1.250–2.500 px da
+ * tela, e isso já alcança o rodapé da home.
+ *
+ * O bloco no lugar tem a mesma altura do mapa, para a página não pular quando
+ * ele entra. "Abrir no Google Maps" é um link comum: funciona sem JavaScript e
+ * no celular abre o app, que é o que a maioria quer de qualquer jeito.
+ */
+const mapaAberto = ref(false);
 
 /**
  * Texto do rodapé. Vazio cai na frase gerada com a cidade — quem nunca abrir a
@@ -125,11 +143,29 @@ const builtByLink = computed(() => {
            há endereço, então não pesa o rodapé de quem não configurou nada. -->
       <div v-if="mapSrc" class="foot-map" style="grid-column: 1 / -1">
         <iframe
+          v-if="mapaAberto"
           :src="mapSrc"
-          loading="lazy"
           referrerpolicy="no-referrer-when-downgrade"
           title="Mapa com a localização"
         />
+        <div v-else class="foot-map-capa">
+          <AppIcon name="pin" class="foot-map-pino" />
+          <span v-if="address" class="foot-map-end">{{ address }}</span>
+          <div class="foot-map-acoes">
+            <button type="button" class="foot-map-btn" @click="mapaAberto = true">
+              Ver mapa aqui
+            </button>
+            <a
+              v-if="mapLink"
+              :href="mapLink"
+              target="_blank"
+              rel="noopener"
+              class="foot-map-link"
+            >
+              Abrir no Google Maps ↗
+            </a>
+          </div>
+        </div>
       </div>
 
       <nav
@@ -187,6 +223,55 @@ const builtByLink = computed(() => {
   height: 200px;
   border: 0;
   display: block;
+}
+/* Mesma altura do iframe: trocar um pelo outro não empurra o rodapé. */
+.foot-map-capa {
+  height: 200px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.foot-map-pino {
+  width: 26px;
+  height: 26px;
+  color: #fff;
+}
+.foot-map-end {
+  color: #cfe3dd;
+  font-size: 14px;
+  max-width: 48ch;
+}
+.foot-map-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 16px;
+}
+.foot-map-btn {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 10px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 9px 16px;
+}
+.foot-map-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.foot-map-link {
+  color: #cfe3dd;
+  font-size: 14px;
 }
 .foot-links {
   grid-column: 1 / -1;

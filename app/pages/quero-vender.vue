@@ -5,17 +5,13 @@ import { buildOwnerLeadMessage, offeringTypeFor } from '~~/shared/utils/owner-le
 import { isValidBrPhone } from '~~/shared/utils/phone'
 
 const tenant = useTenant()
-const requestFetch = useRequestFetch()
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true })
 const { whatsappLink } = useContact()
 
 // Mesma chave da home e das categorias: navegar entre elas não refaz requisição.
 // Aqui os imóveis servem só para dizer quantos a imobiliária já anuncia — que é
 // prova social real, ao contrário de depoimento inventado.
-const { data: properties } = await useAsyncData('properties', () => requestFetch<PropertyCard[]>('/api/properties'), {
-  default: () => [] as PropertyCard[],
-  getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
-})
+const { data: properties } = await useCatalogCards()
 
 const cidade = computed(() => tenant.value?.city || '')
 const emCidade = computed(() => (cidade.value ? ` em ${cidade.value}` : ''))

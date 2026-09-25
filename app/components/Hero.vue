@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { Tenant } from '~~/shared/models/tenant'
 
-const props = defineProps<{ tenant: Tenant | null }>()
+const props = defineProps<{
+  tenant: Tenant | null
+  /** Só o site público: a pré-visualização do painel não tem LCP a ganhar. */
+  preload?: boolean
+}>()
 
 const hasImage = computed(() => !!props.tenant?.heroImage)
 const isBackground = computed(() => hasImage.value && props.tenant?.heroImagePosition === 'background')
@@ -43,6 +47,67 @@ const heroSplitSrcset = computed(() => {
     `${supabaseRenderImage(url, { width: 1440, height: 1440, quality: 70 })} 1440w`,
   ].join(', ')
 })
+
+const BG_SIZES = '100vw'
+const SPLIT_SIZES = '(min-width: 860px) 546px, calc(100vw - 36px)'
+
+/**
+ * Preload da foto do hero no `<head>`.
+ *
+ * O PageSpeed no celular (24/09) mostrava o LCP esperando 2,3 s só para
+ * COMEÇAR a baixar: o `<img>` fica no byte ~91 mil do HTML, depois de ~80 KB de
+ * CSS inline, e o navegador não sabe que a foto existe até o parser chegar lá.
+ *
+ * ⚠️ O `<link>` no `<head>` NÃO resolve sozinho — medido em produção depois
+ * do #55: mesmo com `tagPriority: 'critical'` ele sai no byte ~82 mil, DEPOIS
+ * dos `<style>` inline que o Nuxt injeta no build (quase tudo `@font-face` do
+ * @nuxt/fonts). O servidor de dev não inline CSS; lá ele aparecia no byte
+ * 1,5 mil, e foi isso que enganou a primeira validação.
+ *
+ * Por isso a via principal é o cabeçalho HTTP `Link`: o navegador o lê antes do
+ * primeiro byte do HTML, e a ordem do `<head>` deixa de importar. O `<link>`
+ * fica como reserva (proxy que descarte o cabeçalho); o navegador deduplica os
+ * dois porque URL, srcset e sizes são iguais.
+ *
+ * ⚠️ `imagesrcset` e `imagesizes` têm que ser IDÊNTICOS aos do `<img>` —
+ * por isso saem dos mesmos `computed`/constantes. Se divergirem, o navegador
+ * escolhe candidatos diferentes nas duas pontas e baixa a foto DUAS vezes
+ * (e, no Supabase, com duas transformações em vez de uma).
+ */
+if (import.meta.server && props.preload && hasImage.value) {
+  const srcset = isBackground.value ? heroBgSrcset.value : heroSplitSrcset.value
+  const event = useRequestEvent()
+  if (event && srcset) {
+    const sizes = isBackground.value ? BG_SIZES : SPLIT_SIZES
+    // Acrescentar, nunca substituir: o servidor já manda outros `Link` (sitemap,
+    // llms.txt, api-catalog). `appendResponseHeader` do h3 não é auto-importado
+    // no lado do app — só no de servidor —, e o typecheck não pega: o build de
+    // produção respondeu 500. O `appendHeader` do próprio response do Node não
+    // depende de import nenhum.
+    event.node.res.appendHeader(
+      'Link',
+      `<${props.tenant!.heroImage!}>; rel=preload; as=image; imagesrcset="${srcset}"; imagesizes="${sizes}"; fetchpriority=high`,
+    )
+  }
+}
+
+useHead(() => {
+  if (!props.preload || !hasImage.value) return {}
+  return {
+    link: [
+      {
+        key: 'hero-preload',
+        rel: 'preload',
+        as: 'image',
+        href: props.tenant!.heroImage!,
+        imagesrcset: isBackground.value ? heroBgSrcset.value : heroSplitSrcset.value,
+        imagesizes: isBackground.value ? BG_SIZES : SPLIT_SIZES,
+        fetchpriority: 'high',
+        tagPriority: 'critical',
+      },
+    ],
+  }
+})
 </script>
 
 <template>
@@ -52,7 +117,7 @@ const heroSplitSrcset = computed(() => {
       <img
         :src="tenant!.heroImage!"
         :srcset="heroBgSrcset"
-        sizes="100vw"
+        :sizes="BG_SIZES"
         :alt="imageAlt"
         fetchpriority="high"
         decoding="async"
@@ -79,7 +144,7 @@ const heroSplitSrcset = computed(() => {
         <img
           :src="tenant!.heroImage!"
           :srcset="heroSplitSrcset"
-          sizes="(min-width: 860px) 546px, calc(100vw - 36px)"
+          :sizes="SPLIT_SIZES"
           :alt="imageAlt"
           fetchpriority="high"
           decoding="async"
