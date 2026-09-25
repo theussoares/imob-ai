@@ -183,7 +183,7 @@ useHead(() => {
   align-items: center;
   margin-top: 20px;
   padding: 13px 22px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-btn);
   background: var(--brand);
   color: #fff;
   font-weight: 600;

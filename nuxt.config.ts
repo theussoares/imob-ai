@@ -99,6 +99,13 @@ export default defineNuxtConfig({
     families: [
       { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Space Grotesk', provider: 'google', weights: [400, 500, 600, 700] },
+      // Temas da vitrine (ver a spec 2026-09-25-temas-da-vitrine): Playfair no
+      // "Alto padrão", Nunito no "Acolhedor". O "Moderno" usa a Figtree da
+      // landing, já declarada abaixo. Três pesos cada, só latino e normal: o
+      // custo é o texto das regras @font-face no HTML de TODO cliente, e o
+      // teto medido na spec é de +4 KB.
+      { name: 'Playfair Display', provider: 'google', weights: [400, 600, 700] },
+      { name: 'Nunito', provider: 'google', weights: [400, 600, 700] },
       // As três abaixo são só da landing da raiz (MoradiLanding). O @nuxt/fonts
       // só baixa a face que algum CSS usa, então o site dos clientes não paga.
       { name: 'Schibsted Grotesk', provider: 'google', weights: [600, 700, 800] },
