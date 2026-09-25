@@ -67,23 +67,23 @@ useHead({
 
 <style scoped>
 .tit {
-  font-size: 22px;
+  font-size: var(--fs-title);
   margin: 4px 0 16px;
 }
 .muted {
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: #6b7280;
 }
 .erro {
   color: #b91c1c;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .vazio {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 20px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: #4b5563;
 }
 .vazio p {
@@ -103,7 +103,7 @@ useHead({
   gap: 2px 10px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 14px 16px;
   text-decoration: none;
   color: inherit;
@@ -113,20 +113,20 @@ useHead({
 }
 .cartao-tit {
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .cartao-sub {
   grid-column: 1;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #6b7280;
 }
 .tag {
   grid-column: 1;
   justify-self: start;
   margin-top: 6px;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   background: #f3f4f6;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 2px 9px;
   color: #4b5563;
 }

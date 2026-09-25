@@ -80,3 +80,44 @@ export function googleMapsLink(t: AddressFields & Coordinates): string | null {
   const endereco = formatTenantAddress(t)
   return endereco ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}` : null
 }
+
+/**
+ * Mapa do BAIRRO de um imóvel, nunca do endereço.
+ *
+ * Localização é o que o comprador mais quer saber e a página do imóvel não
+ * mostrava nada além do nome do bairro. Mas o ponto exato é coluna interna
+ * (`properties.location`, ver o guardrail de payload público): a imobiliária
+ * não quer o endereço exposto antes do contato — é o que impede quem vê o
+ * anúncio de ir direto ao proprietário.
+ *
+ * Por isso a busca é por texto, "Bairro, Cidade - UF", só com campos que já são
+ * públicos. Sem bairro não há mapa: a cidade inteira não ajuda a decidir nada.
+ */
+type BairroDoImovel = {
+  neighborhood: string | null
+  city: string | null
+  state?: string | null
+}
+
+function buscaDoBairro(p: BairroDoImovel): string | null {
+  const bairro = p.neighborhood?.trim()
+  if (!bairro) return null
+  const cidadeUf = [p.city, p.state].filter(Boolean).join(' - ')
+  return [bairro, cidadeUf].filter(Boolean).join(', ')
+}
+
+export function neighborhoodMapsEmbedSrc(p: BairroDoImovel): string | null {
+  const q = buscaDoBairro(p)
+  return q ? `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=14&output=embed` : null
+}
+
+/**
+ * Mesmo bairro, aberto fora do iframe. No celular abre o app de mapas — onde a
+ * pessoa quer calcular o trajeto até o trabalho, coisa que o iframe não faz —
+ * e é a saída quando o iframe não carrega (rede corporativa ou extensão que
+ * bloqueia google.com deixam o quadro cinza, sem erro visível na página).
+ */
+export function neighborhoodMapsLink(p: BairroDoImovel): string | null {
+  const q = buscaDoBairro(p)
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null
+}

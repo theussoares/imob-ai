@@ -16,6 +16,11 @@ import {
 import { qualifyingNeighborhoods } from "~~/shared/utils/neighborhood";
 import { hasStructuredAddress, tenantCoordinates } from "~~/shared/utils/address";
 import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
+import {
+  CATALOG_QUERY_KEYS,
+  catalogFiltersFromQuery,
+  catalogFiltersToQuery,
+} from "~~/shared/utils/catalog-query";
 
 const tenant = useTenant();
 const requestUrl = useRequestURL();
@@ -32,6 +37,35 @@ const list = computed(() => properties.value ?? []);
 // requisição, ao contrário de um objeto solto no escopo do módulo).
 const filters = useState("catalog-filters", createCatalogFilters).value;
 const { filtered, reset } = useCatalog(list, filters);
+
+/**
+ * A URL manda quando traz filtro; quando não traz, vale o que o `useState`
+ * guardou. Assim um link recebido abre já filtrado, e quem volta de um imóvel
+ * (URL sem query, se a pessoa entrou pela home limpa) encontra a lista como
+ * deixou.
+ *
+ * `replace`, não `push`: cada tecla no campo de busca empilharia uma entrada no
+ * histórico, e o "voltar" passaria a desfazer letra por letra em vez de levar
+ * para a página anterior.
+ */
+const route = useRoute();
+const router = useRouter();
+const daUrl = catalogFiltersFromQuery(route.query);
+if (Object.keys(daUrl).length) Object.assign(filters, createCatalogFilters(), daUrl);
+
+function espelharNaUrl(query: Record<string, string>) {
+  const resto = Object.fromEntries(
+    Object.entries(route.query).filter(
+      ([k]) => !(CATALOG_QUERY_KEYS as readonly string[]).includes(k),
+    ),
+  );
+  router.replace({ query: { ...resto, ...query } });
+}
+watch(() => catalogFiltersToQuery(filters), espelharNaUrl, { deep: true });
+// No mount, não no setup: no SSR um `replace` viraria redirect. Cobre quem
+// volta para `/` com filtros guardados — sem isto a URL ficaria limpa até a
+// próxima mudança, e copiar o link naquele momento perderia a busca.
+onMounted(() => espelharNaUrl(catalogFiltersToQuery(filters)));
 
 /**
  * Quantos lotes de card a home já revelou.
@@ -207,7 +241,7 @@ useHead(() => ({
       <PropertySearch :filters="filters" @search="scrollToResults" />
     </div>
 
-    <main ref="resultsEl" class="wrap">
+    <div ref="resultsEl" class="wrap">
       <div class="res-head">
         <div>
           <h2>
@@ -238,32 +272,6 @@ useHead(() => ({
       </div>
 
       <LazyTypeChips :filters="filters" :properties="list" />
-
-      <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
-           um caminho até elas. As de tipo só aparecem com imóveis suficientes;
-           as de pretensão (a-venda/para-alugar) entram sempre. -->
-      <nav
-        v-if="catLinks.length"
-        class="cat-links"
-        aria-label="Categorias de imóveis"
-      >
-        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{
-          c.label
-        }}</NuxtLink>
-      </nav>
-
-      <!-- Mesmo raciocínio do bloco acima, por bairro: só entra quem já tem
-           imóveis suficientes (ver CATEGORY_MIN_PROPERTIES), pra não linkar
-           página fina. -->
-      <nav
-        v-if="hoodLinks.length"
-        class="cat-links"
-        aria-label="Bairros"
-      >
-        <NuxtLink v-for="h in hoodLinks" :key="h.href" :to="h.href">{{
-          h.label
-        }}</NuxtLink>
-      </nav>
 
       <div v-if="filtered.length" class="grid">
         <!-- stagger limitado a 8 cards: sem o teto, 50 imóveis deixam o último
@@ -324,6 +332,40 @@ useHead(() => ({
         </div>
       </div>
 
+      <!--
+        Depois da lista, e como links de TEXTO: antes eram duas fileiras de
+        pastilhas logo abaixo das pastilhas de tipo, com a mesma cara — não
+        dava para saber quais filtravam a lista e quais levavam a outra
+        página. Continuam no HTML, que é o que importa para o rastreador.
+      -->
+      <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
+           um caminho até elas. As de tipo só aparecem com imóveis suficientes;
+           as de pretensão (a-venda/para-alugar) entram sempre. -->
+      <nav
+        v-if="catLinks.length"
+        class="cat-links"
+        aria-label="Categorias de imóveis"
+      >
+        <span class="cat-links-t">Explore:</span>
+        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{
+          c.label
+        }}</NuxtLink>
+      </nav>
+
+      <!-- Mesmo raciocínio do bloco acima, por bairro: só entra quem já tem
+           imóveis suficientes (ver CATEGORY_MIN_PROPERTIES), pra não linkar
+           página fina. -->
+      <nav
+        v-if="hoodLinks.length"
+        class="cat-links"
+        aria-label="Bairros"
+      >
+        <span class="cat-links-t">Bairros:</span>
+        <NuxtLink v-for="h in hoodLinks" :key="h.href" :to="h.href">{{
+          h.label
+        }}</NuxtLink>
+      </nav>
+
       <!-- Quem viu a lista inteira e não gostou de nada não passa pelo estado
            vazio, então essa saída não existiria para ela. -->
       <div v-if="filtered.length" class="browse-lead">
@@ -338,6 +380,6 @@ useHead(() => ({
           :build-message="composeSearchMessage"
         />
       </div>
-    </main>
+    </div>
   </div>
 </template>

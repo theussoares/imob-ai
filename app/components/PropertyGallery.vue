@@ -60,12 +60,32 @@ watch(activeIndex, async (i) => {
   }
 });
 
+/**
+ * Texto alternativo da foto ATUAL.
+ *
+ * Todas as fotos usavam o título do imóvel: para quem ouve a página, trocar de
+ * foto repetia "Casa em Jardim das Américas" e não havia como saber se a foto
+ * tinha mudado. O `alt` cadastrado vence; sem ele, a posição ao menos diz que
+ * é outra foto.
+ */
+const activeAlt = computed(() => {
+  const own = activeImage.value?.alt?.trim();
+  if (own) return own;
+  return hasMany.value
+    ? `${props.title} — foto ${activeIndex.value + 1} de ${props.images.length}`
+    : props.title;
+});
+
 // Tela cheia
 const lightboxOpen = ref(false);
 const closeBtn = ref<HTMLButtonElement | null>(null);
+const lightboxEl = ref<HTMLElement | null>(null);
+/** Quem abriu a tela cheia — é para lá que o foco volta ao fechar. */
+let openerEl: HTMLElement | null = null;
 
 async function openLightbox() {
   if (!active.value) return;
+  openerEl = import.meta.client ? (document.activeElement as HTMLElement | null) : null;
   lightboxOpen.value = true;
   await nextTick();
   closeBtn.value?.focus(); // acessibilidade: foco vai pro overlay
@@ -75,9 +95,40 @@ async function openLightbox() {
     ?.querySelectorAll<HTMLElement>(".lb-thumb")
     [activeIndex.value]?.scrollIntoView({ block: "nearest", inline: "center" });
 }
-function closeLightbox() {
+/**
+ * Devolve o foco a quem abriu. Sem isto o foco caía no `<body>` ao fechar, e
+ * quem navega por teclado voltava ao topo da página, tendo de tabular tudo de
+ * novo até a galeria (padrão de diálogo da WAI-ARIA APG).
+ */
+async function closeLightbox() {
   lightboxOpen.value = false;
+  await nextTick();
+  openerEl?.focus();
+  openerEl = null;
 }
+
+/**
+ * Prende o Tab dentro do diálogo. `aria-modal` avisa o leitor de tela, mas não
+ * segura o teclado: sem isto o Tab saía da tela cheia e ia focando links da
+ * página ESCONDIDA atrás do overlay, sem nada visível mudar.
+ */
+onKeyStroke("Tab", (e) => {
+  if (!lightboxOpen.value || !lightboxEl.value) return;
+  const focaveis = [
+    ...lightboxEl.value.querySelectorAll<HTMLElement>("button:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"),
+  ];
+  if (!focaveis.length) return;
+  const primeiro = focaveis[0]!;
+  const ultimo = focaveis[focaveis.length - 1]!;
+  const atual = document.activeElement;
+  if (e.shiftKey && (atual === primeiro || !lightboxEl.value.contains(atual))) {
+    e.preventDefault();
+    ultimo.focus();
+  } else if (!e.shiftKey && (atual === ultimo || !lightboxEl.value.contains(atual))) {
+    e.preventDefault();
+    primeiro.focus();
+  }
+});
 
 // Teclado só enquanto a tela cheia está aberta.
 onKeyStroke("Escape", () => lightboxOpen.value && closeLightbox());
@@ -158,7 +209,7 @@ onBeforeUnmount(() => {
         :src="active"
         :srcset="activeSrcset"
         sizes="(min-width: 900px) 740px, 100vw"
-        :alt="title"
+        :alt="activeAlt"
         class="gallery-main"
         fetchpriority="high"
         decoding="async"
@@ -221,6 +272,7 @@ onBeforeUnmount(() => {
       <Transition name="lb">
         <div
           v-if="lightboxOpen"
+          ref="lightboxEl"
           class="lightbox"
           role="dialog"
           aria-modal="true"
@@ -256,7 +308,7 @@ onBeforeUnmount(() => {
               :src="active"
               :srcset="activeSrcset"
               sizes="100vw"
-              :alt="title"
+              :alt="activeAlt"
               class="lb-img"
               draggable="false"
               @load="onImageLoad"
@@ -283,15 +335,18 @@ onBeforeUnmount(() => {
             <button
               v-for="(img, i) in images"
               :key="img.id"
+              type="button"
               class="lb-thumb"
               :class="{ on: activeIndex === i }"
               :aria-label="`Foto ${i + 1} de ${images.length}`"
               :aria-current="activeIndex === i ? 'true' : undefined"
               @click="activeIndex = i"
             >
+              <!-- alt vazio: o botão já se chama "Foto 3 de 12"; o título do
+                   imóvel repetido em cada miniatura só alongava o anúncio. -->
               <img
                 :src="img.urlSm || img.url"
-                :alt="img.alt || title"
+                alt=""
                 loading="lazy"
               />
             </button>
@@ -312,7 +367,7 @@ onBeforeUnmount(() => {
   width: 100%;
   position: relative;
   aspect-ratio: 16/10;
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   overflow: hidden;
   background: #cdd6cf;
   box-shadow: var(--shadow);
@@ -337,7 +392,7 @@ onBeforeUnmount(() => {
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   opacity: 0;
@@ -361,10 +416,10 @@ onBeforeUnmount(() => {
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
   opacity: 0;
@@ -441,10 +496,10 @@ onBeforeUnmount(() => {
   left: 12px;
   bottom: 12px;
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -477,7 +532,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   width: 84px;
   height: 60px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
   border: 2px solid transparent;
   padding: 0;
@@ -499,7 +554,7 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: cover;
   /* Concêntrico: 10px do botão menos os 2px da borda. */
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   /* Contorno tênue para a foto clara não se dissolver no fundo claro. */
   outline: 1px solid rgb(0 0 0 / 0.06);
   outline-offset: -1px;
@@ -508,12 +563,12 @@ onBeforeUnmount(() => {
 .see-all {
   margin-top: 4px;
   padding: 9px 14px;
-  min-height: 40px; /* área de toque */
+  min-height: 44px; /* área de toque */
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--ink);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -577,7 +632,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
   cursor: pointer;
@@ -633,10 +688,10 @@ onBeforeUnmount(() => {
   top: 26px;
   left: 24px;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -657,7 +712,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   width: 72px;
   height: 52px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   overflow: hidden;
   border: 2px solid transparent;
   padding: 0;
@@ -691,7 +746,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px; /* concêntrico: 8px do botão menos a borda de 2px */
+  border-radius: var(--r-sm); /* concêntrico: 8px do botão menos a borda de 2px */
 }
 /* Telas baixas (celular deitado): a tira come altura demais da foto. */
 @media (max-height: 460px) {

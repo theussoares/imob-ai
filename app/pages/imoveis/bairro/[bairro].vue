@@ -32,8 +32,11 @@ const inNeighborhood = computed(() =>
 /**
  * Mesmo corte em lotes da home e da categoria — ver `catalog-lote.ts`. Aqui
  * não há filtro na tela, então não há o que reiniciar: o lote só cresce.
+ *
+ * `useState` por bairro, não `ref`: voltar de um imóvel do segundo lote
+ * recolhia a lista, o card sumia e a rolagem não tinha onde ser restaurada.
  */
-const lotes = ref(1);
+const lotes = useState(`bairro-lotes:${bairroSlug}`, () => 1);
 const lote = computed(() => loteDoCatalogo(inNeighborhood.value, lotes.value));
 
 const { whatsappLink } = useContact();
@@ -88,7 +91,7 @@ useHead(() => ({
       </p>
     </div>
 
-    <main class="wrap">
+    <div class="wrap">
       <div class="grid">
         <PropertyCard
           v-for="(p, i) in lote.visiveis"
@@ -110,7 +113,7 @@ useHead(() => ({
           Mostrando {{ lote.visiveis.length }} de {{ inNeighborhood.length }}
         </p>
       </div>
-    </main>
+    </div>
   </div>
 </template>
 
@@ -124,7 +127,7 @@ useHead(() => ({
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   margin-bottom: 12px;
 }
@@ -142,7 +145,7 @@ useHead(() => ({
 }
 .cat-intro {
   color: var(--ink-soft);
-  font-size: 16px;
+  font-size: var(--fs-body);
   max-width: 62ch;
   margin: 0;
 }

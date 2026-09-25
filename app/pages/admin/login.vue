@@ -38,19 +38,23 @@ useHead({ title: 'Entrar · Painel' })
 <template>
   <div class="login-wrap">
     <form class="admin-card login-card" @submit.prevent="login">
-      <div class="brand" style="margin-bottom: 6px">
+      <!-- `sem-logo`: o selo de 140px com ícone branco sobre fundo transparente
+           ficava invisível aqui, o mesmo defeito do cabeçalho do site. -->
+      <div class="brand sem-logo" style="margin-bottom: 6px">
         <span class="mark"><AppIcon name="home" /></span>
         <span><b>{{ tenant?.name || 'Painel' }}</b><small>Área administrativa</small></span>
       </div>
       <h1 style="font-size: 22px; margin: 6px 0 14px">Entrar no painel</h1>
 
       <label class="admin-label" for="email">E-mail</label>
-      <input id="email" v-model="email" class="admin-input" type="email" autocomplete="email" required />
+      <input id="email" v-model="email" class="admin-input" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required />
 
       <label class="admin-label" for="pass" style="margin-top: 12px">Senha</label>
-      <input id="pass" v-model="password" class="admin-input" type="password" autocomplete="current-password" required />
+      <AdminPasswordInput id="pass" v-model="password" autocomplete="current-password" />
 
-      <p v-if="error" style="color: #b91c1c; font-size: 13px; margin: 10px 0 0">{{ error }}</p>
+      <!-- role="alert": o erro aparece abaixo do botão que a pessoa acabou de
+           apertar, e sem o anúncio o leitor de tela não dizia que falhou. -->
+      <p v-if="error" role="alert" style="color: #b91c1c; font-size: 13px; margin: 10px 0 0">{{ error }}</p>
 
       <button class="admin-btn" type="submit" style="margin-top: 16px; width: 100%" :disabled="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}
@@ -85,7 +89,7 @@ useHead({ title: 'Entrar · Painel' })
   max-width: 380px;
   margin-top: 14px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 </style>

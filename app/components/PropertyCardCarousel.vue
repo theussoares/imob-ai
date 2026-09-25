@@ -37,6 +37,7 @@ const props = withDefaults(
 );
 
 const {
+  activeIndex,
   activeImage,
   activeSrc,
   activeSrcset,
@@ -93,6 +94,13 @@ function onTap() {
     />
     <div class="img-spinner" :class="{ on: imageLoading }" aria-hidden="true" />
     <template v-if="hasMany">
+      <!--
+        Contador sempre visível. No desktop as setas só aparecem no hover, e
+        nada no card dizia que havia mais de uma foto: quem não passava o
+        mouse por cima via uma foto só e decidia por ela. `aria-hidden` porque
+        para o leitor de tela as setas já são a informação — "Próxima foto".
+      -->
+      <span class="cc-count" aria-hidden="true">{{ activeIndex + 1 }}/{{ images.length }}</span>
       <button
         type="button"
         class="cc-nav cc-prev"

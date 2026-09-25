@@ -30,15 +30,28 @@ const form = reactive({
 const { display: phoneDisplay, onInput: onPhoneInput } = usePhoneInput(toRef(form, 'phone'), 'br')
 
 const status = ref<'idle' | 'sending' | 'ok' | 'error'>('idle')
+/** Erro do envio (servidor/rede) — os de campo moram em `fieldErrors`. */
 const error = ref('')
 
+/**
+ * Erro por campo, abaixo do campo, validado ao sair dele — mesmo arranjo do
+ * LeadForm (ver o comentário lá). A mensagem única em cima do botão ficava
+ * fora da tela no celular com o teclado aberto.
+ */
+const fieldErrors = reactive({ name: '', phone: '' })
+function validateField(field: 'name' | 'phone'): boolean {
+  if (field === 'name') fieldErrors.name = form.name.trim() ? '' : 'Preencha seu nome.'
+  else fieldErrors.phone = isValidBrPhone(form.phone) ? '' : 'Telefone inválido. Ex.: (67) 99123-4567'
+  return !fieldErrors[field]
+}
+watch(() => form.name, () => fieldErrors.name && validateField('name'))
+watch(() => form.phone, () => fieldErrors.phone && validateField('phone'))
+
 async function submit() {
-  if (!form.name.trim()) {
-    error.value = 'Preencha seu nome.'
-    return
-  }
-  if (!isValidBrPhone(form.phone)) {
-    error.value = 'Telefone inválido. Ex.: (67) 99123-4567'
+  const nomeOk = validateField('name')
+  const foneOk = validateField('phone')
+  if (!nomeOk || !foneOk) {
+    document.getElementById(nomeOk ? 'qv-tel' : 'qv-nome')?.focus()
     return
   }
   status.value = 'sending'
@@ -163,11 +176,13 @@ useHead(() => ({
       <div class="qv-form-card">
         <h2 id="fale">Fale com a gente</h2>
 
-        <p v-if="status === 'ok'" class="qv-ok">
-          Recebemos seus dados. Um corretor entra em contato pelo WhatsApp para combinar a avaliação. ✅
-        </p>
+        <div role="status" aria-live="polite">
+          <p v-if="status === 'ok'" class="qv-ok">
+            Recebemos seus dados. Um corretor entra em contato pelo WhatsApp para combinar a avaliação. ✅
+          </p>
+        </div>
 
-        <form v-else @submit.prevent="submit">
+        <form v-if="status !== 'ok'" novalidate @submit.prevent="submit">
           <fieldset class="qv-purpose">
             <legend>O que você quer fazer?</legend>
             <label :class="{ on: form.purpose === 'venda' }">
@@ -182,20 +197,37 @@ useHead(() => ({
 
           <div class="qv-grid">
             <div>
-              <label class="admin-label" for="qv-nome">Seu nome *</label>
-              <input id="qv-nome" v-model="form.name" class="admin-input" type="text" />
+              <label class="admin-label" for="qv-nome">Seu nome <span aria-hidden="true">*</span></label>
+              <input
+                id="qv-nome"
+                v-model="form.name"
+                class="admin-input"
+                type="text"
+                autocomplete="name"
+                aria-required="true"
+                :aria-invalid="!!fieldErrors.name || undefined"
+                :aria-describedby="fieldErrors.name ? 'qv-nome-err' : undefined"
+                @blur="validateField('name')"
+              />
+              <p v-if="fieldErrors.name" id="qv-nome-err" class="qv-err">{{ fieldErrors.name }}</p>
             </div>
             <div>
-              <label class="admin-label" for="qv-tel">WhatsApp *</label>
+              <label class="admin-label" for="qv-tel">WhatsApp <span aria-hidden="true">*</span></label>
               <input
                 id="qv-tel"
                 :value="phoneDisplay"
                 class="admin-input"
                 type="tel"
                 inputmode="numeric"
+                autocomplete="tel-national"
+                aria-required="true"
+                :aria-invalid="!!fieldErrors.phone || undefined"
+                :aria-describedby="fieldErrors.phone ? 'qv-tel-err' : undefined"
                 placeholder="(67) 99123-4567"
                 @input="onPhoneInput"
+                @blur="form.phone && validateField('phone')"
               />
+              <p v-if="fieldErrors.phone" id="qv-tel-err" class="qv-err">{{ fieldErrors.phone }}</p>
             </div>
             <div>
               <label class="admin-label" for="qv-tipo">Tipo do imóvel</label>
@@ -221,7 +253,7 @@ useHead(() => ({
             placeholder="Ex.: está alugado até dezembro, precisa de reforma, tenho pressa..."
           />
 
-          <p v-if="error" class="qv-err">{{ error }}</p>
+          <p v-if="error" class="qv-err" role="alert">{{ error }}</p>
 
           <button class="admin-btn qv-submit" type="submit" :disabled="status === 'sending'">
             {{ status === 'sending' ? 'Enviando...' : 'Quero uma avaliação' }}
@@ -275,7 +307,7 @@ useHead(() => ({
 .crumbs {
   display: flex;
   gap: 7px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .crumbs a {
@@ -300,7 +332,7 @@ useHead(() => ({
 .qv-lede {
   margin: 0;
   max-width: 60ch;
-  font-size: 17px;
+  font-size: var(--fs-title-sm);
   line-height: 1.6;
   color: var(--ink-soft);
 }
@@ -310,14 +342,14 @@ useHead(() => ({
   color: #fff;
   font-weight: 600;
   padding: 12px 22px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   text-decoration: none;
 }
 
 .qv-steps h2,
 .qv-form-wrap h2 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
+  font-size: var(--fs-title-sm);
   margin: 0 0 14px;
 }
 .qv-steps ol {
@@ -333,7 +365,7 @@ useHead(() => ({
   counter-increment: passo;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 18px;
 }
 .qv-steps li::before {
@@ -345,17 +377,17 @@ useHead(() => ({
   border-radius: 50%;
   background: var(--brand);
   color: #fff;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 700;
   margin-bottom: 10px;
 }
 .qv-steps h3 {
-  font-size: 16px;
+  font-size: var(--fs-body);
   margin: 0 0 5px;
 }
 .qv-steps p {
   margin: 0;
-  font-size: 14.5px;
+  font-size: var(--fs-ui);
   line-height: 1.6;
   color: var(--ink-soft);
 }
@@ -375,7 +407,7 @@ useHead(() => ({
 .qv-side {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 20px;
 }
 .qv-form-card form {
@@ -393,7 +425,7 @@ useHead(() => ({
   flex-wrap: wrap;
 }
 .qv-purpose legend {
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   margin-bottom: 8px;
   padding: 0;
@@ -404,10 +436,10 @@ useHead(() => ({
   gap: 7px;
   padding: 9px 16px;
   border: 1.5px solid var(--line-2);
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: var(--fs-ui);
 }
 .qv-purpose label.on {
   border-color: var(--brand);
@@ -426,19 +458,25 @@ useHead(() => ({
 }
 .qv-err {
   color: #b91c1c;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   margin: 10px 0 0;
 }
 .qv-ok {
   color: var(--wa-dark);
   font-weight: 600;
-  font-size: 15.5px;
+  font-size: var(--fs-body);
   line-height: 1.55;
   margin: 0;
 }
+/* Não só a cor marca o campo reprovado: a borda mais grossa serve a quem não
+   distingue vermelho, e a mensagem abaixo diz qual é o problema. */
+.admin-input[aria-invalid] {
+  border-color: #b91c1c;
+  border-width: 2px;
+}
 .qv-priv {
   margin: 10px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 
@@ -454,7 +492,7 @@ useHead(() => ({
   justify-content: center;
   gap: 8px;
   padding: 11px 16px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   font-weight: 600;
   text-decoration: none;
 }
@@ -479,7 +517,7 @@ useHead(() => ({
   flex-direction: column;
 }
 .qv-facts dt {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-soft);
@@ -490,7 +528,7 @@ useHead(() => ({
 }
 .qv-see {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .qv-see a {
   color: var(--brand);

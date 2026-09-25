@@ -3,6 +3,8 @@ import {
   qualifyingNeighborhoods,
   findNeighborhood,
   propertiesInNeighborhood,
+  displayNeighborhood,
+  allNeighborhoods,
 } from '~~/shared/utils/neighborhood'
 
 describe('agrupamento de bairro', () => {
@@ -68,5 +70,48 @@ describe('imóveis de um bairro', () => {
     ]
     const resultado = propertiesInNeighborhood(itens, 'mais-parque')
     expect(resultado.map((p) => p.id)).toEqual(['2', '1'])
+  })
+})
+
+describe('grafia de exibição do bairro', () => {
+  /**
+   * ⚠️ O que se guarda aqui é o site que parece descuidado: o mesmo bairro em
+   * dois cards com maiúsculas diferentes, conectivo capitalizado ("Da") e o
+   * acento perdido no link da home ("Nova Tres Lagoas").
+   */
+  test('capitaliza palavras e deixa conectivo em minúscula', () => {
+    expect(displayNeighborhood('bela vista DA lagoa ')).toBe('Bela Vista da Lagoa')
+    expect(displayNeighborhood('JARDIM DOS IPÊS')).toBe('Jardim dos Ipês')
+  })
+
+  test('numeral romano e sigla curta ficam em maiúscula', () => {
+    expect(displayNeighborhood('jardim alvorada ii')).toBe('Jardim Alvorada II')
+    expect(displayNeighborhood('Conjunto JK')).toBe('Conjunto JK')
+  })
+
+  test('conectivo no começo do nome é capitalizado', () => {
+    expect(displayNeighborhood('do lago')).toBe('Do Lago')
+  })
+
+  test('vazio continua vazio', () => {
+    expect(displayNeighborhood('   ')).toBe('')
+    expect(displayNeighborhood(null)).toBe('')
+  })
+
+  test('o rótulo do grupo prefere a grafia com acento e não capitaliza conectivo', () => {
+    const itens = [
+      { neighborhood: 'Nova Tres Lagoas' },
+      { neighborhood: 'nova tres lagoas' },
+      { neighborhood: 'Nova Três Lagoas' },
+    ]
+    expect(qualifyingNeighborhoods(itens)[0]!.label).toBe('Nova Três Lagoas')
+    expect(allNeighborhoods([{ neighborhood: 'Bela vista da Lagoa' }])[0]!.label).toBe('Bela Vista da Lagoa')
+  })
+
+  test('variações do mesmo bairro viram uma pastilha só', () => {
+    expect(allNeighborhoods([
+      { neighborhood: 'Bela Vista da Lagoa' },
+      { neighborhood: 'Bela vista da Lagoa' },
+    ])).toHaveLength(1)
   })
 })

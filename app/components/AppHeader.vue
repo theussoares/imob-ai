@@ -41,17 +41,27 @@ onKeyStroke("Escape", () => { aberto.value = false });
 <template>
   <header class="bar">
     <div ref="barra" class="bar-in">
-      <NuxtLink class="brand" to="/">
+      <!--
+        Com logo, o nome some no celular porque a própria arte já o carrega e
+        não cabe duas vezes ao lado do burger. Sem logo, o nome é a ÚNICA marca
+        da página e fica sempre visível: esconder os dois deixava o topo do
+        celular sem identidade nenhuma — o ícone de reserva era branco sobre
+        transparente, uma caixa vazia de 140px.
+
+        Escondido com `sr-only`, não `hidden`: o link continua se chamando pelo
+        nome da imobiliária no leitor de tela, e não "Compra · Venda · Locação".
+      -->
+      <NuxtLink class="brand" :class="{ 'sem-logo': !tenant?.logoUrl }" to="/">
         <span class="mark" aria-hidden="true">
           <img
             v-if="tenant?.logoUrl"
             :src="tenant.logoUrl"
-            :alt="tenant?.name || 'Logo'"
+            alt=""
           />
           <AppIcon v-else name="home" />
         </span>
         <span>
-          <b class="hidden md:flex">{{ tenant?.name || "Imóveis" }}</b>
+          <b :class="tenant?.logoUrl ? 'sr-only md:not-sr-only md:flex' : ''">{{ tenant?.name || "Imóveis" }}</b>
           <small v-if="tenant?.tagline">{{ tenant.tagline }}</small>
         </span>
       </NuxtLink>

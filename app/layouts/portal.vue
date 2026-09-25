@@ -92,7 +92,7 @@ async function sair() {
   place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   background: var(--brand);
   color: #fff;
   flex: none;
@@ -104,22 +104,22 @@ async function sair() {
   min-width: 0;
 }
 .portal-brand-text b {
-  font-size: 15px;
+  font-size: var(--fs-body);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .portal-brand-text small {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   color: #6b7280;
 }
 .portal-exit {
   flex: none;
   border: 1px solid #d1d5db;
   background: #fff;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 7px 12px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .portal-expired {
@@ -130,14 +130,14 @@ async function sair() {
   padding: 10px 16px;
   background: #fef3c7;
   border-bottom: 1px solid #fde68a;
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .portal-expired button {
   border: 1px solid #d1d5db;
   background: #fff;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   padding: 5px 10px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .portal-main {
@@ -150,7 +150,7 @@ async function sair() {
 .portal-foot {
   padding: 18px 16px 26px;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #6b7280;
 }
 .portal-foot-dim {
