@@ -38,7 +38,9 @@ useHead({ title: 'Entrar · Painel' })
 <template>
   <div class="login-wrap">
     <form class="admin-card login-card" @submit.prevent="login">
-      <div class="brand" style="margin-bottom: 6px">
+      <!-- `sem-logo`: o selo de 140px com ícone branco sobre fundo transparente
+           ficava invisível aqui, o mesmo defeito do cabeçalho do site. -->
+      <div class="brand sem-logo" style="margin-bottom: 6px">
         <span class="mark"><AppIcon name="home" /></span>
         <span><b>{{ tenant?.name || 'Painel' }}</b><small>Área administrativa</small></span>
       </div>
