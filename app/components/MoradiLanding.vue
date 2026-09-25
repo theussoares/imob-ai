@@ -39,7 +39,7 @@ const incluso = [
   {
     icone: "globe",
     t: "Domínio próprio",
-    d: "Seu endereço e seu e-mail, registrados no seu nome.",
+    d: "A gente compra e configura. Registrado no seu nome, é seu.",
   },
   {
     icone: "panel",
@@ -101,7 +101,7 @@ const comparacao = [
 const passos = [
   { t: "A gente conversa", d: "Pelo WhatsApp, você conta como trabalha, quantos imóveis tem e se já possui domínio.", nota: "Uma conversa" },
   { t: "Você testa grátis por 3 dias", d: "Liberamos o seu acesso ao painel. Cadastre imóveis, veja o site e o funil de leads funcionando.", nota: "3 dias, sem custo" },
-  { t: "Seu site vai ao ar", d: "Gostou? Fechamos o contrato, configuramos marca e domínio, e você assume o painel.", nota: "Contrato de 6 ou 12 meses" },
+  { t: "Seu site vai ao ar", d: "Gostou? Fechamos o contrato, registramos o domínio no seu nome, configuramos a marca, e você assume o painel.", nota: "Contrato de 6 ou 12 meses" },
 ];
 
 /**
@@ -169,7 +169,7 @@ const faq = [
   },
   {
     q: "Preciso ter domínio próprio?",
-    a: "Não para começar. O site pode subir em seunome.usemoradi.com.br e passar para o seu domínio depois, sem refazer nada.",
+    a: "Não. A gente compra o domínio para você, registrado no seu nome, e cuida de toda a configuração. Se você já tiver um, usamos o seu.",
   },
   {
     q: "Quem cadastra os imóveis?",
@@ -181,7 +181,7 @@ const faq = [
   },
   {
     q: "E se eu não renovar?",
-    a: "Os imóveis, as fotos e o domínio são seus, e o domínio fica registrado no seu nome. Ao fim do contrato, é só apontar o domínio para outro lugar. Nada fica preso aqui.",
+    a: "Os imóveis, as fotos e o domínio são seus. O domínio é registrado no seu nome: a gente só compra e administra. Ao fim do contrato, passamos a gestão para você, e ele pode apontar para onde quiser. Nada fica preso aqui.",
   },
   {
     q: "A descrição por IA publica sozinha?",
