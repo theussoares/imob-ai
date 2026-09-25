@@ -8,10 +8,17 @@ type Client = SupabaseClient<Database>
 /**
  * Destino do repasse de um proprietário (tabela da 0041).
  *
- * DADO BANCÁRIO de pessoa real: nunca sai em payload público, e aqui só entra
- * pelo client do membro (RLS `financeiro_destinos_membro`) com o tenant no
- * filtro. O destino anterior é DESATIVADO, não apagado: um repasse já feito
- * precisa continuar apontando para a conta que de fato usou (spec 21/09).
+ * DADO BANCÁRIO de pessoa real: nunca sai em payload público. O destino
+ * anterior é DESATIVADO, não apagado: um repasse já feito precisa continuar
+ * apontando para a conta que de fato usou (spec 21/09).
+ *
+ * ⚠️ O `client` aqui é a SERVICE_ROLE. A 0042 revogou insert/update das tabelas
+ * financeiras do papel `authenticated` (o painel tem client no navegador, e
+ * sem o revoke qualquer membro reescreveria dado bancário pelo devtools). A
+ * primeira versão deste arquivo gravava com o client do membro: o Postgres
+ * devolvia 42501 e o assistente de contrato, que chama isto no meio da
+ * criação, apagava o contrato inteiro pela compensação. Sem RLS, o tenant no
+ * `where` e o dono vindo das partes do contrato (nunca do body) são a proteção.
  */
 export async function replacePayoutDestination(
   client: Client,

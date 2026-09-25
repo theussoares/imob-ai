@@ -48,7 +48,8 @@ async function resolverPessoa(client: Client, tenantId: string, p: PessoaDoContr
  * poderia levar junto alguém que outra aba acabou de vincular.
  *
  * Tudo pelo client do MEMBRO (RLS ligada) e com o tenant da sessão em cada
- * filtro; a service_role só entra no convite, que precisa da API de admin.
+ * filtro; a service_role só entra no destino do repasse (tabela financeira,
+ * escrita revogada do membro pela 0042) e no convite (API de admin).
  */
 export async function criarLocacao(
   client: Client,
@@ -117,7 +118,8 @@ export async function criarLocacao(
       if (pessoa) await addContractParty(client, tenant.id, contrato.id, pessoa.id, papel)
     }
     if (input.repasse && proprietario) {
-      await replacePayoutDestination(client, tenant.id, proprietario.id, input.repasse, userId)
+      // Service_role: a 0042 fechou a escrita financeira ao papel do membro.
+      await replacePayoutDestination(serviceSupabase(), tenant.id, proprietario.id, input.repasse, userId)
     }
   } catch (e) {
     await client.from('contracts').delete().eq('tenant_id', tenant.id).eq('id', contrato.id)

@@ -130,4 +130,30 @@ describe('criarLocacao', () => {
     expect(ins.user_id).toBeNull()
     expect(ins.tenant_id).toBe('t1')
   })
+
+  test('destino do repasse grava pela service_role, não pelo client do membro (0042)', async () => {
+    // O bug que isto trava: a 0042 revogou insert/update das tabelas
+    // financeiras do `authenticated`. Gravando com o client do membro, o banco
+    // devolvia 42501 e a compensação apagava o contrato recém-criado — todo
+    // contrato com Pix do proprietário falhava em produção.
+    vi.stubGlobal('logWarn', () => {})
+    vi.stubGlobal('invalidateTenantCache', async () => {})
+    const service = fakeSupabase({ payout_destinations: { data: null, error: null } })
+    vi.stubGlobal('serviceSupabase', () => service.client)
+    const { criarLocacao } = await import('~~/server/utils/locacao')
+    const pessoa = { id: 'pu1', tenant_id: 't1', user_id: null, name: 'Sérgio', email: null, doc: null, phone: null, active: true, access_confirmed_at: null, created_at: '', updated_at: '', last_recovery_at: null }
+    const contrato = { id: 'c1', tenant_id: 't1', code: 'LOC-2026-001', property_id: null, address_label: 'Rua', status: 'ativo', started_on: '2026-10-01', ends_on: null, rent_amount: 2400, due_day: 10, adjustment_index: null, term_months: null, guarantee_type: null, source: 'manual', created_at: '', updated_at: '' }
+    const membro = fakeSupabase({
+      portal_users: { data: pessoa, error: null },
+      contracts: [{ data: [], error: null }, { data: contrato, error: null }, { data: { id: 'c1' }, error: null }, { data: { id: 'c1' }, error: null }],
+      contract_internal: { data: { contract_id: 'c1' }, error: null },
+      contract_parties: { data: null, error: null },
+      payout_destinations: { data: null, error: { code: '42501', message: 'permission denied' } },
+    })
+    const repasse = { kind: 'pix', pixKeyType: 'cpf', pixKey: '52998224725', holderName: 'Sérgio', holderDoc: '52998224725' }
+    await criarLocacao(membro.client, tenant, { ...base, proprietario: { id: UUID }, repasse } as never, 'u1')
+    expect(membro.calls.some((c) => c.table === 'payout_destinations')).toBe(false)
+    expect(hadEq(service.calls, 'payout_destinations', 'tenant_id')).toBe(true)
+    expect(service.calls.some((c) => c.table === 'payout_destinations' && c.method === 'insert')).toBe(true)
+  })
 })

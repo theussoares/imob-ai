@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const dono = (await listContractParties(client, tenant.id, id)).find((p) => p.role === 'proprietario')
   if (!dono) throw createError({ statusCode: 422, statusMessage: 'Vincule o proprietário ao contrato antes de informar o repasse.' })
-  await replacePayoutDestination(client, tenant.id, dono.portalUserId, body, user.id)
+  // Service_role: escrita financeira revogada do membro na 0042.
+  await replacePayoutDestination(serviceSupabase(), tenant.id, dono.portalUserId, body, user.id)
   return { ok: true }
 })
