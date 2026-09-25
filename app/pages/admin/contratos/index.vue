@@ -3,7 +3,7 @@ import type { Contract } from '~~/shared/models/portal'
 
 definePageMeta({ layout: 'admin', middleware: ['admin', 'area-cliente'] })
 
-const { data: contratos, pending } = useLazyAsyncData(
+const { data: contratos, pending, error: loadError, refresh } = useLazyAsyncData(
   'admin:contracts',
   () => adminFetch<Contract[]>('/api/admin/contracts'),
   { server: false, default: () => [] as Contract[] },
@@ -39,6 +39,8 @@ useHead({ title: 'Contratos · Painel' })
 
     <p v-if="pending" class="dica">Carregando…</p>
 
+    <AdminLoadError v-else-if="loadError" what="os contratos" @retry="refresh()" />
+
     <div v-else-if="!contratos.length" class="admin-card">
       <p class="dica">
         Nenhum contrato cadastrado. Cadastre o primeiro para que os clientes
@@ -73,7 +75,7 @@ useHead({ title: 'Contratos · Painel' })
   margin-bottom: 16px;
 }
 .dica {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #6b7280;
 }
 .lista {
@@ -91,7 +93,7 @@ useHead({ title: 'Contratos · Painel' })
   gap: 10px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 13px 15px;
   text-decoration: none;
   color: inherit;
@@ -106,7 +108,7 @@ useHead({ title: 'Contratos · Painel' })
   min-width: 0;
 }
 .quem small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #6b7280;
 }
 .fim {
@@ -116,12 +118,12 @@ useHead({ title: 'Contratos · Painel' })
 }
 .valor {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .tag {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   background: #f3f4f6;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 2px 9px;
   color: #4b5563;
 }

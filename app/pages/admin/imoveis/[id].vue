@@ -16,6 +16,7 @@ import {
   priceRangeError,
   roomsRangeError,
 } from "~~/shared/utils/property-limits";
+import { draftKey, parseDraft, serializeDraft } from "~~/shared/utils/form-draft";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -146,6 +147,88 @@ watchEffect(() => {
 
 const saving = ref(false);
 const error = ref("");
+const errorEl = ref<HTMLElement | null>(null);
+const toast = useToast();
+
+/**
+ * O que conta como "mudou": o formulário inteiro mais o texto dos
+ * diferenciais, comparados com o que a tela carregou.
+ *
+ * O retrato é tirado DEPOIS do `watchEffect` acima preencher a ficha — antes
+ * disso, todo imóvel existente pareceria "alterado" só por ter carregado.
+ */
+function retrato() {
+  return JSON.stringify({ ...form, featuresText: featuresText.value });
+}
+const original = ref(retrato());
+watch(existing, async () => {
+  await nextTick();
+  original.value = retrato();
+});
+const dirty = () => retrato() !== original.value;
+const { release } = useUnsavedGuard(dirty);
+
+/**
+ * Rascunho do cadastro NOVO, guardado no aparelho a cada alteração (com
+ * pausa, para não gravar a cada tecla). Ver shared/utils/form-draft.ts para
+ * por que só no cadastro novo.
+ */
+const chaveRascunho = computed(() => draftKey(tenant.value?.id, "imovel-novo"));
+const rascunhoDisponivel = ref<{ savedAt: number } | null>(null);
+onMounted(() => {
+  if (!isNew.value) return;
+  try {
+    const d = parseDraft(localStorage.getItem(chaveRascunho.value));
+    if (d) rascunhoDisponivel.value = { savedAt: d.savedAt };
+  } catch {
+    // localStorage indisponível (aba anônima, bloqueio): segue sem rascunho.
+  }
+});
+watchDebounced(
+  () => retrato(),
+  (atual) => {
+    if (!isNew.value || atual === original.value) return;
+    try {
+      localStorage.setItem(chaveRascunho.value, serializeDraft(JSON.parse(atual)));
+    } catch {
+      // Cota cheia ou bloqueio: perder o rascunho não pode travar o cadastro.
+    }
+  },
+  { debounce: 800 },
+);
+function restaurarRascunho() {
+  try {
+    const d = parseDraft<Record<string, unknown>>(localStorage.getItem(chaveRascunho.value));
+    if (d) {
+      const { featuresText: ft, ...resto } = d.data as { featuresText?: string };
+      Object.assign(form, resto);
+      featuresText.value = ft || "";
+    }
+  } catch {
+    // Mesmo motivo acima.
+  }
+  rascunhoDisponivel.value = null;
+}
+function descartarRascunho() {
+  try {
+    localStorage.removeItem(chaveRascunho.value);
+  } catch {
+    // idem
+  }
+  rascunhoDisponivel.value = null;
+}
+
+/**
+ * Mostra o erro e LEVA a pessoa até ele. O erro fica no fim de um formulário
+ * de ~2800px: sem rolar até lá, quem apertou salvar no topo (barra fixa) não
+ * via nada acontecer e apertava de novo.
+ */
+async function mostrarErro(msg: string) {
+  error.value = msg;
+  await nextTick();
+  errorEl.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+  errorEl.value?.focus();
+}
 
 /**
  * Avisos de plausibilidade, enquanto a pessoa digita.
@@ -212,11 +295,13 @@ const avisos = computed(() => {
 
 async function save() {
   if (form.price <= 0) {
-    error.value = "Informe o preço do imóvel.";
+    await mostrarErro("Informe o preço do imóvel.");
+    document.getElementById("f-preco")?.focus();
     return;
   }
   if (!ownerPhoneValid.value) {
-    error.value = "WhatsApp do proprietário inválido (com DDD).";
+    await mostrarErro("WhatsApp do proprietário inválido (com DDD).");
+    document.getElementById("f-dono-fone")?.focus();
     return;
   }
   saving.value = true;
@@ -248,12 +333,18 @@ async function save() {
         },
       });
     }
+    release();
+    if (isNew.value) descartarRascunho();
+    // Sem isto a tela só voltava para a lista, e quem salvou não tinha certeza
+    // se tinha gravado — abria de novo para conferir.
+    toast.success(isNew.value ? `Imóvel ${form.code} cadastrado.` : `Imóvel ${form.code} salvo.`);
     await navigateTo("/admin/imoveis");
   } catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string } };
-    error.value =
+    await mostrarErro(
       err?.data?.statusMessage ||
-      "Não foi possível salvar. Verifique os campos.";
+        "Não foi possível salvar. Verifique os campos.",
+    );
   } finally {
     saving.value = false;
   }
@@ -398,252 +489,320 @@ useHead(() => ({
       </template>
     </p>
 
-    <form class="admin-card" style="margin-top: 16px" @submit.prevent="save">
-      <div class="form-grid">
-        <div>
-          <label class="admin-label">Código *</label>
-          <input
-            v-model="form.code"
-            class="admin-input"
-            placeholder="Ex.: NC-0231"
-            required
-          />
-        </div>
-        <div>
-          <label class="admin-label">Título *</label>
-          <input
-            v-model="form.title"
-            class="admin-input"
-            placeholder="Ex.: Casa no Jardim Alvorada"
-            required
-          />
-        </div>
-        <div>
-          <label class="admin-label">Tipo *</label>
-          <select v-model="form.type" class="admin-select">
-            <option v-for="t in PROPERTY_TYPES" :key="t" :value="t">
-              {{ PROPERTY_TYPE_LABELS[t] }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="admin-label">Pretensão *</label>
-          <select v-model="form.purpose" class="admin-select">
-            <option value="venda">Venda</option>
-            <option value="aluguel">Aluguel</option>
-          </select>
-        </div>
-        <div>
-          <label class="admin-label">Preço (R$) *</label>
-          <input
-            :value="priceDisplay"
-            class="admin-input"
-            type="text"
-            inputmode="numeric"
-            placeholder="R$ 350.000"
-            @input="onPriceInput"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Status</label>
-          <select v-model="form.status" class="admin-select">
-            <option v-for="s in PROPERTY_STATUSES" :key="s" :value="s">
-              {{ PROPERTY_STATUS_LABELS[s] }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="admin-label">Bairro</label>
-          <!-- `datalist` e não `select`: bairro continua texto livre, porque o
-               primeiro imóvel de um bairro novo precisa poder criá-lo. A lista
-               só sugere o que já existe. -->
-          <input
-            v-model="form.neighborhood"
-            class="admin-input"
-            list="bairros-cadastrados"
-            autocomplete="off"
-          />
-          <datalist id="bairros-cadastrados">
-            <option v-for="b in bairros" :key="b" :value="b" />
-          </datalist>
-        </div>
-        <div>
-          <label class="admin-label">Cidade</label>
-          <input v-model="form.city" class="admin-input" />
-        </div>
-        <div>
-          <label class="admin-label">UF</label>
-          <input v-model="form.state" class="admin-input" maxlength="2" />
-        </div>
-        <div>
-          <label class="admin-label">Quartos</label>
-          <input
-            v-model.number="form.bedrooms"
-            class="admin-input"
-            type="number"
-            min="0"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Suítes</label>
-          <input
-            v-model.number="form.suites"
-            class="admin-input"
-            type="number"
-            min="0"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Banheiros</label>
-          <input
-            v-model.number="form.bathrooms"
-            class="admin-input"
-            type="number"
-            min="0"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Vagas</label>
-          <input
-            v-model.number="form.parking"
-            class="admin-input"
-            type="number"
-            min="0"
-          />
-        </div>
-        <div>
-          <label class="admin-label">Área (m²)</label>
-          <input
-            v-model.number="form.area"
-            class="admin-input"
-            type="number"
-            min="0"
-            step="0.01"
-          />
-        </div>
-      </div>
+    <div v-if="rascunhoDisponivel" class="draft" role="status">
+      <span>
+        Há um cadastro não salvo de
+        {{ new Date(rascunhoDisponivel.savedAt).toLocaleString("pt-BR") }}.
+      </span>
+      <button type="button" class="admin-btn sm" @click="restaurarRascunho">
+        Recuperar
+      </button>
+      <button type="button" class="admin-btn ghost sm" @click="descartarRascunho">
+        Descartar
+      </button>
+    </div>
 
-      <div class="checks">
-        <label
-          ><input v-model="form.highStandard" type="checkbox" /> Alto
-          padrão</label
+    <!--
+      Seções com fieldset/legend: eram 24 campos numa grade só, e no celular
+      a ficha virava uma coluna de ~2800px sem nenhum marco para saber onde se
+      estava. O leitor de tela também anuncia a seção ao entrar nela.
+
+      Todo rótulo tem `for`: antes o rótulo era só texto ao lado — o leitor de
+      tela lia "campo de edição" sem nome, e tocar no rótulo não focava o
+      campo, o que no celular é o alvo maior e mais fácil de acertar.
+    -->
+    <form class="admin-card prop-form" style="margin-top: 16px" @submit.prevent="save">
+      <p class="req-note"><span aria-hidden="true">*</span> Campo obrigatório</p>
+
+      <fieldset class="sec">
+        <legend>Dados principais</legend>
+        <div class="form-grid">
+          <div>
+            <label class="admin-label" for="f-codigo">Código *</label>
+            <input
+              id="f-codigo"
+              v-model="form.code"
+              class="admin-input"
+              placeholder="Ex.: NC-0231"
+              required
+            />
+          </div>
+          <div class="f-wide">
+            <label class="admin-label" for="f-titulo">Título *</label>
+            <input
+              id="f-titulo"
+              v-model="form.title"
+              class="admin-input"
+              placeholder="Ex.: Casa no Jardim Alvorada"
+              required
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-tipo">Tipo *</label>
+            <select id="f-tipo" v-model="form.type" class="admin-select">
+              <option v-for="t in PROPERTY_TYPES" :key="t" :value="t">
+                {{ PROPERTY_TYPE_LABELS[t] }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="admin-label" for="f-pretensao">Pretensão *</label>
+            <select id="f-pretensao" v-model="form.purpose" class="admin-select">
+              <option value="venda">Venda</option>
+              <option value="aluguel">Aluguel</option>
+            </select>
+          </div>
+          <div>
+            <label class="admin-label" for="f-preco">Preço (R$) *</label>
+            <input
+              id="f-preco"
+              :value="priceDisplay"
+              class="admin-input"
+              type="text"
+              inputmode="numeric"
+              placeholder="R$ 350.000"
+              aria-required="true"
+              @input="onPriceInput"
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-status">Status</label>
+            <select id="f-status" v-model="form.status" class="admin-select">
+              <option v-for="s in PROPERTY_STATUSES" :key="s" :value="s">
+                {{ PROPERTY_STATUS_LABELS[s] }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="checks">
+          <label
+            ><input v-model="form.highStandard" type="checkbox" /> Alto
+            padrão</label
+          >
+          <label
+            ><input v-model="form.featured" type="checkbox" /> Destaque</label
+          >
+        </div>
+      </fieldset>
+
+      <fieldset class="sec">
+        <legend>Localização</legend>
+        <div class="form-grid loc-grid">
+          <div>
+            <label class="admin-label" for="f-bairro">Bairro</label>
+            <!-- `datalist` e não `select`: bairro continua texto livre, porque o
+                 primeiro imóvel de um bairro novo precisa poder criá-lo. A lista
+                 só sugere o que já existe. -->
+            <input
+              id="f-bairro"
+              v-model="form.neighborhood"
+              class="admin-input"
+              list="bairros-cadastrados"
+              autocomplete="off"
+            />
+            <datalist id="bairros-cadastrados">
+              <option v-for="b in bairros" :key="b" :value="b" />
+            </datalist>
+          </div>
+          <div>
+            <label class="admin-label" for="f-cidade">Cidade</label>
+            <input id="f-cidade" v-model="form.city" class="admin-input" />
+          </div>
+          <div>
+            <label class="admin-label" for="f-uf">UF</label>
+            <input id="f-uf" v-model="form.state" class="admin-input" maxlength="2" />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="sec">
+        <legend>Características</legend>
+        <div class="form-grid num-grid">
+          <div>
+            <label class="admin-label" for="f-quartos">Quartos</label>
+            <input
+              id="f-quartos"
+              v-model.number="form.bedrooms"
+              class="admin-input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-suites">Suítes</label>
+            <input
+              id="f-suites"
+              v-model.number="form.suites"
+              class="admin-input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-banheiros">Banheiros</label>
+            <input
+              id="f-banheiros"
+              v-model.number="form.bathrooms"
+              class="admin-input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-vagas">Vagas</label>
+            <input
+              id="f-vagas"
+              v-model.number="form.parking"
+              class="admin-input"
+              type="number"
+              inputmode="numeric"
+              min="0"
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-area">Área (m²)</label>
+            <input
+              id="f-area"
+              v-model.number="form.area"
+              class="admin-input"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="sec">
+        <legend>Descrição e diferenciais</legend>
+        <label class="admin-label" for="f-descricao">Descrição</label>
+
+        <!--
+          `v-if="descricaoIa"` é conveniência de tela, não controle de acesso —
+          quem recusa a geração é o endpoint. Esconder o bloco aqui só evita
+          oferecer um botão que o servidor rejeitaria de qualquer forma para
+          quem não contratou o recurso.
+        -->
+        <div v-if="descricaoIa" class="ia-bloco">
+          <label class="sr-only" for="f-dicas-ia">Dicas para a IA</label>
+          <input
+            id="f-dicas-ia"
+            v-model="dicasIa"
+            class="admin-input"
+            maxlength="500"
+            placeholder="Dicas para a IA (opcional): o que destacar neste imóvel"
+          />
+          <div class="ia-acoes">
+            <button
+              type="button"
+              class="admin-btn sm"
+              :disabled="gerandoIa"
+              @click="gerarDescricao"
+            >
+              {{
+                gerandoIa
+                  ? "Gerando…"
+                  : form.description
+                    ? "Melhorar com IA"
+                    : "Gerar com IA"
+              }}
+            </button>
+            <!--
+              `podeDesfazer`, não `descricaoAnterior !== null`: some assim que o
+              corretor edita o textarea à mão depois de gerar, porque nesse
+              ponto "Desfazer" deixaria de significar "voltar de uma geração" e
+              passaria a significar "apagar o que acabei de escrever". Ver o
+              comentário do `computed` no script.
+            -->
+            <button
+              v-if="podeDesfazer"
+              type="button"
+              class="admin-btn ghost sm"
+              :disabled="gerandoIa"
+              @click="desfazerIa"
+            >
+              Desfazer
+            </button>
+            <span v-if="saldoIa !== null" class="ia-saldo"
+              >restam {{ saldoIa }} gerações este mês</span
+            >
+          </div>
+        </div>
+
+        <textarea id="f-descricao" v-model="form.description" class="admin-textarea" rows="4" />
+
+        <label class="admin-label" for="f-diferenciais" style="margin-top: 14px"
+          >Diferenciais (um por linha)</label
         >
-        <label
-          ><input v-model="form.featured" type="checkbox" /> Destaque</label
-        >
-      </div>
-
-      <label class="admin-label" style="margin-top: 14px">Descrição</label>
-
-      <!--
-        `v-if="descricaoIa"` é conveniência de tela, não controle de acesso —
-        quem recusa a geração é o endpoint. Esconder o bloco aqui só evita
-        oferecer um botão que o servidor rejeitaria de qualquer forma para
-        quem não contratou o recurso.
-      -->
-      <div v-if="descricaoIa" class="ia-bloco">
-        <input
-          v-model="dicasIa"
-          class="admin-input"
-          maxlength="500"
-          placeholder="Dicas para a IA (opcional): o que destacar neste imóvel"
+        <textarea
+          id="f-diferenciais"
+          v-model="featuresText"
+          class="admin-textarea"
+          rows="4"
+          placeholder="Piscina&#10;Churrasqueira&#10;Portão eletrônico"
         />
-        <div class="ia-acoes">
-          <button
-            type="button"
-            class="admin-btn sm"
-            :disabled="gerandoIa"
-            @click="gerarDescricao"
-          >
-            {{
-              gerandoIa
-                ? "Gerando…"
-                : form.description
-                  ? "Melhorar com IA"
-                  : "Gerar com IA"
-            }}
-          </button>
-          <!--
-            `podeDesfazer`, não `descricaoAnterior !== null`: some assim que o
-            corretor edita o textarea à mão depois de gerar, porque nesse
-            ponto "Desfazer" deixaria de significar "voltar de uma geração" e
-            passaria a significar "apagar o que acabei de escrever". Ver o
-            comentário do `computed` no script.
-          -->
-          <button
-            v-if="podeDesfazer"
-            type="button"
-            class="admin-btn ghost sm"
-            :disabled="gerandoIa"
-            @click="desfazerIa"
-          >
-            Desfazer
-          </button>
-          <span v-if="saldoIa !== null" class="ia-saldo"
-            >restam {{ saldoIa }} gerações este mês</span
-          >
-        </div>
-      </div>
+      </fieldset>
 
-      <textarea v-model="form.description" class="admin-textarea" rows="4" />
+      <fieldset class="sec">
+        <legend>Fotos</legend>
+        <AdminImageUploader v-model="form.images" />
+      </fieldset>
 
-      <label class="admin-label" style="margin-top: 14px"
-        >Diferenciais (um por linha)</label
-      >
-      <textarea
-        v-model="featuresText"
-        class="admin-textarea"
-        rows="4"
-        placeholder="Piscina&#10;Churrasqueira&#10;Portão eletrônico"
-      />
-
-      <label class="admin-label" style="margin-top: 14px">Imagens</label>
-      <AdminImageUploader v-model="form.images" />
-
-      <h3 class="int-title">
-        🔒 Informações internas
-        <span>(só no painel, não aparecem no site)</span>
-      </h3>
-      <div class="form-grid">
-        <div style="grid-column: 1 / -1">
-          <label class="admin-label">Localização (endereço / referência)</label>
-          <input
-            v-model="form.location"
-            class="admin-input"
-            placeholder="Rua, nº, bairro, ponto de referência..."
-          />
+      <fieldset class="sec sec-int">
+        <legend>
+          <AppIcon name="lock" class="int-ico" />
+          Informações internas
+          <span>(só no painel, não aparecem no site)</span>
+        </legend>
+        <div class="form-grid">
+          <div style="grid-column: 1 / -1">
+            <label class="admin-label" for="f-local">Localização (endereço / referência)</label>
+            <input
+              id="f-local"
+              v-model="form.location"
+              class="admin-input"
+              placeholder="Rua, nº, bairro, ponto de referência..."
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-corretor">Corretor que captou</label>
+            <select id="f-corretor" v-model="form.brokerId" class="admin-select">
+              <option value="">— Nenhum —</option>
+              <option v-for="b in brokers" :key="b.id" :value="b.id">
+                {{ b.name }}
+              </option>
+            </select>
+            <NuxtLink to="/admin/corretores" class="hint-link"
+              >Gerenciar corretores →</NuxtLink
+            >
+          </div>
+          <div>
+            <label class="admin-label" for="f-dono-nome">Proprietário — nome</label>
+            <input id="f-dono-nome" v-model="form.ownerName" class="admin-input" />
+          </div>
+          <div>
+            <label class="admin-label" for="f-dono-fone">Proprietário — WhatsApp</label>
+            <input
+              id="f-dono-fone"
+              :value="ownerPhoneDisplay"
+              class="admin-input"
+              type="tel"
+              inputmode="numeric"
+              placeholder="+55 (67) 99123-4567"
+              :aria-invalid="!ownerPhoneValid || undefined"
+              :aria-describedby="!ownerPhoneValid ? 'f-dono-fone-err' : undefined"
+              @input="onOwnerPhoneInput"
+            />
+            <p v-if="!ownerPhoneValid" id="f-dono-fone-err" class="field-err">
+              Número inválido (com DDD).
+            </p>
+          </div>
         </div>
-        <div>
-          <label class="admin-label">Corretor que captou</label>
-          <select v-model="form.brokerId" class="admin-select">
-            <option value="">— Nenhum —</option>
-            <option v-for="b in brokers" :key="b.id" :value="b.id">
-              {{ b.name }}
-            </option>
-          </select>
-          <NuxtLink to="/admin/corretores" class="hint-link"
-            >Gerenciar corretores →</NuxtLink
-          >
-        </div>
-        <div>
-          <label class="admin-label">Proprietário — nome</label>
-          <input v-model="form.ownerName" class="admin-input" />
-        </div>
-        <div>
-          <label class="admin-label">Proprietário — WhatsApp</label>
-          <input
-            :value="ownerPhoneDisplay"
-            class="admin-input"
-            type="tel"
-            inputmode="numeric"
-            placeholder="+55 (67) 99123-4567"
-            @input="onOwnerPhoneInput"
-          />
-          <p v-if="!ownerPhoneValid" class="field-err">
-            Número inválido (com DDD).
-          </p>
-        </div>
-      </div>
+      </fieldset>
 
       <!-- Avisos de conferência: não impedem salvar, apontam o que costuma ser
            erro de digitação. role="status" para quem usa leitor de tela ouvir
@@ -652,9 +811,18 @@ useHead(() => ({
         <li v-for="a in avisos" :key="a">{{ a }}</li>
       </ul>
 
-      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+      <!-- role="alert" + foco (ver `mostrarErro`): o erro nasce no fim da
+           ficha, longe de quem apertou salvar na barra fixa. -->
+      <p v-if="error" ref="errorEl" class="form-err" role="alert" tabindex="-1">
+        {{ error }}
+      </p>
 
-      <div style="margin-top: 18px; display: flex; gap: 10px">
+      <!--
+        Barra fixa no celular: o botão só existia no fim da ficha, e quem
+        mudou só o preço precisava rolar ~2800px para salvar. No desktop a
+        barra continua no fluxo, no fim do formulário.
+      -->
+      <div class="save-bar">
         <button class="admin-btn" type="submit" :disabled="saving">
           {{ saving ? "Salvando..." : "Salvar imóvel" }}
         </button>
@@ -669,7 +837,7 @@ useHead(() => ({
 <style scoped>
 .last-edit {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 
@@ -678,7 +846,7 @@ useHead(() => ({
   color: var(--ink-soft);
   text-decoration: none;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   margin-bottom: 10px;
 }
 .form-grid {
@@ -691,37 +859,124 @@ useHead(() => ({
     grid-template-columns: 1fr 1fr;
   }
 }
-.int-title {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 15px;
-  margin: 24px 0 12px;
-  padding-top: 16px;
-  border-top: 1px dashed var(--line-2);
+.sec {
+  border: none;
+  margin: 0;
+  padding: 0 0 20px;
+  min-width: 0;
 }
-.int-title span {
+.sec + .sec {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.sec legend {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sec-int {
+  border-top-style: dashed !important;
+}
+.int-ico {
+  width: 16px;
+  height: 16px;
+}
+.sec legend span {
   font-family: "Inter", sans-serif;
   font-weight: 500;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 .hint-link {
   display: inline-block;
   margin-top: 6px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--brand);
   text-decoration: none;
   font-weight: 600;
 }
 .field-err {
   color: #b91c1c;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   margin: 4px 0 0;
+}
+/*
+ * A largura do campo diz o que se espera nele (Baymard, "form field width").
+ * Título — o texto mais longo — tinha a mesma largura que UF, que é duas
+ * letras; e os cinco números ocupavam campos largos em duas linhas.
+ */
+@media (min-width: 720px) {
+  .f-wide {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 520px) {
+  .form-grid.loc-grid {
+    grid-template-columns: 2fr 2fr 88px;
+  }
+  .form-grid.num-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+}
+.req-note {
+  margin: 0 0 14px;
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+}
+.form-err {
+  color: #b91c1c;
+  margin-top: 14px;
+  font-weight: 600;
+}
+.form-err:focus {
+  outline: 2px solid #b91c1c;
+  outline-offset: 3px;
+}
+.draft {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: var(--fs-ui);
+}
+.save-bar {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+}
+@media (max-width: 859px) {
+  .save-bar {
+    position: sticky;
+    bottom: calc(var(--admin-bottom-nav, 0px) + env(safe-area-inset-bottom));
+    z-index: 5;
+    margin: 18px -16px -16px;
+    padding: 12px 16px;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+  }
+  .save-bar .admin-btn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+  }
 }
 .checks {
   display: flex;
   gap: 20px;
   margin-top: 14px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   font-weight: 600;
 }
 .checks label {
@@ -741,7 +996,7 @@ useHead(() => ({
   margin: 8px 0 10px;
   padding: 12px 14px;
   border: 1px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface);
 }
 .ia-acoes {
@@ -752,7 +1007,7 @@ useHead(() => ({
   flex-wrap: wrap;
 }
 .ia-saldo {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 
@@ -763,9 +1018,9 @@ useHead(() => ({
   padding: 12px 14px 12px 30px;
   border: 1px solid #fcd34d;
   background: #fffbeb;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   color: #78350f;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   line-height: 1.5;
   display: flex;
   flex-direction: column;

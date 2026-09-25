@@ -41,12 +41,21 @@ const mostrar = computed(() => tipos.value.length > 1)
 
 <template>
   <div v-if="mostrar" class="chips">
-    <button class="chip" :class="{ on: filters.type === '' }" @click="filters.type = ''">
+    <!-- "Todos" também leva aria-pressed: sem ele, voltar para "Todos" era o
+         único estado que o leitor de tela não anunciava. -->
+    <button
+      type="button"
+      class="chip"
+      :class="{ on: filters.type === '' }"
+      :aria-pressed="filters.type === ''"
+      @click="filters.type = ''"
+    >
       Todos
     </button>
     <button
       v-for="t in tipos"
       :key="t"
+      type="button"
       class="chip"
       :class="{ on: filters.type === t }"
       :aria-pressed="filters.type === t"

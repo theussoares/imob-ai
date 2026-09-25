@@ -66,7 +66,7 @@ function onDismiss() {
 .confirm {
   padding: 0;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: inherit;
   box-shadow: var(--shadow-lg);
@@ -80,14 +80,14 @@ function onDismiss() {
 }
 .t {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 17px;
+  font-size: var(--fs-title-sm);
   line-height: 1.35;
   margin: 0;
 }
 .d {
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.5;
 }
 .actions {

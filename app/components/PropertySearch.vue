@@ -8,8 +8,9 @@ const emit = defineEmits<{ search: [] }>()
 /**
  * A pretensão canônica vive em `/imoveis/a-venda` e `/imoveis/para-alugar` —
  * são essas páginas que o Google indexa e que recebem link interno (via
- * `catLinks` na home). Aqui na home o toggle é só filtro de tela, em memória:
- * não escreve na URL.
+ * `catLinks` na home). Aqui o toggle é filtro de tela: a home o espelha na
+ * query (`?finalidade=aluguel`) para a busca poder ser compartilhada, mas com
+ * canonical em `/`, então não disputa índice com as páginas de categoria.
  */
 function setPurpose(p: 'venda' | 'aluguel') {
   if (props.filters.purpose === p) return
@@ -17,8 +18,8 @@ function setPurpose(p: 'venda' | 'aluguel') {
   props.filters.maxPrice = 0 // faixas de preço de venda e aluguel não são comparáveis
 }
 
-const priceOptions = computed(() =>
-  props.filters.purpose === 'aluguel'
+const priceOptions = computed(() => {
+  const base = props.filters.purpose === 'aluguel'
     ? [
         { v: 0, l: 'Sem limite' },
         { v: 1500, l: 'Até R$ 1.500' },
@@ -31,8 +32,20 @@ const priceOptions = computed(() =>
         { v: 350000, l: 'Até R$ 350 mil' },
         { v: 500000, l: 'Até R$ 500 mil' },
         { v: 800000, l: 'Até R$ 800 mil' },
-      ],
-)
+      ]
+  /**
+   * Um link compartilhado pode trazer um teto fora da lista (`?ate=300000`,
+   * editado à mão ou de uma faixa que já existiu). Sem esta opção o filtro
+   * valeria mas o select apareceria em branco — a lista encolhida sem nada na
+   * tela explicando por quê.
+   */
+  const atual = props.filters.maxPrice
+  if (atual && !base.some((o) => o.v === atual)) {
+    base.push({ v: atual, l: `Até ${formatBRL(atual)}` })
+    base.sort((a, b) => a.v - b.v)
+  }
+  return base
+})
 
 /**
  * No celular, os quatro campos empilhados ocupavam ~450px — mais da metade da
@@ -188,7 +201,7 @@ watch(drawerOpen, async (open) => {
         Filtros
         <span v-if="activeCount" class="filters-n">{{ activeCount }}</span>
       </button>
-      <button class="search-go" @click="emit('search')">
+      <button type="button" class="search-go" @click="emit('search')">
         <AppIcon name="search" />
         Buscar imóveis
       </button>
@@ -243,11 +256,11 @@ watch(drawerOpen, async (open) => {
   flex: none;
   padding: 15px 18px;
   border: 1.5px solid var(--line-2);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--ink);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .filters-btn:hover {
   border-color: var(--brand);
@@ -258,10 +271,10 @@ watch(drawerOpen, async (open) => {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
 }
 
@@ -273,15 +286,15 @@ watch(drawerOpen, async (open) => {
   justify-content: space-between;
 }
 .adv-head h3 {
-  font-size: 18px;
+  font-size: var(--fs-title-sm);
 }
 .adv-x {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
 }
@@ -297,11 +310,11 @@ watch(drawerOpen, async (open) => {
   flex: none;
   padding: 14px 18px;
   border: 1.5px solid var(--line-2);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--ink);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .adv-clear:disabled {
   opacity: 0.45;
@@ -311,11 +324,11 @@ watch(drawerOpen, async (open) => {
   flex: 1;
   padding: 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--brand);
   color: #fff;
   font-weight: 600;
-  font-size: 15.5px;
+  font-size: var(--fs-body);
 }
 
 @media (max-width: 819px) {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { avisoDeContraste } from "~~/shared/utils/contrast";
 import { AI_TONES, AI_TONE_LABELS, type AiTone } from "~~/shared/models/ai-tone";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
@@ -192,6 +193,9 @@ useHead({ title: "Configurações · Painel" });
             />
             <input v-model="form.brandPrimary" class="admin-input" />
           </div>
+          <p v-if="avisoDeContraste(form.brandPrimary)" class="field-warn" role="status">
+            {{ avisoDeContraste(form.brandPrimary) }}
+          </p>
         </div>
         <div>
           <label class="admin-label">Cor de destaque (locação)</label>
@@ -203,6 +207,9 @@ useHead({ title: "Configurações · Painel" });
             />
             <input v-model="form.brandAccent" class="admin-input" />
           </div>
+          <p v-if="avisoDeContraste(form.brandAccent)" class="field-warn" role="status">
+            {{ avisoDeContraste(form.brandAccent) }}
+          </p>
         </div>
         <div>
           <label class="admin-label">Cor do botão do WhatsApp</label>
@@ -219,6 +226,9 @@ useHead({ title: "Configurações · Painel" });
             />
           </div>
           <p class="field-hint">Vazio usa o verde padrão do WhatsApp.</p>
+          <p v-if="avisoDeContraste(form.whatsappButtonColor)" class="field-warn" role="status">
+            {{ avisoDeContraste(form.whatsappButtonColor) }}
+          </p>
         </div>
         <div class="preview-box">
           <span class="badge">Venda</span>
@@ -264,7 +274,7 @@ useHead({ title: "Configurações · Painel" });
           feedUrl
         }}</a>
         <button type="button" class="admin-btn ghost" @click="copyFeed">
-          {{ feedCopied ? "Copiado! ✅" : "Copiar link" }}
+          {{ feedCopied ? "Copiado!" : "Copiar link" }}
         </button>
       </div>
       <p class="hint-text">
@@ -273,12 +283,13 @@ useHead({ title: "Configurações · Painel" });
         custo.
       </p>
 
-      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+      <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
         v-if="saved"
+        role="status"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
       >
-        Configurações salvas! ✅
+        Configurações salvas! <AppIcon name="check" />
       </p>
 
       <div style="margin-top: 18px">
@@ -331,12 +342,13 @@ useHead({ title: "Configurações · Painel" });
         </div>
       </div>
 
-      <p v-if="aiToneError" style="color: #b91c1c; margin-top: 14px">{{ aiToneError }}</p>
+      <p v-if="aiToneError" role="alert" style="color: #b91c1c; margin-top: 14px">{{ aiToneError }}</p>
       <p
         v-if="aiToneSaved"
+        role="status"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
       >
-        Tom salvo! ✅
+        Tom salvo! <AppIcon name="check" />
       </p>
 
       <div style="margin-top: 18px">
@@ -359,7 +371,7 @@ useHead({ title: "Configurações · Painel" });
   align-items: flex-start;
   gap: 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 13px 14px;
 }
 .check-row input {
@@ -374,19 +386,19 @@ useHead({ title: "Configurações · Painel" });
   gap: 3px;
 }
 .check-row small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #6b7280;
   line-height: 1.45;
 }
 
 .field-err {
   color: #b91c1c;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   margin: 4px 0 0;
 }
 .section-t {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-body);
   margin: 22px 0 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -395,9 +407,18 @@ useHead({ title: "Configurações · Painel" });
    depois do textarea de propósito: quem já começou a digitar frase de busca lê
    isto sem precisar voltar ao topo. */
 .field-hint {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 6px 0 0;
+  max-width: 56ch;
+}
+.field-warn {
+  font-size: var(--fs-caption);
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  margin: 8px 0 0;
   max-width: 56ch;
 }
 .section-t:first-of-type {
@@ -424,7 +445,7 @@ useHead({ title: "Configurações · Painel" });
   width: 46px;
   height: 44px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 2px;
   background: none;
   cursor: pointer;
@@ -444,7 +465,7 @@ useHead({ title: "Configurações · Painel" });
 .logo-preview {
   width: 80px;
   height: 80px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   color: #fff;
   display: grid;
   place-items: center;
@@ -465,7 +486,7 @@ useHead({ title: "Configurações · Painel" });
 .hero-img-preview {
   width: 60px;
   height: 60px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--surface);
   border: 1.5px solid var(--line-2);
   color: var(--ink-soft);
@@ -483,7 +504,7 @@ useHead({ title: "Configurações · Painel" });
   height: 26px;
 }
 .hint-text {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 6px 0 0;
 }
@@ -498,10 +519,10 @@ useHead({ title: "Configurações · Painel" });
   min-width: 220px;
   padding: 11px 14px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--brand);
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   word-break: break-all;
   text-decoration: none;
 }
@@ -517,9 +538,9 @@ useHead({ title: "Configurações · Painel" });
   gap: 8px;
   padding: 10px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;
@@ -538,7 +559,7 @@ useHead({ title: "Configurações · Painel" });
 .pos-mock .pos-text,
 .pos-mock .pos-img {
   flex: 1;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--line-2);
 }
 .pos-btn.on .pos-img {
@@ -563,7 +584,7 @@ useHead({ title: "Configurações · Painel" });
 }
 .hero-preview-label {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--ink-soft);
   text-transform: uppercase;
@@ -572,7 +593,7 @@ useHead({ title: "Configurações · Painel" });
 }
 .hero-preview-box {
   border: 1.5px solid var(--line-2);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--surface);
 }

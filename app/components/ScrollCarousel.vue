@@ -63,8 +63,8 @@ function step(dir: number) {
   top: 50%;
   transform: translateY(-50%);
   z-index: 1;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 1px solid var(--line-2);
   background: var(--paper);

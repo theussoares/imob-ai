@@ -7,6 +7,22 @@ const tenant = useTenant();
 const toast = useToast();
 const uploading = ref(false);
 const urlInput = ref("");
+/**
+ * "Enviando 2 de 5…" em vez de só "Enviando...". Com cinco fotos de celular
+ * o envio passa de um minuto, e sem progresso a pessoa não sabe se travou —
+ * sai da tela ou manda tudo de novo.
+ */
+const progresso = ref<{ atual: number; total: number } | null>(null);
+
+/**
+ * Última foto removida, para o "Desfazer".
+ *
+ * O ✕ remove na hora, sem confirmação — confirmar cada foto seria cansativo
+ * numa ficha de 20 fotos, e é por isso que o desfazer é o caminho certo
+ * (Apple HIG: prefira desfazer a perguntar). Só a última: é o engano comum,
+ * o toque errado no botão vizinho.
+ */
+const removida = ref<{ img: PropertyImageInput; index: number } | null>(null);
 
 function reindex() {
   model.value.forEach((m, i) => (m.position = i));
@@ -31,7 +47,9 @@ async function onFiles(e: Event) {
     const client = await getAdminSupabase();
     const bucket = client.storage.from("property-images");
 
+    progresso.value = { atual: 0, total: files.length };
     for (const file of files) {
+      progresso.value = { atual: progresso.value.atual + 1, total: files.length };
       const base = `${slug}/${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Formato que o canvas não abre (SVG, HEIC): sobe como veio, sem derivada.
@@ -89,6 +107,7 @@ async function onFiles(e: Event) {
     toast.error(friendlyErrorMessage(err, "Não foi possível enviar a imagem. Tente novamente."));
   } finally {
     uploading.value = false;
+    progresso.value = null;
     input.value = "";
   }
 }
@@ -108,7 +127,17 @@ function addByUrl() {
 }
 
 function remove(i: number) {
-  model.value.splice(i, 1);
+  const [img] = model.value.splice(i, 1);
+  if (img) removida.value = { img: { ...img }, index: i };
+  reindex();
+}
+function desfazerRemocao() {
+  const r = removida.value;
+  if (!r) return;
+  // Se ela era a capa, volta capa: `reindex` teria promovido outra no lugar.
+  if (r.img.isCover) model.value.forEach((m) => (m.isCover = false));
+  model.value.splice(Math.min(r.index, model.value.length), 0, r.img);
+  removida.value = null;
   reindex();
 }
 function setCover(i: number) {
@@ -131,7 +160,11 @@ function move(i: number, dir: number) {
   <div>
     <div class="uploader-actions">
       <label class="admin-btn ghost file-btn">
-        {{ uploading ? "Enviando..." : "+ Enviar imagens" }}
+        {{
+          progresso
+            ? `Enviando ${progresso.atual} de ${progresso.total}…`
+            : "+ Enviar imagens"
+        }}
         <input
           type="file"
           accept="image/*"
@@ -142,9 +175,13 @@ function move(i: number, dir: number) {
         />
       </label>
       <div class="url-add">
+        <label class="sr-only" for="img-url">URL de imagem</label>
         <input
+          id="img-url"
           v-model="urlInput"
           class="admin-input"
+          type="url"
+          inputmode="url"
           placeholder="ou cole uma URL de imagem"
           @keydown.enter.prevent="addByUrl"
         />
@@ -152,6 +189,22 @@ function move(i: number, dir: number) {
           Adicionar
         </button>
       </div>
+    </div>
+    <p class="muted-note">
+      Pode enviar várias de uma vez. As fotos são reduzidas automaticamente — não
+      precisa diminuir antes. A capa é a que aparece no card do site.
+    </p>
+    <!-- Anúncio para leitor de tela: o texto do botão muda, mas mudança dentro
+         de um <label> não é lida sozinha. -->
+    <p class="sr-only" aria-live="polite">
+      {{ progresso ? `Enviando foto ${progresso.atual} de ${progresso.total}` : "" }}
+    </p>
+
+    <div v-if="removida" class="undo" role="status">
+      Foto removida.
+      <button type="button" class="admin-btn ghost sm" @click="desfazerRemocao">
+        Desfazer
+      </button>
     </div>
 
     <p v-if="!model.length" class="muted-note">
@@ -165,25 +218,66 @@ function move(i: number, dir: number) {
         class="thumb-item"
         :class="{ cover: img.isCover }"
       >
-        <img
-          :src="img.urlSm || img.url"
-          :alt="img.alt || 'Imagem do imóvel'"
-        />
-        <span v-if="img.isCover" class="cover-tag">Capa</span>
-        <div class="thumb-controls">
-          <button type="button" title="Mover para trás" @click="move(i, -1)">
-            ←
-          </button>
-          <button type="button" title="Definir como capa" @click="setCover(i)">
-            ★
-          </button>
-          <button type="button" title="Mover para frente" @click="move(i, 1)">
-            →
-          </button>
-          <button type="button" class="del" title="Remover" @click="remove(i)">
-            ✕
-          </button>
+        <div class="thumb-img">
+          <img
+            :src="img.urlSm || img.url"
+            :alt="img.alt || `Foto ${i + 1}`"
+          />
+          <span v-if="img.isCover" class="cover-tag">Capa</span>
+          <!--
+            Ícones com nome acessível: antes eram "←", "★", "→" e "✕" com só
+            `title` — o leitor de tela anunciava "seta para a esquerda", e os
+            botões tinham 26px, pequenos demais para o polegar.
+          -->
+          <div class="thumb-controls">
+            <button
+              type="button"
+              :aria-label="`Mover foto ${i + 1} para trás`"
+              :disabled="i === 0"
+              @click="move(i, -1)"
+            >
+              <AppIcon name="arrow-left" />
+            </button>
+            <button
+              type="button"
+              :aria-label="img.isCover ? `Foto ${i + 1} é a capa` : `Definir foto ${i + 1} como capa`"
+              :aria-pressed="!!img.isCover"
+              @click="setCover(i)"
+            >
+              <AppIcon name="star" />
+            </button>
+            <button
+              type="button"
+              :aria-label="`Mover foto ${i + 1} para frente`"
+              :disabled="i === model.length - 1"
+              @click="move(i, 1)"
+            >
+              <AppIcon name="arrow-right" />
+            </button>
+            <button
+              type="button"
+              class="del"
+              :aria-label="`Remover foto ${i + 1}`"
+              @click="remove(i)"
+            >
+              <AppIcon name="trash" />
+            </button>
+          </div>
         </div>
+        <!--
+          Descrição da foto: vira o texto alternativo no site (a galeria do
+          imóvel usa o `alt` cadastrado quando existe). Sem ela, quem ouve a
+          página só sabia "foto 3 de 12" — "Cozinha planejada com ilha" é o que
+          decide a visita.
+        -->
+        <label class="sr-only" :for="`img-alt-${i}`">Descrição da foto {{ i + 1 }}</label>
+        <input
+          :id="`img-alt-${i}`"
+          v-model="img.alt"
+          class="admin-input alt-input"
+          maxlength="150"
+          placeholder="Descrição (ex.: cozinha)"
+        />
       </div>
     </div>
   </div>
@@ -211,22 +305,39 @@ function move(i: number, dir: number) {
 }
 .muted-note {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .thumbs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px;
 }
 .thumb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.thumb-img {
   position: relative;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
   border: 2px solid var(--line-2);
   aspect-ratio: 4/3;
 }
-.thumb-item.cover {
+.thumb-item.cover .thumb-img {
   border-color: var(--brand);
+}
+.alt-input {
+  padding: 8px 10px;
+  font-size: var(--fs-label);
+}
+.undo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: var(--fs-ui);
+  color: var(--ink-soft);
 }
 .thumb-item img {
   width: 100%;
@@ -239,10 +350,10 @@ function move(i: number, dir: number) {
   left: 6px;
   background: var(--brand);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .thumb-controls {
   position: absolute;
@@ -256,15 +367,30 @@ function move(i: number, dir: number) {
   background: rgba(20, 22, 26, 0.55);
 }
 .thumb-controls button {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
   border: none;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
   cursor: pointer;
-  font-size: 13px;
+}
+.thumb-controls button :deep(svg) {
+  width: 18px;
+  height: 18px;
+}
+.thumb-controls button[aria-pressed="true"] {
+  background: var(--brand);
+  color: #fff;
+}
+.thumb-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .thumb-controls button.del {
   background: #fecaca;
+  color: #7f1d1d;
 }
 </style>

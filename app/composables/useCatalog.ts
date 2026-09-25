@@ -12,6 +12,10 @@ export interface CatalogFilters {
   sort: SortKey
 }
 
+function semAcento(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 export function createCatalogFilters(): CatalogFilters {
   return { purpose: 'venda', q: '', type: '', bedrooms: 0, maxPrice: 0, sort: 'rel' }
 }
@@ -24,10 +28,14 @@ export function useCatalog(properties: Ref<PropertyCard[]>, filters: CatalogFilt
   const filtered = computed(() => {
     let list = properties.value.filter((p) => p.purpose === filters.purpose)
 
-    const term = filters.q.trim().toLowerCase()
+    // Sem acento dos dois lados: no celular quase ninguém digita "Três", e o
+    // acervo tem o mesmo bairro gravado com e sem acento — "tres lagoas" não
+    // achava "Três Lagoas", e a pastilha "Nova Três Lagoas" não achava os
+    // imóveis gravados como "Nova Tres Lagoas".
+    const term = semAcento(filters.q.trim())
     if (term) {
       list = list.filter((p) =>
-        `${p.neighborhood ?? ''} ${p.city ?? ''} ${p.title} ${p.code}`.toLowerCase().includes(term),
+        semAcento(`${p.neighborhood ?? ''} ${p.city ?? ''} ${p.title} ${p.code}`).includes(term),
       )
     }
     if (filters.type) list = list.filter((p) => p.type === filters.type)

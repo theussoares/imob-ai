@@ -62,12 +62,20 @@ const detailPath = computed(() => propertyPath(props.property))
         <span class="badge" :class="{ rent: isRent }">{{ isRent ? 'Aluguel' : 'Venda' }}</span>
         <span v-if="property.highStandard" class="badge high">Alto padrão</span>
       </div>
-      <span class="code">{{ codigo }}</span>
     </div>
 
     <div class="body">
-      <div class="price">
-        {{ formatBRL(property.price) }}<span v-if="isRent"> /mês</span>
+      <!--
+        O código saiu de cima da foto: era a terceira etiqueta sobre ela
+        (junto do selo e do contador), disputando atenção com o que vende o
+        imóvel. Continua no card, discreto ao lado do preço — é por ele que o
+        cliente pede "o VD-061" no WhatsApp.
+      -->
+      <div class="price-row">
+        <div class="price">
+          {{ formatBRL(property.price) }}<span v-if="isRent"> /mês</span>
+        </div>
+        <span class="code">{{ codigo }}</span>
       </div>
       <NuxtLink class="ttl" :to="detailPath">{{ titulo }}</NuxtLink>
       <div v-if="local" class="loc">

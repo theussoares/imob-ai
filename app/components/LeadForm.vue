@@ -31,6 +31,20 @@ const props = withDefaults(
      * regras de formatação para o mesmo campo, e elas divergiriam.
      */
     buildMessage?: (note: string) => string
+    /**
+     * Nível do título, para encaixar na hierarquia de quem usa o formulário.
+     * Fixo em h4, ele pulava nível em todo lugar: na home vinha logo depois de
+     * um h2, e leitor de tela navega por título — um salto de h2 para h4 soa
+     * como se faltasse uma seção.
+     */
+    headingLevel?: 2 | 3 | 4
+    /**
+     * Botão de envio secundário (contorno). Na página do imóvel o formulário
+     * fica logo abaixo do "Tenho interesse" do WhatsApp: dois botões cheios,
+     * de cores diferentes, no mesmo cartão disputavam qual era a ação
+     * principal. Lá o WhatsApp é a principal; o formulário, a alternativa.
+     */
+    secondary?: boolean
   }>(),
   {
     propertyCode: undefined,
@@ -42,6 +56,8 @@ const props = withDefaults(
     submitLabel: 'Enviar contato',
     okMessage: 'Recebemos seu contato! Retornaremos em breve. ✅',
     buildMessage: (note: string) => note,
+    headingLevel: 3,
+    secondary: false,
   },
 )
 
@@ -49,9 +65,31 @@ const name = ref('')
 const phone = ref('')
 const message = ref('')
 const status = ref<'idle' | 'sending' | 'ok' | 'error'>('idle')
+/** Erro do envio (servidor/rede) — os de campo moram em `fieldErrors`. */
 const error = ref('')
-/** Qual campo a validação reprovou — vira `aria-invalid` no input certo. */
-const invalidField = ref<'name' | 'phone' | null>(null)
+
+/**
+ * Erro por campo, exibido logo abaixo dele.
+ *
+ * Antes havia uma mensagem só, em cima do botão: no celular, com o teclado
+ * aberto, ela aparecia fora da tela e a pessoa não sabia qual campo corrigir.
+ *
+ * A validação roda ao SAIR do campo (blur), não a cada tecla — acusar
+ * "telefone inválido" no terceiro dígito é bronca por algo que a pessoa ainda
+ * está fazendo. Depois que o erro apareceu, ele é reavaliado a cada tecla, para
+ * sumir no instante em que o campo fica certo. É o arranjo que o estudo de
+ * validação inline do Luke Wroblewski encontrou com mais acerto e menos tempo.
+ */
+const fieldErrors = reactive<{ name: string; phone: string }>({ name: '', phone: '' })
+
+function validateField(field: 'name' | 'phone'): boolean {
+  if (field === 'name') fieldErrors.name = name.value.trim() ? '' : 'Preencha seu nome.'
+  else fieldErrors.phone = isValidBrPhone(phone.value) ? '' : 'Telefone inválido. Ex.: (67) 99123-4567'
+  return !fieldErrors[field]
+}
+function revalidateIfShown(field: 'name' | 'phone') {
+  if (fieldErrors[field]) validateField(field)
+}
 
 /**
  * O formulário aparece mais de uma vez na mesma página (o do catálogo vazio e o
@@ -62,21 +100,23 @@ const uid = useId()
 
 // Campo exibe (67) 99123-4567; `phone` guarda só os dígitos.
 const { display: phoneDisplay, onInput: onPhoneInput } = usePhoneInput(phone, 'br')
+watch(name, () => revalidateIfShown('name'))
+watch(phone, () => revalidateIfShown('phone'))
+
+const nameEl = ref<HTMLInputElement | null>(null)
+const phoneEl = ref<HTMLInputElement | null>(null)
 
 async function submit() {
-  if (!name.value.trim()) {
-    error.value = 'Preencha seu nome.'
-    invalidField.value = 'name'
-    return
-  }
-  if (!isValidBrPhone(phone.value)) {
-    error.value = 'Telefone inválido. Ex.: (67) 99123-4567'
-    invalidField.value = 'phone'
+  const nomeOk = validateField('name')
+  const foneOk = validateField('phone')
+  if (!nomeOk || !foneOk) {
+    // Foco no primeiro campo reprovado: é ali que a pessoa precisa agir, e o
+    // leitor de tela lê o erro junto, via aria-describedby.
+    ;(nomeOk ? phoneEl : nameEl).value?.focus()
     return
   }
   status.value = 'sending'
   error.value = ''
-  invalidField.value = null
   try {
     await $fetch('/api/leads', {
       method: 'POST',
@@ -104,10 +144,17 @@ async function submit() {
 </script>
 
 <template>
-  <form class="lead" @submit.prevent="submit">
-    <h4>{{ title }}</h4>
-    <p v-if="status === 'ok'" class="lead-ok">{{ okMessage }}</p>
-    <template v-else>
+  <form class="lead" novalidate @submit.prevent="submit">
+    <component :is="`h${headingLevel}`" class="lead-title">{{ title }}</component>
+    <!--
+      Região viva sempre no DOM, com o conteúdo entrando nela: um elemento que
+      já nasce com role="status" nem sempre é anunciado, e o sucesso do envio
+      passaria em silêncio para quem usa leitor de tela.
+    -->
+    <div role="status" aria-live="polite">
+      <p v-if="status === 'ok'" class="lead-ok">{{ okMessage }}</p>
+    </div>
+    <template v-if="status !== 'ok'">
       <p v-if="intro" class="lead-intro">{{ intro }}</p>
 
       <!--
@@ -122,33 +169,51 @@ async function submit() {
         `autocomplete`: no celular preenche nome e telefone de uma vez. Num
         formulário de lead, cada campo que a pessoa não precisa digitar é
         conversão que não se perde no caminho.
+
+        O asterisco marca o obrigatório e é `aria-hidden` porque o
+        `aria-required` já diz isso ao leitor de tela — lido duas vezes, vira
+        "Seu nome asterisco obrigatório".
       -->
       <div class="lead-field">
-        <label :for="`lead-nome-${uid}`">Seu nome</label>
+        <label :for="`lead-nome-${uid}`">Seu nome <span class="req" aria-hidden="true">*</span></label>
         <input
           :id="`lead-nome-${uid}`"
+          ref="nameEl"
           v-model="name"
           class="admin-input"
           type="text"
           autocomplete="name"
-          :aria-invalid="invalidField === 'name' || undefined"
+          aria-required="true"
+          :aria-invalid="!!fieldErrors.name || undefined"
+          :aria-describedby="fieldErrors.name ? `lead-nome-err-${uid}` : undefined"
           placeholder="Como podemos te chamar?"
+          @blur="validateField('name')"
         />
+        <p v-if="fieldErrors.name" :id="`lead-nome-err-${uid}`" class="lead-err">
+          {{ fieldErrors.name }}
+        </p>
       </div>
 
       <div class="lead-field">
-        <label :for="`lead-fone-${uid}`">WhatsApp</label>
+        <label :for="`lead-fone-${uid}`">WhatsApp <span class="req" aria-hidden="true">*</span></label>
         <input
           :id="`lead-fone-${uid}`"
+          ref="phoneEl"
           :value="phoneDisplay"
           class="admin-input"
           type="tel"
           inputmode="numeric"
           autocomplete="tel-national"
-          :aria-invalid="invalidField === 'phone' || undefined"
+          aria-required="true"
+          :aria-invalid="!!fieldErrors.phone || undefined"
+          :aria-describedby="fieldErrors.phone ? `lead-fone-err-${uid}` : undefined"
           placeholder="(67) 99123-4567"
           @input="onPhoneInput"
+          @blur="phone && validateField('phone')"
         />
+        <p v-if="fieldErrors.phone" :id="`lead-fone-err-${uid}`" class="lead-err">
+          {{ fieldErrors.phone }}
+        </p>
       </div>
 
       <div class="lead-field">
@@ -161,13 +226,31 @@ async function submit() {
         />
       </div>
 
-      <!-- role="alert": o erro aparece depois do clique, longe de onde a pessoa
-           está olhando. Sem isto, quem usa leitor de tela clica em enviar e não
-           acontece nada perceptível. -->
+      <!-- role="alert": falha de envio aparece depois do clique, sem campo
+           nenhum para apontar. Sem isto, quem usa leitor de tela clica em
+           enviar e não acontece nada perceptível. -->
       <p v-if="error" class="lead-err" role="alert">{{ error }}</p>
-      <button class="admin-btn" type="submit" :disabled="status === 'sending'">
+      <button
+        class="admin-btn"
+        :class="{ ghost: secondary }"
+        type="submit"
+        :disabled="status === 'sending'"
+      >
         {{ status === 'sending' ? 'Enviando...' : submitLabel }}
       </button>
+      <!--
+        Junto do botão: é aqui que a pessoa decide se confia o telefone a um
+        site que acabou de conhecer, e a LGPD pede a finalidade informada no
+        ponto da coleta — o quero-vender já dizia isso, este formulário não.
+
+        SEM link para /privacidade de propósito: aquela página é rascunho à
+        espera de revisão jurídica (ver o topo de app/pages/privacidade.vue).
+        Quando ela for publicada, o link entra aqui.
+      -->
+      <p class="lead-legal">
+        Usamos seu contato só para responder a este pedido. Sem cadastro e sem
+        lista de e-mail.
+      </p>
     </template>
   </form>
 </template>
@@ -178,10 +261,10 @@ async function submit() {
   flex-direction: column;
   gap: 10px;
 }
-.lead h4 {
+.lead-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
-  margin-bottom: 2px;
+  font-size: var(--fs-body);
+  margin: 0 0 2px;
 }
 .lead-ok {
   color: var(--wa-dark);
@@ -189,14 +272,23 @@ async function submit() {
 }
 .lead-intro {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.55;
   color: var(--ink-soft);
 }
 .lead-err {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0;
+}
+.req {
+  color: #b91c1c;
+}
+.lead-legal {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-soft);
 }
 .lead-field {
   display: flex;
@@ -204,7 +296,7 @@ async function submit() {
   gap: 5px;
 }
 .lead-field label {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink);
 }
