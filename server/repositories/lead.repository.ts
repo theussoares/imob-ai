@@ -50,12 +50,25 @@ export async function createLead(client: Client, args: CreateLeadArgs): Promise<
   if (error) throw error
 }
 
-/** Cadastro manual pelo painel — o contato que chegou por WhatsApp/indicação. */
-export async function createManualLead(client: Client, tenantId: string, input: LeadCreateInput): Promise<Lead> {
+/**
+ * Cadastro manual pelo painel — o contato que chegou por WhatsApp/indicação.
+ *
+ * `propertyId` vem em argumento separado, e não dentro de `input`, de
+ * propósito: `input` é o body do painel, e imóvel vindo do body seria id de
+ * outra imobiliária esperando para ser gravado. Quem preenche este argumento é
+ * o servidor, a partir de um clique já lido com filtro de tenant.
+ */
+export async function createManualLead(
+  client: Client,
+  tenantId: string,
+  input: LeadCreateInput,
+  derivado: { propertyId?: string | null } = {},
+): Promise<Lead> {
   const { data, error } = await client
     .from('leads')
     .insert({
       tenant_id: tenantId,
+      property_id: derivado.propertyId ?? null,
       name: input.name,
       phone: input.phone ?? null,
       message: input.message ?? null,
