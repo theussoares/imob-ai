@@ -104,6 +104,33 @@ público permite pular a validação da API. Padrão: a RLS fecha a escrita para
 anon, e o servidor grava por `serviceSupabase()` depois de validar
 (ver `server/api/leads.post.ts` e migration 0015).
 
+## Privacidade (LGPD)
+
+`app/pages/privacidade.vue` é a política de privacidade que o visitante e o
+cliente da Área do Cliente leem, e ela afirma fatos: o que o site coleta, por
+quanto tempo guarda, com quem compartilha e que **não grava cookie**. Mudança
+que torne uma dessas frases falsa muda a página **no mesmo PR**.
+
+Pede revisão da política:
+
+- campo novo em formulário público, ou coluna nova gravada sobre o visitante
+  (`leads`, `whatsapp_clicks`);
+- cookie, pixel, script de terceiro, ferramenta de analytics ou chat;
+- serviço externo novo que receba dado de pessoa (e-mail, SMS, pagamento,
+  CRM), ou mudança de região de onde o dado é processado;
+- prazo de retenção novo ou alterado (ex.: o expurgo de leads, que ainda não
+  existe).
+
+**Cookie não essencial exige banner que bloqueie o script até o aceite**, não
+um aviso. É a decisão registrada em `docs/runbooks/lgpd-site-publico.md`
+("Banner de cookies"), que traz também a base legal de cada tratamento e o
+parecer. Atualize a tabela de lá junto.
+
+`test/server/privacidade-guardrail.test.ts` cai quando o código passa a
+coletar, gravar cookie ou falar com terceiro que a política não descreve. A
+mensagem diz qual seção rever. Atualizar a lista do teste sem atualizar a
+política é exatamente o erro que ele existe para tornar visível.
+
 ## Migrations
 
 Arquivo numerado em `supabase/migrations/NNNN_nome.sql`, aplicado via Supabase

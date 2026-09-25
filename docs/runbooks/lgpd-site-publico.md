@@ -4,10 +4,9 @@ Auditoria de 25/09. Continua o `0037-lgpd-area-do-cliente.md`, que cobre só a
 Área do Cliente. Este documento cobre o que um **visitante** do site de uma
 imobiliária deixa com a gente.
 
-Mesma natureza do 0037: **insumo para advogado, não parecer.** Engenharia
-afirma o que o sistema faz. A qualificação jurídica (qual base legal, qual
-prazo, que redação) está aqui proposta, com a fonte, para ser confirmada ou
-corrigida por quem assina.
+A primeira metade é fato do sistema, verificado no código e no banco. A
+segunda é o parecer: posição sobre cada questão jurídica em aberto, com
+fundamento e fonte.
 
 ## Quem é quem
 
@@ -48,101 +47,154 @@ abaixo:
 - não manda para o Analytics as páginas do painel nem da Área do Cliente
   (`shared/utils/rastreio.ts` descarta os eventos).
 
-## Base legal proposta, por tratamento
+## Parecer
 
-| Tratamento | Base proposta | Por quê |
+Revisão feita em 25/09, depois do mapa acima, com o método de uma verificação
+de conformidade: para cada questão, a posição adotada, o fundamento, o risco
+que sobra e a ação que falta.
+
+⚠️ **Não é parecer de advogado inscrito na OAB.** Foi pedido que a revisão
+fosse feita sem advogado, e ela foi. Onde a conclusão depende de fato que o
+sistema não mostra (porte da imobiliária, texto dos contratos com
+fornecedores), isso está dito. Se um dia houver advogado, este é o ponto de
+partida dele, não o ponto final.
+
+### Q1. Bases legais
+
+| Tratamento | Base | Fundamento |
 |---|---|---|
-| Formulário de contato | **Art. 7º, V** — procedimentos preliminares a contrato, a pedido do titular | A pessoa pede para ser contatada sobre um imóvel. Consentimento seria pior: é revogável a qualquer momento e obriga a parar de responder |
-| Anti-abuso (hash de IP) | **Art. 7º, IX** — legítimo interesse (segurança do formulário) | Pseudonimizado, janela curta, expectativa razoável do titular. Art. 10, §3º: a ANPD pode pedir relatório de impacto |
-| Clique no WhatsApp | **Art. 7º, IX** — legítimo interesse (saber de qual imóvel veio a conversa) | Não identifica quem clicou; retenção de 90 dias |
-| Estatísticas de visita | **Art. 7º, IX** — legítimo interesse (medição de audiência) | O Guia de Cookies da ANPD admite legítimo interesse para medição de audiência. Aqui nem há cookie |
-| E-mail de aviso à imobiliária | a mesma base do lead (art. 7º, V) | é o próprio atendimento do pedido |
+| Formulário de contato e "Quero vender" | **art. 7º, V** | O titular pede para ser contatado sobre um imóvel: é procedimento preliminar a um contrato (compra, venda, locação, intermediação) a pedido dele. Consentimento seria pior: revogável a qualquer momento, e revogado obriga a parar de responder |
+| E-mail de aviso à imobiliária | **art. 7º, V** | É o próprio atendimento do pedido |
+| Anti-abuso (hash de IP) | **art. 7º, IX** | Legítimo interesse em segurança do formulário. Passa no teste do art. 10: finalidade legítima e concreta (barrar envio em massa), necessidade (sem isso não há limite por origem), expectativa razoável do titular, dado pseudonimizado |
+| Clique no WhatsApp | **art. 7º, IX** | Legítimo interesse em saber de qual imóvel veio a conversa. Não identifica quem clicou; 90 dias de retenção |
+| Estatísticas de visita | **art. 7º, IX** | O Guia de Cookies da ANPD admite legítimo interesse para medição de audiência. Aqui nem há cookie |
 
-Legítimo interesse exige, pelo art. 10, §2º, **transparência** sobre o
-tratamento. Na prática: tudo que está como art. 7º, IX precisa estar escrito na
-política. Hoje não está em lugar nenhum.
+**Posição:** confirmadas. **Risco residual:** baixo. **Ação:** o art. 10, §2º
+exige transparência para o legítimo interesse, e a política agora descreve os
+três tratamentos que usam essa base.
 
-## Lacunas encontradas
+### Q2. Prazo de retenção dos leads
 
-Por ordem de risco.
+**Posição:** 24 meses sem interação, depois eliminação. Lead que virou negócio
+sai da regra, porque passa a ser dado do contrato.
 
-### 1. Não há política de privacidade publicada no site público
+**Fundamento:** o art. 15, I encerra o tratamento quando a finalidade é
+alcançada ou o dado deixa de ser necessário, e o art. 16 manda eliminar
+depois. A LGPD não fixa prazo; a ANPD diz que o controlador o define pela
+finalidade (FAQ 5.5). Venda de imóvel tem ciclo longo: quem pergunta hoje pode
+comprar daqui a um ano. Com 24 meses sem contato, a finalidade "responder a
+este pedido" já se esgotou com folga.
 
-O art. 9º exige que o titular tenha acesso "de forma clara, adequada e
-ostensiva" à finalidade, forma e duração, identificação e contato do
-controlador, compartilhamento, responsabilidades e direitos do art. 18. Hoje o
-visitante do site só vê a frase junto do botão do formulário ("Usamos seu
-contato só para responder a este pedido"). É boa como aviso no ponto de coleta,
-mas não cobre o art. 9º.
+**Risco residual:** **médio enquanto o expurgo não existir.** Hoje o lead fica
+para sempre. A política diz a verdade ("até que a imobiliária os apague"), então
+não há promessa descumprida, mas guardar sem prazo é o descumprimento em si.
 
-**Feito nesta rodada:** o rascunho de `/privacidade` passou a cobrir o site
-público. Continua **não publicado** (fora de `STATIC_FOOTER_PAGES`, com
-`noindex`) até a revisão.
+**Ação:** job de expurgo no cron diário, que já apaga os cliques. Quando o job
+existir, a frase da política muda para "24 meses após o último contato". É
+exclusão automática de dado de cliente em produção, então precisa de aprovação
+explícita de quem opera a plataforma antes de ligar.
 
-### 2. Leads sem prazo de retenção
+### Q3. Transferência internacional
 
-O art. 15, I encerra o tratamento quando a finalidade é alcançada, e o art. 16
-manda eliminar depois disso, salvo as exceções dele. Um pedido de contato de
-dois anos atrás, de alguém que nunca virou cliente, não tem finalidade
-presente. A ANPD diz que a LGPD não fixa prazo geral — o controlador define,
-pela finalidade (FAQ ANPD 5.5). Então a imobiliária precisa de um número, e o
-sistema precisa aplicá-lo.
+**Posição:** o caminho principal do dado já está coberto. Um fluxo menor não
+está.
 
-**Proposta de engenharia:** leads arquivados ou perdidos, sem interação há 24
-meses, são eliminados pelo cron que já apaga os cliques. Lead que virou
-contrato sai da regra (passa a ser dado do contrato). O número é para o
-advogado confirmar; o job é trabalho a fazer depois disso, não antes.
+**Fundamento:** o art. 33, IX permite a transferência "quando necessário para
+atender as hipóteses previstas nos incisos II, V e VI do art. 7º". Então:
 
-### 3. Transferência internacional sem mecanismo declarado
+- **formulário e e-mail de aviso** (art. 7º, V): a passagem pelas funções da
+  Vercel nos EUA e o envio pela Resend estão cobertos pelo art. 33, IX, sem
+  depender de cláusula contratual;
+- **estatísticas da Vercel:** a Vercel declara guardar só dado anonimizado.
+  Dado anonimizado não é dado pessoal (art. 12). O IP bruto só existe durante
+  o processamento da requisição;
+- **clique no WhatsApp e anti-abuso** (art. 7º, IX): legítimo interesse **não**
+  está na lista do art. 33, IX. O hash de IP é pseudonimizado, não anonimizado:
+  a plataforma tem o sal e consegue refazer a associação, então continua sendo
+  dado pessoal. Hoje ele é calculado numa função em `iad1` (EUA). Isso exige
+  outro mecanismo do art. 33, na prática as cláusulas-padrão da Res. CD/ANPD
+  19/2024 no contrato com a Vercel.
 
-O banco fica em São Paulo, mas a requisição do formulário passa pelas funções
-da Vercel em `iad1` (Washington, EUA), e o aviso de lead sai pela Resend (EUA).
-Isso é transferência internacional (art. 33). Os EUA não têm decisão de
-adequação da ANPD, então o mecanismo é contratual. A Resolução CD/ANPD nº
-19/2024 fixou as cláusulas-padrão e deu até **23/08/2025** para incorporá-las a
-contratos que já usavam cláusulas. Já venceu.
+**Risco residual:** baixo. É um hash, não um IP, e o volume é pequeno. Mas é
+uma lacuna formal.
 
-A verificar: se os DPAs da Vercel, da Resend e da Supabase já incorporam as
-cláusulas-padrão brasileiras, ou só as europeias. Isso é leitura de contrato,
-não de código.
+**Ação:** fixar as funções da Vercel em `gru1` (São Paulo). Com isso o hash é
+calculado no Brasil, e a lacuna desaparece sem depender de contrato. Também
+reduz a latência: hoje cada requisição vai a Washington e volta a São Paulo
+para falar com o banco. Medir antes de ligar em produção.
 
-**Mudança técnica que reduz o problema:** fixar a região das funções da Vercel
-em `gru1` (São Paulo). Os dados do formulário deixariam de passar pelos EUA
-antes de chegar ao banco, que já está em São Paulo, e cada requisição deixaria
-de cruzar o continente até o banco. Não resolve a Resend nem a Vercel como
-empresa, mas tira o caminho principal do dado do exterior. A mudança é uma
-opção de região no deploy e deve ser medida antes de ir para produção.
+### Q4. Registros de acesso (Marco Civil, art. 15)
 
-### 4. Registros de acesso (Marco Civil, art. 15)
+**Posição:** **a obrigação existe e é da plataforma.** Hoje não é cumprida.
 
-O art. 15 da Lei 12.965/2014 obriga o provedor de aplicação constituído como
-pessoa jurídica, com fins econômicos, a guardar os registros de acesso (data,
-hora e IP de uso da aplicação) por **6 meses**, sob sigilo. Hoje a aplicação
-não guarda isso: o hash de IP não é o IP, e os logs de runtime da Vercel têm
-retenção curta.
+**Fundamento:** o art. 15 obriga "o provedor de aplicações de internet
+constituído na forma de pessoa jurídica e que exerça essa atividade de forma
+organizada, profissionalmente e com fins econômicos" a guardar os registros de
+acesso por 6 meses. Registro de acesso é "data e hora de uso de uma
+determinada aplicação de internet a partir de um determinado endereço IP"
+(art. 5º, VIII). Quem opera a aplicação, profissionalmente e com fins
+econômicos, é a plataforma, não a imobiliária. A imobiliária é cliente dela.
 
-Pergunta para o advogado, antes de qualquer código: **quem é o provedor de
-aplicação aqui**, a imobiliária (dona do site) ou a plataforma? E o site de
-vitrine se enquadra? Guardar IP em claro por 6 meses é tratamento novo, com
-risco próprio, e só deve ser feito se a lei de fato exigir, e de quem.
+**Risco residual:** baixo no dia a dia, alto no dia em que chegar uma ordem
+judicial pedindo quem acessou o painel ou o formulário numa data, e não houver
+o que entregar.
 
-### 5. Canal do titular e encarregado
+**Ação:** guardar, por 6 meses e sob sigilo, data/hora, IP e aplicação (host)
+de cada requisição. A base legal é o art. 7º, II (obrigação legal), e o
+tratamento é o mínimo que a lei pede: nada de corpo de requisição nem de
+URL completa. O caminho mais barato é um log drain da Vercel para um
+armazenamento com retenção de 180 dias. Tem custo e é infraestrutura, então é
+decisão de quem paga a conta. Não é código deste repositório.
 
-O art. 41 exige encarregado, e a Resolução CD/ANPD nº 18/2024 exige identidade e
-contato dele em destaque no site. A Resolução CD/ANPD nº 2/2022 (art. 11)
-dispensa o agente de pequeno porte de indicar encarregado, **desde que
-mantenha um canal de comunicação com o titular**.
+### Q5. Encarregado e canal do titular
 
-As imobiliárias clientes provavelmente são de pequeno porte, mas isso é
-enquadramento a confirmar caso a caso. A política usa o e-mail da imobiliária
-como canal. Se ela tiver encarregado, o nome entra no texto.
+**Posição:** a imobiliária típica está **dispensada** de indicar encarregado e
+cumpre a lei com o e-mail dela como canal. A plataforma, como operadora, não é
+obrigada a indicar.
 
-### 6. Incidente de segurança
+**Fundamento:** a Res. CD/ANPD 2/2022 dispensa o agente de pequeno porte
+(microempresa, empresa de pequeno porte, startup) de indicar encarregado, desde
+que mantenha canal com o titular (art. 11). Ela deixa de valer quando o
+tratamento é de **alto risco**, que exige ao mesmo tempo um critério geral
+(larga escala, ou afetar significativamente direitos) e um específico
+(tecnologia inovadora, vigilância, decisão automatizada, dado sensível ou de
+criança). Uma vitrine de imóveis com formulário de contato não atende nenhum
+critério específico. A Área do Cliente tem documentos com CPF, mas CPF não é
+dado sensível no sentido do art. 5º, II.
 
-Resolução CD/ANPD nº 15/2024: o controlador comunica incidente relevante à ANPD
-e aos titulares em **3 dias úteis** (6 para pequeno porte). Como operadora, a
-plataforma precisa avisar a imobiliária a tempo de ela cumprir esse prazo. Isso
-deveria constar do contrato com o cliente. Não é texto da política.
+**Risco residual:** depende do porte, que o sistema não sabe. Imobiliária que
+não seja ME/EPP precisa indicar encarregado, e o nome dele entra na política
+(Res. CD/ANPD 18/2024: identidade e contato em destaque no site).
+
+**Feito:** a política mostra um canal mesmo quando a imobiliária não tem
+e-mail. A ordem é e-mail, depois WhatsApp, depois telefone
+(`shared/utils/canal-titular.ts`). Antes, a frase de direitos terminava sem
+canal nenhum, e esse era o caso da `tatiane` em 25/09.
+
+**Ação:** perguntar o porte no cadastro de cada cliente novo. Para quem não for
+de pequeno porte, adicionar o nome do encarregado à página.
+
+### Q6. Incidente de segurança
+
+**Posição:** obrigação da imobiliária (controladora), com dependência da
+plataforma.
+
+**Fundamento:** a Res. CD/ANPD 15/2024 dá 3 dias úteis ao controlador para
+comunicar à ANPD e aos titulares (6 para pequeno porte), contados de quando ele
+sabe do incidente. Quem vai saber primeiro é a plataforma.
+
+**Ação:** cláusula no contrato com a imobiliária: a plataforma avisa em até 24
+horas de quando tomar conhecimento de incidente com dado dela. É texto de
+contrato, não código.
+
+### Q7. Publicação da política
+
+**Posição:** o texto de `/privacidade` está pronto para publicar. Tudo o que
+ele afirma corresponde ao que o sistema faz hoje.
+
+**Ação:** registrar a página em `STATIC_FOOTER_PAGES`, tirar o `noindex` e
+pôr o link no aviso do formulário de contato (`LeadForm.vue`), tudo na mesma
+mudança. Isso a publica no rodapé de **todas** as imobiliárias ao mesmo tempo.
 
 ## Banner de cookies: decisão
 
@@ -160,8 +212,7 @@ deveria constar do contrato com o cliente. Não é texto da política.
   dar controle. E custa conversão no primeiro contato de quem está procurando
   imóvel.
 
-O que a transparência exige, e esta rodada fez, é a seção "Cookies e
-estatísticas" na política.
+O que a transparência exige está na seção "Cookies e estatísticas" da política.
 
 **Quando isto muda:** no dia em que entrar Meta Pixel, Google Ads, Google
 Analytics, Tag Manager ou qualquer ferramenta que grave cookie ou identificador
@@ -169,27 +220,41 @@ persistente. Nesse dia o banner é obrigatório, e precisa **bloquear o script
 até o aceite**, não só avisar. Um banner que avisa mas carrega o pixel antes do
 clique é pior que nenhum, porque documenta a violação.
 
-## Para o advogado, em uma lista
+## Ações, por dono
 
-1. Revisar o texto de `/privacidade` (rascunho, não publicado).
-2. Confirmar as bases legais da tabela acima.
-3. Definir o prazo de retenção de leads (proposta: 24 meses sem interação).
-4. Ler os DPAs de Vercel, Resend e Supabase quanto às cláusulas-padrão da
-   Res. 19/2024.
-5. Responder o enquadramento do Marco Civil, art. 15 (item 4).
-6. Confirmar se cada imobiliária cliente é agente de pequeno porte (Res. 2/2022).
-7. Cláusula de comunicação de incidente no contrato com a imobiliária.
+| # | Ação | Dono | Prioridade |
+|---|---|---|---|
+| 1 | Publicar `/privacidade` (Q7) | engenharia | alta: sem ela, o art. 9º não é cumprido |
+| 2 | Expurgo de leads em 24 meses (Q2) | engenharia, com aprovação | alta |
+| 3 | Guarda de registros de acesso por 6 meses (Q4) | infraestrutura (custo) | média |
+| 4 | Funções da Vercel em `gru1` (Q3) | engenharia | média |
+| 5 | Cláusula de incidente no contrato com a imobiliária (Q6) | comercial | média |
+| 6 | Porte do cliente no cadastro; encarregado de quem não for pequeno porte (Q5) | comercial | baixa |
 
-Publicar a página é registrá-la em `STATIC_FOOTER_PAGES` e tirar o `noindex`,
-**na mesma mudança**. O link no formulário de contato (`LeadForm.vue`) entra
-junto.
+## Mantendo isto verdadeiro
+
+Este documento e a política descrevem o sistema de 25/09. Cada coisa nova que
+colete dado, grave cookie ou fale com terceiro os desatualiza. Duas travas
+existem para isso:
+
+- `CLAUDE.md`, seção "Privacidade (LGPD)": a regra, lida no começo de toda
+  sessão de desenvolvimento;
+- `test/server/privacidade-guardrail.test.ts`: cai quando aparece cookie,
+  script de terceiro na CSP, serviço externo no servidor ou campo novo gravado
+  sobre o visitante, e diz qual seção rever.
+
+O teste não vê tudo. Mudar a região das funções da Vercel, trocar de
+fornecedor por configuração ou mudar um prazo de retenção não quebra nada, e
+também pede revisão da tabela "O que o site público trata" e da questão
+correspondente acima.
 
 ## Fontes
 
 O texto oficial no Planalto e no portal da ANPD não pôde ser aberto do ambiente
 onde este documento foi escrito (bloqueio de rede). Os dispositivos foram
-conferidos por busca, em fontes secundárias que reproduzem o texto legal. O
-advogado deve conferir contra o texto compilado vigente.
+conferidos por busca, em fontes secundárias que reproduzem o texto legal. Vale
+conferir contra o texto compilado vigente antes de citar em qualquer
+documento externo.
 
 - LGPD, Lei 13.709/2018 — [texto compilado, Planalto](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm)
 - Marco Civil da Internet, Lei 12.965/2014, art. 15 — [Planalto](https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2014/lei/l12965.htm)
@@ -199,4 +264,9 @@ advogado deve conferir contra o texto compilado vigente.
 - Resolução CD/ANPD nº 18/2024, encarregado — [cópia no TJBA](https://www.tjba.jus.br/extrajudicial/wp-content/uploads/2024/08/RESOLUCAO-ANPD-No-18-Encarregado-de-Dados.pdf)
 - Resolução CD/ANPD nº 19/2024, transferência internacional — [ANPD](https://www.gov.br/anpd/pt-br/acesso-a-informacao/institucional/atos-normativos/regulamentacoes_anpd/resolucao-cd-anpd-no-19-de-23-de-agosto-de-2024); fim do prazo de adaptação — [Mayer Brown](https://www.mayerbrown.com/pt/insights/publications/2025/08/end-of-grace-period-implementation-of-brazils-standard-contractual-clauses-in-international-transfers-of-personal-data)
 - ANPD, FAQ 5.5 "Por quanto tempo os dados pessoais podem ser tratados?" — [ANPD](https://www.gov.br/anpd/pt-br/acesso-a-informacao/perguntas-frequentes/perguntas-frequentes/5-adequacao-a-lgpd/5-5-por-quanto-tempo)
+- LGPD art. 33, IX (transferência para atender art. 7º, II, V e VI) — [Aurum, arts. 33 a 36 comentados](https://www.aurum.com.br/blog/lgpd-comentada/art-33-a-36-lgpd/)
+- LGPD art. 12 (dado anonimizado) e art. 13, §4º (pseudonimização) — [Migalhas](https://www.migalhas.com.br/coluna/migalhas-de-protecao-de-dados/332299/o-dado-pseudonimizado-e-um-dado-protegido-pela-lei-geral-de-protecao-de-dados)
+- LGPD art. 7º, V e IX e art. 10 — [Aurum, arts. 7 a 10 comentados](https://www.aurum.com.br/blog/lgpd-comentada/art-7-a-10-lgpd/)
+- Marco Civil art. 5º, VIII (definição de registro de acesso) — [Jusbrasil](https://www.jusbrasil.com.br/topicos/27363883/inciso-viii-do-artigo-5-da-lei-n-12965-de-23-de-abril-de-2014)
+- Res. CD/ANPD 2/2022, critérios de alto risco (art. 4º) — [Migalhas](https://www.migalhas.com.br/depeso/362499/resolucao-cd-anpd-2-22-analise-baseada-em-risco-e-alcance-da-norma)
 - Vercel Web Analytics, privacidade (sem cookies, hash diário) — [Vercel](https://vercel.com/docs/analytics/privacy-policy)

@@ -1,22 +1,24 @@
 <script setup lang="ts">
+import { canalDoTitular } from '~~/shared/utils/canal-titular'
 /**
  * Política de privacidade do site da imobiliária: o site público e a Área do
  * Cliente.
  *
  * ⚠️ **RASCUNHO — NÃO PUBLICADO.** Esta página existe e responde na URL, mas
  * NÃO está em `STATIC_FOOTER_PAGES`, então não aparece no rodapé de site
- * nenhum. Registrar lá é o ato de publicar, e ele depende de revisão jurídica.
+ * nenhum. Registrar lá é o ato de publicar. A revisão do texto foi feita (Q7
+ * em `docs/runbooks/lgpd-site-publico.md`); falta a decisão de ligar.
  *
- * O motivo de não registrar já: o registro torna a página visível no rodapé de
- * TODA imobiliária por padrão. Uma política de privacidade não revisada no ar,
- * no site de um cliente real, é pior que nenhuma.
+ * Por que é decisão e não detalhe: o registro torna a página visível no rodapé
+ * de TODA imobiliária ao mesmo tempo. Uma política errada no ar, no site de um
+ * cliente real, é pior que nenhuma.
  *
  * O texto descreve com precisão o que o sistema faz — isso é o que engenharia
  * pode afirmar. A forma jurídica (bases legais nomeadas, prazos, redação dos
- * direitos) precisa de advogado. Os insumos preparados para essa revisão são
- * `docs/runbooks/0037-lgpd-area-do-cliente.md` (Área do Cliente) e
- * `docs/runbooks/lgpd-site-publico.md` (site público, com as bases legais
- * propostas e as fontes).
+ * direitos) foi revisada em `docs/runbooks/lgpd-site-publico.md`, que traz o
+ * parecer (bases legais, retenção, transferência internacional, Marco Civil)
+ * com fundamento e fontes. A Área do Cliente tem o mapa em
+ * `docs/runbooks/0037-lgpd-area-do-cliente.md`.
  *
  * ⚠️ Cada afirmação daqui tem que continuar verdadeira. Quem mudar o que o
  * site coleta (campo novo no formulário, ferramenta de estatística, pixel,
@@ -32,13 +34,22 @@ const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true })
 
 const nome = computed(() => tenant.value?.name || 'a imobiliária')
 
+// Canal do titular (LGPD art. 9º, IV). Sem ele a frase de direitos terminava
+// sem dizer por onde — ver shared/utils/canal-titular.ts.
+const canal = computed(() =>
+  tenant.value
+    ? canalDoTitular({ email: tenant.value.email, whatsapp: tenant.value.whatsapp, phone: tenant.value.phone })
+    : null,
+)
+const ROTULO_DO_CANAL = { email: 'pelo e-mail', whatsapp: 'pelo WhatsApp', telefone: 'pelo telefone' } as const
+
 // `noindex` enquanto for rascunho, e isto não é cautela sobrando: a página
 // responde na URL em QUALQUER domínio de tenant, então basta um crawler chegar
 // — link externo, referrer, palpite — para um texto jurídico não revisado ser
 // indexado como a política de privacidade de uma imobiliária real. O canonical
 // ainda afirmaria que aquela é a versão autoritativa.
 //
-// ⚠️ Quando a revisão jurídica sair e a página for registrada em
+// ⚠️ Quando a página for registrada em
 // `STATIC_FOOTER_PAGES`, ESTA LINHA SAI JUNTO — publicar no rodapé e continuar
 // pedindo para não indexar é contradição.
 useHead(() => ({
@@ -158,6 +169,26 @@ useHead(() => ({
       criado só depois de conferirmos que você tem direito àquele documento.
     </p>
 
+    <h2>Com base em quê</h2>
+    <!-- Posições de Q1 em docs/runbooks/lgpd-site-publico.md. -->
+    <ul>
+      <li>
+        <b>Pedido de contato e aviso à imobiliária:</b> para atender a um pedido
+        seu, antes de um possível negócio (Lei 13.709/2018, art. 7º, V).
+      </li>
+      <li>
+        <b>Clique no WhatsApp, proteção contra abuso e estatísticas de
+        visita:</b> interesse legítimo de {{ nome }} em saber de onde vêm os
+        contatos, proteger o site e entender como ele é usado, sem identificar
+        você (art. 7º, IX).
+      </li>
+      <li>
+        <b>Área do Cliente:</b> para cumprir o contrato que você tem com
+        {{ nome }} (art. 7º, V) e manter o registro de quem acessou cada
+        documento (art. 7º, IX).
+      </li>
+    </ul>
+
     <h2>Com quem compartilhamos</h2>
     <p>
       {{ nome }} não vende nem cede seus dados para publicidade. Para o site
@@ -170,10 +201,11 @@ useHead(() => ({
       <li><b>Resend:</b> envio de e-mails, nos Estados Unidos.</li>
     </ul>
     <!--
-      Transferência internacional (LGPD art. 33): Vercel e Resend processam nos
-      EUA. O mecanismo (cláusulas-padrão da Res. CD/ANPD 19/2024 nos DPAs) está
-      A CONFIRMAR pelo advogado — ver docs/runbooks/lgpd-site-publico.md, item 3.
-      Não afirmar aqui garantia contratual que ainda não foi verificada.
+      Transferência internacional (LGPD art. 33): o contato e o aviso por e-mail
+      estão cobertos pelo art. 33, IX (atender o art. 7º, V). O hash de IP do
+      clique no WhatsApp não está, enquanto as funções rodarem em `iad1` — ver
+      Q3 em docs/runbooks/lgpd-site-publico.md. Não afirmar aqui garantia
+      contratual que ninguém verificou.
     -->
     <p>
       Por isso, parte do tratamento dos seus dados acontece fora do Brasil.
@@ -224,8 +256,9 @@ useHead(() => ({
     </ul>
     <p>
       Para exercer qualquer um deles, fale com {{ nome }}
-      <template v-if="tenant?.email">pelo e-mail
-        <a :href="`mailto:${tenant.email}`">{{ tenant.email }}</a></template>.
+      <template v-if="canal">{{ ROTULO_DO_CANAL[canal.tipo] }}
+        <a :href="canal.href">{{ canal.rotulo }}</a></template><template
+        v-else>pelos canais de atendimento informados neste site</template>.
       Você também pode apresentar reclamação à Autoridade Nacional de Proteção
       de Dados (ANPD).
     </p>
