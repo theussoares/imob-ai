@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { TENANT_PUBLIC_COLUMNS } from '~~/server/mappers/tenant.mapper'
@@ -16,19 +16,32 @@ import { TENANT_PUBLIC_COLUMNS } from '~~/server/mappers/tenant.mapper'
  * O teste lê o arquivo da migration, não o banco: o que ele garante é que
  * quem mexer numa lista vê o outro lado cair na mesma revisão.
  */
+const MIGRATIONS = join(process.cwd(), 'supabase/migrations')
+
+/**
+ * As colunas liberadas ao `anon` somando a 0047 (que fecha a tabela e abre a
+ * lista base) com toda migration POSTERIOR que acrescenta colunas com
+ * `grant select (...) on public.tenants to anon` — como a 0049, dos temas.
+ * Ler só a 0047 obrigaria a reescrevê-la a cada coluna nova, e migration
+ * aplicada em produção não se reescreve.
+ */
 function colunasDoGrant(): string[] {
-  const sql = readFileSync(
-    join(process.cwd(), 'supabase/migrations/0047_tenants_grant_por_coluna_anon.sql'),
-    'utf8',
-  )
-  const semComentarios = sql.replace(/--.*$/gm, '')
-  const m = semComentarios.match(/grant\s+select\s*\(([^)]*)\)\s*on\s+public\.tenants\s+to\s+anon/i)
-  if (!m) throw new Error('grant select (...) on public.tenants to anon não encontrado na 0047')
-  return m[1]!.split(',').map((c) => c.trim()).filter(Boolean)
+  const arquivos = readdirSync(MIGRATIONS)
+    .filter((n) => /^\d{4}_.*\.sql$/.test(n) && n >= '0047')
+    .sort()
+  const colunas = new Set<string>()
+  for (const nome of arquivos) {
+    const sql = readFileSync(join(MIGRATIONS, nome), 'utf8').replace(/--.*$/gm, '')
+    for (const m of sql.matchAll(/grant\s+select\s*\(([^)]*)\)\s*on\s+public\.tenants\s+to\s+anon/gi)) {
+      for (const c of m[1]!.split(',')) if (c.trim()) colunas.add(c.trim())
+    }
+  }
+  if (!colunas.size) throw new Error('grant select (...) on public.tenants to anon não encontrado a partir da 0047')
+  return [...colunas]
 }
 
 describe('colunas públicas de tenants', () => {
-  test('o grant da 0047 é exatamente TENANT_PUBLIC_COLUMNS', () => {
+  test('os grants da 0047 em diante somam exatamente TENANT_PUBLIC_COLUMNS', () => {
     expect([...colunasDoGrant()].sort()).toEqual([...TENANT_PUBLIC_COLUMNS].sort())
   })
 
