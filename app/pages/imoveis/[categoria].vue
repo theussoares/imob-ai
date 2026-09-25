@@ -9,6 +9,7 @@ import {
   CATEGORY_MIN_PROPERTIES,
 } from '~~/shared/utils/category'
 import { loteDoCatalogo } from '~~/shared/utils/catalog-lote'
+import { seekingTypeFor } from '~~/shared/models/lead'
 
 const route = useRoute()
 const tenant = useTenant()
@@ -53,7 +54,13 @@ useHead(() => ({
 
 // Tipo e pretensão já vêm da própria rota; os demais filtros seguem em memória,
 // como na home — instantâneos e sem requisição.
-const filters = reactive(createCatalogFilters())
+//
+// `useState` por categoria, e não `reactive` local: quem escolheu um bairro,
+// abriu um imóvel e voltou encontrava "Todos" de novo e o card que acabou de
+// ver fora da lista. A chave leva o slug para "Casas à venda" não herdar o
+// bairro escolhido em "Apartamentos à venda".
+const slug = categorySlug(category)
+const filters = useState(`cat-filters:${slug}`, createCatalogFilters).value
 filters.purpose = category.purpose
 if (category.type) filters.type = category.type
 const { filtered } = useCatalog(inCategory, filters)
@@ -68,7 +75,10 @@ const { filtered } = useCatalog(inCategory, filters)
  * payload, de propósito, porque é sobre ele que os filtros e os chips de
  * bairro rodam em memória.
  */
-const lotes = ref(1)
+// `useState` pelo mesmo motivo dos filtros: com `ref(1)`, voltar de um imóvel
+// que estava no segundo lote recolhia a lista, o card sumia e o navegador não
+// tinha onde restaurar a rolagem.
+const lotes = useState(`cat-lotes:${slug}`, () => 1)
 const lote = computed(() => loteDoCatalogo(filtered.value, lotes.value))
 
 // Trocar de bairro/filtro recomeça do primeiro lote — sem isso, quem expandiu
@@ -78,6 +88,11 @@ watch(filters, () => {
 })
 
 const { whatsappLink } = useContact()
+
+// O lead do estado vazio chega no painel dizendo O QUE a pessoa procurava —
+// sem isso seria um nome e um telefone sem contexto nenhum para o corretor.
+const composeEmptyMessage = (note: string) =>
+  [`Procura: ${heading.value}`, note.trim()].filter(Boolean).join('\n')
 
 const cityLabel = computed(() => (tenant.value?.city ? ` em ${tenant.value.city}` : ''))
 const heading = computed(() => `${categoryLabel(category)}${cityLabel.value}`)
@@ -91,7 +106,7 @@ const neighborhoods = computed(() => {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])
 })
 
-const canonical = `${url.origin}/imoveis/${categorySlug(category)}`
+const canonical = `${url.origin}/imoveis/${slug}`
 
 useSeoMeta({
   title: () => heading.value,
@@ -170,9 +185,13 @@ useHead(() => ({
 
       <div v-if="neighborhoods.length > 1" class="cat-hoods">
         <span class="cat-hoods-label">Bairros:</span>
+        <!-- aria-pressed: sem ele o leitor de tela anuncia uma fileira de
+             "botão" idênticos, sem dizer qual bairro está valendo. -->
         <button
+          type="button"
           class="hood"
           :class="{ on: !filters.q }"
+          :aria-pressed="!filters.q"
           @click="filters.q = ''"
         >
           Todos
@@ -180,8 +199,10 @@ useHead(() => ({
         <button
           v-for="[name, count] in neighborhoods"
           :key="name"
+          type="button"
           class="hood"
           :class="{ on: filters.q === name }"
+          :aria-pressed="filters.q === name"
           @click="filters.q = filters.q === name ? '' : name"
         >
           {{ name }} <small>{{ count }}</small>
@@ -189,11 +210,32 @@ useHead(() => ({
       </div>
     </div>
 
-    <main class="wrap">
+    <div class="wrap">
       <!-- O <template> segura grade e botão sob o MESMO v-if. Com o botão solto
            entre os dois, o v-else de baixo grudava no v-if dele: toda categoria
            com até um lote mostrava os cards e, logo abaixo, "ainda não temos". -->
       <template v-if="filtered.length">
+        <!--
+          A frase do topo conta a categoria inteira; ao escolher um bairro, a
+          lista encolhia sem nada dizer quantos sobraram. A contagem fica
+          `aria-live` porque o filtro muda a lista sem mover o foco.
+        -->
+        <div class="cat-res">
+          <p class="cat-count" aria-live="polite">
+            {{ filtered.length }}
+            {{ filtered.length === 1 ? 'imóvel' : 'imóveis' }}<template v-if="filters.q">
+              em {{ filters.q }}</template>
+          </p>
+          <label class="sort">
+            Ordenar
+            <select v-model="filters.sort">
+              <option value="rel">Relevância</option>
+              <option value="menor">Menor preço</option>
+              <option value="maior">Maior preço</option>
+              <option value="area">Maior área</option>
+            </select>
+          </label>
+        </div>
         <div class="grid">
           <PropertyCard
             v-for="(p, i) in lote.visiveis"
@@ -222,11 +264,28 @@ useHead(() => ({
           Ainda não temos {{ categoryLabel(category).toLowerCase() }}{{ cityLabel }} publicados no
           momento.
         </p>
-        <a class="btn-wa" :href="whatsappLink()" target="_blank" rel="noopener">
-          Avise-me quando aparecer
+        <!--
+          Formulário além do WhatsApp: nem todo mundo quer abrir conversa com um
+          corretor só para pedir um aviso, e o link sozinho não deixava rastro
+          nenhum no painel. O formulário vira lead com o que a pessoa procurava.
+        -->
+        <div class="cat-vazio-lead">
+          <LeadForm
+            source="catalog_empty"
+            :lead-type="seekingTypeFor(category.purpose)"
+            :heading-level="2"
+            title="Avisamos quando aparecer"
+            note-placeholder="Algo mais que ajude na busca? (opcional)"
+            submit-label="Quero ser avisado"
+            ok-message="Recebemos! Assim que aparecer, a gente te chama. ✅"
+            :build-message="composeEmptyMessage"
+          />
+        </div>
+        <a class="cat-vazio-wa" :href="whatsappLink()" target="_blank" rel="noopener">
+          Prefere o WhatsApp? Fale com a gente
         </a>
       </div>
-    </main>
+    </div>
   </div>
 </template>
 
@@ -282,6 +341,9 @@ useHead(() => ({
   border: 1.5px solid var(--line-2);
   border-radius: 100px;
   padding: 7px 13px;
+  /* 44px de alvo de toque: com o padding original davam ~31px, e uma fileira
+     de pastilhas pequenas e coladas é onde mais se toca no bairro errado. */
+  min-height: 44px;
 }
 .hood small {
   color: var(--ink-soft);
@@ -304,7 +366,33 @@ useHead(() => ({
   align-items: center;
   gap: 16px;
 }
-.cat-vazio .btn-wa {
-  flex: none;
+.cat-vazio-lead {
+  width: 100%;
+  max-width: 460px;
+  text-align: left;
+  padding: 20px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.cat-vazio-wa {
+  color: var(--brand);
+  font-weight: 600;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.cat-res {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.cat-count {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 </style>

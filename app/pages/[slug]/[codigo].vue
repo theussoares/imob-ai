@@ -6,6 +6,10 @@ import { propertyPath, propertySlug } from "~~/shared/utils/property-url";
 import { propertyTitle } from "~~/shared/utils/property-title";
 import { formatPropertyCode } from "~~/shared/utils/property-specs";
 import { propertyOgUrl } from "~~/shared/utils/og-image";
+import type { PropertyCard } from "~~/shared/models/property";
+import { allCategories, categoryLabel, categorySlug } from "~~/shared/utils/category";
+import { neighborhoodMapsEmbedSrc } from "~~/shared/utils/address";
+import { similarProperties } from "~~/shared/utils/similar-properties";
 
 const route = useRoute();
 const router = useRouter();
@@ -60,6 +64,53 @@ const locality = [p.neighborhood, p.city].filter(Boolean).join(", ");
 
 const priceLabel = computed(() => formatBRL(p.price) + (isRent ? "/mês" : ""));
 
+/**
+ * Trilha visível: Início › Imóveis à venda › este imóvel.
+ *
+ * Existia só no JSON-LD — o Google via a hierarquia, a pessoa não. Quem chega
+ * de uma busca direto no imóvel não passou pela home e só tinha "Voltar", que
+ * sem histórico leva para a home, não para a lista do que ela procura.
+ *
+ * O degrau do meio é a página de PRETENSÃO, e não a de tipo ("Casas à venda"):
+ * a de pretensão responde 200 sempre, a de tipo dá 404 abaixo do piso de
+ * inventário, e saber disso aqui exigiria carregar o catálogo no SSR só para
+ * decidir um link.
+ */
+const pretensao = allCategories().find(
+  (c) => c.type === null && c.purpose === p.purpose,
+)!;
+const crumbMeio = {
+  label: categoryLabel(pretensao),
+  href: `/imoveis/${categorySlug(pretensao)}`,
+};
+
+const mapSrc = neighborhoodMapsEmbedSrc(p);
+
+/**
+ * Semelhantes: calculados no cliente, sobre o catálogo que a home já baixou.
+ *
+ * `server: false` porque a seção fica no fim da página e buscar o catálogo no
+ * SSR só para ela colocaria o catálogo inteiro no payload de TODA página de
+ * imóvel — a página que a busca orgânica mais abre, quase sempre no celular.
+ * Quem veio da home não faz requisição nenhuma: o `getCachedData` reaproveita o
+ * que já está em `payload.data.properties`.
+ *
+ * Chave própria, e não `properties`: a mesma chave com opções diferentes das
+ * da home faz o Nuxt reclamar e compartilhar estado de carregamento.
+ */
+const { data: catalogo } = useAsyncData(
+  "properties-similares",
+  () => $fetch<PropertyCard[]>("/api/properties"),
+  {
+    server: false,
+    lazy: true,
+    default: () => [] as PropertyCard[],
+    getCachedData: (_key, nuxtApp) =>
+      (nuxtApp.payload.data.properties as PropertyCard[] | undefined) ?? undefined,
+  },
+);
+const semelhantes = computed(() => similarProperties(p, catalogo.value ?? []));
+
 /** Passado à barra fixa, que se recolhe enquanto este cartão estiver à vista. */
 const contactCard = ref<HTMLElement | null>(null);
 
@@ -94,7 +145,13 @@ const jsonLd = computed(() => [
         name: "Início",
         item: url.origin + "/",
       },
-      { "@type": "ListItem", position: 2, name: p.title, item: canonical },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: crumbMeio.label,
+        item: url.origin + crumbMeio.href,
+      },
+      { "@type": "ListItem", position: 3, name: p.title, item: canonical },
     ],
   },
 ]);
@@ -114,9 +171,18 @@ useHead(() => ({
 </script>
 
 <template>
-  <main class="detail">
+  <div class="detail">
     <div class="container">
-      <a href="/" class="back" @click.prevent="goBack">← Voltar aos imóveis</a>
+      <div class="top-nav">
+        <a href="/" class="back" @click.prevent="goBack">← Voltar</a>
+        <nav class="crumbs" aria-label="Trilha de navegação">
+          <NuxtLink to="/">Início</NuxtLink>
+          <span aria-hidden="true">›</span>
+          <NuxtLink :to="crumbMeio.href">{{ crumbMeio.label }}</NuxtLink>
+          <span aria-hidden="true">›</span>
+          <span aria-current="page">{{ formatPropertyCode(p.code) }}</span>
+        </nav>
+      </div>
 
       <div class="detail-grid">
         <div>
@@ -148,16 +214,36 @@ useHead(() => ({
 
             <PropertySpecs :property="p" variant="detail" />
 
+            <!-- h2, não h3: logo abaixo do h1, o salto fazia o leitor de tela
+                 anunciar as seções como se faltasse um nível entre elas. -->
             <div v-if="p.description" class="m-desc">
-              <h3>Sobre o imóvel</h3>
-              {{ p.description }}
+              <h2>Sobre o imóvel</h2>
+              <!-- pre-line: a descrição vem de um textarea, e sem isto os
+                   parágrafos do corretor viravam um bloco só. -->
+              <p class="m-desc-txt">{{ p.description }}</p>
             </div>
             <div v-if="p.features.length" class="m-desc">
-              <h3>Diferenciais</h3>
+              <h2>Diferenciais</h2>
               <div class="m-feats">
                 <span v-for="f in p.features" :key="f" class="m-feat">{{
                   f
                 }}</span>
+              </div>
+            </div>
+
+            <div v-if="mapSrc" class="m-desc">
+              <h2>Localização</h2>
+              <p class="m-map-note">
+                Mapa do bairro {{ p.neighborhood }}. O endereço exato é
+                informado pelo corretor.
+              </p>
+              <div class="m-map">
+                <iframe
+                  :src="mapSrc"
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  :title="`Mapa do bairro ${p.neighborhood}`"
+                />
               </div>
             </div>
           </div>
@@ -177,16 +263,37 @@ useHead(() => ({
               <AppIcon name="phone" /> Ligar para o corretor
             </a>
             <hr class="side-sep" />
-            <LeadForm :property-code="p.code" source="property_page" />
+            <LeadForm
+              :property-code="p.code"
+              source="property_page"
+              :heading-level="2"
+            />
+            <p v-if="tenant?.creci" class="side-creci">CRECI {{ tenant.creci }}</p>
           </div>
         </aside>
       </div>
+
+      <section
+        v-if="semelhantes.length"
+        class="similares"
+        aria-labelledby="similares-titulo"
+      >
+        <h2 id="similares-titulo">Imóveis parecidos</h2>
+        <div class="grid">
+          <PropertyCard
+            v-for="(s, i) in semelhantes"
+            :key="s.id"
+            :property="s"
+            :index="i + 10"
+          />
+        </div>
+      </section>
     </div>
 
     <!-- A barra recolhe quando este cartão entra em cena: dois botões de
          WhatsApp idênticos empilhados fazem duvidar se são a mesma coisa. -->
     <PropertyStickyCta :property="p" :contact-card="contactCard" />
-  </main>
+  </div>
 </template>
 
 <style scoped>
@@ -200,13 +307,71 @@ useHead(() => ({
     padding-bottom: calc(88px + env(safe-area-inset-bottom));
   }
 }
+.top-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 16px;
+}
 .back {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--ink-soft);
   text-decoration: none;
   font-weight: 600;
   font-size: 14px;
-  margin-bottom: 16px;
+}
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.crumbs a {
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
+}
+.crumbs a:hover {
+  text-decoration: underline;
+}
+.m-desc-txt {
+  white-space: pre-line;
+  margin: 0;
+}
+.m-map-note {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.m-map {
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--line);
+}
+.m-map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.side-creci {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.similares {
+  margin-top: 48px;
+}
+.similares h2 {
+  font-size: 24px;
+  margin-bottom: 18px;
 }
 .back:hover {
   color: var(--brand);

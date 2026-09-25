@@ -209,4 +209,35 @@ const heroSplitSrcset = computed(() => {
 .hero.bg-mode p.sub {
   color: rgba(255, 255, 255, 0.85);
 }
+
+/*
+ * Celular: o hero em texto mais a busca ocupavam a primeira tela inteira, e o
+ * primeiro imóvel só aparecia depois de ~1000px de rolagem. Num site de
+ * imóveis, o imóvel é o conteúdo — e a atenção cai muito abaixo da dobra
+ * (NN/g, "Scrolling and Attention").
+ *
+ * O selo some porque repete, palavra por palavra, o slogan que o cabeçalho já
+ * mostra logo acima. Título e espaçamentos encolhem; o texto não sai.
+ */
+@media (max-width: 639px) {
+  .hero-in {
+    padding-top: 20px;
+    padding-bottom: 8px;
+  }
+  .eyebrow {
+    display: none;
+  }
+  .hero h1 {
+    font-size: 30px;
+    margin: 0 0 8px;
+  }
+  .hero p.sub {
+    font-size: 15.5px;
+  }
+  .hero.bg-mode .hero-in {
+    padding-top: 36px;
+    padding-bottom: 36px;
+    min-height: 300px;
+  }
+}
 </style>

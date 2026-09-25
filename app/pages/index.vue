@@ -16,6 +16,11 @@ import {
 import { qualifyingNeighborhoods } from "~~/shared/utils/neighborhood";
 import { hasStructuredAddress, tenantCoordinates } from "~~/shared/utils/address";
 import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
+import {
+  CATALOG_QUERY_KEYS,
+  catalogFiltersFromQuery,
+  catalogFiltersToQuery,
+} from "~~/shared/utils/catalog-query";
 
 const tenant = useTenant();
 const requestFetch = useRequestFetch();
@@ -44,6 +49,35 @@ const list = computed(() => properties.value ?? []);
 // requisição, ao contrário de um objeto solto no escopo do módulo).
 const filters = useState("catalog-filters", createCatalogFilters).value;
 const { filtered, reset } = useCatalog(list, filters);
+
+/**
+ * A URL manda quando traz filtro; quando não traz, vale o que o `useState`
+ * guardou. Assim um link recebido abre já filtrado, e quem volta de um imóvel
+ * (URL sem query, se a pessoa entrou pela home limpa) encontra a lista como
+ * deixou.
+ *
+ * `replace`, não `push`: cada tecla no campo de busca empilharia uma entrada no
+ * histórico, e o "voltar" passaria a desfazer letra por letra em vez de levar
+ * para a página anterior.
+ */
+const route = useRoute();
+const router = useRouter();
+const daUrl = catalogFiltersFromQuery(route.query);
+if (Object.keys(daUrl).length) Object.assign(filters, createCatalogFilters(), daUrl);
+
+function espelharNaUrl(query: Record<string, string>) {
+  const resto = Object.fromEntries(
+    Object.entries(route.query).filter(
+      ([k]) => !(CATALOG_QUERY_KEYS as readonly string[]).includes(k),
+    ),
+  );
+  router.replace({ query: { ...resto, ...query } });
+}
+watch(() => catalogFiltersToQuery(filters), espelharNaUrl, { deep: true });
+// No mount, não no setup: no SSR um `replace` viraria redirect. Cobre quem
+// volta para `/` com filtros guardados — sem isto a URL ficaria limpa até a
+// próxima mudança, e copiar o link naquele momento perderia a busca.
+onMounted(() => espelharNaUrl(catalogFiltersToQuery(filters)));
 
 /**
  * Quantos lotes de card a home já revelou.
@@ -215,7 +249,7 @@ useHead(() => ({
       <PropertySearch :filters="filters" @search="scrollToResults" />
     </div>
 
-    <main ref="resultsEl" class="wrap">
+    <div ref="resultsEl" class="wrap">
       <div class="res-head">
         <div>
           <h2>
@@ -346,6 +380,6 @@ useHead(() => ({
           :build-message="composeSearchMessage"
         />
       </div>
-    </main>
+    </div>
   </div>
 </template>

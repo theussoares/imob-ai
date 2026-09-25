@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { avisoDeContraste } from "~~/shared/utils/contrast";
 import { AI_TONES, AI_TONE_LABELS, type AiTone } from "~~/shared/models/ai-tone";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
@@ -192,6 +193,9 @@ useHead({ title: "Configurações · Painel" });
             />
             <input v-model="form.brandPrimary" class="admin-input" />
           </div>
+          <p v-if="avisoDeContraste(form.brandPrimary)" class="field-warn" role="status">
+            {{ avisoDeContraste(form.brandPrimary) }}
+          </p>
         </div>
         <div>
           <label class="admin-label">Cor de destaque (locação)</label>
@@ -203,6 +207,9 @@ useHead({ title: "Configurações · Painel" });
             />
             <input v-model="form.brandAccent" class="admin-input" />
           </div>
+          <p v-if="avisoDeContraste(form.brandAccent)" class="field-warn" role="status">
+            {{ avisoDeContraste(form.brandAccent) }}
+          </p>
         </div>
         <div>
           <label class="admin-label">Cor do botão do WhatsApp</label>
@@ -219,6 +226,9 @@ useHead({ title: "Configurações · Painel" });
             />
           </div>
           <p class="field-hint">Vazio usa o verde padrão do WhatsApp.</p>
+          <p v-if="avisoDeContraste(form.whatsappButtonColor)" class="field-warn" role="status">
+            {{ avisoDeContraste(form.whatsappButtonColor) }}
+          </p>
         </div>
         <div class="preview-box">
           <span class="badge">Venda</span>
@@ -398,6 +408,15 @@ useHead({ title: "Configurações · Painel" });
   font-size: 12.5px;
   color: var(--ink-soft);
   margin: 6px 0 0;
+  max-width: 56ch;
+}
+.field-warn {
+  font-size: 12.5px;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0 0;
   max-width: 56ch;
 }
 .section-t:first-of-type {

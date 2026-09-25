@@ -84,6 +84,27 @@ summary,
   border-radius: 6px;
 }
 
+/* Link "pular para o conteúdo": invisível até o primeiro Tab. */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -100px;
+  z-index: 1000;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+}
+/* O <main> recebe foco pelo link acima; contorno nele pintaria a página toda. */
+#conteudo:focus {
+  outline: none;
+}
+
 .container {
   max-width: 1140px;
   margin: 0 auto;
@@ -134,6 +155,12 @@ summary,
 .brand .mark svg {
   width: 22px;
   height: 22px;
+}
+/* Sem logo, a caixa de 140px ficava vazia: vira um selo pequeno na cor da marca. */
+.brand.sem-logo .mark {
+  width: 40px;
+  height: 40px;
+  background: var(--brand);
 }
 .brand .mark img {
   width: 100%;
@@ -215,8 +242,8 @@ summary,
   margin-left: auto;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   flex: none;
   border: 1px solid var(--line);
   border-radius: 11px;
@@ -283,6 +310,11 @@ summary,
   max-width: 1140px;
   margin: 24px auto 0;
   padding: 0 18px;
+}
+@media (max-width: 639px) {
+  .search {
+    margin-top: 14px;
+  }
 }
 .search-card {
   background: var(--paper);
@@ -420,6 +452,7 @@ select.ctl {
   font-weight: 500;
 }
 .sort select {
+  min-height: 44px;
   border: 1.5px solid var(--line-2);
   background: var(--paper);
   border-radius: 9px;
@@ -446,6 +479,8 @@ select.ctl {
   background: var(--paper);
   border: 1.5px solid var(--line-2);
   padding: 8px 14px;
+  /* Alvo de toque de 44px — com só o padding davam ~33px. */
+  min-height: 44px;
   border-radius: 100px;
   transition: all 0.16s;
 }
@@ -510,23 +545,50 @@ select.ctl {
   z-index: 2;
   cursor: pointer;
 }
+/*
+ * Alvo de 44px com círculo visível de 32px. A seta era um botão de 30px colado
+ * na borda da foto — o menor alvo do site, e justamente onde o polegar erra e
+ * abre o imóvel em vez de trocar de foto. O círculo fica no ::before para o
+ * alvo crescer sem a seta pesar mais na foto.
+ */
 .cc-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   border: none;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
+  background: none;
   color: #fff;
   opacity: 0;
   cursor: pointer;
-  transition:
-    opacity 0.16s ease,
-    background-color 0.16s ease;
+  transition: opacity 0.16s ease;
+}
+.cc-nav::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  transition: background-color 0.16s ease;
+}
+.cc-nav svg {
+  position: relative;
+}
+.cc-count {
+  position: absolute;
+  left: 11px;
+  bottom: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 /* `.prop:hover`, não `.cc:hover`: a foto é só uma faixa dentro do card, e
    `card.hover()`/o mouse real centralizam no card inteiro — inclusive fora da
@@ -537,7 +599,7 @@ select.ctl {
 .cc-nav:focus-visible {
   opacity: 1;
 }
-.cc-nav:hover {
+.cc-nav:hover::before {
   background: rgba(0, 0, 0, 0.65);
 }
 .cc-nav svg {
@@ -545,10 +607,10 @@ select.ctl {
   height: 18px;
 }
 .cc-prev {
-  left: 8px;
+  left: 2px;
 }
 .cc-next {
-  right: 8px;
+  right: 2px;
 }
 /* Em telas de toque não há hover: as setas ficam sempre visíveis. */
 @media (hover: none) {
@@ -833,7 +895,7 @@ a.btn-detail:hover {
   border-radius: 14px;
   box-shadow: var(--shadow);
 }
-.empty-lead .lead h4 {
+.empty-lead .lead .lead-title {
   font-size: 17px;
   color: var(--ink);
 }
@@ -891,7 +953,7 @@ a.btn-detail:hover {
   border: 1px solid var(--line);
   border-radius: 14px;
 }
-.browse-lead .lead h4 {
+.browse-lead .lead .lead-title {
   font-size: 17px;
 }
 
@@ -981,7 +1043,7 @@ a.btn-detail:hover {
   line-height: 1.65;
   margin: 6px 0 22px;
 }
-.m-desc h3 {
+.m-desc h2 {
   font-family: "Inter";
   font-size: 12px;
   text-transform: uppercase;
