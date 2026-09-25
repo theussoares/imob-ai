@@ -44,3 +44,19 @@ export function similarProperties(
   relevantes.sort((a, b) => b.pontos - a.pontos || a.distancia - b.distancia)
   return relevantes.slice(0, limite).map((x) => x.c)
 }
+
+/**
+ * Semelhantes a partir do código do imóvel, para o servidor, que tem o
+ * catálogo em cache mas não o imóvel inteiro.
+ *
+ * O código compara sem caixa porque a página de detalhe busca o imóvel com
+ * `ilike` (`getPropertyByCodeWithBrokerPhone`): `/nc-0258` abre o NC-0258, e
+ * os semelhantes precisam achar o mesmo imóvel pela mesma URL. Imóvel fora do
+ * catálogo (rascunho aberto pelo painel, código que não existe) dá lista
+ * vazia, e a página só não mostra a seção.
+ */
+export function similaresPorCodigo(codigo: string, catalogo: PropertyCard[], limite = 4): PropertyCard[] {
+  const chave = codigo.trim().toLowerCase()
+  const alvo = catalogo.find((c) => c.code.toLowerCase() === chave)
+  return alvo ? similarProperties(alvo, catalogo, limite) : []
+}

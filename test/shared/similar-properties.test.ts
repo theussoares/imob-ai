@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { PropertyCard } from '~~/shared/models/property'
-import { similarProperties } from '~~/shared/utils/similar-properties'
+import { similarProperties, similaresPorCodigo } from '~~/shared/utils/similar-properties'
 import { neighborhoodMapsEmbedSrc, neighborhoodMapsLink } from '~~/shared/utils/address'
 
 /**
@@ -74,5 +74,17 @@ describe('neighborhoodMapsEmbedSrc', () => {
     const p = { neighborhood: 'Centro', city: 'Três Lagoas', state: 'MS' }
     expect(decodeURIComponent(neighborhoodMapsLink(p)!)).toContain('query=Centro, Três Lagoas - MS')
     expect(neighborhoodMapsLink({ neighborhood: null, city: 'Três Lagoas' })).toBeNull()
+  })
+})
+
+describe('similaresPorCodigo', () => {
+  const catalogo = [card({ code: 'NC-0258' }), card({ code: 'NC-0300' }), card({ code: 'NC-0400', purpose: 'aluguel' })]
+
+  test('acha o imóvel pelo código sem diferenciar caixa, como a página de detalhe', () => {
+    expect(similaresPorCodigo('nc-0258', catalogo).map((c) => c.code)).toEqual(['NC-0300'])
+  })
+
+  test('imóvel fora do catálogo publicado não quebra: lista vazia', () => {
+    expect(similaresPorCodigo('RASCUNHO-1', catalogo)).toEqual([])
   })
 })

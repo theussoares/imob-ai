@@ -88,29 +88,37 @@ const mapSrc = neighborhoodMapsEmbedSrc(p);
 const mapLink = neighborhoodMapsLink(p);
 
 /**
- * Semelhantes: calculados no cliente, sobre o catálogo que a home já baixou.
+ * Semelhantes: até 4 cards, escolhidos no servidor e entregues no HTML.
  *
- * `server: false` porque a seção fica no fim da página e buscar o catálogo no
- * SSR só para ela colocaria o catálogo inteiro no payload de TODA página de
- * imóvel — a página que a busca orgânica mais abre, quase sempre no celular.
- * Quem veio da home não faz requisição nenhuma: o `getCachedData` reaproveita o
- * que já está em `payload.data.properties`.
+ * Antes eram calculados no navegador sobre `/api/properties` inteiro, com
+ * `server: false`. Funcionava, mas toda visita que chegava direto (Google,
+ * link de WhatsApp) disparava o download do catálogo só para mostrar quatro
+ * cards no fim da página. Pôr o catálogo no SSR seria pior: ele iria no HTML
+ * da página mais aberta no celular. O endpoint devolve só os cards que
+ * aparecem.
  *
- * Chave própria, e não `properties`: a mesma chave com opções diferentes das
- * da home faz o Nuxt reclamar e compartilhar estado de carregamento.
+ * Quem navega a partir da home já tem o catálogo em `payload.data.properties`:
+ * o `getCachedData` calcula dali, sem requisição nenhuma.
+ *
+ * Falha aqui não pode derrubar a página do imóvel: vira lista vazia, e a seção
+ * some.
  */
-const { data: catalogo } = useAsyncData(
-  "properties-similares",
-  () => $fetch<PropertyCard[]>("/api/properties"),
+const { data: semelhantes } = await useAsyncData(
+  `semelhantes:${code.value}`,
+  () =>
+    requestFetch<PropertyCard[]>(`/api/properties/${code.value}/semelhantes`).catch(
+      () => [] as PropertyCard[],
+    ),
   {
-    server: false,
-    lazy: true,
     default: () => [] as PropertyCard[],
-    getCachedData: (_key, nuxtApp) =>
-      (nuxtApp.payload.data.properties as PropertyCard[] | undefined) ?? undefined,
+    getCachedData: (key, nuxtApp) => {
+      const pronto = nuxtApp.payload.data[key] as PropertyCard[] | undefined;
+      if (pronto) return pronto;
+      const catalogo = nuxtApp.payload.data.properties as PropertyCard[] | undefined;
+      return catalogo?.length ? similarProperties(p, catalogo) : undefined;
+    },
   },
 );
-const semelhantes = computed(() => similarProperties(p, catalogo.value ?? []));
 
 /** Passado à barra fixa, que se recolhe enquanto este cartão estiver à vista. */
 const contactCard = ref<HTMLElement | null>(null);

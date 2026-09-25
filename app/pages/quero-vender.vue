@@ -258,7 +258,10 @@ useHead(() => ({
           <button class="admin-btn qv-submit" type="submit" :disabled="status === 'sending'">
             {{ status === 'sending' ? 'Enviando...' : 'Quero uma avaliação' }}
           </button>
-          <p class="qv-priv">Usamos seus dados só para retornar esse contato. Sem cadastro e sem lista de e-mail.</p>
+          <p class="qv-priv">
+            Usamos seus dados só para retornar esse contato. Sem cadastro e sem lista de e-mail.
+            <NuxtLink to="/privacidade">Privacidade</NuxtLink>
+          </p>
         </form>
       </div>
 
@@ -478,6 +481,10 @@ useHead(() => ({
   margin: 10px 0 0;
   font-size: var(--fs-caption);
   color: var(--ink-soft);
+}
+.qv-priv a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .qv-side {

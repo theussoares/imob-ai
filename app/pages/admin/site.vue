@@ -509,7 +509,8 @@ useHead({ title: "Meu site · Painel" });
         <label class="fp-toggle">
           <input
             type="checkbox"
-            :checked="pageVisible(p.path)"
+            :checked="p.obrigatoria || pageVisible(p.path)"
+            :disabled="p.obrigatoria"
             @change="
               setPageVisible(
                 p.path,
@@ -519,6 +520,9 @@ useHead({ title: "Meu site · Painel" });
           />
           <span>Mostrar</span>
         </label>
+        <p v-if="p.obrigatoria" class="hint fp-obrigatoria">
+          Exigida pela LGPD: aparece sempre no rodapé. Você pode trocar o nome.
+        </p>
       </div>
 
       <div class="fl-head">

@@ -118,8 +118,8 @@ Pede revisão da política:
 - cookie, pixel, script de terceiro, ferramenta de analytics ou chat;
 - serviço externo novo que receba dado de pessoa (e-mail, SMS, pagamento,
   CRM), ou mudança de região de onde o dado é processado;
-- prazo de retenção novo ou alterado (ex.: o expurgo de leads, que ainda não
-  existe).
+- prazo de retenção novo ou alterado. O de leads é `LEAD_RETENCAO_MESES`, que
+  a política já lê direto.
 
 **Cookie não essencial exige banner que bloqueie o script até o aceite**, não
 um aviso. É a decisão registrada em `docs/runbooks/lgpd-site-publico.md`

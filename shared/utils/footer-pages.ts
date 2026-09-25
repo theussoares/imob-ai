@@ -18,6 +18,13 @@ export interface FooterPage {
    * serve a qualquer imobiliária.
    */
   requires?: FooterPageFeature
+  /**
+   * A imobiliária pode trocar o rótulo, mas não esconder. Existe para a
+   * política de privacidade: a LGPD (art. 9º) pede acesso "claro, adequado e
+   * ostensivo", e um interruptor no painel deixaria qualquer cliente tirá-la
+   * do ar com um clique, sem saber o que isso significa.
+   */
+  obrigatoria?: boolean
 }
 
 /** O que o cliente ajustou numa página. Ausente = padrão. */
@@ -46,6 +53,7 @@ export const STATIC_FOOTER_PAGES: FooterPage[] = [
   // rodapé de TODA imobiliária — e três das quatro têm `about_content` vazio,
   // ou seja, receberiam um link para uma página em branco.
   { path: '/quem-somos', label: 'Quem somos', requires: 'about' },
+  { path: '/privacidade', label: 'Privacidade', obrigatoria: true },
 ]
 
 /**
@@ -81,7 +89,7 @@ export function resolveFooterPages(
   const out: FooterPage[] = []
   for (const page of paginasDisponiveis(registro, features)) {
     const ajuste = overrides[page.path]
-    if (ajuste?.visible === false) continue
+    if (ajuste?.visible === false && !page.obrigatoria) continue
     const label = ajuste?.label?.trim()
     // Rótulo apagado volta ao padrão: link em branco no rodapé é pior que o
     // texto que o cliente não gostou.
