@@ -39,7 +39,7 @@ const incluso = [
   {
     icone: "globe",
     t: "Domínio próprio",
-    d: "A gente compra e configura. Registrado no seu nome, é seu.",
+    d: "Registrado no seu nome, e os e-mails do site saem com ele. A gente compra e configura.",
   },
   {
     icone: "panel",
@@ -169,7 +169,7 @@ const faq = [
   },
   {
     q: "Preciso ter domínio próprio?",
-    a: "Não. A gente compra o domínio para você, registrado no seu nome, e cuida de toda a configuração. Se você já tiver um, usamos o seu.",
+    a: "Não. Durante o teste grátis o site roda em seunome.usemoradi.com.br. Ao fechar o contrato, a gente compra o domínio para você, registrado no seu nome, e cuida de toda a configuração. Se você já tiver um, usamos o seu.",
   },
   {
     q: "Quem cadastra os imóveis?",
