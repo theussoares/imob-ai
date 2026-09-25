@@ -1662,7 +1662,10 @@ useHead({ title: "Contatos · Painel" });
   cursor: grabbing;
 }
 .card.over {
-  border-left: 3px solid #b23b3b;
+  /* Tinta no card inteiro, e não a faixa grossa na lateral: o texto
+     "retorno atrasado" já diz o que é, a cor só chama o olho. */
+  border-color: #e5b8b8;
+  background: #fffafa;
 }
 .card.busy {
   opacity: 0.6;

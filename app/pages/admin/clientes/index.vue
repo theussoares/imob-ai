@@ -267,7 +267,7 @@ useHead({ title: 'Clientes · Painel' })
             </button>
             <button
               class="admin-btn"
-              :class="c.active ? 'danger' : 'ghost'"
+              :class="c.active ? 'danger-ghost' : 'ghost'"
               type="button"
               @click="alternarAcesso(c)"
             >
