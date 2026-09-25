@@ -54,3 +54,22 @@ describe('CSP libera o host que o mapa realmente usa', () => {
     expect(frameSrc.split(' ')).toContain('https://www.google.com')
   })
 })
+
+describe('o mapa do rodapé só carrega sob clique', () => {
+  // O iframe traz o JavaScript do Google Maps inteiro — medido em 24/09 como
+  // a causa de o TBT do desktop subir para ~500 ms. `loading="lazy"` não
+  // resolve: o Chrome carrega iframe a até ~2.500 px da tela. Estático de
+  // propósito, como o de CSP acima: o que se trava é o iframe nunca voltar a
+  // renderizar incondicionalmente.
+  const footer = readFileSync(new URL('../../app/components/AppFooter.vue', import.meta.url), 'utf8')
+
+  test('o iframe do mapa depende do clique', () => {
+    const iframe = footer.match(/<iframe[\s\S]*?\/>/)?.[0] ?? ''
+    expect(iframe).toContain(':src="mapSrc"')
+    expect(iframe).toMatch(/v-if="mapaAberto"/)
+  })
+
+  test('sem clique, sobra o link comum para o Google Maps', () => {
+    expect(footer).toMatch(/:href="mapLink"/)
+  })
+})
