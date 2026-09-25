@@ -1,3 +1,4 @@
+import { HEADER_STYLES, SITE_THEMES } from '~~/shared/models/site-theme'
 import type { PropertyInput, PropertyPurpose } from '~~/shared/models/property'
 import { areaRangeError, priceRangeError, roomsRangeError } from '~~/shared/utils/property-limits'
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
@@ -72,6 +73,12 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
 
   if (t.heroImagePosition !== undefined && !HERO_POSITIONS.includes(t.heroImagePosition as string)) {
     throw createError({ statusCode: 422, statusMessage: 'Posição da imagem do hero inválida.' })
+  }
+  if (t.siteTheme !== undefined && !(SITE_THEMES as readonly string[]).includes(t.siteTheme as string)) {
+    throw createError({ statusCode: 422, statusMessage: 'Tema do site inválido.' })
+  }
+  if (t.headerStyle !== undefined && !(HEADER_STYLES as readonly string[]).includes(t.headerStyle as string)) {
+    throw createError({ statusCode: 422, statusMessage: 'Estilo do cabeçalho inválido.' })
   }
 
   // WhatsApp/telefone alimentam links wa.me/tel: — exigem DDI 55 (12–13 dígitos).

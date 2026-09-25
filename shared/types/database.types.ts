@@ -1199,6 +1199,8 @@ export type Database = {
           hero_cta_label: string | null
           hero_image: string | null
           hero_image_position: string
+          header_style: string
+          site_theme: string
           hero_subtitle: string | null
           hero_title: string | null
           id: string
@@ -1243,6 +1245,8 @@ export type Database = {
           hero_cta_label?: string | null
           hero_image?: string | null
           hero_image_position?: string
+          header_style?: string
+          site_theme?: string
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
@@ -1287,6 +1291,8 @@ export type Database = {
           hero_cta_label?: string | null
           hero_image?: string | null
           hero_image_position?: string
+          header_style?: string
+          site_theme?: string
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
