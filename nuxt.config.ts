@@ -107,7 +107,9 @@ export default defineNuxtConfig({
       { name: 'Playfair Display', provider: 'google', weights: [400, 600, 700] },
       { name: 'Nunito', provider: 'google', weights: [400, 600, 700] },
       // As três abaixo são só da landing da raiz (MoradiLanding). O @nuxt/fonts
-      // só baixa a face que algum CSS usa, então o site dos clientes não paga.
+      // só baixa a face que algum CSS usa, então o site dos clientes não paga —
+      // `pnpm test:css-inline` confere isso no build (medir à mão engana: no
+      // .env de dev, `localhost` É a raiz; ver o topo de scripts/css-inline.mjs).
       { name: 'Schibsted Grotesk', provider: 'google', weights: [600, 700, 800] },
       { name: 'Figtree', provider: 'google', weights: [400, 500, 600, 700] },
       // Só itálico: é o único estilo que a landing usa desta família, uma
