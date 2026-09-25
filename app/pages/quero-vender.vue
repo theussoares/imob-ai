@@ -324,7 +324,7 @@ useHead(() => ({
   align-items: flex-start;
 }
 .qv-head h1 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(27px, 5vw, 40px);
   line-height: 1.12;
   letter-spacing: -0.02em;
@@ -351,7 +351,7 @@ useHead(() => ({
 
 .qv-steps h2,
 .qv-form-wrap h2 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
   margin: 0 0 14px;
 }

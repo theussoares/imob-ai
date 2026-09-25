@@ -6,6 +6,16 @@ import {
 } from "~~/shared/utils/footer-links";
 import { googleMapsEmbedSrc, hasStructuredAddress } from "~~/shared/utils/address";
 import type { Tenant } from "~~/shared/models/tenant";
+import {
+  HEADER_STYLES,
+  HEADER_STYLE_LABELS,
+  SITE_THEMES,
+  SITE_THEME_LABELS,
+  SUGGESTED_HEADER,
+  type HeaderStyle,
+  type SiteTheme,
+} from "~~/shared/models/site-theme";
+import { avisoDeContraste } from "~~/shared/utils/contrast";
 definePageMeta({ layout: "admin", middleware: "admin" });
 
 // Tela do dia a dia: o que a cliente edita e aparece pro visitante.
@@ -20,6 +30,8 @@ const {
   error,
   save: persist,
 } = useTenantSettings([
+  "siteTheme",
+  "headerStyle",
   "logoUrl",
   "faviconUrl",
   "heroTitle",
@@ -134,6 +146,38 @@ const { uploading: uploadingHeroImage, onFile: onHeroImage } = useBrandUpload({
   onDone: (url) => (form.heroImage = url),
 });
 
+// ---- Aparência (tema e cabeçalho) ----
+// Ver docs/superpowers/specs/2026-09-25-temas-da-vitrine-design.md.
+
+/** O que cada tema é, em uma linha — o nome sozinho não diz o que muda. */
+const TEMA_RESUMO: Record<SiteTheme, string> = {
+  classico: "O visual de sempre: direto e equilibrado.",
+  moderno: "Fonte única, cantos generosos e botões arredondados.",
+  alto_padrao: "Títulos com serifa, linhas finas e mais espaço.",
+  acolhedor: "Fonte arredondada e visual mais próximo.",
+};
+
+/**
+ * Trocar de tema pré-seleciona o cabeçalho sugerido — mas só se o cabeçalho
+ * atual ainda for a sugestão do tema anterior. Se a pessoa escolheu o
+ * cabeçalho à mão, trocar de tema não desfaz a escolha dela: é a regra da
+ * spec, e o motivo de o cabeçalho ser um controle separado.
+ */
+function escolherTema(novo: SiteTheme) {
+  const antigo = (form.siteTheme ?? "classico") as SiteTheme;
+  if (novo === antigo) return;
+  if (form.headerStyle === SUGGESTED_HEADER[antigo]) form.headerStyle = SUGGESTED_HEADER[novo];
+  form.siteTheme = novo;
+}
+
+/** Texto branco sobre a cor principal: o cabeçalho "marca" depende disso. */
+const avisoCabecalhoMarca = computed(() =>
+  form.headerStyle === "marca" ? avisoDeContraste(tenant.value?.brandPrimary) : null,
+);
+
+const temaAtual = computed(() => (form.siteTheme ?? "classico") as SiteTheme);
+const cabecalhoAtual = computed(() => (form.headerStyle ?? "claro") as HeaderStyle);
+
 // Preview ao vivo — reaproveita o componente público, alimentado pelo form em
 // edição (não pelo tenant salvo).
 const previewTenant = computed<Tenant | null>(() =>
@@ -194,6 +238,64 @@ useHead({ title: "Meu site · Painel" });
     </p>
 
     <form class="admin-card" @submit.prevent="save">
+      <!--
+        Aparência primeiro: é a decisão que muda o site inteiro, e as amostras
+        mostram o tema do PRÓPRIO cliente (cor, nome) — escolher vendo, não
+        pelo nome. Cada amostra é renderizada pelos mesmos blocos de CSS do site
+        público, via `data-tema` no cartão; não é imagem, então não envelhece
+        quando um tema mudar.
+      -->
+      <h3 class="section-t">Aparência</h3>
+      <fieldset class="aparencia">
+        <legend class="admin-label">Tema</legend>
+        <div class="temas">
+          <label
+            v-for="t in SITE_THEMES"
+            :key="t"
+            class="tema-card"
+            :class="{ on: temaAtual === t }"
+          >
+            <input
+              type="radio"
+              name="site-theme"
+              class="sr-only"
+              :value="t"
+              :checked="temaAtual === t"
+              @change="escolherTema(t)"
+            />
+            <span class="amostra" :data-tema="t" aria-hidden="true">
+              <span class="amostra-titulo">Encontre o imóvel certo</span>
+              <span class="amostra-card">
+                <span class="amostra-preco">R$ 455.000</span>
+                <span class="amostra-texto">Casa · 3 quartos</span>
+              </span>
+              <span class="amostra-btn">Buscar imóveis</span>
+            </span>
+            <span class="tema-nome">{{ SITE_THEME_LABELS[t] }}</span>
+            <span class="tema-resumo">{{ TEMA_RESUMO[t] }}</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="aparencia">
+        <legend class="admin-label">Cabeçalho</legend>
+        <div class="cabecalhos">
+          <label
+            v-for="h in HEADER_STYLES"
+            :key="h"
+            class="cab-opcao"
+            :class="{ on: cabecalhoAtual === h }"
+          >
+            <input v-model="form.headerStyle" type="radio" name="header-style" class="sr-only" :value="h" />
+            <span class="cab-mini" :class="`cab-${h}`" aria-hidden="true"><i /><b /></span>
+            {{ HEADER_STYLE_LABELS[h] }}
+          </label>
+        </div>
+        <p v-if="avisoCabecalhoMarca" class="field-warn" role="status">
+          {{ avisoCabecalhoMarca }} (a cor principal fica em Configurações)
+        </p>
+      </fieldset>
+
       <h3 class="section-t">Logo</h3>
       <div class="logo-row">
         <div class="logo-preview">
@@ -357,7 +459,36 @@ useHead({ title: "Meu site · Painel" });
 
       <div class="hero-preview-wrap">
         <span class="hero-preview-label">Pré-visualização</span>
-        <div class="hero-preview-box">
+        <!--
+          Tema e cabeçalho do formulário aplicados só dentro da caixa: o seletor
+          de tema vale em qualquer ancestral, então o painel em volta não muda.
+          `inert`: é amostra — os links do cabeçalho não podem levar para fora
+          com o formulário por salvar.
+        -->
+        <div
+          class="hero-preview-box"
+          :data-tema="temaAtual"
+          :data-cabecalho="cabecalhoAtual"
+          inert
+        >
+          <header class="bar preview-bar">
+            <div class="bar-in">
+              <span class="brand" :class="{ 'sem-logo': !form.logoUrl }">
+                <span class="mark">
+                  <img v-if="form.logoUrl" :src="form.logoUrl" alt="" />
+                  <AppIcon v-else name="home" />
+                </span>
+                <span>
+                  <b>{{ tenant?.name }}</b>
+                  <small v-if="tenant?.tagline">{{ tenant.tagline }}</small>
+                </span>
+              </span>
+              <nav class="menu preview-menu">
+                <span class="menu-item">Quero alugar</span>
+                <span class="menu-item">Quero vender</span>
+              </nav>
+            </div>
+          </header>
           <Hero :tenant="previewTenant" />
         </div>
       </div>
@@ -670,7 +801,7 @@ useHead({ title: "Meu site · Painel" });
   margin: 4px 0 0;
 }
 .section-t {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   margin: 22px 0 12px;
   padding-top: 16px;
@@ -678,7 +809,7 @@ useHead({ title: "Meu site · Painel" });
 }
 /* Complemento do título, em peso e cor menores — "(favicon, quadrado)". */
 .section-hint {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: var(--fs-caption);
   color: var(--ink-soft);
@@ -864,6 +995,180 @@ useHead({ title: "Meu site · Painel" });
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 8px;
+}
+.aparencia {
+  border: none;
+  margin: 0 0 18px;
+  padding: 0;
+  min-width: 0;
+}
+.temas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+.tema-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  background: var(--paper);
+}
+.tema-card.on {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+/* O radio é sr-only; o foco de teclado precisa aparecer no cartão. */
+.tema-card:has(input:focus-visible),
+.cab-opcao:has(input:focus-visible) {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+.amostra {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  margin-bottom: 4px;
+  font-family: var(--font-body);
+}
+.amostra-titulo {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-title-sm);
+  line-height: 1.15;
+  color: var(--ink);
+}
+.amostra-card {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  background: var(--paper);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+.amostra-preco {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-ui);
+  color: var(--ink);
+}
+.amostra-texto {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+}
+.amostra-btn {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: var(--r-btn);
+  background: var(--brand);
+  color: #fff;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+.tema-nome {
+  font-weight: 700;
+  font-size: var(--fs-ui);
+}
+.tema-resumo {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+.cabecalhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.cab-opcao {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 14px 8px 8px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--fs-ui);
+  background: var(--paper);
+}
+.cab-opcao.on {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+.cab-mini {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 54px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+.cab-mini i,
+.cab-mini b {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+}
+.cab-mini i {
+  width: 10px;
+  height: 10px;
+}
+.cab-mini b {
+  flex: 1;
+}
+.cab-claro {
+  background: #fff;
+}
+.cab-claro i,
+.cab-claro b {
+  background: var(--ink-soft);
+}
+.cab-marca {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.cab-escuro {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.cab-marca i,
+.cab-marca b,
+.cab-escuro i,
+.cab-escuro b {
+  background: rgba(255, 255, 255, 0.8);
+}
+.field-warn {
+  font-size: var(--fs-caption);
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  margin: 10px 0 0;
+  max-width: 60ch;
+}
+/* Réplica do cabeçalho do site dentro da prévia: mesmas classes, então pega os
+   mesmos estilos de tema/cabeçalho — só não gruda no topo nem abre menu. */
+.preview-bar {
+  position: static;
+}
+.preview-menu {
+  display: none;
+}
+@media (min-width: 768px) {
+  .preview-menu {
+    display: flex;
+    margin-left: auto;
+  }
 }
 .hero-preview-box {
   border: 1.5px solid var(--line-2);

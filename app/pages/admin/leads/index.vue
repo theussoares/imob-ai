@@ -1066,7 +1066,7 @@ useHead({ title: "Contatos · Painel" });
   color: var(--ink-soft);
 }
 .section-t {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   margin: 0 0 4px;
 }
@@ -1141,7 +1141,7 @@ useHead({ title: "Contatos · Painel" });
   background: #fbf0ef;
 }
 .s-n {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-lg);
   font-weight: 700;
   color: var(--brand);
@@ -1352,7 +1352,7 @@ useHead({ title: "Contatos · Painel" });
   justify-content: space-between;
 }
 .col-title {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: var(--fs-ui);
 }

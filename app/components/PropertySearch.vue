@@ -256,7 +256,7 @@ watch(drawerOpen, async (open) => {
   flex: none;
   padding: 15px 18px;
   border: 1.5px solid var(--line-2);
-  border-radius: var(--r-md);
+  border-radius: var(--r-btn);
   background: var(--paper);
   color: var(--ink);
   font-weight: 600;
