@@ -67,6 +67,41 @@ function publicBrokerPhone(brokers: Map<string, Broker>, brokerId: string | null
   return broker.phone ?? null
 }
 
+/**
+ * Para qual número vai o WhatsApp deste imóvel: o corretor captador (quando
+ * `publicBrokerPhone` o libera) ou a imobiliária.
+ *
+ * Mora aqui, ao lado de `publicBrokerPhone`, porque é a MESMA regra que monta o
+ * link no site. Se as duas divergissem, o painel diria "foi para o corretor"
+ * sobre uma conversa que caiu no número da imobiliária.
+ *
+ * Devolve o `broker_id`, que é coluna interna: quem chama é o registro do
+ * clique, que grava e responde 204 — nada disto volta ao visitante.
+ */
+export async function whatsappTargetForCode(
+  client: Client,
+  tenantId: string,
+  code: string,
+): Promise<{ propertyId: string; brokerId: string | null } | null> {
+  const safeCode = code.replace(/[\\%_]/g, '\\$&')
+  const { data, error } = await client
+    .from('properties')
+    .select('id, broker_id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .ilike('code', safeCode)
+    .limit(1)
+  if (error) throw error
+  const row = data?.[0]
+  if (!row) return null
+  if (!row.broker_id) return { propertyId: row.id, brokerId: null }
+  const brokers = await fetchBrokersById(client, tenantId, [row.broker_id])
+  return {
+    propertyId: row.id,
+    brokerId: publicBrokerPhone(brokers, row.broker_id) ? row.broker_id : null,
+  }
+}
+
 /** Monta o modelo admin (campos privados + corretor) a partir das rows já com imagens embutidas. */
 type AdminRowWithImages = PropertyRow & { property_images?: PropertyImageFields[] | null }
 async function attachBrokersAdmin(client: Client, tenantId: string, rows: AdminRowWithImages[]): Promise<Property[]> {

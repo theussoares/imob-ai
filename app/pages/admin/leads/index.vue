@@ -6,6 +6,7 @@ import type {
   LeadCreateInput,
 } from "~~/shared/models/lead";
 import type { Broker } from "~~/shared/models/broker";
+import type { WhatsappClick } from "~~/shared/models/whatsapp-click";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { leadFromRealtimeRow } from "~~/shared/utils/lead-row";
 import { propertyPath } from "~~/shared/utils/property-url";
@@ -15,6 +16,7 @@ import {
   LEAD_TYPES,
   LEAD_TYPE_LABELS,
   LEAD_SOURCE_LABELS,
+  seekingTypeFor,
 } from "~~/shared/models/lead";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
@@ -425,7 +427,15 @@ const newForm = reactive<LeadCreateInput>({
   nextContactAt: "",
   brokerId: "",
 });
+/**
+ * Clique no WhatsApp que o contato em cadastro vai herdar. Guardado inteiro, e
+ * não só o id, para a tela dizer de qual imóvel e horário ele veio — é o que o
+ * atendente confere contra a conversa antes de salvar.
+ */
+const newFromClick = ref<WhatsappClick | null>(null);
+const whatsappClicks = ref<{ refresh: () => Promise<void> } | null>(null);
 function resetNew() {
+  newFromClick.value = null;
   Object.assign(newForm, {
     name: "",
     phone: "",
@@ -457,8 +467,10 @@ async function createNew() {
         nextContactAt: inputToIso(newForm.nextContactAt || ""),
         brokerId: newForm.brokerId || null,
         source: "manual",
+        whatsappClickId: newFromClick.value?.id ?? null,
       },
     });
+    if (newFromClick.value) whatsappClicks.value?.refresh();
     if (leads.value) leads.value = [created, ...leads.value];
     resetNew();
     showNew.value = false;
@@ -469,6 +481,24 @@ async function createNew() {
   } finally {
     saving.value = false;
   }
+}
+
+/**
+ * "Virar contato" de um clique: abre o cadastro com o que o clique já sabe.
+ * O tipo sai da finalidade do imóvel, como no formulário do site; o corretor,
+ * de para quem a conversa foi. O imóvel não passa por aqui — o servidor o lê
+ * do próprio clique.
+ */
+function convertClick(c: WhatsappClick) {
+  resetNew();
+  newFromClick.value = c;
+  newForm.leadType = seekingTypeFor(c.property?.purpose);
+  newForm.brokerId = c.broker?.id ?? "";
+  showNew.value = true;
+  nextTick(() => {
+    document.getElementById("nl-nome")?.scrollIntoView({ block: "center" });
+    document.getElementById("nl-nome")?.focus();
+  });
 }
 
 // ---- Helpers ----
@@ -637,7 +667,13 @@ useHead({ title: "Contatos · Painel" });
     <!-- Novo contato manual -->
     <div v-if="showNew" class="admin-card new-card">
       <h3 class="section-t">Novo contato</h3>
-      <p class="hint">
+      <p v-if="newFromClick" class="from-click">
+        <AppIcon name="wa" />
+        Do clique no WhatsApp<template v-if="newFromClick.property">
+          no imóvel <strong>{{ newFromClick.property.code }}</strong></template>,
+        {{ whenLabel(newFromClick.createdAt) }}. O imóvel entra junto no contato.
+      </p>
+      <p v-else class="hint">
         Registre aqui o lead que chegou por WhatsApp, indicação ou ligação —
         assim ele não se perde.
       </p>
@@ -748,6 +784,8 @@ useHead({ title: "Contatos · Painel" });
       </button>
       <button class="link-btn live-ok" @click="liveIds = []">ok</button>
     </div>
+
+    <AdminWhatsappClicks ref="whatsappClicks" @converter="convertClick" />
 
     <!-- Resumo -->
     <div v-if="list.length" class="summary">
@@ -1046,6 +1084,22 @@ useHead({ title: "Contatos · Painel" });
 /* Novo contato */
 .new-card {
   margin-bottom: 18px;
+}
+.from-click {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: var(--fs-label);
+}
+.from-click :deep(svg) {
+  width: 16px;
+  height: 16px;
+  color: var(--wa, #25d366);
 }
 .new-grid {
   display: grid;

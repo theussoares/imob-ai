@@ -17,6 +17,8 @@ import {
   roomsRangeError,
 } from "~~/shared/utils/property-limits";
 import { draftKey, parseDraft, serializeDraft } from "~~/shared/utils/form-draft";
+import { AI_TONE_LABELS, type AiTone } from "~~/shared/models/ai-tone";
+import { COTA_MENSAL_DESCRICAO, type SaldoMensalIA } from "~~/shared/models/ai-generation";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -97,6 +99,31 @@ onMounted(loadMembers);
 const { descricaoIa, carregar } = useAdminFeatures();
 onMounted(carregar);
 
+/**
+ * Tom e saldo, carregados junto com o bloco de IA.
+ *
+ * O tom era invisível aqui: definido uma vez em Configurações, e quem gerava
+ * não sabia em qual tom o texto viria até ler. O saldo só aparecia DEPOIS da
+ * primeira geração — com duas restando, a pessoa descobria no 429.
+ *
+ * Falha em qualquer um dos dois não bloqueia a geração: são informação, não
+ * pré-requisito. O servidor continua sendo quem aplica a cota.
+ */
+const tomIa = ref<AiTone | null>(null);
+watch(
+  descricaoIa,
+  async (ativo) => {
+    if (!ativo || !import.meta.client) return;
+    const [tom, saldo] = await Promise.allSettled([
+      adminFetch<{ aiTone: AiTone }>("/api/admin/ai-tone"),
+      adminFetch<SaldoMensalIA>("/api/admin/ai-quota"),
+    ]);
+    if (tom.status === "fulfilled") tomIa.value = tom.value.aiTone;
+    if (saldo.status === "fulfilled") saldoIa.value = saldo.value.restantes;
+  },
+  { immediate: true },
+);
+
 const { data: existing } = await useAsyncData(
   `admin:property:${id.value}`,
   async () =>
@@ -165,7 +192,9 @@ watch(existing, async () => {
   await nextTick();
   original.value = retrato();
 });
-const dirty = () => retrato() !== original.value;
+// Sugestão da IA ainda não usada também conta: gerou, consumiu cota, e sair
+// sem aceitar nem descartar jogaria o texto fora sem aviso.
+const dirty = () => retrato() !== original.value || sugestaoIa.value !== null;
 const { release } = useUnsavedGuard(dirty);
 
 /**
@@ -361,6 +390,21 @@ const ultimoGerado = ref<string | null>(null);
 const saldoIa = ref<number | null>(null);
 
 /**
+ * O texto gerado fica numa PRÉVIA até a pessoa aceitar.
+ *
+ * Antes a geração sobrescrevia a descrição na hora, com "Desfazer" como
+ * saída — o que exigiu a regra delicada de `podeDesfazer` para não apagar
+ * uma edição feita depois. Com a prévia, a descrição atual não é tocada até
+ * "Usar este texto": dá para comparar as duas, gerar outra sem perder nada, e
+ * o "nada vai ao ar sem você" deixa de ser promessa para virar o fluxo da
+ * tela. Custo: um clique a mais, no único momento em que ele vale a pena.
+ *
+ * `podeDesfazer` continua: depois de aceitar, desfazer ainda volta ao texto
+ * de antes, pela mesma regra.
+ */
+const sugestaoIa = ref<string | null>(null);
+
+/**
  * "Desfazer" só existe enquanto `form.description` ainda for, ao pé da
  * letra, o texto que a última geração devolveu — não basta ter gerado em
  * algum momento. Round 1 de revisão: sem essa condição, um corretor que gera,
@@ -427,26 +471,7 @@ async function gerarDescricao() {
         },
       },
     );
-    // `descricaoAnterior` guardado ANTES de sobrescrever, e sempre — mesmo na
-    // segunda geração em diante (ou na segunda depois de uma edição manual: é
-    // o texto que estava no campo NESTE clique, seja lá de onde ele veio). É
-    // desfazer de UM nível (como Ctrl+Z), não uma pilha até o texto anterior a
-    // qualquer IA: gerar duas vezes seguidas e desfazer volta para o texto da
-    // PRIMEIRA geração, não para o que estava escrito antes dela. A
-    // alternativa — travar `descricaoAnterior` no valor pré-IA e nunca
-    // regravar — foi descartada: ela tornaria a segunda geração impossível de
-    // desfazer isoladamente, e é exatamente o caso de quem clicou "Melhorar
-    // com IA" de novo porque o resultado anterior já estava bom, só querendo
-    // um ajuste fino — desfazer devolveria ao texto original, descartando sem
-    // aviso a tentativa boa que existia no meio.
-    //
-    // `ultimoGerado` anda junto: é o texto desta geração, o mesmo que vai
-    // para `form.description` na linha de baixo. As duas ficam coerentes em
-    // qualquer sequência de gerações porque são escritas juntas, sempre neste
-    // par — nunca uma sem a outra.
-    descricaoAnterior.value = form.description;
-    form.description = r.texto;
-    ultimoGerado.value = r.texto;
+    sugestaoIa.value = r.texto;
     saldoIa.value = r.restanteNoMes;
   } catch (e: unknown) {
     // Mesmo formato do `save()` acima: o `statusMessage` do servidor cai em
@@ -459,6 +484,28 @@ async function gerarDescricao() {
   } finally {
     gerandoIa.value = false;
   }
+}
+
+/**
+ * `descricaoAnterior` guardado ANTES de sobrescrever, e sempre — mesmo na
+ * segunda aceitação em diante (ou depois de uma edição manual: é o texto que
+ * estava no campo NESTE clique, seja lá de onde ele veio). É desfazer de UM
+ * nível (como Ctrl+Z), não uma pilha até o texto anterior a qualquer IA. A
+ * alternativa — travar `descricaoAnterior` no valor pré-IA — foi descartada:
+ * tornaria a segunda aceitação impossível de desfazer isoladamente.
+ *
+ * `ultimoGerado` anda junto: é o texto aceito, o mesmo que vai para
+ * `form.description`. Escritos sempre neste par, nunca um sem o outro.
+ */
+function usarSugestao() {
+  if (sugestaoIa.value === null) return;
+  descricaoAnterior.value = form.description;
+  form.description = sugestaoIa.value;
+  ultimoGerado.value = sugestaoIa.value;
+  sugestaoIa.value = null;
+}
+function descartarSugestao() {
+  sugestaoIa.value = null;
 }
 
 function desfazerIa() {
@@ -687,39 +734,56 @@ useHead(() => ({
           oferecer um botão que o servidor rejeitaria de qualquer forma para
           quem não contratou o recurso.
         -->
-        <div v-if="descricaoIa" class="ia-bloco">
-          <label class="sr-only" for="f-dicas-ia">Dicas para a IA</label>
+        <section v-if="descricaoIa" class="ia-bloco" aria-labelledby="ia-titulo">
+          <div class="ia-top">
+            <h3 id="ia-titulo" class="ia-titulo"><AppIcon name="spark" /> Descrição por IA</h3>
+            <span v-if="saldoIa !== null" class="ia-saldo" :class="{ baixo: saldoIa <= 5 }">
+              Restam {{ saldoIa }} de {{ COTA_MENSAL_DESCRICAO }} este mês
+            </span>
+          </div>
+          <!-- Tom só para leitura: ele é da imobiliária, não do imóvel, e mora
+               em Configurações. Mostrar aqui evita a surpresa do texto no tom
+               errado; trocar por geração abriria a porta para cada corretor
+               escrever num tom, que é o que o campo existe para evitar. -->
+          <p v-if="tomIa" class="ia-tom">
+            Tom: <b>{{ AI_TONE_LABELS[tomIa] }}</b>
+            · <NuxtLink to="/admin/config">alterar</NuxtLink>
+          </p>
+          <label class="admin-label" for="f-dicas-ia">Dicas para a IA (opcional)</label>
           <input
             id="f-dicas-ia"
             v-model="dicasIa"
             class="admin-input"
             maxlength="500"
-            placeholder="Dicas para a IA (opcional): o que destacar neste imóvel"
+            placeholder="Ex.: rua tranquila, perto da escola, reformado em 2024"
           />
           <div class="ia-acoes">
             <button
               type="button"
               class="admin-btn sm"
-              :disabled="gerandoIa"
+              :disabled="gerandoIa || saldoIa === 0"
               @click="gerarDescricao"
             >
+              <AppIcon name="spark" />
               {{
                 gerandoIa
                   ? "Gerando…"
-                  : form.description
-                    ? "Melhorar com IA"
-                    : "Gerar com IA"
+                  : sugestaoIa !== null
+                    ? "Gerar outra"
+                    : form.description
+                      ? "Melhorar com IA"
+                      : "Gerar com IA"
               }}
             </button>
             <!--
               `podeDesfazer`, não `descricaoAnterior !== null`: some assim que o
-              corretor edita o textarea à mão depois de gerar, porque nesse
+              corretor edita o textarea à mão depois de aceitar, porque nesse
               ponto "Desfazer" deixaria de significar "voltar de uma geração" e
               passaria a significar "apagar o que acabei de escrever". Ver o
               comentário do `computed` no script.
             -->
             <button
-              v-if="podeDesfazer"
+              v-if="podeDesfazer && sugestaoIa === null"
               type="button"
               class="admin-btn ghost sm"
               :disabled="gerandoIa"
@@ -727,11 +791,25 @@ useHead(() => ({
             >
               Desfazer
             </button>
-            <span v-if="saldoIa !== null" class="ia-saldo"
-              >restam {{ saldoIa }} gerações este mês</span
-            >
           </div>
-        </div>
+
+          <!-- aria-live: a prévia nasce depois do clique, abaixo do botão; sem
+               o anúncio, quem usa leitor de tela não sabe que o texto chegou. -->
+          <div aria-live="polite">
+            <div v-if="sugestaoIa !== null" class="ia-previa">
+              <p class="ia-previa-t">Sugestão da IA — confira antes de usar</p>
+              <p class="ia-previa-txt">{{ sugestaoIa }}</p>
+              <div class="ia-acoes">
+                <button type="button" class="admin-btn sm" @click="usarSugestao">
+                  Usar este texto
+                </button>
+                <button type="button" class="admin-btn ghost sm" :disabled="gerandoIa" @click="descartarSugestao">
+                  Descartar
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <textarea id="f-descricao" v-model="form.description" class="admin-textarea" rows="4" />
 
@@ -990,25 +1068,94 @@ useHead(() => ({
   }
 }
 
-/* Bloco de geração de descrição por IA, entre o label e o textarea que ele
-   preenche — cinza neutro para não competir com o aviso âmbar de baixo. */
+/* Bloco de geração por IA: claro, com borda e título próprio. Na landing a
+   réplica é escura para destacar numa página de vendas; dentro do formulário
+   o bloco só precisa se distinguir dos campos ao redor. */
 .ia-bloco {
-  margin: 8px 0 10px;
-  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 14px 16px;
   border: 1px solid var(--line-2);
+  border-left: 4px solid var(--brand);
   border-radius: var(--r-md);
-  background: var(--surface);
+  background: var(--brand-ghost);
+}
+.ia-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ia-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: var(--fs-ui);
+}
+.ia-titulo :deep(svg),
+.ia-acoes :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+.ia-saldo {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--paper);
+  border-radius: var(--r-pill);
+  padding: 3px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.ia-saldo.baixo {
+  color: #92400e;
+  background: #fef3c7;
+}
+.ia-tom {
+  margin: 0;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+.ia-tom a {
+  color: var(--brand);
+  font-weight: 600;
 }
 .ia-acoes {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
   flex-wrap: wrap;
 }
-.ia-saldo {
+.ia-acoes .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
+.ia-previa {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+}
+.ia-previa-t {
+  margin: 0;
   font-size: var(--fs-caption);
+  font-weight: 700;
   color: var(--ink-soft);
+}
+.ia-previa-txt {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.6;
 }
 
 /* Bloco de avisos de conferência do cadastro. Âmbar, não vermelho: vermelho

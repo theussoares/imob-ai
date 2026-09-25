@@ -264,6 +264,8 @@ useHead(() => ({
             <a
               class="btn-wa side-wa"
               :href="whatsappLink(p)"
+              :data-imovel="p.code"
+              data-wa-origem="imovel"
               target="_blank"
               rel="noopener"
             >
