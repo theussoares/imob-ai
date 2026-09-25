@@ -624,7 +624,7 @@ useHead({ title: "Imóveis · Painel" });
   color: var(--ink-soft);
 }
 .mono {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: 0.02em;
 }

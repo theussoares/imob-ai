@@ -259,7 +259,7 @@ async function submit() {
   gap: 10px;
 }
 .lead-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   margin: 0 0 2px;
 }

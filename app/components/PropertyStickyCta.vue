@@ -114,14 +114,14 @@ useIntersectionObserver(
   color: var(--ink-soft);
 }
 .sc-price strong {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
 }
 .sc-price strong span {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
   font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--ink-soft);

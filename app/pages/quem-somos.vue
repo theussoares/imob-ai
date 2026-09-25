@@ -276,7 +276,7 @@ useHead(() => ({
   color: var(--brand);
 }
 .qs-heading {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(22px, 4vw, 30px);
   line-height: 1.2;
   letter-spacing: -0.01em;
@@ -318,7 +318,7 @@ useHead(() => ({
 }
 .qs-stat strong {
   display: block;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-lg);
   color: var(--brand);
 }
@@ -333,7 +333,7 @@ useHead(() => ({
   gap: 14px;
 }
 .qs-empty h1 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(24px, 5vw, 34px);
   margin: 0;
 }
@@ -378,7 +378,7 @@ useHead(() => ({
 .qs-banner h2 {
   margin: 0;
   color: #fff;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(22px, 4vw, 32px);
   line-height: 1.2;
 }
@@ -406,7 +406,7 @@ useHead(() => ({
   display: block;
 }
 .qs-split-text h2 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(20px, 3.5vw, 26px);
   margin: 0 0 10px;
 }
@@ -483,7 +483,7 @@ useHead(() => ({
 
 /* ---- equipe (dinâmico) ---- */
 .qs-team h2 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(20px, 3.5vw, 26px);
   margin: 0 0 16px;
 }

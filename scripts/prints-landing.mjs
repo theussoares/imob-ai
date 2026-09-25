@@ -16,6 +16,7 @@
  *
  *   node scripts/prints-landing.mjs                 # http://localhost:3000
  *   BASE_URL=http://localhost:3001 node scripts/prints-landing.mjs
+ *   OUT_DIR=/tmp/antes node scripts/prints-landing.mjs   # não toca public/
  *
  * As dimensões de saída são as que a landing declara no `<img>` (width/height):
  * mudar aqui sem mudar lá faz a imagem distorcer ou pular o layout.
@@ -26,7 +27,12 @@ import sharp from 'sharp'
 const BASE = process.env.BASE_URL || 'http://localhost:3000'
 const TENANT = process.env.TENANT || 'demo'
 const IMOVEL = process.env.IMOVEL || '/sobrado-3-quartos-quinta-da-lagoa/NC-0339'
-const OUT = new URL('../public/moradi/', import.meta.url)
+// `OUT_DIR` grava em outra pasta: é como se compara antes/depois de uma
+// mudança que não deve alterar o visual (ver a spec de temas), sem sobrescrever
+// as imagens que a landing publica.
+const OUT = process.env.OUT_DIR
+  ? new URL(`file://${process.env.OUT_DIR.replace(/\/?$/, '/')}`)
+  : new URL('../public/moradi/', import.meta.url)
 
 /** Mesmas duplas da lista `temas` em app/components/MoradiLanding.vue. */
 const TEMAS = [

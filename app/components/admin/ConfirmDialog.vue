@@ -79,7 +79,7 @@ function onDismiss() {
   padding: 20px;
 }
 .t {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
   line-height: 1.35;
   margin: 0;

@@ -948,7 +948,7 @@ useHead(() => ({
   border-top: 1px solid var(--line);
 }
 .sec legend {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   font-weight: 600;
   padding: 0;
@@ -966,7 +966,7 @@ useHead(() => ({
   height: 16px;
 }
 .sec legend span {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: var(--fs-caption);
   color: var(--ink-soft);
@@ -1094,7 +1094,7 @@ useHead(() => ({
   align-items: center;
   gap: 6px;
   margin: 0;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-ui);
 }
 .ia-titulo :deep(svg),

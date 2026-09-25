@@ -232,7 +232,7 @@ useHead({ title: 'Corretores · Painel' })
 
 <style scoped>
 .section-t {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   margin: 0 0 14px;
 }

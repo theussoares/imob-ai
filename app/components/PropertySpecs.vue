@@ -126,7 +126,7 @@ const specs = computed(() => propertySpecs(props.property))
   background: var(--paper);
 }
 .specs.detail .spec b {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
   font-weight: 600;
   color: var(--ink);

@@ -397,7 +397,7 @@ useHead({ title: "Configurações · Painel" });
   margin: 4px 0 0;
 }
 .section-t {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   margin: 22px 0 12px;
   padding-top: 16px;
