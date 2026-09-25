@@ -6,6 +6,7 @@ import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/s
 import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { dentroDoBrasil } from '~~/shared/utils/address'
+import { isHexColor } from '~~/shared/utils/brand-color'
 import { PROPERTY_TYPES } from '~~/shared/models/property-type'
 import { AI_TONES } from '~~/shared/models/ai-tone'
 import type {
@@ -49,6 +50,24 @@ export function assertTenantSettingsInput(input: unknown): asserts input is Tena
 
   if (t.aboutEnabled !== undefined && typeof t.aboutEnabled !== 'boolean') {
     throw createError({ statusCode: 422, statusMessage: 'Valor inválido para a página Quem somos.' })
+  }
+
+  // Não é a barreira — `tenants` aceita UPDATE direto pelo PostgREST, e quem
+  // protege o CSS é `temaCss` na leitura. Isto é para o painel recusar com uma
+  // mensagem, em vez de salvar um valor que o site ignora sem avisar ninguém.
+  //
+  // A mensagem nomeia o campo: a tela manda as três cores a cada salvamento, e
+  // um valor antigo inválido (havia um `VD001` em produção) passa a barrar o
+  // salvamento de QUALQUER campo dela até ser corrigido.
+  const rotulos = { brandPrimary: 'Cor principal', brandAccent: 'Cor de destaque' } as const
+  for (const field of ['brandPrimary', 'brandAccent'] as const) {
+    if (t[field] !== undefined && !isHexColor(t[field])) {
+      throw createError({ statusCode: 422, statusMessage: `${rotulos[field]} inválida. Use o formato #RRGGBB.` })
+    }
+  }
+  const wa = t.whatsappButtonColor
+  if (wa !== undefined && wa !== null && wa !== '' && !isHexColor(wa)) {
+    throw createError({ statusCode: 422, statusMessage: 'Cor do botão de WhatsApp inválida. Use o formato #RRGGBB.' })
   }
 
   if (t.heroImagePosition !== undefined && !HERO_POSITIONS.includes(t.heroImagePosition as string)) {

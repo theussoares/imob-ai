@@ -1,4 +1,5 @@
 import { getHostname, isPlatformRootHost, resolveTenantForHost } from '~~/server/utils/tenant'
+import { DEFAULT_BRAND_COLOR, safeBrandColor } from '~~/shared/utils/brand-color'
 
 /**
  * Favicon gerado por tenant: inicial do nome sobre a cor da marca.
@@ -30,8 +31,9 @@ function initialOf(name: string): string {
   return (match?.[0] ?? '?').toUpperCase()
 }
 
-// A validação de cor mora em server/utils/brand.ts: o manifest do PWA usa a
-// mesma regra, e uma cópia aqui deixaria as duas livres para divergir.
+// A validação de cor mora em shared/utils/brand-color.ts: o manifest, o card
+// de OG e o CSS de tema usam a mesma regra, e uma cópia aqui deixaria as
+// quatro livres para divergir.
 
 export default defineEventHandler(async (event) => {
   const hostname = getHostname(event)

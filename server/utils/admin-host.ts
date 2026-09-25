@@ -1,4 +1,4 @@
-import { ADMIN_HOST_PREFIX, isAdminHost } from '~~/server/utils/tenant'
+import { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
 import { isPwaPath } from '~~/server/utils/pwa'
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { buildPanelManifest, isPwaPath } from '~~/server/utils/pwa'
-import { safeBrandColor } from '~~/server/utils/brand'
+import { safeBrandColor } from '~~/shared/utils/brand-color'
 
 describe('manifest do painel', () => {
   test('leva o nome da imobiliária', () => {

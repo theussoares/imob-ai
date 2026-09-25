@@ -1,4 +1,5 @@
-import { getHostname, isAdminHost, isPlatformRootHost, resolveTenantForHost } from '~~/server/utils/tenant'
+import { getHostname, isPlatformRootHost, resolveTenantForHost } from '~~/server/utils/tenant'
+import { isAdminHost } from '~~/shared/utils/admin-host'
 
 /** robots.txt dinâmico por host, apontando para o sitemap do tenant. */
 export default defineEventHandler(async (event) => {

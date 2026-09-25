@@ -7,7 +7,37 @@ import { sanitizeAboutContent } from '~~/shared/utils/about-content'
 type TenantRow = Database['public']['Tables']['tenants']['Row']
 type TenantUpdate = Database['public']['Tables']['tenants']['Update']
 
-export function toTenantModel(row: TenantRow): Tenant {
+/**
+ * As colunas de `tenants` que o papel `anon` pode ler — e, por isso, as únicas
+ * que a resolução de tenant seleciona (ela roda com a anon key).
+ *
+ * A lista é o contrato com a migration 0047, que faz `grant select (...)` por
+ * coluna: pedir uma coluna fora do grant não devolve nulo, derruba a query com
+ * `permission denied`, e a resolução de tenant é o que serve TODA página de
+ * TODO cliente. Por isso a lista é a fonte do tipo abaixo (o mapper não
+ * compila lendo coluna que não está aqui) e há um teste que a compara com o
+ * grant da migration (`test/server/tenant-colunas-publicas.test.ts`).
+ *
+ * Fora de propósito: `updated_by` (id de usuário do painel), `ai_tone`
+ * (configuração interna) e `created_at`/`updated_at`.
+ */
+export const TENANT_PUBLIC_COLUMNS = [
+  'id', 'slug', 'name', 'tagline', 'active',
+  'hero_title', 'hero_subtitle', 'hero_image', 'hero_image_position', 'hero_cta_label', 'hero_cta_href',
+  'whatsapp', 'phone', 'email', 'creci', 'instagram', 'website',
+  'portal_enabled', 'about_enabled',
+  'city', 'state', 'address_street', 'address_number', 'address_complement', 'address_neighborhood', 'address_zip',
+  'latitude', 'longitude',
+  'brand_primary', 'brand_accent', 'whatsapp_button_color', 'logo_url', 'favicon_url',
+  'alternate_names', 'footer_text', 'footer_links', 'footer_pages', 'about_content',
+] as const satisfies readonly (keyof TenantRow)[]
+
+export type TenantPublicRow = Pick<TenantRow, (typeof TENANT_PUBLIC_COLUMNS)[number]>
+
+/** Para o `.select()` do PostgREST. */
+export const TENANT_PUBLIC_SELECT = TENANT_PUBLIC_COLUMNS.join(',')
+
+export function toTenantModel(row: TenantPublicRow): Tenant {
   return {
     id: row.id,
     slug: row.slug,

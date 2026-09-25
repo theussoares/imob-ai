@@ -4,18 +4,23 @@ import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import type { TenantMember } from '~~/shared/models/member'
 import type { AiTone } from '~~/shared/models/ai-tone'
 import { tomValido } from '~~/shared/models/ai-tone'
-import { toTenantModel, toTenantUpdateRow } from '~~/server/mappers/tenant.mapper'
+import {
+  TENANT_PUBLIC_SELECT,
+  toTenantModel,
+  toTenantUpdateRow,
+  type TenantPublicRow,
+} from '~~/server/mappers/tenant.mapper'
 
 type Client = SupabaseClient<Database>
 
 export async function getTenantByDomain(client: Client, domain: string): Promise<Tenant | null> {
   const { data, error } = await client
     .from('tenant_domains')
-    .select('tenant_id, tenants(*)')
+    .select(`tenant_id, tenants(${TENANT_PUBLIC_SELECT})`)
     .eq('domain', domain)
     .maybeSingle()
   if (error) throw error
-  const tenantRow = (data as unknown as { tenants: Database['public']['Tables']['tenants']['Row'] | null })?.tenants
+  const tenantRow = (data as unknown as { tenants: TenantPublicRow | null })?.tenants
   return tenantRow ? toTenantModel(tenantRow) : null
 }
 
@@ -38,9 +43,9 @@ export async function getPrimaryDomain(client: Client, tenantId: string): Promis
 }
 
 export async function getTenantBySlug(client: Client, slug: string): Promise<Tenant | null> {
-  const { data, error } = await client.from('tenants').select('*').eq('slug', slug).maybeSingle()
+  const { data, error } = await client.from('tenants').select(TENANT_PUBLIC_SELECT).eq('slug', slug).maybeSingle()
   if (error) throw error
-  return data ? toTenantModel(data) : null
+  return data ? toTenantModel(data as unknown as TenantPublicRow) : null
 }
 
 /**
@@ -72,9 +77,8 @@ export async function updateTenantSettings(
 /**
  * Tom da descrição por IA, para o endpoint de geração.
  *
- * O tom NÃO é dado sensível — `anon` tem `GRANT SELECT` na tabela `tenants`
- * inteira e conseguiria ler `ai_tone` direto pelo PostgREST com a chave que já
- * vai no HTML de qualquer site. O que esta função garante é mais estreito: o
+ * Desde a 0047 o `anon` não lê `ai_tone` pelo PostgREST (o grant de
+ * `tenants` passou a ser por coluna). O que esta função garante além disso: o
  * tom fica fora do payload de `/api/tenant`, porque não é campo de
  * `Tenant`/`toTenantModel` — e aquele endpoint devolve `useTenantContext(event)`
  * INTEIRO, sem seleção de campo nenhuma, então qualquer propriedade que

@@ -1,4 +1,5 @@
-import { getHostname, isAdminHost } from '~~/server/utils/tenant'
+import { getHostname } from '~~/server/utils/tenant'
+import { isAdminHost } from '~~/shared/utils/admin-host'
 
 /**
  * Declara o manifest só nas páginas servidas em host de painel.
