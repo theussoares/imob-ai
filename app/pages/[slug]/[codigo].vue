@@ -8,7 +8,7 @@ import { formatPropertyCode } from "~~/shared/utils/property-specs";
 import { propertyOgUrl } from "~~/shared/utils/og-image";
 import type { PropertyCard } from "~~/shared/models/property";
 import { allCategories, categoryLabel, categorySlug } from "~~/shared/utils/category";
-import { neighborhoodMapsEmbedSrc } from "~~/shared/utils/address";
+import { neighborhoodMapsEmbedSrc, neighborhoodMapsLink } from "~~/shared/utils/address";
 import { similarProperties } from "~~/shared/utils/similar-properties";
 
 const route = useRoute();
@@ -85,6 +85,7 @@ const crumbMeio = {
 };
 
 const mapSrc = neighborhoodMapsEmbedSrc(p);
+const mapLink = neighborhoodMapsLink(p);
 
 /**
  * Semelhantes: calculados no cliente, sobre o catálogo que a home já baixou.
@@ -245,6 +246,15 @@ useHead(() => ({
                   :title="`Mapa do bairro ${p.neighborhood}`"
                 />
               </div>
+              <a
+                v-if="mapLink"
+                class="m-map-link"
+                :href="mapLink"
+                target="_blank"
+                rel="noopener"
+              >
+                <AppIcon name="pin" /> Abrir no Google Maps
+              </a>
             </div>
           </div>
         </div>
@@ -359,6 +369,23 @@ useHead(() => ({
   width: 100%;
   height: 100%;
   border: 0;
+}
+.m-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--brand);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+.m-map-link:hover {
+  text-decoration: underline;
+}
+.m-map-link :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 .side-creci {
   margin: 0;

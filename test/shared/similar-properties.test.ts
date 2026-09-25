@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import type { PropertyCard } from '~~/shared/models/property'
 import { similarProperties } from '~~/shared/utils/similar-properties'
-import { neighborhoodMapsEmbedSrc } from '~~/shared/utils/address'
+import { neighborhoodMapsEmbedSrc, neighborhoodMapsLink } from '~~/shared/utils/address'
 
 /**
  * "Semelhantes" é a saída de quem não gostou do imóvel.
@@ -68,5 +68,11 @@ describe('neighborhoodMapsEmbedSrc', () => {
   test('sem bairro não há mapa — a cidade inteira não ajuda a decidir', () => {
     expect(neighborhoodMapsEmbedSrc({ neighborhood: null, city: 'Três Lagoas' })).toBeNull()
     expect(neighborhoodMapsEmbedSrc({ neighborhood: '  ', city: 'Três Lagoas' })).toBeNull()
+  })
+
+  test('o link externo busca o mesmo bairro do iframe', () => {
+    const p = { neighborhood: 'Centro', city: 'Três Lagoas', state: 'MS' }
+    expect(decodeURIComponent(neighborhoodMapsLink(p)!)).toContain('query=Centro, Três Lagoas - MS')
+    expect(neighborhoodMapsLink({ neighborhood: null, city: 'Três Lagoas' })).toBeNull()
   })
 })
