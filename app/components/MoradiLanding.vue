@@ -336,23 +336,26 @@ useSeoMeta({
         <section id="ia" class="section">
           <div class="split">
             <!-- Réplica da tela do painel, não print: a tela real fica atrás do
-                 login e o texto de exemplo precisa ser legível neste tamanho. -->
+                 login e o texto de exemplo precisa ser legível neste tamanho.
+
+                 ⚠️ Réplica tem de ser FIEL: ela já mostrou pastilhas de tom
+                 clicáveis e "Usar este texto" quando o painel não tinha nenhum
+                 dos dois. Mudou o bloco em app/pages/admin/imoveis/[id].vue,
+                 muda aqui junto. -->
             <div class="ai-card" aria-hidden="true">
               <div class="ai-top">
                 <span class="ai-title"><svg><use href="#lp-i-spark" /></svg>Descrição por IA</span>
-                <span class="ai-quota">37 de {{ COTA_MENSAL_DESCRICAO }} este mês</span>
+                <span class="ai-quota">Restam 63 de {{ COTA_MENSAL_DESCRICAO }} este mês</span>
               </div>
+              <div class="ai-tone-line">Tom: <b>Caloroso</b> · <u>alterar</u></div>
               <div class="ai-field">
                 <span class="ai-label">Dicas para a IA</span>
                 <div class="ai-input">Rua tranquila, perto da escola, quintal com churrasqueira, reformado em 2024</div>
               </div>
-              <div class="ai-field">
-                <span class="ai-label">Tom da imobiliária</span>
-                <div class="ai-tones"><span>Sóbrio</span><span class="is-on">Caloroso</span><span>Alto padrão</span></div>
-              </div>
               <div class="ai-out">
+                <span class="ai-out-t">Sugestão da IA — confira antes de usar</span>
                 <p>Sobrado de 3 quartos em rua tranquila do Quinta da Lagoa, a poucos minutos da escola. A reforma de 2024 deixou a casa pronta para morar, e o quintal com churrasqueira é o lugar dos fins de semana em família.</p>
-                <div class="ai-actions"><span class="btn dark sm">Usar este texto</span><span class="ai-undo">Desfazer</span></div>
+                <div class="ai-actions"><span class="btn dark sm">Usar este texto</span><span class="ai-undo">Descartar</span></div>
               </div>
             </div>
             <div class="copy">
@@ -743,9 +746,9 @@ em.s { font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
 .ai-field { display: grid; gap: 8px; }
 .ai-label { font-size: 13px; font-weight: 600; color: #a9adb1; }
 .ai-input { background: #26292e; border: 1px solid #3a3f45; border-radius: 12px; padding: 12px 14px; font-size: 15px; }
-.ai-tones { display: flex; gap: 8px; flex-wrap: wrap; }
-.ai-tones span { font-size: 14px; font-weight: 600; padding: 8px 14px; border-radius: 99px; border: 1px solid #3a3f45; color: #cfd1d3; }
-.ai-tones span.is-on { background: var(--ipe); border-color: var(--ipe); color: var(--ink); }
+.ai-tone-line { font-size: 14px; color: #a9adb1; }
+.ai-tone-line b { color: #fff; }
+.ai-out-t { font-size: 12.5px; font-weight: 700; color: var(--muted); }
 .ai-out { background: #fff; color: var(--ink); border-radius: 16px; padding: 18px; display: grid; gap: 14px; font-size: 15.5px; line-height: 1.6; }
 .ai-actions { display: flex; align-items: center; gap: 16px; }
 .ai-undo { font-size: 14.5px; font-weight: 600; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
