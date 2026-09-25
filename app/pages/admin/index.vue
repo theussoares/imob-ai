@@ -369,6 +369,16 @@ useHead({ title: "Dashboard · Painel" });
   gap: 10px;
   flex-wrap: wrap;
 }
+/* inline-flex + nowrap: com o ícone de "abre fora" o "Ver site" quebrava em
+   duas linhas e ficava mais alto que os vizinhos. */
+.quick-actions .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  min-height: 44px;
+  text-decoration: none;
+}
 
 .two-col {
   margin-top: 16px;
@@ -509,6 +519,12 @@ useHead({ title: "Dashboard · Painel" });
   height: 16px;
   vertical-align: -3px;
 }
+.health-ok,
+.health-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
 .health-ok {
   color: var(--wa-dark);
   font-weight: 600;
@@ -518,6 +534,11 @@ useHead({ title: "Dashboard · Painel" });
   color: #b45309;
   font-weight: 700;
   margin: 0 0 8px;
+}
+.health-ok :deep(svg),
+.health-warn :deep(svg) {
+  flex: none;
+  margin-top: 2px;
 }
 .health-list {
   list-style: none;
@@ -550,6 +571,10 @@ useHead({ title: "Dashboard · Painel" });
 }
 
 .tip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 16px;
   background: var(--brand-ghost);
   border-radius: 12px;
