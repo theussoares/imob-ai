@@ -226,6 +226,23 @@ clique é pior que nenhum, porque documenta a violação.
 | 5 | Cláusula de incidente no contrato com a imobiliária (Q6) | comercial | média |
 | 6 | Porte do cliente no cadastro; encarregado de quem não for pequeno porte (Q5) | comercial | baixa |
 
+## Mantendo isto verdadeiro
+
+Este documento e a política descrevem o sistema de 25/09. Cada coisa nova que
+colete dado, grave cookie ou fale com terceiro os desatualiza. Duas travas
+existem para isso:
+
+- `CLAUDE.md`, seção "Privacidade (LGPD)": a regra, lida no começo de toda
+  sessão de desenvolvimento;
+- `test/server/privacidade-guardrail.test.ts`: cai quando aparece cookie,
+  script de terceiro na CSP, serviço externo no servidor ou campo novo gravado
+  sobre o visitante, e diz qual seção rever.
+
+O teste não vê tudo. Mudar a região das funções da Vercel, trocar de
+fornecedor por configuração ou mudar um prazo de retenção não quebra nada, e
+também pede revisão da tabela "O que o site público trata" e da questão
+correspondente acima.
+
 ## Fontes
 
 O texto oficial no Planalto e no portal da ANPD não pôde ser aberto do ambiente
