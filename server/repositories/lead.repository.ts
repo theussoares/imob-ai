@@ -116,6 +116,37 @@ export async function updateLead(
   return toLeadModel(rest, properties ?? null)
 }
 
+/**
+ * Expurgo de leads parados, de TODOS os tenants. Chamado só pelo cron.
+ *
+ * Parado = nenhuma alteração desde `antesDe`. `updated_at` serve de "último
+ * movimento" porque o trigger `trg_leads_updated` o renova em qualquer update:
+ * mudar de etapa, anotar, reagendar.
+ *
+ * Duas exceções, e as duas são "a finalidade ainda existe":
+ *   - `fechado`: virou negócio, e o dado passa a ser do contrato, não do pedido
+ *     de contato;
+ *   - retorno agendado no futuro: alguém da imobiliária marcou que vai ligar.
+ *     Apagar o lead na véspera seria apagar um compromisso.
+ *
+ * O único vínculo com `leads` é `whatsapp_clicks.lead_id`, que vira nulo no
+ * delete (FK `on delete set null`): o clique sobrevive, só perde a conversão.
+ *
+ * Devolve quantos saíram, para o cron registrar. Nenhuma linha identifica
+ * quem: é contagem, não lista.
+ */
+export async function purgeStaleLeads(service: Client, antesDe: Date, agora: Date): Promise<number> {
+  const { data, error } = await service
+    .from('leads')
+    .delete()
+    .lt('updated_at', antesDe.toISOString())
+    .not('stage', 'eq', 'fechado')
+    .or(`next_contact_at.is.null,next_contact_at.lt.${agora.toISOString()}`)
+    .select('id')
+  if (error) throw error
+  return data?.length ?? 0
+}
+
 export async function deleteLead(client: Client, tenantId: string, id: string): Promise<void> {
   const { error } = await client.from('leads').delete().eq('tenant_id', tenantId).eq('id', id)
   if (error) throw error

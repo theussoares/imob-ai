@@ -242,14 +242,11 @@ async function submit() {
         Junto do botão: é aqui que a pessoa decide se confia o telefone a um
         site que acabou de conhecer, e a LGPD pede a finalidade informada no
         ponto da coleta — o quero-vender já dizia isso, este formulário não.
-
-        SEM link para /privacidade de propósito: a página ainda não está
-        publicada (ver o topo de app/pages/privacidade.vue). O link entra aqui
-        na mesma mudança que a registra no rodapé.
+        O link leva à política, que diz o resto (prazo, com quem, direitos).
       -->
       <p class="lead-legal">
         Usamos seu contato só para responder a este pedido. Sem cadastro e sem
-        lista de e-mail.
+        lista de e-mail. <NuxtLink to="/privacidade">Privacidade</NuxtLink>
       </p>
     </template>
   </form>
@@ -289,6 +286,10 @@ async function submit() {
   font-size: var(--fs-caption);
   line-height: 1.5;
   color: var(--ink-soft);
+}
+.lead-legal a {
+  color: inherit;
+  text-decoration: underline;
 }
 .lead-field {
   display: flex;

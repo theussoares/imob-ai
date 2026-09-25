@@ -206,6 +206,19 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'vercel',
     vercel: {
+      /**
+       * Funções em São Paulo (`gru1`), onde já está o banco (Supabase
+       * sa-east-1). O padrão da Vercel é `iad1`, Washington: cada requisição
+       * ia aos EUA e voltava ao Brasil para falar com o banco, e o dado do
+       * visitante (IP, formulário) passava pelos EUA antes de ser gravado.
+       *
+       * O segundo ponto é LGPD, não só latência: o hash de IP do clique no
+       * WhatsApp tem base em legítimo interesse, que não está entre as
+       * hipóteses de transferência internacional do art. 33, IX — ver Q3 em
+       * docs/runbooks/lgpd-site-publico.md. Trocar esta região de volta para
+       * fora do Brasil reabre essa lacuna.
+       */
+      functions: { regions: ['gru1'] },
       config: {
         /**
          * Lembrete de leads parados, 12:00 UTC = 9h em Brasília: chega no

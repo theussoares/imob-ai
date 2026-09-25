@@ -1,5 +1,25 @@
 import type { PropertyType } from '~~/shared/models/property'
 
+/**
+ * Por quanto tempo um lead sem movimento fica guardado antes do expurgo.
+ *
+ * LGPD, arts. 15 e 16: o tratamento acaba quando a finalidade se esgota, e
+ * "responder a este pedido" se esgota bem antes de dois anos sem contato. 24 e
+ * não 12 porque imóvel tem ciclo longo: quem pergunta hoje pode comprar daqui a
+ * um ano. Decisão registrada em docs/runbooks/lgpd-site-publico.md (Q2).
+ *
+ * É a MESMA constante que a política de privacidade mostra ao visitante — o
+ * número prometido e o número aplicado não têm como divergir.
+ */
+export const LEAD_RETENCAO_MESES = 24
+
+/** Data antes da qual um lead parado entra no expurgo. */
+export function corteDeRetencaoDeLeads(agora: Date): Date {
+  const d = new Date(agora)
+  d.setUTCMonth(d.getUTCMonth() - LEAD_RETENCAO_MESES)
+  return d
+}
+
 /** Etapas do funil de atendimento de um lead. */
 export type LeadStage = 'novo' | 'contato' | 'visita' | 'proposta' | 'fechado' | 'perdido'
 
