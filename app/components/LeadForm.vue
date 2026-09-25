@@ -243,9 +243,9 @@ async function submit() {
         site que acabou de conhecer, e a LGPD pede a finalidade informada no
         ponto da coleta — o quero-vender já dizia isso, este formulário não.
 
-        SEM link para /privacidade de propósito: aquela página é rascunho à
-        espera de revisão jurídica (ver o topo de app/pages/privacidade.vue).
-        Quando ela for publicada, o link entra aqui.
+        SEM link para /privacidade de propósito: a página ainda não está
+        publicada (ver o topo de app/pages/privacidade.vue). O link entra aqui
+        na mesma mudança que a registra no rodapé.
       -->
       <p class="lead-legal">
         Usamos seu contato só para responder a este pedido. Sem cadastro e sem
