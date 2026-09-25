@@ -82,7 +82,7 @@ export function eventosDaMudanca(
 ): NewLeadEvent[] {
   const out: NewLeadEvent[] = []
   if (antes.stage !== depois.stage) {
-    const motivo = depois.stage === 'perdido' && depois.lostReason ? ` — ${labels.lostReason[depois.lostReason]}` : ''
+    const motivo = depois.stage === 'perdido' && depois.lostReason ? ` (${labels.lostReason[depois.lostReason]})` : ''
     out.push({
       kind: 'etapa',
       body: `${labels.stage[antes.stage]} → ${labels.stage[depois.stage]}${motivo}`,

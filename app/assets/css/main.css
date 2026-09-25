@@ -1714,6 +1714,30 @@ a.btn-detail:hover {
   opacity: 0.55;
   cursor: not-allowed;
 }
+/* Variante compacta e botão-link: nasceram escopados em /admin/leads e
+   passaram a ser usados pela agenda e pela linha do tempo do contato. */
+.admin-btn.sm {
+  padding: 7px 11px;
+  font-size: var(--fs-caption);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-btn.sm svg {
+  width: 14px;
+  height: 14px;
+}
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
 .admin-table {
   width: 100%;
   border-collapse: collapse;

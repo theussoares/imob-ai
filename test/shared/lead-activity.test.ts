@@ -21,7 +21,7 @@ describe('eventosDaMudanca', () => {
 
   test('perda leva o motivo no texto e no meta — é o relatório de perdas', () => {
     const [e] = eventosDaMudanca({ stage: 'proposta', brokerId: null }, { stage: 'perdido', brokerId: null, lostReason: 'preco' }, nome, labels)
-    expect(e!.body).toBe('Proposta → Perdido — Preço')
+    expect(e!.body).toBe('Proposta → Perdido (Preço)')
     expect(e!.meta.lostReason).toBe('preco')
   })
 
