@@ -670,7 +670,7 @@ useHead({ title: "Meu site · Painel" });
   margin: 4px 0 0;
 }
 .section-t {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   margin: 22px 0 12px;
   padding-top: 16px;
@@ -678,7 +678,7 @@ useHead({ title: "Meu site · Painel" });
 }
 /* Complemento do título, em peso e cor menores — "(favicon, quadrado)". */
 .section-hint {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
   font-size: var(--fs-caption);
   color: var(--ink-soft);

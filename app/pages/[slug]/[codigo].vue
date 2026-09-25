@@ -439,14 +439,14 @@ useHead(() => ({
   margin-top: 22px;
 }
 .block .price {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-display);
   margin: 10px 0 2px;
 }
 .block .price span {
   font-size: var(--fs-body);
   color: var(--ink-soft);
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
 }
 .block .ttl {
   font-size: var(--fs-title);
@@ -472,14 +472,14 @@ useHead(() => ({
   gap: 11px;
 }
 .side-price {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-lg);
   font-weight: 600;
 }
 .side-price span {
   font-size: var(--fs-ui);
   color: var(--ink-soft);
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-body);
 }
 .side-wa {
   font-size: var(--fs-body);

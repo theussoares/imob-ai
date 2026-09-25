@@ -332,7 +332,7 @@ useHead({ title: "Dashboard · Painel" });
   gap: 4px;
 }
 .stat span {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-display);
   font-weight: 700;
   color: var(--brand);
@@ -392,7 +392,7 @@ useHead({ title: "Dashboard · Painel" });
 }
 .card-head h2,
 .health h2 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-body);
 }
 .health h2 {

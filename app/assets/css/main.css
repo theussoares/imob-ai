@@ -53,6 +53,30 @@
   --r-md: 12px;
   --r-lg: 18px;
   --r-pill: 999px;
+
+  /*
+   * Fontes e card como variáveis: é o que um tema troca (ver
+   * docs/superpowers/specs/2026-09-25-temas-da-vitrine-design.md). Com o nome
+   * da fonte escrito em cada regra, um tema não teria como mudar nada.
+   *
+   * ⚠️ O nome "… Fallback: sans-serif" é a fonte substituta que o @nuxt/fonts
+   * gera com métricas ajustadas (size-adjust/ascent-override) — é ela que
+   * impede o layout de pular quando a fonte real chega. O módulo a insere
+   * sozinho em toda declaração `font-family`, mas NÃO dentro de variável CSS
+   * (conferido no CSS servido): sem escrevê-la aqui, trocar por `var()`
+   * reintroduziria o salto em todo o site, e nenhum print mostraria, porque o
+   * print é tirado depois da fonte carregar.
+   */
+  --font-display: "Space Grotesk", "Space Grotesk Fallback: sans-serif", sans-serif;
+  --font-body: "Inter", "Inter Fallback: sans-serif", system-ui, -apple-system, sans-serif;
+
+  /* Card do catálogo: borda, raio e sombra são o que mais separa um tema do
+     outro na grade (plano, com borda, com sombra). */
+  --card-border: 1px solid var(--line-2);
+  --card-border-hover: var(--line);
+  --card-radius: var(--r);
+  --card-shadow: var(--shadow);
+  --card-shadow-hover: var(--shadow-lg);
 }
 
 html {
@@ -63,17 +87,14 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family:
-    "Inter",
-    system-ui,
-    -apple-system,
-    sans-serif;
+    var(--font-body);
   -webkit-font-smoothing: antialiased;
   line-height: 1.55;
 }
 h1,
 h2,
 h3 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   line-height: 1.08;
   margin: 0;
@@ -197,7 +218,7 @@ summary,
   /* Nome longo ("OLMI Imóveis | Imobiliária em Três Lagoas") quebra em
      linhas equilibradas, não numa palavra órfã. */
   text-wrap: balance;
-  font-family: "Space Grotesk";
+  font-family: var(--font-display);
   font-size: var(--fs-body);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -530,10 +551,10 @@ select.ctl {
   /* Referência para a camada de clique do título (ver .prop .ttl::after). */
   position: relative;
   background: var(--paper);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
+  border: var(--card-border);
+  border-radius: var(--card-radius);
   overflow: hidden;
-  box-shadow: var(--shadow);
+  box-shadow: var(--card-shadow);
   display: flex;
   flex-direction: column;
   transition:
@@ -543,8 +564,8 @@ select.ctl {
 }
 .prop:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--line);
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--card-border-hover);
 }
 .prop .ph {
   position: relative;
@@ -738,7 +759,7 @@ select.ctl {
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--ink-soft);
-  font-family: "Space Grotesk";
+  font-family: var(--font-display);
 }
 .prop .body {
   padding: 15px 16px 16px;
@@ -747,7 +768,7 @@ select.ctl {
   flex: 1;
 }
 .prop .price {
-  font-family: "Space Grotesk";
+  font-family: var(--font-display);
   font-size: var(--fs-title);
   font-weight: 600;
   color: var(--ink);
@@ -757,7 +778,7 @@ select.ctl {
   font-size: var(--fs-label);
   font-weight: 500;
   color: var(--ink-soft);
-  font-family: "Inter";
+  font-family: var(--font-body);
 }
 .prop .ttl {
   font-size: var(--fs-body);
@@ -1003,7 +1024,7 @@ a.btn-detail:hover {
   gap: 11px;
   color: #fff;
   font-weight: 600;
-  font-family: "Space Grotesk";
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
 }
 .foot-brand .mark {
@@ -1073,7 +1094,7 @@ a.btn-detail:hover {
 /* Título de seção de verdade: eram rótulos de 12px, cinza e em caixa alta —
    o conteúdo principal da página com peso de legenda. */
 .m-desc h2 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
   color: var(--ink);
   margin: 0 0 10px;
@@ -1265,7 +1286,7 @@ a.btn-detail:hover {
   align-items: center;
   justify-content: space-between;
   padding: 4px 6px 8px;
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title-sm);
 }
 .admin-more-x {

@@ -227,7 +227,7 @@ useHead({
   letter-spacing: 0.02em;
 }
 h1 {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: var(--font-display);
   font-size: var(--fs-title);
   margin: 0 0 8px;
 }
