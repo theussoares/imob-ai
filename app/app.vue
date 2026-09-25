@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Tenant } from '~~/shared/models/tenant'
 import { homeOgUrl } from '~~/shared/utils/og-image'
+import { safeBrandColor, temaCss } from '~~/shared/utils/brand-color'
 
 type TenantResponse = Tenant | { platformRoot: true }
 
@@ -42,11 +43,17 @@ useHead(() => ({
           // mexe nisso, e sem essa declaração o valor fixo do main.css (verde
           // padrão do WhatsApp) continua valendo — --wa-dark (hover) deriva dele
           // via color-mix, então não precisa ser injetado à parte.
-          innerHTML: `html:root{--brand:${tenantState.value.brandPrimary};--accent:${tenantState.value.brandAccent};${tenantState.value.whatsappButtonColor ? `--wa:${tenantState.value.whatsappButtonColor};` : ''}}`,
+          //
+          // Cada cor passa por `isHexColor` e, se inválida, a declaração SAI em
+          // vez de levar um substituto: sem ela vale o padrão do main.css, que é
+          // o que o tenant veria sem ter configurado nada. O texto vem do banco
+          // e o membro grava `tenants` direto pelo PostgREST, sem a validação
+          // da API — ver shared/utils/brand-color.ts.
+          innerHTML: `html:root{${temaCss(tenantState.value)}}`,
         },
       ]
     : [],
-  meta: [{ name: 'theme-color', content: tenantState.value?.brandPrimary || '#0f3d38' }],
+  meta: [{ name: 'theme-color', content: safeBrandColor(tenantState.value?.brandPrimary) }],
 }))
 
 useHead({

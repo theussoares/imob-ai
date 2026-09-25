@@ -1,5 +1,6 @@
 import sharp, { type Sharp } from 'sharp'
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from '~~/shared/utils/og-image'
+import { safeBrandColor } from '~~/shared/utils/brand-color'
 
 /**
  * Converte a foto que está no Storage no card social 1200×630 em JPEG.
@@ -32,16 +33,8 @@ const FETCH_TIMEOUT_MS = 5000
  */
 const JPEG_QUALITY = 82
 
-/** Cor de fundo quando a imagem não preenche o card (logo) ou não existe. */
-const DEFAULT_BRAND = '#0f3d38'
-
 /** Fração do card que a logo ocupa; o resto vira margem na cor da marca. */
 const LOGO_SCALE = 0.76
-
-/** Só aceita cor hex — o valor vem do banco e vai parar dentro de um SVG. */
-function safeColor(value: string | null | undefined, fallback = DEFAULT_BRAND): string {
-  return value && /^#[0-9a-f]{3,8}$/i.test(value) ? value : fallback
-}
 
 /**
  * Baixa a foto de origem.
@@ -143,7 +136,7 @@ export async function renderOgCard(
   kind: OgSourceKind,
   brandColor: string | null | undefined,
 ): Promise<Buffer> {
-  const color = safeColor(brandColor)
+  const color = safeBrandColor(brandColor)
   const bytes = source ? await fetchSource(source).catch(() => null) : null
   return frameOgCard(bytes, kind, color)
 }
@@ -159,7 +152,7 @@ export async function frameOgCard(
   kind: OgSourceKind,
   brandColor: string | null | undefined,
 ): Promise<Buffer> {
-  const color = safeColor(brandColor)
+  const color = safeBrandColor(brandColor)
   if (!bytes) return toJpeg(brandCanvas(color))
 
   try {

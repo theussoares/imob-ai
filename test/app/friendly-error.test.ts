@@ -24,6 +24,12 @@ describe('friendlyErrorMessage', () => {
     )
   })
 
+  test('traduz formato de arquivo recusado pelo bucket', () => {
+    expect(friendlyErrorMessage({ message: 'mime type image/heic is not supported' })).toBe(
+      'Formato de arquivo não aceito. Envie a imagem em JPG, PNG ou WebP.',
+    )
+  })
+
   test('traduz credenciais inválidas', () => {
     expect(friendlyErrorMessage({ message: 'Invalid login credentials' })).toBe('E-mail ou senha incorretos.')
   })

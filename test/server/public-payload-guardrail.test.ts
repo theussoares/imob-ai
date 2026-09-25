@@ -147,8 +147,8 @@ describe('payload público de tenant', () => {
     // `aiTone` foi deliberadamente mantido fora do modelo `Tenant`: `/api/tenant`
     // devolve `useTenantContext(event)` INTEIRO ao público, sem seleção de
     // campo, então qualquer propriedade mapeada em `toTenantModel` sai junto.
-    // Não é segredo — o `anon` já lê a tabela `tenants` inteira pelo PostgREST —,
-    // mas o payload público não tem motivo para carregar configuração interna.
+    // Desde a 0047 o `anon` também não lê `ai_tone` pelo PostgREST; e mesmo
+    // antes, o payload público não tinha motivo para carregar configuração interna.
     // Se um dia alguém mapear `ai_tone` aqui "por conveniência", esta linha cai.
     expect(Object.keys(tenant ?? {})).not.toContain('aiTone')
   })
@@ -186,11 +186,6 @@ const SELECT_ALL_PERMITIDO: Record<string, string> = {
   // Compartilhada entre site e painel: o site só lê `.phone` do resultado, e o
   // teste comportamental acima prova que o resto não chega ao payload.
   fetchBrokersById: 'helper compartilhado, coberto pelo teste de payload',
-  // Públicas: `tenants` não tem privacidade por coluna (o anon tem SELECT na
-  // tabela inteira), então aqui `*` não muda nada — quem protege é o mapper, e
-  // o teste de payload acima cobre isso.
-  getTenantByDomain: 'público, coberto pelo teste de payload de tenant',
-  getTenantBySlug: 'público, coberto pelo teste de payload de tenant',
 }
 
 /** Nomes das funções do arquivo que chamam `.select('*')` / `.select(`*, ...`)`. */
