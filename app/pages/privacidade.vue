@@ -133,11 +133,11 @@ useHead(() => ({
   line-height: 1.65;
 }
 h1 {
-  font-size: 26px;
+  font-size: var(--fs-title-lg);
   margin: 0 0 6px;
 }
 h2 {
-  font-size: 18px;
+  font-size: var(--fs-title-sm);
   margin: 28px 0 8px;
 }
 .intro {

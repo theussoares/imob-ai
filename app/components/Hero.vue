@@ -62,7 +62,8 @@ const heroSplitSrcset = computed(() => {
 
     <div class="hero-in">
       <div class="hero-text">
-        <span v-if="tenant?.tagline" class="eyebrow"><span class="dot" />{{ tenant.tagline }}</span>
+        <!-- Sem o selo com o slogan: ele repetia, palavra por palavra, o slogan
+             que o cabeçalho mostra logo acima — duas vezes na mesma tela. -->
         <h1>{{ heroTitle }}</h1>
         <p v-if="tenant?.heroSubtitle" class="sub">{{ tenant.heroSubtitle }}</p>
         <NuxtLink
@@ -102,12 +103,12 @@ const heroSplitSrcset = computed(() => {
 .hero h1 {
   font-size: clamp(33px, 6.6vw, 56px);
   color: var(--ink);
-  margin: 18px 0 12px;
+  margin: 0 0 12px;
   max-width: 16ch;
   font-weight: 700;
 }
 .hero p.sub {
-  font-size: 16.5px;
+  font-size: var(--fs-body);
   color: var(--ink-soft);
   max-width: 46ch;
   margin: 0;
@@ -117,11 +118,11 @@ const heroSplitSrcset = computed(() => {
   align-items: center;
   margin-top: 20px;
   padding: 13px 22px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--brand);
   color: #fff;
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-body);
   text-decoration: none;
   transition: transform 0.15s;
 }
@@ -136,7 +137,7 @@ const heroSplitSrcset = computed(() => {
 .hero.split .hero-media {
   margin-top: 24px;
   aspect-ratio: 4/3;
-  border-radius: 20px;
+  border-radius: var(--r-lg);
   overflow: hidden;
   box-shadow: var(--shadow);
 }
@@ -196,13 +197,6 @@ const heroSplitSrcset = computed(() => {
 .hero.bg-mode .hero-text {
   max-width: 640px;
 }
-.hero.bg-mode .eyebrow {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-.hero.bg-mode .eyebrow .dot {
-  background: #fff;
-}
 .hero.bg-mode h1 {
   color: #fff;
 }
@@ -216,23 +210,19 @@ const heroSplitSrcset = computed(() => {
  * imóveis, o imóvel é o conteúdo — e a atenção cai muito abaixo da dobra
  * (NN/g, "Scrolling and Attention").
  *
- * O selo some porque repete, palavra por palavra, o slogan que o cabeçalho já
- * mostra logo acima. Título e espaçamentos encolhem; o texto não sai.
+ * Título e espaçamentos encolhem; o texto não sai.
  */
 @media (max-width: 639px) {
   .hero-in {
     padding-top: 20px;
     padding-bottom: 8px;
   }
-  .eyebrow {
-    display: none;
-  }
   .hero h1 {
-    font-size: 30px;
+    font-size: var(--fs-title-lg);
     margin: 0 0 8px;
   }
   .hero p.sub {
-    font-size: 15.5px;
+    font-size: var(--fs-body);
   }
   .hero.bg-mode .hero-in {
     padding-top: 36px;

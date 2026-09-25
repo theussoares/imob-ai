@@ -44,7 +44,7 @@ async function clicar() {
    (fundo escuro) e na tela de login (fundo claro). */
 .instrucao {
   margin: 4px 10px 8px;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   line-height: 1.5;
   color: inherit;
   opacity: 0.75;

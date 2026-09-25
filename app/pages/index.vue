@@ -281,32 +281,6 @@ useHead(() => ({
 
       <LazyTypeChips :filters="filters" :properties="list" />
 
-      <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
-           um caminho até elas. As de tipo só aparecem com imóveis suficientes;
-           as de pretensão (a-venda/para-alugar) entram sempre. -->
-      <nav
-        v-if="catLinks.length"
-        class="cat-links"
-        aria-label="Categorias de imóveis"
-      >
-        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{
-          c.label
-        }}</NuxtLink>
-      </nav>
-
-      <!-- Mesmo raciocínio do bloco acima, por bairro: só entra quem já tem
-           imóveis suficientes (ver CATEGORY_MIN_PROPERTIES), pra não linkar
-           página fina. -->
-      <nav
-        v-if="hoodLinks.length"
-        class="cat-links"
-        aria-label="Bairros"
-      >
-        <NuxtLink v-for="h in hoodLinks" :key="h.href" :to="h.href">{{
-          h.label
-        }}</NuxtLink>
-      </nav>
-
       <div v-if="filtered.length" class="grid">
         <!-- stagger limitado a 8 cards: sem o teto, 50 imóveis deixam o último
              invisível por ~2s (e 200 imóveis, por 8s) por causa do fill-mode both. -->
@@ -365,6 +339,40 @@ useHead(() => ({
           />
         </div>
       </div>
+
+      <!--
+        Depois da lista, e como links de TEXTO: antes eram duas fileiras de
+        pastilhas logo abaixo das pastilhas de tipo, com a mesma cara — não
+        dava para saber quais filtravam a lista e quais levavam a outra
+        página. Continuam no HTML, que é o que importa para o rastreador.
+      -->
+      <!-- Links internos pras categorias: é o que dá ao Google (e ao visitante)
+           um caminho até elas. As de tipo só aparecem com imóveis suficientes;
+           as de pretensão (a-venda/para-alugar) entram sempre. -->
+      <nav
+        v-if="catLinks.length"
+        class="cat-links"
+        aria-label="Categorias de imóveis"
+      >
+        <span class="cat-links-t">Explore:</span>
+        <NuxtLink v-for="c in catLinks" :key="c.href" :to="c.href">{{
+          c.label
+        }}</NuxtLink>
+      </nav>
+
+      <!-- Mesmo raciocínio do bloco acima, por bairro: só entra quem já tem
+           imóveis suficientes (ver CATEGORY_MIN_PROPERTIES), pra não linkar
+           página fina. -->
+      <nav
+        v-if="hoodLinks.length"
+        class="cat-links"
+        aria-label="Bairros"
+      >
+        <span class="cat-links-t">Bairros:</span>
+        <NuxtLink v-for="h in hoodLinks" :key="h.href" :to="h.href">{{
+          h.label
+        }}</NuxtLink>
+      </nav>
 
       <!-- Quem viu a lista inteira e não gostou de nada não passa pelo estado
            vazio, então essa saída não existiria para ela. -->

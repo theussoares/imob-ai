@@ -162,29 +162,29 @@ useHead({
   max-width: 380px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 22px 20px;
 }
 h1 {
-  font-size: 21px;
+  font-size: var(--fs-title);
   margin: 0 0 14px;
 }
 .muted {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #6b7280;
   margin: 0 0 10px;
 }
 .lbl {
   display: block;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   margin-bottom: 5px;
 }
 .inp {
   width: 100%;
   border: 1px solid #d1d5db;
-  border-radius: 9px;
-  font-size: 16px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-body);
   padding: 11px 12px;
   margin-bottom: 14px;
   background: #fff;
@@ -195,16 +195,16 @@ h1 {
 }
 .erro {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0 0 12px;
 }
 .btn {
   width: 100%;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   background: var(--brand);
   color: #fff;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   padding: 12px;
   cursor: pointer;
@@ -216,7 +216,7 @@ h1 {
 .link {
   display: inline-block;
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #4b5563;
 }
 </style>

@@ -269,7 +269,7 @@ useHead(() => ({
 .crumbs {
   display: flex;
   gap: 7px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .crumbs a {
@@ -284,7 +284,7 @@ useHead(() => ({
 }
 .qs-text {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1.7;
   color: var(--ink-soft);
   white-space: pre-line;
@@ -294,12 +294,12 @@ useHead(() => ({
 }
 .qs-figure img {
   width: 100%;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   display: block;
 }
 .qs-figure figcaption {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   text-align: center;
 }
@@ -312,18 +312,18 @@ useHead(() => ({
   flex: 1 1 140px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 16px;
   text-align: center;
 }
 .qs-stat strong {
   display: block;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 26px;
+  font-size: var(--fs-title-lg);
   color: var(--brand);
 }
 .qs-stat span {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .qs-empty {
@@ -340,7 +340,7 @@ useHead(() => ({
 .qs-empty p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 16px;
+  font-size: var(--fs-body);
   line-height: 1.6;
   max-width: 60ch;
 }
@@ -352,13 +352,13 @@ useHead(() => ({
   color: #fff;
   font-weight: 600;
   padding: 11px 18px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   text-decoration: none;
 }
 
 /* ---- banner ---- */
 .qs-banner {
-  border-radius: 18px;
+  border-radius: var(--r-lg);
   background-color: var(--ink);
   background-size: cover;
   background-position: center;
@@ -388,7 +388,7 @@ useHead(() => ({
   color: #fff;
   font-weight: 600;
   padding: 11px 20px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   text-decoration: none;
   text-shadow: none;
 }
@@ -402,7 +402,7 @@ useHead(() => ({
 }
 .qs-split img {
   width: 100%;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   display: block;
 }
 .qs-split-text h2 {
@@ -413,7 +413,7 @@ useHead(() => ({
 .qs-split-text p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 15.5px;
+  font-size: var(--fs-body);
   line-height: 1.7;
   white-space: pre-line;
 }
@@ -434,7 +434,7 @@ useHead(() => ({
   width: 220px;
   height: 220px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--r-md);
 }
 
 /* ---- depoimento ---- */
@@ -445,13 +445,13 @@ useHead(() => ({
 }
 .qs-testimonial p {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--fs-title-sm);
   line-height: 1.6;
   font-style: italic;
 }
 .qs-testimonial footer {
   margin-top: 10px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--ink-soft);
 }
@@ -512,15 +512,15 @@ useHead(() => ({
   object-fit: cover;
 }
 .qs-broker strong {
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .qs-broker-creci {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 .qs-broker p {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   line-height: 1.5;
 }

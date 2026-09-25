@@ -233,7 +233,7 @@ useHead({ title: 'Corretores · Painel' })
 <style scoped>
 .section-t {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-body);
   margin: 0 0 14px;
 }
 .form-grid {
@@ -251,7 +251,7 @@ useHead({ title: 'Corretores · Painel' })
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .form-actions {
   display: flex;
@@ -267,10 +267,10 @@ useHead({ title: 'Corretores · Painel' })
   border-top: none;
   padding-top: 0;
   margin: 0 0 8px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
 }
 .hint-text {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 6px 0 0;
 }
@@ -310,13 +310,13 @@ useHead({ title: 'Corretores · Painel' })
 }
 .err {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0;
   grid-column: 1 / -1;
 }
 .field-err {
   color: #b91c1c;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   margin: 4px 0 0;
 }
 .broker-list {
@@ -343,11 +343,11 @@ useHead({ title: 'Corretores · Painel' })
   min-width: 160px;
 }
 .broker-info strong {
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .broker-meta {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin-top: 2px;
 }
 .broker-actions {
@@ -359,7 +359,7 @@ useHead({ title: 'Corretores · Painel' })
 .admin-btn.sm,
 .btn-wa.sm {
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .btn-wa.sm {
   flex: none;

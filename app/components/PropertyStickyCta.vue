@@ -107,7 +107,7 @@ useIntersectionObserver(
   min-width: 0;
 }
 .sc-label {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -115,14 +115,14 @@ useIntersectionObserver(
 }
 .sc-price strong {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 19px;
+  font-size: var(--fs-title-sm);
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
 }
 .sc-price strong span {
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 500;
   color: var(--ink-soft);
 }
@@ -131,7 +131,7 @@ useIntersectionObserver(
   flex: none;
   white-space: nowrap;
   padding: 12px 18px;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 
 /* A coluna lateral vira sticky de verdade a partir daqui — a barra não tem

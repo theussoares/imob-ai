@@ -176,7 +176,7 @@ useHead({
   width: 100%;
   max-width: 400px;
   padding: 28px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--paper);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
@@ -204,7 +204,7 @@ useHead({
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--brand);
   color: #fff;
 }
@@ -217,23 +217,23 @@ useHead({
 }
 .quem-txt b {
   display: block;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.25;
 }
 .quem-txt small {
   display: block;
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   letter-spacing: 0.02em;
 }
 h1 {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 21px;
+  font-size: var(--fs-title);
   margin: 0 0 8px;
 }
 .muted {
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.55;
   margin: 0 0 14px;
 }
@@ -247,7 +247,7 @@ form {
 }
 .err {
   color: #b91c1c;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   margin: 10px 0 0;
 }
 .full {

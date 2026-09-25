@@ -256,11 +256,11 @@ watch(drawerOpen, async (open) => {
   flex: none;
   padding: 15px 18px;
   border: 1.5px solid var(--line-2);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--ink);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .filters-btn:hover {
   border-color: var(--brand);
@@ -271,10 +271,10 @@ watch(drawerOpen, async (open) => {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-variant-numeric: tabular-nums;
 }
 
@@ -286,7 +286,7 @@ watch(drawerOpen, async (open) => {
   justify-content: space-between;
 }
 .adv-head h3 {
-  font-size: 18px;
+  font-size: var(--fs-title-sm);
 }
 .adv-x {
   display: grid;
@@ -294,7 +294,7 @@ watch(drawerOpen, async (open) => {
   width: 44px;
   height: 44px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
 }
@@ -310,11 +310,11 @@ watch(drawerOpen, async (open) => {
   flex: none;
   padding: 14px 18px;
   border: 1.5px solid var(--line-2);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--paper);
   color: var(--ink);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .adv-clear:disabled {
   opacity: 0.45;
@@ -324,11 +324,11 @@ watch(drawerOpen, async (open) => {
   flex: 1;
   padding: 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--brand);
   color: #fff;
   font-weight: 600;
-  font-size: 15.5px;
+  font-size: var(--fs-body);
 }
 
 @media (max-width: 819px) {

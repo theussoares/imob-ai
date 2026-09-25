@@ -69,9 +69,9 @@ const successes = computed(() =>
   gap: 10px;
   max-width: min(380px, calc(100vw - 32px));
   padding: 11px 12px 11px 14px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   box-shadow: var(--shadow-lg);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.45;
   animation: toast-in 160ms ease-out;
 }
@@ -90,7 +90,7 @@ const successes = computed(() =>
   border: none;
   background: none;
   padding: 0 2px;
-  font-size: 19px;
+  font-size: var(--fs-title-sm);
   line-height: 1;
   color: inherit;
   opacity: 0.65;

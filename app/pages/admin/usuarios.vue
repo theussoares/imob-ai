@@ -174,19 +174,19 @@ useHead({ title: "Usuários · Painel" });
 }
 .err {
   color: #b91c1c;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   margin: 8px 0 0;
 }
 .link-box {
   margin-top: 14px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
 }
 .link-t {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: #065f46;
 }
 .link-row {
@@ -200,15 +200,15 @@ useHead({ title: "Usuários · Painel" });
   min-width: 220px;
   /* Link longo não pode esticar a página; quebra em qualquer ponto. */
   overflow-wrap: anywhere;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 8px 10px;
 }
 .link-warn {
   margin: 10px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: #92400e;
 }
 .list-card {
@@ -237,8 +237,8 @@ useHead({ title: "Usuários · Painel" });
 }
 .badge {
   padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-caption);
   font-weight: 700;
   background: #fffbeb;
   border: 1px solid #fde68a;

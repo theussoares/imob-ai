@@ -178,7 +178,7 @@ const builtByLink = computed(() => {
   gap: 8px;
 }
 .foot-map {
-  border-radius: 12px;
+  border-radius: var(--r-md);
   overflow: hidden;
   margin-top: 4px;
 }
@@ -199,7 +199,7 @@ const builtByLink = computed(() => {
 .foot-links a {
   color: #cfe3dd;
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .foot-links a:hover {
   color: #fff;

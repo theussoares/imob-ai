@@ -287,13 +287,13 @@ useHead({ title: 'Clientes · Painel' })
   gap: 12px;
 }
 .dica {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #6b7280;
   margin: 12px 0;
 }
 .erro {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0 0 10px;
 }
 .lista {
@@ -310,7 +310,7 @@ useHead({ title: 'Clientes · Painel' })
   justify-content: space-between;
   gap: 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 12px 14px;
 }
 .lista li.inativo {
@@ -324,15 +324,15 @@ useHead({ title: 'Clientes · Painel' })
   min-width: 0;
 }
 .quem small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #6b7280;
 }
 .tag {
   align-self: flex-start;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   background: #f3f4f6;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 2px 9px;
   color: #4b5563;
 }

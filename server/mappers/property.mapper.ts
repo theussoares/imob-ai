@@ -1,6 +1,7 @@
 import type { Database } from '~~/shared/types/database.types'
 import type { Property, PropertyCard, PropertyImage, PropertyInput } from '~~/shared/models/property'
 import type { Broker } from '~~/shared/models/broker'
+import { displayNeighborhood } from '~~/shared/utils/neighborhood'
 
 type PropertyRow = Database['public']['Tables']['properties']['Row']
 type PropertyImageRow = Database['public']['Tables']['property_images']['Row']
@@ -71,7 +72,10 @@ export function toPropertyModel(
     type: row.type,
     purpose: row.purpose,
     price: Number(row.price),
-    neighborhood: row.neighborhood,
+    // Grafia de exibição ("Mais parque" -> "Mais Parque"): o site mostrava
+    // cada variação digitada do mesmo bairro. O painel desfaz isto abaixo, em
+    // `toPropertyAdminModel`, para editar o valor que está gravado.
+    neighborhood: row.neighborhood == null ? null : displayNeighborhood(row.neighborhood),
     city: row.city,
     state: row.state,
     bedrooms: row.bedrooms,
@@ -132,7 +136,7 @@ export function toPropertyCardModel(
     type: row.type,
     purpose: row.purpose,
     price: Number(row.price),
-    neighborhood: row.neighborhood,
+    neighborhood: row.neighborhood == null ? null : displayNeighborhood(row.neighborhood),
     city: row.city,
     bedrooms: row.bedrooms,
     suites: row.suites,
@@ -161,6 +165,10 @@ export function toPropertyAdminModel(
 ): Property {
   return {
     ...toPropertyModel(row, images),
+    // Cru, sem a grafia de exibição do site: o formulário regrava o que
+    // mostra, e normalizar aqui reescreveria o bairro de todo imóvel editado
+    // sem ninguém ter pedido.
+    neighborhood: row.neighborhood,
     updatedBy: row.updated_by,
     location: row.location,
     brokerId: row.broker_id,

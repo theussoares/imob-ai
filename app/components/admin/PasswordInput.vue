@@ -61,7 +61,7 @@ const visivel = ref(false);
   background: none;
   color: var(--ink-soft);
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
 .pw-toggle :deep(svg) {
   width: 20px;

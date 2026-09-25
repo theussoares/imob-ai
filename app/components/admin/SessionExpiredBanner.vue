@@ -35,11 +35,11 @@ async function sair() {
   flex-wrap: wrap;
   padding: 12px 16px;
   margin-bottom: 16px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: #7f1d1d;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.5;
   box-shadow: var(--shadow);
 }
@@ -49,7 +49,7 @@ async function sair() {
 }
 .btn {
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: #b91c1c;
   color: #fff;
   font: inherit;

@@ -368,7 +368,7 @@ useHead({ title: "Quem somos · Painel" });
   padding: 12px 14px;
   margin-bottom: 16px;
   border: 1px solid var(--line, #e5e7eb);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #f9fafb;
   cursor: pointer;
 }
@@ -378,24 +378,24 @@ useHead({ title: "Quem somos · Painel" });
 }
 .ab-publicar b {
   display: block;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .ab-publicar small {
   display: block;
   margin-top: 2px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft, #6b7280);
   line-height: 1.45;
 }
 
 .ab-empty {
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   padding: 14px 0;
 }
 .ab-block {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 14px;
   margin-bottom: 14px;
 }
@@ -407,19 +407,19 @@ useHead({ title: "Quem somos · Painel" });
   margin-bottom: 10px;
 }
 .ab-type {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--brand);
   background: var(--brand-ghost);
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .ab-preview {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
@@ -444,7 +444,7 @@ useHead({ title: "Quem somos · Painel" });
   gap: 4px;
 }
 .hint-text {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 6px 0 0;
 }
@@ -459,12 +459,12 @@ useHead({ title: "Quem somos · Painel" });
 }
 .file-btn.sm {
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .hero-img-preview {
   width: 60px;
   height: 60px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--surface);
   border: 1.5px solid var(--line-2);
   color: var(--ink-soft);
@@ -485,12 +485,12 @@ useHead({ title: "Quem somos · Painel" });
 .hero-img-preview.wide {
   width: 100px;
   height: 60px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 .hero-img-preview.sm {
   width: 44px;
   height: 44px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
 .form-grid {
   display: grid;
@@ -510,9 +510,9 @@ useHead({ title: "Quem somos · Painel" });
   flex: 1;
   padding: 10px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;

@@ -137,7 +137,7 @@ useHead(() => ({
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   margin-bottom: 12px;
 }
@@ -155,7 +155,7 @@ useHead(() => ({
 }
 .cat-intro {
   color: var(--ink-soft);
-  font-size: 16px;
+  font-size: var(--fs-body);
   max-width: 62ch;
   margin: 0;
 }

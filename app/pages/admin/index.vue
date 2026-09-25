@@ -186,15 +186,18 @@ useHead({ title: "Dashboard · Painel" });
     </div>
 
     <template v-else>
-      <!-- Métricas -->
+      <!--
+        Métricas enxutas. Eram seis cartões do mesmo tamanho: "62 Cadastrados"
+        e "62 Publicados" diziam quase sempre a mesma coisa, e "0 Rascunhos",
+        "0 Sem fotos" ocupavam espaço para dizer "nada". Agora são três números
+        fixos e os de alerta só aparecem quando há o que fazer.
+      -->
       <div class="stat-grid">
         <div class="admin-card stat">
-          <span>{{ stats.total }}</span
-          ><small>Cadastrados</small>
-        </div>
-        <div class="admin-card stat">
           <span>{{ stats.published }}</span
-          ><small>Publicados</small>
+          ><small>Publicados<template v-if="stats.published !== stats.total">
+              de {{ stats.total }}</template
+            ></small>
         </div>
         <div class="admin-card stat">
           <span>{{ stats.venda }}</span
@@ -204,40 +207,31 @@ useHead({ title: "Dashboard · Painel" });
           <span>{{ stats.aluguel }}</span
           ><small>Para alugar</small>
         </div>
-        <div class="admin-card stat">
+        <NuxtLink
+          v-if="stats.drafts"
+          to="/admin/imoveis?status=draft"
+          class="admin-card stat stat-link"
+        >
           <span>{{ stats.drafts }}</span
-          ><small>Rascunhos</small>
-        </div>
-        <div class="admin-card stat" :class="{ warn: stats.semFotos }">
+          ><small>{{ stats.drafts === 1 ? "Rascunho" : "Rascunhos" }} →</small>
+        </NuxtLink>
+        <div v-if="stats.semFotos" class="admin-card stat warn">
           <span>{{ stats.semFotos }}</span
           ><small>Sem fotos</small>
         </div>
       </div>
 
-      <!-- Ações rápidas -->
-      <div class="admin-card quick">
-        <span class="quick-label">Ações rápidas</span>
-        <div class="quick-actions">
-          <NuxtLink class="admin-btn" to="/admin/imoveis/novo"
-            >+ Novo imóvel</NuxtLink
-          >
-          <NuxtLink class="admin-btn ghost" to="/admin/imoveis"
-            >Gerenciar imóveis</NuxtLink
-          >
-          <NuxtLink class="admin-btn ghost" to="/admin/corretores"
-            >Corretores</NuxtLink
-          >
-          <a
-            class="admin-btn ghost"
-            :href="siteUrl"
-            target="_blank"
-            rel="noopener"
-            >Ver site <AppIcon name="external" /><span class="sr-only"> (abre em nova aba)</span></a
-          >
-          <NuxtLink class="admin-btn ghost" to="/admin/config"
-            >Configurações</NuxtLink
-          >
-        </div>
+      <!--
+        Só atalhos que o menu NÃO tem. "Gerenciar imóveis", "Corretores" e
+        "Configurações" repetiam a barra lateral ao lado; o que sobra são as
+        duas ações que se fazem de passagem.
+      -->
+      <div class="quick-actions dash-actions">
+        <NuxtLink class="admin-btn" to="/admin/imoveis/novo">+ Novo imóvel</NuxtLink>
+        <NuxtLink class="admin-btn ghost" to="/admin/leads?novo=1">+ Novo contato</NuxtLink>
+        <a class="admin-btn ghost" :href="siteUrl" target="_blank" rel="noopener"
+          >Ver site <AppIcon name="external" /><span class="sr-only"> (abre em nova aba)</span></a
+        >
       </div>
 
       <!-- Recentes + Saúde -->
@@ -339,30 +333,27 @@ useHead({ title: "Dashboard · Painel" });
 }
 .stat span {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 32px;
+  font-size: var(--fs-display);
   font-weight: 700;
   color: var(--brand);
 }
 .stat small {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .stat.warn span {
   color: #b45309;
 }
 
-.quick {
+.dash-actions {
   margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
-.quick-label {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-soft);
+.stat-link {
+  color: inherit;
+  text-decoration: none;
+}
+.stat-link:hover {
+  border-color: var(--brand);
 }
 .quick-actions {
   display: flex;
@@ -402,13 +393,13 @@ useHead({ title: "Dashboard · Painel" });
 .card-head h2,
 .health h2 {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
 .health h2 {
   margin-bottom: 12px;
 }
 .see-all {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--brand);
   text-decoration: none;
@@ -485,7 +476,7 @@ useHead({ title: "Dashboard · Painel" });
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .ag-wa {
@@ -498,7 +489,7 @@ useHead({ title: "Dashboard · Painel" });
 }
 .ag-more {
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .state-card {
@@ -512,7 +503,7 @@ useHead({ title: "Dashboard · Painel" });
   color: var(--ink-soft);
 }
 .start-t {
-  font-size: 18px;
+  font-size: var(--fs-title-sm);
 }
 :deep(svg) {
   width: 16px;
@@ -547,12 +538,12 @@ useHead({ title: "Dashboard · Painel" });
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .bar {
   height: 8px;
-  border-radius: 100px;
+  border-radius: var(--r-pill);
   background: var(--surface);
   overflow: hidden;
   margin: 6px 0 8px;
@@ -561,11 +552,11 @@ useHead({ title: "Dashboard · Painel" });
   display: block;
   height: 100%;
   background: var(--brand);
-  border-radius: 100px;
+  border-radius: var(--r-pill);
   transition: width 0.4s;
 }
 .health-meta {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   margin-bottom: 12px;
 }
@@ -577,9 +568,9 @@ useHead({ title: "Dashboard · Painel" });
   gap: 6px;
   margin-top: 16px;
   background: var(--brand-ghost);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 13px 16px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: var(--ink);
 }
 .tip a {

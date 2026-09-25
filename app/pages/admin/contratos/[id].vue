@@ -512,7 +512,7 @@ useHead({ title: criando.value ? 'Novo contrato · Painel' : 'Contrato · Painel
 <style scoped>
 .voltar {
   display: inline-block;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #4b5563;
   text-decoration: none;
   margin-bottom: 10px;
@@ -527,13 +527,13 @@ useHead({ title: criando.value ? 'Novo contrato · Painel' : 'Contrato · Painel
   grid-column: 1 / -1;
 }
 .dica {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #6b7280;
   margin: 0 0 12px;
 }
 .erro {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0 0 10px;
 }
 .lista {
@@ -550,7 +550,7 @@ useHead({ title: criando.value ? 'Novo contrato · Painel' : 'Contrato · Painel
   justify-content: space-between;
   gap: 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 11px 13px;
 }
 .quem {
@@ -560,15 +560,15 @@ useHead({ title: criando.value ? 'Novo contrato · Painel' : 'Contrato · Painel
   min-width: 0;
 }
 .quem small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #6b7280;
 }
 .regra {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #374151;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   padding: 10px 12px;
   margin: 0 0 14px;
 }

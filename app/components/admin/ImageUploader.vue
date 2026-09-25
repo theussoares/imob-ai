@@ -305,7 +305,7 @@ function move(i: number, dir: number) {
 }
 .muted-note {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .thumbs-grid {
   display: grid;
@@ -319,7 +319,7 @@ function move(i: number, dir: number) {
 }
 .thumb-img {
   position: relative;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
   border: 2px solid var(--line-2);
   aspect-ratio: 4/3;
@@ -329,14 +329,14 @@ function move(i: number, dir: number) {
 }
 .alt-input {
   padding: 8px 10px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
 }
 .undo {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: var(--ink-soft);
 }
 .thumb-item img {
@@ -350,10 +350,10 @@ function move(i: number, dir: number) {
   left: 6px;
   background: var(--brand);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .thumb-controls {
   position: absolute;
@@ -371,7 +371,7 @@ function move(i: number, dir: number) {
   place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   border: none;
   background: rgba(255, 255, 255, 0.92);
   color: var(--ink);

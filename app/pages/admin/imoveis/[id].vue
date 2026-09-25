@@ -527,7 +527,7 @@ useHead(() => ({
               required
             />
           </div>
-          <div>
+          <div class="f-wide">
             <label class="admin-label" for="f-titulo">Título *</label>
             <input
               id="f-titulo"
@@ -587,7 +587,7 @@ useHead(() => ({
 
       <fieldset class="sec">
         <legend>Localização</legend>
-        <div class="form-grid">
+        <div class="form-grid loc-grid">
           <div>
             <label class="admin-label" for="f-bairro">Bairro</label>
             <!-- `datalist` e não `select`: bairro continua texto livre, porque o
@@ -617,7 +617,7 @@ useHead(() => ({
 
       <fieldset class="sec">
         <legend>Características</legend>
-        <div class="form-grid">
+        <div class="form-grid num-grid">
           <div>
             <label class="admin-label" for="f-quartos">Quartos</label>
             <input
@@ -837,7 +837,7 @@ useHead(() => ({
 <style scoped>
 .last-edit {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 
@@ -846,7 +846,7 @@ useHead(() => ({
   color: var(--ink-soft);
   text-decoration: none;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   margin-bottom: 10px;
 }
 .form-grid {
@@ -871,7 +871,7 @@ useHead(() => ({
 }
 .sec legend {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-body);
   font-weight: 600;
   padding: 0;
   margin-bottom: 12px;
@@ -890,25 +890,43 @@ useHead(() => ({
 .sec legend span {
   font-family: "Inter", sans-serif;
   font-weight: 500;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 .hint-link {
   display: inline-block;
   margin-top: 6px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--brand);
   text-decoration: none;
   font-weight: 600;
 }
 .field-err {
   color: #b91c1c;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   margin: 4px 0 0;
+}
+/*
+ * A largura do campo diz o que se espera nele (Baymard, "form field width").
+ * Título — o texto mais longo — tinha a mesma largura que UF, que é duas
+ * letras; e os cinco números ocupavam campos largos em duas linhas.
+ */
+@media (min-width: 720px) {
+  .f-wide {
+    grid-column: span 2;
+  }
+}
+@media (min-width: 520px) {
+  .form-grid.loc-grid {
+    grid-template-columns: 2fr 2fr 88px;
+  }
+  .form-grid.num-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
 }
 .req-note {
   margin: 0 0 14px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 .form-err {
@@ -927,11 +945,11 @@ useHead(() => ({
   flex-wrap: wrap;
   gap: 10px;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   border: 1px solid #fcd34d;
   background: #fffbeb;
   color: #78350f;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .save-bar {
   margin-top: 18px;
@@ -958,7 +976,7 @@ useHead(() => ({
   display: flex;
   gap: 20px;
   margin-top: 14px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   font-weight: 600;
 }
 .checks label {
@@ -978,7 +996,7 @@ useHead(() => ({
   margin: 8px 0 10px;
   padding: 12px 14px;
   border: 1px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface);
 }
 .ia-acoes {
@@ -989,7 +1007,7 @@ useHead(() => ({
   flex-wrap: wrap;
 }
 .ia-saldo {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 
@@ -1000,9 +1018,9 @@ useHead(() => ({
   padding: 12px 14px 12px 30px;
   border: 1px solid #fcd34d;
   background: #fffbeb;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   color: #78350f;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   line-height: 1.5;
   display: flex;
   flex-direction: column;

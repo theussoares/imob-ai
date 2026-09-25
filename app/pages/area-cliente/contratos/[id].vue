@@ -161,31 +161,31 @@ useHead({
 <style scoped>
 .voltar {
   display: inline-block;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #4b5563;
   text-decoration: none;
   margin-bottom: 12px;
 }
 .tit {
-  font-size: 21px;
+  font-size: var(--fs-title);
   margin: 0 0 4px;
 }
 .tit2 {
-  font-size: 17px;
+  font-size: var(--fs-title-sm);
   margin: 26px 0 10px;
 }
 .sub {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: #6b7280;
   margin: 0 0 16px;
 }
 .muted {
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: #6b7280;
 }
 .erro {
   color: #b91c1c;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .painel {
   display: grid;
@@ -193,7 +193,7 @@ useHead({
   gap: 12px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 16px;
 }
 .painel div {
@@ -202,20 +202,20 @@ useHead({
   gap: 2px;
 }
 .painel span {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: #6b7280;
 }
 .painel b {
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .vazio {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 20px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: #4b5563;
 }
 .vazio p {
@@ -225,7 +225,7 @@ useHead({
   margin-bottom: 18px;
 }
 .grupo-tit {
-  font-size: 13px;
+  font-size: var(--fs-label);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: #6b7280;
@@ -245,7 +245,7 @@ useHead({
   gap: 12px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 11px;
+  border-radius: var(--r-md);
   padding: 12px 14px;
 }
 .doc-info {
@@ -255,10 +255,10 @@ useHead({
   min-width: 0;
 }
 .doc-info b {
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .doc-info small {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: #6b7280;
 }
 .btn-baixar {
@@ -266,9 +266,9 @@ useHead({
   border: 1px solid var(--brand);
   background: var(--brand);
   color: #fff;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 8px 14px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   cursor: pointer;
 }

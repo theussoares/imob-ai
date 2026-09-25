@@ -311,7 +311,7 @@ useHead(() => ({
 .crumbs {
   display: flex;
   gap: 7px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .crumbs a {
@@ -336,7 +336,7 @@ useHead(() => ({
 .qv-lede {
   margin: 0;
   max-width: 60ch;
-  font-size: 17px;
+  font-size: var(--fs-title-sm);
   line-height: 1.6;
   color: var(--ink-soft);
 }
@@ -346,14 +346,14 @@ useHead(() => ({
   color: #fff;
   font-weight: 600;
   padding: 12px 22px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   text-decoration: none;
 }
 
 .qv-steps h2,
 .qv-form-wrap h2 {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px;
+  font-size: var(--fs-title-sm);
   margin: 0 0 14px;
 }
 .qv-steps ol {
@@ -369,7 +369,7 @@ useHead(() => ({
   counter-increment: passo;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 18px;
 }
 .qv-steps li::before {
@@ -381,17 +381,17 @@ useHead(() => ({
   border-radius: 50%;
   background: var(--brand);
   color: #fff;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 700;
   margin-bottom: 10px;
 }
 .qv-steps h3 {
-  font-size: 16px;
+  font-size: var(--fs-body);
   margin: 0 0 5px;
 }
 .qv-steps p {
   margin: 0;
-  font-size: 14.5px;
+  font-size: var(--fs-ui);
   line-height: 1.6;
   color: var(--ink-soft);
 }
@@ -411,7 +411,7 @@ useHead(() => ({
 .qv-side {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 20px;
 }
 .qv-form-card form {
@@ -429,7 +429,7 @@ useHead(() => ({
   flex-wrap: wrap;
 }
 .qv-purpose legend {
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   margin-bottom: 8px;
   padding: 0;
@@ -440,10 +440,10 @@ useHead(() => ({
   gap: 7px;
   padding: 9px 16px;
   border: 1.5px solid var(--line-2);
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: var(--fs-ui);
 }
 .qv-purpose label.on {
   border-color: var(--brand);
@@ -462,13 +462,13 @@ useHead(() => ({
 }
 .qv-err {
   color: #b91c1c;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   margin: 10px 0 0;
 }
 .qv-ok {
   color: var(--wa-dark);
   font-weight: 600;
-  font-size: 15.5px;
+  font-size: var(--fs-body);
   line-height: 1.55;
   margin: 0;
 }
@@ -480,7 +480,7 @@ useHead(() => ({
 }
 .qv-priv {
   margin: 10px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 
@@ -496,7 +496,7 @@ useHead(() => ({
   justify-content: center;
   gap: 8px;
   padding: 11px 16px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   font-weight: 600;
   text-decoration: none;
 }
@@ -521,7 +521,7 @@ useHead(() => ({
   flex-direction: column;
 }
 .qv-facts dt {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-soft);
@@ -532,7 +532,7 @@ useHead(() => ({
 }
 .qv-see {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .qv-see a {
   color: var(--brand);

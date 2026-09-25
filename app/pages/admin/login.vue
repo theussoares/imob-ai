@@ -89,7 +89,7 @@ useHead({ title: 'Entrar · Painel' })
   max-width: 380px;
   margin-top: 14px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 </style>

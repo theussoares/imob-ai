@@ -609,18 +609,18 @@ useHead({ title: "Meu site · Painel" });
   margin-top: 20px;
 }
 .fp-path {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 4px 8px;
 }
 .fp-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   white-space: nowrap;
 }
 @media (max-width: 700px) {
@@ -651,7 +651,7 @@ useHead({ title: "Meu site · Painel" });
 .fl-err {
   grid-column: 1 / -1;
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: #b91c1c;
 }
 @media (max-width: 700px) {
@@ -662,12 +662,12 @@ useHead({ title: "Meu site · Painel" });
 
 .field-err {
   color: #b91c1c;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   margin: 4px 0 0;
 }
 .section-t {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-body);
   margin: 22px 0 12px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -676,12 +676,12 @@ useHead({ title: "Meu site · Painel" });
 .section-hint {
   font-family: "Inter", sans-serif;
   font-weight: 500;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 /* A explicação de por que a logo horizontal não serve aqui. */
 .fav-help {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   margin: -4px 0 12px;
   max-width: 52ch;
@@ -715,7 +715,7 @@ useHead({ title: "Meu site · Painel" });
   width: 46px;
   height: 44px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 2px;
   background: none;
   cursor: pointer;
@@ -735,7 +735,7 @@ useHead({ title: "Meu site · Painel" });
 .logo-preview {
   width: 80px;
   height: 80px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   color: #fff;
   display: grid;
   place-items: center;
@@ -756,7 +756,7 @@ useHead({ title: "Meu site · Painel" });
 .hero-img-preview {
   width: 60px;
   height: 60px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--surface);
   border: 1.5px solid var(--line-2);
   color: var(--ink-soft);
@@ -774,7 +774,7 @@ useHead({ title: "Meu site · Painel" });
   height: 26px;
 }
 .hint-text {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 6px 0 0;
 }
@@ -789,10 +789,10 @@ useHead({ title: "Meu site · Painel" });
   min-width: 220px;
   padding: 11px 14px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--brand);
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   word-break: break-all;
   text-decoration: none;
 }
@@ -808,9 +808,9 @@ useHead({ title: "Meu site · Painel" });
   gap: 8px;
   padding: 10px;
   border: 1.5px solid var(--line-2);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: var(--paper);
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;
@@ -829,7 +829,7 @@ useHead({ title: "Meu site · Painel" });
 .pos-mock .pos-text,
 .pos-mock .pos-img {
   flex: 1;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: var(--line-2);
 }
 .pos-btn.on .pos-img {
@@ -854,7 +854,7 @@ useHead({ title: "Meu site · Painel" });
 }
 .hero-preview-label {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--ink-soft);
   text-transform: uppercase;
@@ -863,7 +863,7 @@ useHead({ title: "Meu site · Painel" });
 }
 .hero-preview-box {
   border: 1.5px solid var(--line-2);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--surface);
 }
@@ -874,7 +874,7 @@ useHead({ title: "Meu site · Painel" });
   width: 100%;
   height: 220px;
   border: 1.5px solid var(--line-2);
-  border-radius: 14px;
+  border-radius: var(--r-md);
 }
 @media (min-width: 720px) {
   .form-grid {

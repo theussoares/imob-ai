@@ -57,7 +57,7 @@ const specs = computed(() => propertySpecs(props.property))
 
 .specs-none {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-style: italic;
 }
 .specs-none.card {
@@ -69,8 +69,8 @@ const specs = computed(() => propertySpecs(props.property))
   margin: 18px 0 22px;
   padding: 13px 14px;
   border: 1px dashed var(--line-2);
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-ui);
 }
 
 /* ---------- Variante do card ---------- */
@@ -86,14 +86,14 @@ const specs = computed(() => propertySpecs(props.property))
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink);
   font-weight: 600;
   /* A medida e o rótulo são uma unidade: "2 qtos" nunca quebra no meio. */
   white-space: nowrap;
 }
 .specs.card .spec small {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 500;
   color: var(--ink-soft);
 }
@@ -122,18 +122,18 @@ const specs = computed(() => propertySpecs(props.property))
   text-align: center;
   padding: 13px 8px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--paper);
 }
 .specs.detail .spec b {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 19px;
+  font-size: var(--fs-title-sm);
   font-weight: 600;
   color: var(--ink);
   line-height: 1.1;
 }
 .specs.detail .spec small {
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   line-height: 1.25;
 }

@@ -19,24 +19,81 @@ export interface NeighborhoodGroup {
   count: number
 }
 
-/** "mais-parque" -> "Mais Parque". Deriva do slug — não da grafia de um cadastro
- *  específico — pra dar um rótulo estável mesmo com várias variações do mesmo bairro. */
-function labelFromSlug(slug: string): string {
-  return slug
-    .split('-')
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+/** Conectivos que ficam em minúscula no meio do nome ("Bela Vista da Lagoa"). */
+const CONECTIVOS = new Set(['da', 'das', 'de', 'do', 'dos', 'e'])
+const ROMANO = /^(i{1,3}|iv|v|vi{1,3}|ix|x)$/i
+
+/**
+ * Grafia de EXIBIÇÃO de um bairro: "Bela vista da lagoa " -> "Bela Vista da
+ * Lagoa", "JARDIM ALVORADA" -> "Jardim Alvorada", "Jardim dos Ipês ii" ->
+ * "Jardim dos Ipês II".
+ *
+ * O acervo tem a mesma rua digitada de vários jeitos, e o site mostrava cada
+ * um como veio: dois cards lado a lado com "Mais Parque" e "Mais parque"
+ * parecem site descuidado, não cadastro manual. Normalizar o banco seria
+ * migration sobre texto do cliente; aqui só a TELA pública se alinha, e o
+ * painel continua vendo exatamente o que foi gravado.
+ *
+ * O que NÃO dá para consertar aqui: acento que não foi digitado ("Tres").
+ * Para os rótulos de grupo, `qualifyingNeighborhoods` escolhe a variante
+ * acentuada quando existe uma.
+ *
+ * Sigla curta toda em maiúscula ("JK", "BNH") fica como está — "Jk" seria pior
+ * que o original.
+ */
+export function displayNeighborhood(raw: string | null | undefined): string {
+  const limpo = (raw || '').trim().replace(/\s+/g, ' ')
+  if (!limpo) return ''
+  return limpo
+    .split(' ')
+    .map((palavra, i) => {
+      const lower = palavra.toLocaleLowerCase('pt-BR')
+      if (i > 0 && CONECTIVOS.has(lower)) return lower
+      if (ROMANO.test(palavra)) return palavra.toUpperCase()
+      if (palavra.length <= 3 && palavra === palavra.toUpperCase() && /[A-Z]/.test(palavra)) return palavra
+      // Palavra com ponto ("V.L") é abreviação: mexer quebraria a leitura.
+      if (palavra.includes('.')) return palavra
+      return lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1)
+    })
     .join(' ')
 }
 
-function groupByNeighborhood(items: { neighborhood?: string | null }[]): Map<string, number> {
-  const counts = new Map<string, number>()
+/** Quantos caracteres acentuados — desempate para escolher a grafia do grupo. */
+function acentos(s: string): number {
+  return (s.normalize('NFD').match(/[\u0300-\u036f]/g) || []).length
+}
+
+interface Grupo {
+  count: number
+  /** Grafias cruas vistas, com quantas vezes cada uma aparece. */
+  variantes: Map<string, number>
+}
+
+function groupByNeighborhood(items: { neighborhood?: string | null }[]): Map<string, Grupo> {
+  const grupos = new Map<string, Grupo>()
   for (const item of items) {
     const slug = item.neighborhood ? slugify(item.neighborhood) : ''
     if (!slug) continue
-    counts.set(slug, (counts.get(slug) ?? 0) + 1)
+    const g = grupos.get(slug) ?? { count: 0, variantes: new Map() }
+    g.count++
+    const v = displayNeighborhood(item.neighborhood)
+    g.variantes.set(v, (g.variantes.get(v) ?? 0) + 1)
+    grupos.set(slug, g)
   }
-  return counts
+  return grupos
+}
+
+/**
+ * Rótulo do grupo a partir das grafias REAIS, não do slug.
+ *
+ * Derivar do slug perdia acento e capitalizava conectivo: "Nova Três Lagoas"
+ * virava "Nova Tres Lagoas", "Bela Vista da Lagoa" virava "Bela Vista Da
+ * Lagoa" — justamente no link de bairro da home. Agora vence a variante com
+ * mais acentos (quem acentuou digitou com mais cuidado) e, no empate, a mais
+ * usada.
+ */
+function labelFromGroup(g: Grupo): string {
+  return [...g.variantes].sort((a, b) => acentos(b[0]) - acentos(a[0]) || b[1] - a[1])[0]![0]
 }
 
 /**
@@ -46,8 +103,19 @@ function groupByNeighborhood(items: { neighborhood?: string | null }[]): Map<str
  */
 export function qualifyingNeighborhoods(items: { neighborhood?: string | null }[]): NeighborhoodGroup[] {
   return [...groupByNeighborhood(items)]
-    .filter(([, count]) => count >= CATEGORY_MIN_PROPERTIES)
-    .map(([slug, count]) => ({ slug, label: labelFromSlug(slug), count }))
+    .filter(([, g]) => g.count >= CATEGORY_MIN_PROPERTIES)
+    .map(([slug, g]) => ({ slug, label: labelFromGroup(g), count: g.count }))
+    .sort((a, b) => b.count - a.count)
+}
+
+/**
+ * Todos os bairros de uma lista, agrupados como nas páginas de bairro — sem o
+ * piso de conteúdo. Serve os atalhos da página de categoria, onde "Bela Vista
+ * da Lagoa" e "Bela vista da Lagoa" apareciam como DUAS pastilhas.
+ */
+export function allNeighborhoods(items: { neighborhood?: string | null }[]): NeighborhoodGroup[] {
+  return [...groupByNeighborhood(items)]
+    .map(([slug, g]) => ({ slug, label: labelFromGroup(g), count: g.count }))
     .sort((a, b) => b.count - a.count)
 }
 

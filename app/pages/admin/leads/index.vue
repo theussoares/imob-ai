@@ -411,7 +411,9 @@ async function saveEditor(l: Lead) {
 }
 
 // ---- Novo contato manual ----
-const showNew = ref(false);
+// `?novo=1` abre o formulário direto — é o atalho "+ Novo contato" do
+// dashboard, para quem acabou de desligar o telefone com um interessado.
+const showNew = ref(route.query.novo === "1");
 const saving = ref(false);
 const newErr = ref("");
 const newForm = reactive<LeadCreateInput>({
@@ -1019,7 +1021,7 @@ useHead({ title: "Contatos · Painel" });
 .sub {
   color: var(--ink-soft);
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   max-width: 60ch;
 }
 .muted-block {
@@ -1027,17 +1029,17 @@ useHead({ title: "Contatos · Painel" });
 }
 .section-t {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-body);
   margin: 0 0 4px;
 }
 .hint {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0 0 14px;
 }
 .err {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 12px 0 0;
 }
 
@@ -1074,7 +1076,7 @@ useHead({ title: "Contatos · Painel" });
 .s-card {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -1086,7 +1088,7 @@ useHead({ title: "Contatos · Painel" });
 }
 .s-n {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 26px;
+  font-size: var(--fs-title-lg);
   font-weight: 700;
   color: var(--brand);
 }
@@ -1095,7 +1097,7 @@ useHead({ title: "Contatos · Painel" });
 }
 .s-card small {
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
 }
 
 /* Toggle */
@@ -1110,7 +1112,7 @@ useHead({ title: "Contatos · Painel" });
 .type-filter {
   width: auto;
   max-width: 100%;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
 }
 .view-toggle {
   display: inline-flex;
@@ -1118,14 +1120,14 @@ useHead({ title: "Contatos · Painel" });
   padding: 4px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 .view-toggle button {
   border: none;
   background: none;
   padding: 6px 16px;
-  border-radius: 7px;
-  font-size: 13.5px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--ink-soft);
   cursor: pointer;
@@ -1139,11 +1141,11 @@ useHead({ title: "Contatos · Painel" });
 .live-off {
   margin-bottom: 14px;
   padding: 9px 14px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #fffbeb;
   border: 1px solid #fde68a;
   color: #92400e;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
 }
 
 /* Aviso de contato chegando em tempo real. */
@@ -1154,11 +1156,11 @@ useHead({ title: "Contatos · Painel" });
   flex-wrap: wrap;
   padding: 10px 14px;
   margin-bottom: 14px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
   color: #065f46;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .live-dot {
   width: 9px;
@@ -1200,8 +1202,8 @@ useHead({ title: "Contatos · Painel" });
   display: inline-block;
   align-self: flex-start;
   padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-caption);
   font-weight: 700;
   line-height: 1.6;
   border: 1px solid transparent;
@@ -1246,7 +1248,7 @@ useHead({ title: "Contatos · Painel" });
 
 .ed-who {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 
@@ -1254,11 +1256,11 @@ useHead({ title: "Contatos · Painel" });
 .ed-warn {
   margin: 0 0 10px;
   padding: 9px 12px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: #fffbeb;
   border: 1px solid #fde68a;
   color: #92400e;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1.5;
 }
 
@@ -1267,7 +1269,7 @@ useHead({ title: "Contatos · Painel" });
   margin: 0;
   padding: 9px 0;
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 
 /* Board */
@@ -1283,7 +1285,7 @@ useHead({ title: "Contatos · Painel" });
 .column {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 12px;
   min-height: 120px;
   display: flex;
@@ -1298,20 +1300,20 @@ useHead({ title: "Contatos · Painel" });
 .col-title {
   font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .col-count {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--ink-soft);
   background: var(--surface);
-  border-radius: 100px;
+  border-radius: var(--r-pill);
   padding: 1px 9px;
 }
 .col-empty {
   color: var(--ink-faint, var(--ink-soft));
   text-align: center;
-  font-size: 13px;
+  font-size: var(--fs-label);
   padding: 8px 0;
   opacity: 0.6;
 }
@@ -1320,7 +1322,7 @@ useHead({ title: "Contatos · Painel" });
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 12px;
   box-shadow: var(--shadow);
   cursor: grab;
@@ -1344,33 +1346,33 @@ useHead({ title: "Contatos · Painel" });
   gap: 8px;
 }
 .c-name {
-  font-size: 14.5px;
+  font-size: var(--fs-ui);
 }
 .c-when {
-  font-size: 11.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   white-space: nowrap;
 }
 .c-prop {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--brand);
   font-weight: 600;
   text-decoration: none;
 }
 .c-msg {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink);
   margin: 0;
   white-space: pre-wrap;
 }
 .c-notes {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 0;
   white-space: pre-wrap;
 }
 .c-return {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink-soft);
 }
@@ -1378,7 +1380,7 @@ useHead({ title: "Contatos · Painel" });
   color: #b23b3b;
 }
 .c-broker {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
 }
 .c-actions {
@@ -1389,7 +1391,7 @@ useHead({ title: "Contatos · Painel" });
 }
 .admin-btn.sm {
   padding: 7px 11px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1420,13 +1422,13 @@ useHead({ title: "Contatos · Painel" });
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink-soft);
 }
 .c-stage .admin-input {
   padding: 8px 10px;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   min-height: 40px;
 }
 .state-card {
@@ -1485,7 +1487,7 @@ useHead({ title: "Contatos · Painel" });
   border: none;
   color: var(--ink-soft);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   cursor: pointer;
   padding: 4px 0;
 }
@@ -1503,8 +1505,8 @@ useHead({ title: "Contatos · Painel" });
   padding: 10px 12px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  font-size: 13.5px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .lost-actions {

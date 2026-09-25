@@ -36,6 +36,13 @@ const props = withDefaults(
      * como se faltasse uma seção.
      */
     headingLevel?: 2 | 3 | 4
+    /**
+     * Botão de envio secundário (contorno). Na página do imóvel o formulário
+     * fica logo abaixo do "Tenho interesse" do WhatsApp: dois botões cheios,
+     * de cores diferentes, no mesmo cartão disputavam qual era a ação
+     * principal. Lá o WhatsApp é a principal; o formulário, a alternativa.
+     */
+    secondary?: boolean
   }>(),
   {
     propertyCode: undefined,
@@ -48,6 +55,7 @@ const props = withDefaults(
     okMessage: 'Recebemos seu contato! Retornaremos em breve. ✅',
     buildMessage: (note: string) => note,
     headingLevel: 3,
+    secondary: false,
   },
 )
 
@@ -218,7 +226,12 @@ async function submit() {
            nenhum para apontar. Sem isto, quem usa leitor de tela clica em
            enviar e não acontece nada perceptível. -->
       <p v-if="error" class="lead-err" role="alert">{{ error }}</p>
-      <button class="admin-btn" type="submit" :disabled="status === 'sending'">
+      <button
+        class="admin-btn"
+        :class="{ ghost: secondary }"
+        type="submit"
+        :disabled="status === 'sending'"
+      >
         {{ status === 'sending' ? 'Enviando...' : submitLabel }}
       </button>
       <!--
@@ -246,7 +259,7 @@ async function submit() {
 }
 .lead-title {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px;
+  font-size: var(--fs-body);
   margin: 0 0 2px;
 }
 .lead-ok {
@@ -255,13 +268,13 @@ async function submit() {
 }
 .lead-intro {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.55;
   color: var(--ink-soft);
 }
 .lead-err {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: var(--fs-label);
   margin: 0;
 }
 .req {
@@ -269,7 +282,7 @@ async function submit() {
 }
 .lead-legal {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -279,7 +292,7 @@ async function submit() {
   gap: 5px;
 }
 .lead-field label {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--ink);
 }

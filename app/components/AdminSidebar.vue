@@ -112,11 +112,7 @@ async function logout() {
       </NuxtLink>
       <div class="admin-sidebar-actions">
         <AdminReloadButton />
-        <!-- No celular o "Sair" mora no fim do "Mais", separado da navegação:
-             no topo, ao lado do logo, era o botão mais visível da tela e o
-             primeiro que o polegar alcançava para uma ação que ninguém quer
-             fazer por engano. -->
-        <button class="admin-btn ghost admin-logout desk-only" @click="logout">Sair</button>
+
       </div>
     </div>
 
@@ -140,6 +136,13 @@ async function logout() {
            ou iOS, onde a instalação é manual. Já instalado, some. -->
       <AdminInstallButton />
     </nav>
+    <!--
+      "Sair" no rodapé da barra, como link discreto. Era um botão branco e
+      cheio logo abaixo do logo — o controle mais chamativo da barra, para a
+      ação que ninguém quer fazer por engano. No celular ele mora no fim do
+      "Mais", pelo mesmo motivo.
+    -->
+    <button type="button" class="admin-sair desk-only" @click="logout">Sair da conta</button>
   </aside>
 
   <!-- Barra inferior: só no celular (o CSS a esconde a partir de 860px). -->

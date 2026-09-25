@@ -249,7 +249,7 @@ useHead({ title: "Imóveis · Painel" });
         <table class="admin-table">
           <tbody>
             <tr v-for="i in 6" :key="i">
-              <td v-for="j in 8" :key="j">
+              <td v-for="j in 9" :key="j">
                 <div class="skel skel-line"></div>
               </td>
             </tr>
@@ -377,6 +377,7 @@ useHead({ title: "Imóveis · Painel" });
         <table class="admin-table">
           <thead>
             <tr>
+              <th><span class="sr-only">Foto</span></th>
               <th>Código</th>
               <th>Título</th>
               <th>Tipo</th>
@@ -389,6 +390,17 @@ useHead({ title: "Imóveis · Painel" });
           </thead>
           <tbody>
             <tr v-for="p in filtered" :key="p.id">
+              <!-- A foto é o jeito mais rápido de achar o imóvel numa lista de
+                   60 títulos parecidos ("Casa no Bela Vista"). -->
+              <td class="td-thumb">
+                <img
+                  v-if="p.images[0]"
+                  :src="p.images[0].urlSm || p.images[0].url"
+                  alt=""
+                  loading="lazy"
+                />
+                <span v-else class="thumb-ph" />
+              </td>
               <td class="mono">{{ p.code }}</td>
               <td>{{ p.title }}</td>
               <td>{{ PROPERTY_TYPE_LABELS[p.type] }}</td>
@@ -461,7 +473,7 @@ useHead({ title: "Imóveis · Painel" });
   position: relative;
   overflow: hidden;
   background: var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 .skel::after {
   content: "";
@@ -570,17 +582,17 @@ useHead({ title: "Imóveis · Painel" });
   min-width: 20px;
   height: 20px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--brand);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
 }
 .filters-summary {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   white-space: nowrap;
 }
 .chevron {
@@ -606,7 +618,7 @@ useHead({ title: "Imóveis · Painel" });
   justify-content: flex-end;
   gap: 12px;
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 .muted-block {
   color: var(--ink-soft);
@@ -618,7 +630,7 @@ useHead({ title: "Imóveis · Painel" });
 }
 .admin-btn.sm {
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: var(--fs-label);
 }
 
 /* ---- Cards (mobile) ---- */
@@ -636,7 +648,7 @@ useHead({ title: "Imóveis · Painel" });
 .row-thumb {
   width: 140px;
   min-width: 84px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--brand);
   color: #fff;
@@ -666,11 +678,11 @@ useHead({ title: "Imóveis · Painel" });
   gap: 8px;
 }
 .row-title {
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.25;
 }
 .row-meta {
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .row-actions {
@@ -688,8 +700,15 @@ useHead({ title: "Imóveis · Painel" });
   margin: 0;
   color: var(--ink-soft);
 }
+.int-loc,
+.int-line > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .int-loc :deep(svg),
 .int-line :deep(svg) {
+  flex: none;
   width: 14px;
   height: 14px;
   vertical-align: -2px;
@@ -720,7 +739,7 @@ useHead({ title: "Imóveis · Painel" });
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px dashed var(--line);
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   display: flex;
   flex-direction: column;
@@ -736,7 +755,7 @@ useHead({ title: "Imóveis · Painel" });
   gap: 6px;
 }
 .td-internal {
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   max-width: 220px;
 }
@@ -745,12 +764,41 @@ useHead({ title: "Imóveis · Painel" });
   margin-left: 6px;
 }
 
+/*
+ * Tabela só a partir de 1200px. Ela precisa de ~980px (ver min-width acima),
+ * e com a barra lateral de 232px isso só cabe numa tela de ~1210px. Entre 760
+ * e 1200 — tablet, notebook pequeno, janela dividida — a tabela rolava na
+ * horizontal escondendo Status e as ações, e o código quebrava em "VD-/060".
+ * Nessa faixa, cards em duas colunas.
+ */
 @media (min-width: 760px) {
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1200px) {
   .cards {
     display: none;
   }
   .table-wrap {
     display: block;
   }
+}
+.td-thumb {
+  width: 64px;
+  padding-right: 0 !important;
+}
+.td-thumb img,
+.td-thumb .thumb-ph {
+  width: 56px;
+  height: 42px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  display: block;
+  background: var(--surface);
+}
+td.mono {
+  white-space: nowrap;
 }
 </style>

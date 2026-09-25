@@ -367,7 +367,7 @@ onBeforeUnmount(() => {
   width: 100%;
   position: relative;
   aspect-ratio: 16/10;
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   overflow: hidden;
   background: #cdd6cf;
   box-shadow: var(--shadow);
@@ -392,7 +392,7 @@ onBeforeUnmount(() => {
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   opacity: 0;
@@ -419,7 +419,7 @@ onBeforeUnmount(() => {
   width: 44px;
   height: 44px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
   opacity: 0;
@@ -496,10 +496,10 @@ onBeforeUnmount(() => {
   left: 12px;
   bottom: 12px;
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -532,7 +532,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   width: 84px;
   height: 60px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
   border: 2px solid transparent;
   padding: 0;
@@ -554,7 +554,7 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: cover;
   /* Concêntrico: 10px do botão menos os 2px da borda. */
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   /* Contorno tênue para a foto clara não se dissolver no fundo claro. */
   outline: 1px solid rgb(0 0 0 / 0.06);
   outline-offset: -1px;
@@ -565,10 +565,10 @@ onBeforeUnmount(() => {
   padding: 9px 14px;
   min-height: 44px; /* área de toque */
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--ink);
-  font-size: 14px;
+  font-size: var(--fs-ui);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -632,7 +632,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
   cursor: pointer;
@@ -688,10 +688,10 @@ onBeforeUnmount(() => {
   top: 26px;
   left: 24px;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
-  font-size: 13px;
+  font-size: var(--fs-label);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -712,7 +712,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   width: 72px;
   height: 52px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   overflow: hidden;
   border: 2px solid transparent;
   padding: 0;
@@ -746,7 +746,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px; /* concêntrico: 8px do botão menos a borda de 2px */
+  border-radius: var(--r-sm); /* concêntrico: 8px do botão menos a borda de 2px */
 }
 /* Telas baixas (celular deitado): a tira come altura demais da foto. */
 @media (max-height: 460px) {

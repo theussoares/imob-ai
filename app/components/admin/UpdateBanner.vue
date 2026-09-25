@@ -36,11 +36,11 @@ async function atualizar() {
   flex-wrap: wrap;
   padding: 12px 16px;
   margin-bottom: 16px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   background: #eff6ff;
   border: 1px solid #bfdbfe;
   color: #1e3a5f;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.5;
   box-shadow: var(--shadow);
 }
@@ -50,7 +50,7 @@ async function atualizar() {
 }
 .btn {
   border: none;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--brand, #0f3d38);
   color: #fff;
   font: inherit;

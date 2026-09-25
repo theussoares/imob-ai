@@ -10,6 +10,7 @@ import {
 } from '~~/shared/utils/category'
 import { loteDoCatalogo } from '~~/shared/utils/catalog-lote'
 import { seekingTypeFor } from '~~/shared/models/lead'
+import { allNeighborhoods } from '~~/shared/utils/neighborhood'
 
 const route = useRoute()
 const tenant = useTenant()
@@ -97,14 +98,13 @@ const composeEmptyMessage = (note: string) =>
 const cityLabel = computed(() => (tenant.value?.city ? ` em ${tenant.value.city}` : ''))
 const heading = computed(() => `${categoryLabel(category)}${cityLabel.value}`)
 
-/** Bairros presentes nesta categoria — viram atalhos de filtro (não rotas próprias). */
-const neighborhoods = computed(() => {
-  const counts = new Map<string, number>()
-  for (const p of inCategory.value) {
-    if (p.neighborhood) counts.set(p.neighborhood, (counts.get(p.neighborhood) ?? 0) + 1)
-  }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1])
-})
+/**
+ * Bairros presentes nesta categoria — viram atalhos de filtro (não rotas
+ * próprias). Agrupados por como o nome se LÊ (`allNeighborhoods`): contando a
+ * string crua, "Bela Vista da Lagoa" e "Bela vista da Lagoa" viravam duas
+ * pastilhas do mesmo lugar.
+ */
+const neighborhoods = computed(() => allNeighborhoods(inCategory.value))
 
 const canonical = `${url.origin}/imoveis/${slug}`
 
@@ -197,15 +197,15 @@ useHead(() => ({
           Todos
         </button>
         <button
-          v-for="[name, count] in neighborhoods"
-          :key="name"
+          v-for="h in neighborhoods"
+          :key="h.slug"
           type="button"
           class="hood"
-          :class="{ on: filters.q === name }"
-          :aria-pressed="filters.q === name"
-          @click="filters.q = filters.q === name ? '' : name"
+          :class="{ on: filters.q === h.label }"
+          :aria-pressed="filters.q === h.label"
+          @click="filters.q = filters.q === h.label ? '' : h.label"
         >
-          {{ name }} <small>{{ count }}</small>
+          {{ h.label }} <small>{{ h.count }}</small>
         </button>
       </div>
     </div>
@@ -299,7 +299,7 @@ useHead(() => ({
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
   margin-bottom: 12px;
 }
@@ -317,7 +317,7 @@ useHead(() => ({
 }
 .cat-intro {
   color: var(--ink-soft);
-  font-size: 16px;
+  font-size: var(--fs-body);
   max-width: 62ch;
   margin: 0;
 }
@@ -329,17 +329,17 @@ useHead(() => ({
   margin-top: 18px;
 }
 .cat-hoods-label {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 700;
   color: var(--ink-soft);
 }
 .hood {
-  font-size: 13px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--ink);
   background: var(--paper);
   border: 1.5px solid var(--line-2);
-  border-radius: 100px;
+  border-radius: var(--r-pill);
   padding: 7px 13px;
   /* 44px de alvo de toque: com o padding original davam ~31px, e uma fileira
      de pastilhas pequenas e coladas é onde mais se toca no bairro errado. */
@@ -373,7 +373,7 @@ useHead(() => ({
   padding: 20px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
 }
 .cat-vazio-wa {
   color: var(--brand);

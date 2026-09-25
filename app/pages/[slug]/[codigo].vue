@@ -277,6 +277,7 @@ useHead(() => ({
               :property-code="p.code"
               source="property_page"
               :heading-level="2"
+              secondary
             />
             <p v-if="tenant?.creci" class="side-creci">CRECI {{ tenant.creci }}</p>
           </div>
@@ -331,14 +332,14 @@ useHead(() => ({
   color: var(--ink-soft);
   text-decoration: none;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 .crumbs {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-label);
   color: var(--ink-soft);
 }
 .crumbs a {
@@ -355,12 +356,12 @@ useHead(() => ({
 }
 .m-map-note {
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: var(--ink-soft);
 }
 .m-map {
   aspect-ratio: 16 / 9;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
   border: 1px solid var(--line);
   background: var(--line);
@@ -377,7 +378,7 @@ useHead(() => ({
   min-height: 44px;
   color: var(--brand);
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   text-decoration: none;
 }
 .m-map-link:hover {
@@ -389,7 +390,7 @@ useHead(() => ({
 }
 .side-creci {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-caption);
   color: var(--ink-soft);
   text-align: center;
 }
@@ -397,7 +398,7 @@ useHead(() => ({
   margin-top: 48px;
 }
 .similares h2 {
-  font-size: 24px;
+  font-size: var(--fs-title);
   margin-bottom: 18px;
 }
 .back:hover {
@@ -429,16 +430,16 @@ useHead(() => ({
 }
 .block .price {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 34px;
+  font-size: var(--fs-display);
   margin: 10px 0 2px;
 }
 .block .price span {
-  font-size: 15px;
+  font-size: var(--fs-body);
   color: var(--ink-soft);
   font-family: "Inter", sans-serif;
 }
 .block .ttl {
-  font-size: 21px;
+  font-size: var(--fs-title);
   margin: 4px 0;
 }
 .block .loc {
@@ -446,7 +447,7 @@ useHead(() => ({
   align-items: center;
   gap: 6px;
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .block .loc :deep(svg) {
   width: 16px;
@@ -462,16 +463,16 @@ useHead(() => ({
 }
 .side-price {
   font-family: "Space Grotesk", sans-serif;
-  font-size: 26px;
+  font-size: var(--fs-title-lg);
   font-weight: 600;
 }
 .side-price span {
-  font-size: 14px;
+  font-size: var(--fs-ui);
   color: var(--ink-soft);
   font-family: "Inter", sans-serif;
 }
 .side-wa {
-  font-size: 16px;
+  font-size: var(--fs-body);
   padding: 14px;
 }
 .side-sep {
