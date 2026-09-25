@@ -2,6 +2,8 @@
 import { isValidBrPhone } from '~~/shared/utils/phone'
 import type { LeadSource, LeadType } from '~~/shared/models/lead'
 
+const { rastrear } = useRastreio()
+
 const props = withDefaults(
   defineProps<{
     propertyCode?: string
@@ -88,6 +90,8 @@ async function submit() {
       },
     })
     status.value = 'ok'
+    // Só a origem e o tipo: o conteúdo do formulário não sai para a Vercel.
+    rastrear('lead_enviado', { origem: props.source ?? 'sem_origem', comImovel: !!props.propertyCode })
     name.value = ''
     phone.value = ''
     message.value = ''
