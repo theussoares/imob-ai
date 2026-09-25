@@ -35,6 +35,13 @@ const REGRAS: Regra[] = [
     message: 'Arquivo muito grande. Tente uma imagem menor.',
   },
   {
+    // Recusa do bucket por `allowed_mime_types` (0048). O caso real é foto de
+    // iPhone em HEIC num navegador que não a converte: sem esta regra, a
+    // pessoa via o "tente novamente" genérico e tentava de novo, igual.
+    test: /mime type .* is not supported|invalid_mime_type/i,
+    message: 'Formato de arquivo não aceito. Envie a imagem em JPG, PNG ou WebP.',
+  },
+  {
     test: /invalid login credentials/i,
     message: 'E-mail ou senha incorretos.',
   },
