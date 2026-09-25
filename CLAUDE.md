@@ -13,6 +13,8 @@ pnpm dev          # http://localhost:3000 (site) | /admin (painel)
 pnpm typecheck    # vue-tsc — roda antes de dar qualquer coisa por pronta
 pnpm test         # vitest, Node puro, sem subir o Nuxt (segundos)
 pnpm test:e2e     # Playwright, sobe o app — minutos, não segundos. Roda sob demanda.
+pnpm test:css-inline  # build de produção + @font-face inline no HTML. Sob demanda,
+                      # ao mexer em fonte, CSS de componente ou @nuxt/fonts.
 ```
 
 Não existe script de lint. `pnpm typecheck && pnpm test` é a validação completa.

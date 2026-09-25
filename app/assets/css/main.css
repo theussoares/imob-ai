@@ -100,67 +100,203 @@
    porque o nome aparece neste arquivo. Ver o comentário de --font-display.
    ============================================================ */
 
-/* Moderno: uma família só, cantos generosos, card sem borda com sombra. */
+/*
+ * Cada tema é um REGISTRO, não uma troca de fonte. Com só fonte e raio
+ * diferentes, Clássico, Moderno e Acolhedor pareciam o mesmo site no celular
+ * (as sem-serifa se confundem em tamanho pequeno). Os três mexem agora na
+ * anatomia do card, nos selos e nos botões — só CSS, a mesma marcação.
+ *
+ * Referências (25/09): Compass (preto e branco, a foto dá a cor, a interface
+ * não compete), Sotheby's (serifa de alto contraste, contenção, espaço),
+ * QuintoAndar/Porto Rocha (produto digital, cor sólida, moldura em volta da
+ * foto).
+ */
+
+/* ---- Moderno: produto digital. Tipo pesado e compacto, preço como manchete,
+   pílula em todo controle, card sem borda que se apoia na sombra. ---- */
 [data-tema="moderno"] {
   --font-display: "Figtree", "Figtree Fallback: sans-serif", sans-serif;
   --font-body: "Figtree", "Figtree Fallback: sans-serif", sans-serif;
   --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 24px;
+  --r-md: 14px;
+  --r-lg: 22px;
   --r-btn: var(--r-pill);
-  --card-radius: 20px;
+  --card-radius: 16px;
   --card-border: 1px solid transparent;
   --card-border-hover: transparent;
-  --card-shadow: 0 2px 8px rgba(20, 22, 26, 0.06), 0 12px 32px rgba(20, 22, 26, 0.08);
-  --card-shadow-hover: 0 18px 44px rgba(20, 22, 26, 0.16);
+  --card-shadow: 0 1px 2px rgba(20, 22, 26, 0.05), 0 10px 28px rgba(20, 22, 26, 0.08);
+  --card-shadow-hover: 0 16px 40px rgba(20, 22, 26, 0.14);
+}
+[data-tema="moderno"] :is(h1, h2) {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+[data-tema="moderno"] .prop .price {
+  font-size: var(--fs-title-lg);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+[data-tema="moderno"] .badge {
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+}
+/* Pastilha ativa na cor da marca, não em tinta: em produto digital o estado
+   selecionado é a cor da marca trabalhando. */
+[data-tema="moderno"] .chip.on {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+[data-tema="moderno"] .btn-detail {
+  border-color: transparent;
+  background: var(--surface);
+}
+[data-tema="moderno"] ::selection {
+  background: color-mix(in srgb, var(--brand) 22%, transparent);
 }
 
-/* Alto padrão: serifa nos títulos, cantos quase retos, card plano com linha
-   fina e mais respiro. A sofisticação vem da contenção, não de efeito. */
+/* ---- Alto padrão: editorial de luxo. Serifa em peso médio, rótulos em caixa
+   alta espaçada, foto mais alta, cantos retos, linha fina, nada de sombra.
+   A sofisticação vem do que se tira. ---- */
 [data-tema="alto_padrao"] {
   --font-display: "Playfair Display", "Playfair Display Fallback: serif", Georgia, serif;
-  --r-sm: 2px;
-  --r-md: 4px;
-  --r-lg: 6px;
-  --r-pill: 4px;
-  --r-btn: 2px;
-  --card-radius: 2px;
+  --r-sm: 0px;
+  --r-md: 2px;
+  --r-lg: 2px;
+  --r-pill: 2px;
+  --r-btn: 0px;
+  --card-radius: 0px;
   --card-border: 1px solid var(--line);
-  --card-border-hover: var(--ink-soft);
+  --card-border-hover: var(--ink);
   --card-shadow: none;
   --card-shadow-hover: none;
-}
-/* A Playfair desenha números "de texto" (alturas variadas) por padrão: preço e
-   código saíam "R$ 455.000" com dígitos subindo e descendo, justamente no dado
-   que a pessoa compara de card em card. Números alinhados em todo o tema. */
-[data-tema="alto_padrao"] {
+  /* A Playfair desenha números "de texto" (alturas variadas) por padrão: preço e
+     código saíam "R$ 455.000" com dígitos subindo e descendo, justamente no
+     dado que a pessoa compara de card em card. */
   font-variant-numeric: lining-nums;
 }
-/* Serifa com o tracking negativo dos títulos geométricos fica espremida. */
+/* Serifa com o tracking negativo dos títulos geométricos fica espremida; e o
+   peso 700 da Playfair pesa demais — o luxo aqui é o contraste do traço. */
 [data-tema="alto_padrao"] :is(h1, h2, h3) {
   letter-spacing: 0;
+  font-weight: 500;
 }
 [data-tema="alto_padrao"] .grid {
   gap: 28px;
+}
+/* Foto mais alta: é a peça que vende, e o formato próximo do retrato dá o ar
+   de revista que o 16:11 largo não tem. */
+[data-tema="alto_padrao"] .prop .ph {
+  aspect-ratio: 4 / 3;
+}
+/* A página não disputa com a foto: sem zoom no hover, só a linha escurece. */
+[data-tema="alto_padrao"] .prop:hover {
+  transform: none;
+}
+[data-tema="alto_padrao"] .prop:hover .ph img {
+  transform: none;
+}
+[data-tema="alto_padrao"] .prop .body {
+  padding: 20px 20px 22px;
+}
+[data-tema="alto_padrao"] .prop .price {
+  font-weight: 500;
+  letter-spacing: 0;
+}
+/* Rótulos em versalete espaçado, na linguagem das casas de leilão. */
+[data-tema="alto_padrao"] :is(.badge, .code, .cc-count) {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 600;
+}
+[data-tema="alto_padrao"] .badge {
+  background: var(--ink);
+}
+[data-tema="alto_padrao"] .badge.rent {
+  background: var(--ink);
+}
+[data-tema="alto_padrao"] .badge.high {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: transparent;
+}
+[data-tema="alto_padrao"] :is(.btn-detail, .btn-wa, .search-go) {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: var(--fs-label);
+}
+[data-tema="alto_padrao"] .btn-detail {
+  border-color: var(--ink);
+}
+[data-tema="alto_padrao"] .chip {
+  border-width: 1px;
 }
 /* Rodapé escuro em vez da cor da marca: o par cabeçalho/rodapé escuros é o
    que dá o tom do tema. O corpo continua claro — ver "fora do escopo" na spec. */
 [data-tema="alto_padrao"] .site-footer {
   background: var(--ink);
 }
+[data-tema="alto_padrao"] ::selection {
+  background: var(--ink);
+  color: #fff;
+}
 
-/* Acolhedor: fonte arredondada, cantos grandes, sombra suave. */
+/* ---- Acolhedor: a imobiliária do bairro. Fonte arredondada, a página
+   levemente tingida com a cor da marca do PRÓPRIO cliente, foto emoldurada
+   dentro do card e selos suaves em vez de chapados. ---- */
 [data-tema="acolhedor"] {
   --font-display: "Nunito", "Nunito Fallback: sans-serif", sans-serif;
   --font-body: "Nunito", "Nunito Fallback: sans-serif", sans-serif;
   --r-sm: 12px;
-  --r-md: 18px;
+  --r-md: 16px;
   --r-lg: 24px;
-  --card-radius: 22px;
+  --card-radius: 16px;
   --card-border: 1px solid transparent;
   --card-border-hover: transparent;
-  --card-shadow: 0 6px 24px rgba(20, 22, 26, 0.08);
-  --card-shadow-hover: 0 16px 36px rgba(20, 22, 26, 0.14);
+  --card-shadow: 0 2px 6px color-mix(in srgb, var(--brand) 8%, transparent),
+    0 10px 26px color-mix(in srgb, var(--brand) 10%, transparent);
+  --card-shadow-hover: 0 18px 38px color-mix(in srgb, var(--brand) 18%, transparent);
+  /* Fundo tingido da marca, não bege: cada cliente ganha um calor diferente
+     (o do verde é outro que o do vinho), e o card branco se destaca dele. */
+  --surface: color-mix(in srgb, var(--brand) 6%, white);
+}
+[data-tema="acolhedor"] body {
+  background: var(--surface);
+}
+[data-tema="acolhedor"] :is(h1, h2) {
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+/* Foto emoldurada: um respiro branco em volta, cantos próprios — como um
+   porta-retrato, e não uma foto sangrando até a borda do card. */
+[data-tema="acolhedor"] .prop .ph {
+  margin: 8px 8px 0;
+  border-radius: 12px;
+}
+[data-tema="acolhedor"] .prop .body {
+  padding: 14px 16px 16px;
+}
+[data-tema="acolhedor"] .prop .price {
+  font-weight: 800;
+}
+/* Selo suave: fundo claro da marca e texto na marca, não o bloco chapado. */
+[data-tema="acolhedor"] .badge {
+  background: color-mix(in srgb, var(--brand) 14%, white);
+  /* Escurecido: com marca clara (amarelo, verde-limão) o texto na cor pura
+     sumia sobre o próprio tom claro dela. */
+  color: color-mix(in srgb, var(--brand) 78%, black);
+  border-radius: var(--r-pill);
+  padding: 5px 11px;
+}
+[data-tema="acolhedor"] .badge.rent {
+  background: color-mix(in srgb, var(--accent) 16%, white);
+  color: color-mix(in srgb, var(--accent) 80%, black);
+}
+[data-tema="acolhedor"] .chip.on {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+[data-tema="acolhedor"] ::selection {
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
 }
 
 /* ============================================================

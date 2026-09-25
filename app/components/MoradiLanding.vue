@@ -589,7 +589,7 @@ useSeoMeta({
   --shadow: 0 1px 2px rgba(22, 24, 27, 0.06), 0 12px 32px -12px rgba(22, 24, 27, 0.22);
   --shadow-hi: 0 30px 60px -24px rgba(22, 24, 27, 0.45);
   --display: "Schibsted Grotesk", system-ui, sans-serif;
-  --body: "Figtree", system-ui, sans-serif;
+  --body: "Figtree", "Figtree Fallback: sans-serif", system-ui, sans-serif;
   --serif: "Instrument Serif", Georgia, serif;
 
   background: var(--paper);
@@ -605,10 +605,18 @@ useSeoMeta({
    .wrap, .lead) já existe no main.css global: `scoped` protege o global do
    componente, não o componente do global — o eyebrow herdava a pílula do
    Hero dos clientes. */
-/* Nomes por extenso aqui, além das variáveis acima: o @nuxt/fonts só detecta
-   a família num `font-family` literal. Via `var()` ele não gera o @font-face e
-   a página inteira cai na fonte de sistema, sem erro nenhum. */
-.lp { font-family: "Figtree", system-ui, sans-serif; }
+/* Schibsted e Instrument por extenso, além das variáveis acima: o @nuxt/fonts
+   só detecta a família num `font-family` literal. Via `var()` ele não gera o
+   @font-face e a página cai na fonte de sistema, sem erro nenhum.
+
+   A Figtree é a exceção, de propósito: o tema "Moderno" já a declara no
+   main.css, e o @font-face dela vem no entry.css que toda página baixa.
+   Escrita aqui por extenso, o módulo repetia as 5 regras inline no HTML da
+   raiz, na frente do conteúdo. Por isso vai por `var(--body)`, com a
+   substituta de métricas ajustadas escrita à mão, como no main.css. Se o
+   "Moderno" deixar de usar a Figtree, a landing perde a fonte em silêncio —
+   `pnpm test:css-inline` confere que a raiz ainda recebe a Figtree. */
+.lp { font-family: var(--body); }
 .lp :where(h1, h2, h3, h4, .logo) { font-family: "Schibsted Grotesk", system-ui, sans-serif; }
 em.s { font-family: "Instrument Serif", Georgia, serif; }
 .lp img { display: block; max-width: 100%; height: auto; }

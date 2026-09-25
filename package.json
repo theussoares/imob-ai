@@ -12,7 +12,8 @@
     "typecheck": "nuxt typecheck && tsc -p e2e/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:css-inline": "NITRO_PRESET=node-server nuxt build && node scripts/css-inline.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
