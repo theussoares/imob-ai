@@ -87,9 +87,16 @@ const internal = reactive({
   rentFeePercent: null as number | null,
   payoutBusinessDays: null as number | null,
 })
-let salvo = ''
-const retrato = () => JSON.stringify([form, internal])
-const alterado = computed(() => !carregando.value && retrato() !== salvo)
+// `salvo` é ref, não `let`: o `computed` só recalcula quando uma dependência
+// REATIVA muda. Com `let`, gravar o retrato depois de salvar não invalidava
+// `alterado` — a barra ficava na tela e a saída seguia perguntando "Sair sem
+// salvar?" sobre um contrato já salvo.
+const salvo = ref('')
+// `''` conta como `null`: `v-model.number` num campo apagado devolve `''`, e o
+// banco devolve `null`. Sem isto, digitar e apagar um valor num campo que
+// estava vazio acusava alteração sem haver nenhuma.
+const retrato = () => JSON.stringify([form, internal], (_, v) => (v === '' ? null : v))
+const alterado = computed(() => !carregando.value && retrato() !== salvo.value)
 
 async function carregar() {
   carregando.value = true
@@ -130,7 +137,7 @@ async function carregar() {
       rentFeePercent: i?.rentFeePercent ?? null,
       payoutBusinessDays: i?.payoutBusinessDays ?? null,
     })
-    salvo = retrato()
+    salvo.value = retrato()
     await carregarDocumentos()
   } catch {
     erroCarga.value = 'Não foi possível carregar este contrato.'
@@ -141,11 +148,23 @@ async function carregar() {
 onMounted(carregar)
 
 // O término acompanha o prazo; sem prazo, é a data digitada.
+//
+// Só quando QUEM EDITA muda início ou prazo, não quando `carregar` preenche o
+// form: o watcher roda depois de o retrato de referência ser gravado, e um
+// `endsOn` do banco que não bate com `fimDoPrazo` (contrato importado, ou
+// gravado antes da regra da véspera) fazia a ficha abrir já "alterada" — com a
+// barra de salvar à vista e a pergunta ao sair, sem a pessoa ter tocado em nada.
+// Reescrever o término em silêncio só por abrir a tela também não é papel dela.
+// `flush: 'sync'` é o que torna o `carregando` confiável aqui: no flush padrão
+// o watcher roda depois, e só pegaria `carregando` ainda verdadeiro enquanto
+// houvesse um `await` entre o `Object.assign` e o `finally` de `carregar`.
 watch(
   () => [form.startedOn, form.termMonths] as const,
   ([inicio, meses]) => {
+    if (carregando.value) return
     if (inicio && meses) form.endsOn = fimDoPrazo(inicio, meses) ?? form.endsOn
   },
+  { flush: 'sync' },
 )
 
 const pendencias = computed(() =>
@@ -194,7 +213,7 @@ async function salvar() {
     }
     const c = await adminFetch<Contract>(`/api/admin/contracts/${id.value}`, { method: 'PUT', body })
     contrato.value = c
-    salvo = retrato()
+    salvo.value = retrato()
     toast.success('Contrato salvo.')
   } catch (e: unknown) {
     erroSalvar.value = (e as { data?: { statusMessage?: string } })?.data?.statusMessage || 'Não foi possível salvar.'
