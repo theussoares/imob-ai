@@ -99,7 +99,14 @@ export default defineNuxtConfig({
     families: [
       { name: 'Inter', provider: 'google', weights: [400, 500, 600, 700] },
       { name: 'Space Grotesk', provider: 'google', weights: [400, 500, 600, 700] },
-      { name: 'Plus Jakarta Sans', provider: 'google', weights: [500, 600, 700, 800] },
+      // As três abaixo são só da landing da raiz (MoradiLanding). O @nuxt/fonts
+      // só baixa a face que algum CSS usa, então o site dos clientes não paga.
+      { name: 'Schibsted Grotesk', provider: 'google', weights: [600, 700, 800] },
+      { name: 'Figtree', provider: 'google', weights: [400, 500, 600, 700] },
+      // Só itálico: é o único estilo que a landing usa desta família, uma
+      // palavra por título. Sem declarar, o default `normal` acima baixaria a
+      // face errada e o navegador sintetizaria a inclinação.
+      { name: 'Instrument Serif', provider: 'google', weights: [400], styles: ['italic'] },
     ],
   },
 

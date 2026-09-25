@@ -1,4 +1,12 @@
-import { track } from '@vercel/analytics/nuxt/runtime'
+// Do pacote base, e não de `@vercel/analytics/nuxt/runtime` como o plugin:
+// aquele arquivo importa `#app`, e este composable entra no SSR (pelo
+// LeadForm). Fora de `modules`, o Nuxt não transpila o pacote e, em dev, o Vite
+// entrega o import ao Node, que não resolve `#app` — a home do tenant e a
+// página do imóvel davam 500. O `track` é a mesma função nos dois: só enfileira
+// em `window.va`, e o `beforeSend` do plugin continua filtrando. `build.transpile`
+// também resolveria, mas é uma regra de config longe do sintoma, que ninguém
+// vai associar a este import quando mudar.
+import { track } from '@vercel/analytics'
 
 /**
  * Eventos de negócio no Vercel Analytics: lead enviado e clique no WhatsApp.
