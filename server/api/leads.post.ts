@@ -1,10 +1,12 @@
 import type { LeadInput } from '~~/shared/models/lead'
 import type { H3Event } from 'h3'
 import { createHash } from 'node:crypto'
-import { seekingTypeFor, toLeadSource, toLeadType } from '~~/shared/models/lead'
+import { LEAD_TYPE_LABELS, seekingTypeFor, toLeadSource, toLeadType } from '~~/shared/models/lead'
 import { isValidBrPhone, onlyDigits } from '~~/shared/utils/phone'
 import { createLead } from '~~/server/repositories/lead.repository'
 import { getPropertyByCode } from '~~/server/repositories/property.repository'
+import { avisarNovoLead } from '~~/server/utils/lead-alert'
+import { formatPropertyCode } from '~~/shared/utils/property-specs'
 
 /**
  * Hash do IP para o anti-flood, sem guardar o IP puro.
@@ -85,13 +87,11 @@ export default defineEventHandler(async (event) => {
 
   // Leitura segue pelo client público: RLS garante que só imóvel ativo do tenant
   // resolve, e não há motivo pra usar a chave privilegiada aqui.
-  let propertyId: string | null = null
-  let propertyPurpose: 'venda' | 'aluguel' | null = null
-  if (body.propertyCode) {
-    const property = await getPropertyByCode(publicSupabase(), tenant.id, body.propertyCode)
-    propertyId = property?.id ?? null
-    propertyPurpose = property?.purpose ?? null
-  }
+  const property = body.propertyCode
+    ? await getPropertyByCode(publicSupabase(), tenant.id, body.propertyCode)
+    : null
+  const propertyId = property?.id ?? null
+  const propertyPurpose = property?.purpose ?? null
 
   // Origem e tipo entram por lista fechada: este handler é público, e sem
   // whitelist qualquer um poderia inventar valores e sujar a métrica de
@@ -127,6 +127,19 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Não foi possível registrar seu contato. Tente novamente.',
     })
   }
+
+  // `await`, e não `event.waitUntil`: o preset `vercel` do Nitro 2.13 não
+  // repassa o `waitUntil` para a plataforma (conferido no runtime do preset) —
+  // a promessa ficaria só numa lista interna e a função seria congelada assim
+  // que a resposta saísse, levando o aviso junto, sem log nenhum. O custo é o
+  // visitante esperar o envio, e o teto de `avisarNovoLead` limita essa espera.
+  await avisarNovoLead(tenant, {
+    nome: name,
+    telefone: phone,
+    mensagem: message,
+    tipo: LEAD_TYPE_LABELS[leadType],
+    imovel: property ? { codigo: formatPropertyCode(property.code), titulo: property.title } : null,
+  })
 
   return { ok: true }
 })

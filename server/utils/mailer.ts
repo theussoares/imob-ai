@@ -46,6 +46,17 @@ export interface Mensagem {
   html: string
   texto: string
   remetente: Remetente
+  /**
+   * O que vai para o log no lugar do assunto, quando o assunto carrega PII.
+   *
+   * O assunto do aviso de lead leva o nome do visitante — é o que aparece na
+   * notificação do celular, e é o que faz o aviso ser lido. Mas as linhas de
+   * falha abaixo registram o assunto, e `log.ts` proíbe nome de terceiro no
+   * log: com o provedor fora do ar, cada lead viraria uma linha com o nome
+   * dele, retida no painel da Vercel. Os assuntos do portal só levam o nome da
+   * imobiliária e continuam sem rótulo.
+   */
+  rotuloDeLog?: string
 }
 
 /** Caracteres de controle e quebra de linha — o vetor de injeção de cabeçalho. */
@@ -135,7 +146,7 @@ export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
       logError('mail.nao_configurado', {
         temChave: !!chave,
         temRemetente: !!remetenteEndereco,
-        assunto: msg.assunto,
+        assunto: msg.rotuloDeLog ?? msg.assunto,
       })
       throw createError({
         statusCode: 500,
@@ -146,7 +157,7 @@ export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
       // Sem o endereço: `log.ts` proíbe PII, e esta regra foi seguida em todo o
       // resto desta feature. O destinatário não ajuda a depurar — o corpo, que
       // carrega o link, é o que se quer ver em dev.
-      assunto: msg.assunto,
+      assunto: msg.rotuloDeLog ?? msg.assunto,
       // Em dev o link é o que se quer ver; em produção este caminho não roda.
       corpo: msg.texto,
     })
@@ -174,7 +185,7 @@ export async function enviarEmail(msg: Mensagem): Promise<ResultadoEnvio> {
     // Falha de envio vira log SEM o corpo: o corpo carrega o link de definir
     // senha, e log é lido por mais gente que o e-mail.
     logError('mail.falhou', {
-      assunto: msg.assunto,
+      assunto: msg.rotuloDeLog ?? msg.assunto,
       reason: errMessage(e),
     })
     throw createError({

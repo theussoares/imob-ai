@@ -1,5 +1,5 @@
 /**
- * Templates dos e-mails do portal.
+ * Templates dos e-mails transacionais (portal do cliente e avisos do painel).
  *
  * Duas regras que valem para todos:
  *
@@ -15,6 +15,8 @@
  * tela e prévia de notificação usam a versão texto — e um e-mail só-HTML chega
  * vazio para quem mais precisa dele.
  */
+
+import { formatBrPhone } from '~~/shared/utils/phone'
 
 export function esc(v: string): string {
   return v
@@ -206,4 +208,164 @@ export function emailAcessoLiberado(d: DadosAcessoLiberado): CorpoEmail {
   ].join('\n')
 
   return { assunto: `${d.nomeImobiliaria} · seu acesso à Área do Cliente`, html, texto }
+}
+
+
+// ---- Avisos de lead para a imobiliária --------------------------------------
+
+/** Lead como o aviso precisa dele: só o que ajuda a responder rápido. */
+export interface LeadDoAviso {
+  nome: string
+  /** Telefone sem DDI, só dígitos — o formato que o formulário público grava. */
+  telefone: string
+  mensagem: string | null
+  /** Rótulo já traduzido ("Quer comprar"), vindo de `shared/models/lead`. */
+  tipo: string
+  imovel: { codigo: string; titulo: string } | null
+}
+
+/**
+ * Link de WhatsApp para a imobiliária responder o lead com um toque.
+ *
+ * É o motivo de o aviso existir: o lead de 09/09 na OLMI ficou sem resposta
+ * porque ninguém abriu o painel. Um e-mail que obriga a abrir o painel para
+ * achar o telefone repete metade do problema; o link leva direto à conversa, já
+ * com a primeira frase escrita.
+ *
+ * O telefone do formulário vem sem DDI (ver `isValidBrPhone`); o `wa.me` exige
+ * o DDI, e sem ele abre a conversa com um número de outro país.
+ */
+export function linkWhatsappDoLead(lead: LeadDoAviso, nomeImobiliaria: string): string {
+  const primeiroNome = lead.nome.split(' ')[0] || lead.nome
+  const sobre = lead.imovel ? ` sobre o imóvel ${lead.imovel.codigo}` : ''
+  const texto = `Olá, ${primeiroNome}! Aqui é da ${nomeImobiliaria}. Recebemos seu contato pelo site${sobre}.`
+  return `https://wa.me/55${lead.telefone}?text=${encodeURIComponent(texto)}`
+}
+
+interface DadosNovoLead {
+  nomeImobiliaria: string
+  lead: LeadDoAviso
+  /** Quadro de leads no painel. `null` quando não há endereço a afirmar. */
+  urlPainel: string | null
+}
+
+/**
+ * "Chegou um lead" — para quem atende na imobiliária.
+ *
+ * O assunto carrega o nome do cliente e o imóvel porque é o que aparece na
+ * notificação do celular: quem lê só a prévia precisa saber que é um contato
+ * novo e sobre o quê, sem abrir.
+ */
+export function emailNovoLead(d: DadosNovoLead): CorpoEmail {
+  const { lead } = d
+  const tel = formatBrPhone(lead.telefone)
+  const wa = linkWhatsappDoLead(lead, d.nomeImobiliaria)
+  const sobre = lead.imovel ? `${lead.imovel.codigo} · ${lead.imovel.titulo}` : null
+
+  const linhas: [string, string][] = [
+    ['Nome', lead.nome],
+    ['Telefone', tel],
+    ['Interesse', lead.tipo],
+    ...(sobre ? ([['Imóvel', sobre]] as [string, string][]) : []),
+  ]
+
+  const tabela = [
+    '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 6px;font-size:15px">',
+    ...linhas.map(
+      ([k, v]) =>
+        `<tr><td style="color:#6b7280;padding:3px 14px 3px 0;vertical-align:top">${esc(k)}</td>` +
+        `<td style="padding:3px 0"><b>${esc(v)}</b></td></tr>`,
+    ),
+    '</table>',
+  ].join('')
+
+  const html = moldura(
+    [
+      `<p style="margin:0 0 16px">Chegou um contato novo pelo site da <b>${esc(d.nomeImobiliaria)}</b>.</p>`,
+      tabela,
+      lead.mensagem
+        ? `<p style="margin:14px 0 0;padding:12px 14px;background:#f3f5f2;border-radius:8px;white-space:pre-wrap">${esc(lead.mensagem)}</p>`
+        : '',
+      botao(wa, 'Responder no WhatsApp'),
+      d.urlPainel
+        ? `<p style="margin:0;font-size:14px"><a href="${esc(d.urlPainel)}" style="color:#111827">Abrir no quadro de leads</a></p>`
+        : '',
+    ].join(''),
+    'Quanto antes o primeiro retorno, maior a chance de o contato virar visita.' +
+      ' Depois de responder, mova o lead para “Em contato” no painel — assim ele sai do lembrete diário.',
+  )
+
+  const texto = [
+    `Chegou um contato novo pelo site da ${d.nomeImobiliaria}.`,
+    '',
+    ...linhas.map(([k, v]) => `${k}: ${v}`),
+    ...(lead.mensagem ? ['', 'Mensagem:', lead.mensagem] : []),
+    '',
+    'Responder no WhatsApp:',
+    wa,
+    ...(d.urlPainel ? ['', 'Quadro de leads:', d.urlPainel] : []),
+    '',
+    'Depois de responder, mova o lead para "Em contato" no painel — assim ele sai do lembrete diário.',
+  ].join('\n')
+
+  const assuntoSobre = lead.imovel ? ` · ${lead.imovel.codigo}` : ''
+  return { assunto: `Novo lead: ${lead.nome}${assuntoSobre}`, html, texto }
+}
+
+interface DadosLeadsParados {
+  nomeImobiliaria: string
+  leads: (LeadDoAviso & { recebidoEm: string })[]
+  urlPainel: string | null
+}
+
+/**
+ * Lembrete diário: leads que ninguém tocou desde que chegaram.
+ *
+ * É a segunda rede. O aviso imediato pode cair no spam, chegar num fim de
+ * semana ou ser lido e esquecido; este volta a aparecer até alguém mexer no
+ * lead — o que é exatamente o sinal de que ele foi atendido.
+ */
+export function emailLeadsParados(d: DadosLeadsParados): CorpoEmail {
+  const n = d.leads.length
+  const titulo = n === 1 ? '1 lead ainda sem resposta' : `${n} leads ainda sem resposta`
+
+  const itens = d.leads.map((l) => {
+    const wa = linkWhatsappDoLead(l, d.nomeImobiliaria)
+    const sobre = l.imovel ? ` · ${l.imovel.codigo}` : ''
+    return {
+      html:
+        '<tr><td style="padding:10px 0;border-top:1px solid #e5e7eb">' +
+        `<b>${esc(l.nome)}</b>${esc(sobre)}<br>` +
+        `<span style="color:#6b7280;font-size:13px">${esc(formatBrPhone(l.telefone))} · chegou em ${esc(l.recebidoEm)}</span><br>` +
+        `<a href="${esc(wa)}" style="color:#111827;font-size:14px">Responder no WhatsApp</a>` +
+        '</td></tr>',
+      texto: `- ${l.nome}${sobre} · ${formatBrPhone(l.telefone)} · chegou em ${l.recebidoEm}\n  ${wa}`,
+    }
+  })
+
+  const html = moldura(
+    [
+      `<p style="margin:0 0 6px">Estes contatos chegaram pelo site da <b>${esc(d.nomeImobiliaria)}</b>`,
+      ' e continuam como “Novo” no painel, sem nenhuma alteração há mais de um dia.</p>',
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:10px 0 0;font-size:15px">',
+      ...itens.map((i) => i.html),
+      '</table>',
+      d.urlPainel ? botao(d.urlPainel, 'Abrir o quadro de leads') : '',
+    ].join(''),
+    'Este lembrete sai uma vez por dia. Um lead deixa de aparecer quando muda de etapa' +
+      ' ou recebe qualquer anotação no painel.',
+  )
+
+  const texto = [
+    `${titulo} — ${d.nomeImobiliaria}`,
+    '',
+    'Estes contatos continuam como "Novo" no painel, sem alteração há mais de um dia:',
+    '',
+    ...itens.map((i) => i.texto),
+    ...(d.urlPainel ? ['', 'Quadro de leads:', d.urlPainel] : []),
+    '',
+    'Um lead deixa de aparecer quando muda de etapa ou recebe qualquer anotação no painel.',
+  ].join('\n')
+
+  return { assunto: `${d.nomeImobiliaria} · ${titulo}`, html, texto }
 }
