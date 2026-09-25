@@ -593,7 +593,7 @@ useHead({ title: "Meu site · Painel" });
         />
       </div>
 
-      <h2 class="section-t">Rodapé</h2>
+      <h3 class="section-t">Rodapé</h3>
       <div>
         <label class="admin-label">Texto do rodapé</label>
         <textarea
@@ -602,7 +602,7 @@ useHead({ title: "Meu site · Painel" });
           rows="2"
           :placeholder="`Atendimento personalizado para compra, venda e locação de imóveis em ${form.city || 'sua cidade'} e região.`"
         />
-        <p class="hint">
+        <p class="hint-text">
           Deixe em branco para usar o texto acima. Vale escrever o seu: o padrão
           é igual em todos os sites que fazemos.
         </p>
@@ -618,12 +618,12 @@ useHead({ title: "Meu site · Painel" });
           />
         </div>
       </div>
-      <p class="hint">
+      <p class="hint-text">
         Preenchidos, aparecem como ícone no rodapé. Vazios, não aparecem.
       </p>
 
       <label class="admin-label fp-sep">Páginas do seu site</label>
-      <p class="hint">
+      <p class="hint-text">
         Escolha quais aparecem no rodapé e com que nome. A lista cresce sozinha
         quando novas páginas ficam disponíveis.
       </p>
@@ -651,7 +651,7 @@ useHead({ title: "Meu site · Painel" });
           />
           <span>Mostrar</span>
         </label>
-        <p v-if="p.obrigatoria" class="hint fp-obrigatoria">
+        <p v-if="p.obrigatoria" class="hint-text fp-obrigatoria">
           Exigida pela LGPD: aparece sempre no rodapé. Você pode trocar o nome.
         </p>
       </div>
@@ -667,7 +667,7 @@ useHead({ title: "Meu site · Painel" });
           + Adicionar link
         </button>
       </div>
-      <p class="hint">
+      <p class="hint-text">
         Endereços que não são páginas do seu site. Seu Instagram e seu site já
         aparecem sozinhos — não precisa repetir aqui.
       </p>

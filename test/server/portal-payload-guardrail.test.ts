@@ -49,12 +49,17 @@ function arquivosTs(dir: string): string[] {
 /**
  * Únicos usos legítimos de service role num endpoint AUTENTICADO do portal:
  *   - gravar a trilha de acesso (o cliente não pode forjar as próprias linhas);
- *   - contar a trilha para o rate limit (o cliente não lê a tabela).
+ *   - contar a trilha para o rate limit (o cliente não lê a tabela);
+ *   - os boletos do inquilino (`listChargesForTenantAsClient`, spec 25/09 B4):
+ *     as tabelas financeiras não têm policy de portal por decisão da 0041, e
+ *     a função já devolve o recorte do cliente — a linha completa não chega
+ *     ao endpoint. O endpoint prova antes, com o client do cliente, que ele é
+ *     inquilino daquele contrato.
  *
  * Em todo o resto, o client do cliente é que deve ser usado — é o que mantém a
  * RLS e a policy do bucket valendo.
  */
-const USOS_PERMITIDOS = ['recordDocumentAccess', 'assertSubmitRateLimit']
+const USOS_PERMITIDOS = ['recordDocumentAccess', 'assertSubmitRateLimit', 'listChargesForTenantAsClient']
 
 /**
  * Endpoints NÃO autenticados, onde não existe token de cliente para usar.
@@ -311,9 +316,12 @@ describe('conta de equipe não vira cadastro de cliente', () => {
     expect(fonte).toContain('ehMembroDePainel')
     expect(fonte).toContain("from('tenant_members')")
 
-    // Só para cadastro novo: recusar no reenvio quebraria um vínculo que já
-    // existe, sem proteger nada.
-    expect(fonte).toContain('!existente && (await ehMembroDePainel(')
+    // Só para vínculo novo: recusar no reenvio quebraria um vínculo que já
+    // existe, sem proteger nada. "Novo" inclui o cliente cadastrado SEM acesso
+    // (0050) que ganha acesso agora — ligar a conta a ele é o mesmo risco de
+    // um cadastro do zero, e a recusa precisa valer ali também.
+    expect(fonte).toContain('const vinculoNovo = !existente || !existente.user_id')
+    expect(fonte).toContain('vinculoNovo && (await ehMembroDePainel(')
   })
 
   test('a recusa não revela que a conta é administrativa', () => {
