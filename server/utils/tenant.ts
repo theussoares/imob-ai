@@ -20,9 +20,9 @@ export function isPlatformRootHost(hostname: string): boolean {
 }
 
 // A regra do host de painel mora em shared/: o navegador também precisa dela,
-// para decidir se registra o service worker. Reexportado aqui porque o código
-// de servidor já a importa deste módulo.
-export { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
+// para decidir se registra o service worker. Não reexporte daqui: shared/utils
+// e server/utils são auto-importados, e o mesmo nome saindo dos dois faz o Nuxt
+// avisar "Duplicated imports" e escolher uma das fontes por conta própria.
 import { ADMIN_HOST_PREFIX, isAdminHost } from '~~/shared/utils/admin-host'
 
 // Cache curto: mudanças de branding/config no painel refletem no site em ~1 min.

@@ -1,4 +1,5 @@
-import { getHostname, isAdminHost, resolveTenantForHost } from '~~/server/utils/tenant'
+import { getHostname, resolveTenantForHost } from '~~/server/utils/tenant'
+import { isAdminHost } from '~~/shared/utils/admin-host'
 import { buildPanelManifest } from '~~/server/utils/pwa'
 import { safeBrandColor, DEFAULT_BRAND_COLOR } from '~~/server/utils/brand'
 
