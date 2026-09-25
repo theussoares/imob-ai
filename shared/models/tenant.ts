@@ -2,6 +2,7 @@ import type { FooterLink } from '~~/shared/utils/footer-links'
 import type { FooterPageOverrides } from '~~/shared/utils/footer-pages'
 import type { AboutPageContent } from '~~/shared/models/about-page'
 import type { AiTone } from '~~/shared/models/ai-tone'
+import type { HeaderStyle, SiteTheme } from '~~/shared/models/site-theme'
 
 export type HeroImagePosition = 'left' | 'right' | 'background'
 
@@ -15,6 +16,10 @@ export interface Tenant {
   heroSubtitle: string | null
   heroImage: string | null
   heroImagePosition: HeroImagePosition
+  /** Tema da vitrine (fonte, raio, card). Ver shared/models/site-theme.ts. */
+  siteTheme: SiteTheme
+  /** Estilo do cabeçalho do site, independente do tema. */
+  headerStyle: HeaderStyle
   heroCtaLabel: string | null
   heroCtaHref: string | null
   whatsapp: string | null
@@ -87,6 +92,8 @@ export interface TenantSettingsInput {
   heroSubtitle?: string | null
   heroImage?: string | null
   heroImagePosition?: HeroImagePosition
+  siteTheme?: SiteTheme
+  headerStyle?: HeaderStyle
   heroCtaLabel?: string | null
   heroCtaHref?: string | null
   whatsapp?: string | null

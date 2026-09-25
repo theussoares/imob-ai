@@ -1,3 +1,25 @@
+<script setup lang="ts">
+const tenant = useTenant()
+
+/**
+ * Tema e cabeçalho viram atributos no <html>, e o main.css escolhe o bloco de
+ * variáveis por eles (ver docs/superpowers/specs/2026-09-25-temas-da-vitrine-design.md).
+ *
+ * Aqui, no layout público, e não no app.vue: o painel e a Área do Cliente usam
+ * as mesmas variáveis de fonte, e com o atributo global o painel mudaria de
+ * tipografia quando o cliente trocasse o tema do site. O painel é interface do
+ * produto, não vitrine.
+ *
+ * Os valores já chegam normalizados para a lista fechada pelo mapper
+ * (`temaValido`/`cabecalhoValido`) — nunca texto livre do banco num atributo.
+ */
+useHead(() => ({
+  htmlAttrs: tenant.value
+    ? { 'data-tema': tenant.value.siteTheme, 'data-cabecalho': tenant.value.headerStyle }
+    : {},
+}))
+</script>
+
 <template>
   <div>
     <!--

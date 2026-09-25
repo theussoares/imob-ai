@@ -1,3 +1,4 @@
+import { cabecalhoValido, temaValido } from '~~/shared/models/site-theme'
 import type { Database, Json } from '~~/shared/types/database.types'
 import type { HeroImagePosition, Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import { sanitizeFooterLinks } from '~~/shared/utils/footer-links'
@@ -24,6 +25,7 @@ type TenantUpdate = Database['public']['Tables']['tenants']['Update']
 export const TENANT_PUBLIC_COLUMNS = [
   'id', 'slug', 'name', 'tagline', 'active',
   'hero_title', 'hero_subtitle', 'hero_image', 'hero_image_position', 'hero_cta_label', 'hero_cta_href',
+  'site_theme', 'header_style',
   'whatsapp', 'phone', 'email', 'creci', 'instagram', 'website',
   'portal_enabled', 'about_enabled',
   'city', 'state', 'address_street', 'address_number', 'address_complement', 'address_neighborhood', 'address_zip',
@@ -47,6 +49,11 @@ export function toTenantModel(row: TenantPublicRow): Tenant {
     heroSubtitle: row.hero_subtitle,
     heroImage: row.hero_image,
     heroImagePosition: (row.hero_image_position as HeroImagePosition) || 'right',
+    // Normalizado na LEITURA: o valor vira atributo no <html> e escolhe o CSS
+    // do site, e `tenants` aceita UPDATE direto pelo PostgREST. Fora da lista
+    // cai no clássico, nunca num atributo com texto arbitrário.
+    siteTheme: temaValido(row.site_theme),
+    headerStyle: cabecalhoValido(row.header_style),
     heroCtaLabel: row.hero_cta_label,
     heroCtaHref: row.hero_cta_href,
     whatsapp: row.whatsapp,
@@ -94,6 +101,8 @@ export function toTenantUpdateRow(input: TenantSettingsInput): TenantUpdate {
   if (input.heroSubtitle !== undefined) row.hero_subtitle = input.heroSubtitle
   if (input.heroImage !== undefined) row.hero_image = input.heroImage
   if (input.heroImagePosition !== undefined) row.hero_image_position = input.heroImagePosition
+  if (input.siteTheme !== undefined) row.site_theme = input.siteTheme
+  if (input.headerStyle !== undefined) row.header_style = input.headerStyle
   if (input.heroCtaLabel !== undefined) row.hero_cta_label = input.heroCtaLabel
   if (input.heroCtaHref !== undefined) row.hero_cta_href = input.heroCtaHref
   if (input.whatsapp !== undefined) row.whatsapp = input.whatsapp
