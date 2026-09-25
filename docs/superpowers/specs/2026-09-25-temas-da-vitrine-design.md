@@ -137,6 +137,22 @@ agora tem custo para **todos** os clientes, não só para quem usa o tema.
   explicitamente, senão a face não é gerada e o navegador cai na fonte de
   sistema sem avisar ninguém.
 
+**Medido na etapa 3 (build de produção, home de cliente):** as regras novas não
+vão para o HTML, e sim para o `entry.css` — o critério "CSS inline" mirava o
+lugar errado. O custo real:
+
+| | antes | depois | diferença |
+|---|---|---|---|
+| CSS inline no HTML | 27.256 B | 27.257 B | +1 B |
+| `entry.css` bruto | 35.993 B | 42.853 B | +6.860 B (4.400 de `@font-face`, 2.460 dos blocos) |
+| `entry.css` gzip | 8.017 B | 8.948 B | **+931 B** |
+
+Dentro do teto de 4 KB com folga, contando o que trafega. Os `.woff2` só
+descem quando a página usa a face. Confirmado também o risco acima: a face e a
+substituta ("… Fallback: serif/sans-serif") só são geradas porque o nome
+aparece no bloco do tema — o genérico do fim da lista decide o nome da
+substituta.
+
 ## Pré-requisito: variáveis no lugar de valor fixo
 
 Hoje há 33 declarações de `font-family: "Space Grotesk"` e 7 de `"Inter"` em 16

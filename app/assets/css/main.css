@@ -77,7 +77,139 @@
   --card-radius: var(--r);
   --card-shadow: var(--shadow);
   --card-shadow-hover: var(--shadow-lg);
+
+  /* Botões de ação (buscar, WhatsApp, ver detalhes, ver mais). Separado de
+     --r-md porque o tema Moderno quer botão em pílula sem arredondar card e
+     campo junto. */
+  --r-btn: var(--r-md);
 }
+
+/* ============================================================
+   Temas da vitrine — ver docs/superpowers/specs/2026-09-25-temas-da-vitrine-design.md
+   ------------------------------------------------------------
+   `data-tema` vem do layout público, já normalizado para a lista fechada de
+   shared/models/site-theme.ts. O "classico" não tem bloco: é o :root acima,
+   o site de antes dos temas.
+
+   Seletor de atributo em QUALQUER ancestral, não só no <html>: é o que deixa o
+   painel mostrar a prévia de cada tema dentro de uma div, sem afetar o painel.
+
+   ⚠️ Toda família citada aqui precisa do nome "… Fallback: <genérico>" logo
+   depois, com o MESMO genérico do fim da lista (serif/sans-serif): é a fonte
+   substituta de métricas ajustadas que o @nuxt/fonts gera — e ele só a gera
+   porque o nome aparece neste arquivo. Ver o comentário de --font-display.
+   ============================================================ */
+
+/* Moderno: uma família só, cantos generosos, card sem borda com sombra. */
+[data-tema="moderno"] {
+  --font-display: "Figtree", "Figtree Fallback: sans-serif", sans-serif;
+  --font-body: "Figtree", "Figtree Fallback: sans-serif", sans-serif;
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-btn: var(--r-pill);
+  --card-radius: 20px;
+  --card-border: 1px solid transparent;
+  --card-border-hover: transparent;
+  --card-shadow: 0 2px 8px rgba(20, 22, 26, 0.06), 0 12px 32px rgba(20, 22, 26, 0.08);
+  --card-shadow-hover: 0 18px 44px rgba(20, 22, 26, 0.16);
+}
+
+/* Alto padrão: serifa nos títulos, cantos quase retos, card plano com linha
+   fina e mais respiro. A sofisticação vem da contenção, não de efeito. */
+[data-tema="alto_padrao"] {
+  --font-display: "Playfair Display", "Playfair Display Fallback: serif", Georgia, serif;
+  --r-sm: 2px;
+  --r-md: 4px;
+  --r-lg: 6px;
+  --r-pill: 4px;
+  --r-btn: 2px;
+  --card-radius: 2px;
+  --card-border: 1px solid var(--line);
+  --card-border-hover: var(--ink-soft);
+  --card-shadow: none;
+  --card-shadow-hover: none;
+}
+/* A Playfair desenha números "de texto" (alturas variadas) por padrão: preço e
+   código saíam "R$ 455.000" com dígitos subindo e descendo, justamente no dado
+   que a pessoa compara de card em card. Números alinhados em todo o tema. */
+[data-tema="alto_padrao"] {
+  font-variant-numeric: lining-nums;
+}
+/* Serifa com o tracking negativo dos títulos geométricos fica espremida. */
+[data-tema="alto_padrao"] :is(h1, h2, h3) {
+  letter-spacing: 0;
+}
+[data-tema="alto_padrao"] .grid {
+  gap: 28px;
+}
+/* Rodapé escuro em vez da cor da marca: o par cabeçalho/rodapé escuros é o
+   que dá o tom do tema. O corpo continua claro — ver "fora do escopo" na spec. */
+[data-tema="alto_padrao"] .site-footer {
+  background: var(--ink);
+}
+
+/* Acolhedor: fonte arredondada, cantos grandes, sombra suave. */
+[data-tema="acolhedor"] {
+  --font-display: "Nunito", "Nunito Fallback: sans-serif", sans-serif;
+  --font-body: "Nunito", "Nunito Fallback: sans-serif", sans-serif;
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 24px;
+  --card-radius: 22px;
+  --card-border: 1px solid transparent;
+  --card-border-hover: transparent;
+  --card-shadow: 0 6px 24px rgba(20, 22, 26, 0.08);
+  --card-shadow-hover: 0 16px 36px rgba(20, 22, 26, 0.14);
+}
+
+/* ============================================================
+   Estilo do cabeçalho — `data-cabecalho`, independente do tema.
+   "claro" não tem bloco: é o cabeçalho de sempre.
+   ============================================================ */
+[data-cabecalho="marca"] .bar {
+  background: var(--brand);
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+}
+[data-cabecalho="escuro"] .bar {
+  background: var(--ink);
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+}
+:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand,
+:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand b {
+  color: #fff;
+}
+:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand small {
+  color: rgba(255, 255, 255, 0.78);
+}
+/* Logo com traço escuro e fundo transparente sumiria no fundo escuro: ganha a
+   mesma caixa clara que o rodapé já dá à logo. Sem logo, o selo com a inicial
+   era da cor da marca — invisível no cabeçalho "marca". */
+:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand .mark:has(img) {
+  background: #fff;
+  padding: 4px 8px;
+}
+:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand.sem-logo .mark {
+  background: rgba(255, 255, 255, 0.16);
+}
+:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .burger {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+/* Itens do menu: brancos só na barra (desktop). No celular eles abrem num
+   painel claro flutuante, e ali continuam escuros. */
+@media (min-width: 768px) {
+  :is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .menu-item:not(.destaque) {
+    color: #fff;
+  }
+  :is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .menu-item:not(.destaque):hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
 
 html {
   scroll-behavior: smooth;
@@ -446,7 +578,7 @@ select.ctl {
   font-weight: 600;
   font-size: var(--fs-body);
   padding: 15px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-btn);
   border: none;
   display: flex;
   align-items: center;
@@ -846,7 +978,7 @@ select.ctl {
 .btn-detail {
   flex: 1;
   border: 1.5px solid var(--line-2);
-  border-radius: var(--r-md);
+  border-radius: var(--r-btn);
   padding: 11px;
   font-weight: 600;
   font-size: var(--fs-ui);
@@ -879,7 +1011,7 @@ a.btn-detail:hover {
   flex: 1;
   background: var(--wa);
   color: #fff;
-  border-radius: var(--r-md);
+  border-radius: var(--r-btn);
   padding: 11px;
   font-weight: 600;
   font-size: var(--fs-ui);
@@ -978,7 +1110,7 @@ a.btn-detail:hover {
   background: var(--paper);
   color: var(--brand);
   border: 1.5px solid var(--brand);
-  border-radius: var(--r-md);
+  border-radius: var(--r-btn);
   font-weight: 700;
   font-size: var(--fs-body);
   cursor: pointer;
