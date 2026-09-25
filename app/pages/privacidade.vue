@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { canalDoTitular } from '~~/shared/utils/canal-titular'
 /**
  * Política de privacidade do site da imobiliária: o site público e a Área do
  * Cliente.
@@ -32,6 +33,15 @@ const tenant = useTenant()
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true })
 
 const nome = computed(() => tenant.value?.name || 'a imobiliária')
+
+// Canal do titular (LGPD art. 9º, IV). Sem ele a frase de direitos terminava
+// sem dizer por onde — ver shared/utils/canal-titular.ts.
+const canal = computed(() =>
+  tenant.value
+    ? canalDoTitular({ email: tenant.value.email, whatsapp: tenant.value.whatsapp, phone: tenant.value.phone })
+    : null,
+)
+const ROTULO_DO_CANAL = { email: 'pelo e-mail', whatsapp: 'pelo WhatsApp', telefone: 'pelo telefone' } as const
 
 // `noindex` enquanto for rascunho, e isto não é cautela sobrando: a página
 // responde na URL em QUALQUER domínio de tenant, então basta um crawler chegar
@@ -246,8 +256,9 @@ useHead(() => ({
     </ul>
     <p>
       Para exercer qualquer um deles, fale com {{ nome }}
-      <template v-if="tenant?.email">pelo e-mail
-        <a :href="`mailto:${tenant.email}`">{{ tenant.email }}</a></template>.
+      <template v-if="canal">{{ ROTULO_DO_CANAL[canal.tipo] }}
+        <a :href="canal.href">{{ canal.rotulo }}</a></template><template
+        v-else>pelos canais de atendimento informados neste site</template>.
       Você também pode apresentar reclamação à Autoridade Nacional de Proteção
       de Dados (ANPD).
     </p>

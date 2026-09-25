@@ -166,6 +166,11 @@ dado sensível no sentido do art. 5º, II.
 não seja ME/EPP precisa indicar encarregado, e o nome dele entra na política
 (Res. CD/ANPD 18/2024: identidade e contato em destaque no site).
 
+**Feito:** a política mostra um canal mesmo quando a imobiliária não tem
+e-mail. A ordem é e-mail, depois WhatsApp, depois telefone
+(`shared/utils/canal-titular.ts`). Antes, a frase de direitos terminava sem
+canal nenhum, e esse era o caso da `tatiane` em 25/09.
+
 **Ação:** perguntar o porte no cadastro de cada cliente novo. Para quem não for
 de pequeno porte, adicionar o nome do encarregado à página.
 
