@@ -322,7 +322,7 @@ useSeoMeta({
                 <div class="screen"><img src="/moradi/print-catalogo.webp" alt="Catálogo do site de demonstração no computador, com cards de imóveis e filtros" width="1400" height="532" loading="lazy" decoding="async"></div>
                 <div class="base" />
               </div>
-              <div class="phone"><img src="/moradi/print-imovel.webp" alt="Página de um imóvel no celular, com preço, fotos e botão Tenho interesse" width="700" height="1515" loading="lazy" decoding="async"></div>
+              <div class="phone"><img src="/moradi/print-imovel.webp" alt="Página de um imóvel no celular, com preço, fotos e botão Tenho interesse" width="700" height="1371" loading="lazy" decoding="async"></div>
             </div>
             <div class="notes">
               <div><i>BUSCA</i><b>O cliente filtra, não rola feed</b><span>Tipo, bairro, faixa de preço e quartos, rápido no celular e sem recarregar a página.</span></div>
