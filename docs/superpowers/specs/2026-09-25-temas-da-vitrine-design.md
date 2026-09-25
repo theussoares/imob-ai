@@ -232,10 +232,8 @@ Cada etapa é um PR e deixa o produto num estado válido sozinha.
 | Variáveis num PR antes dos temas | Tudo num PR | a etapa de variáveis só pode ser revisada como "nada mudou"; misturada, regressão e tema novo ficam indistinguíveis |
 | Alto padrão escuro só em cabeçalho e rodapé | Site inteiro escuro | fundo escuro exige revisar contraste de toda cor de cliente e de foto |
 
-## Perguntas em aberto
+## Decidido com o produto (25/09)
 
-- **Plano:** tema é recurso de todos os planos ou só do Imobiliária? Se for por
-  plano, entra em `tenant_features` como a descrição por IA, e o painel mostra os
-  temas bloqueados com o motivo.
-- **Nomes:** "Acolhedor" e "Alto padrão" vendem bem para o corretor? Os rótulos
-  são a única coisa que o cliente lê antes de ver a prévia.
+- **Todos os planos.** Tema não entra em `tenant_features`: nenhuma trava de
+  plano no painel nem na leitura.
+- **Rótulos aprovados:** Clássico, Moderno, Alto padrão, Acolhedor.
