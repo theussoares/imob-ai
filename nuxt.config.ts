@@ -149,6 +149,9 @@ export default defineNuxtConfig({
     supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     // Sal opcional para o hash de IP usado no anti-flood do formulário público.
     rateLimitIpSalt: process.env.RATE_LIMIT_IP_SALT || '',
+    // Segredo que a Vercel manda no cron (`Authorization: Bearer`). A própria
+    // Vercel usa o nome CRON_SECRET; leia por `segredoDeRuntime`, como os demais.
+    cronSecret: process.env.CRON_SECRET || '',
     // Envio transacional (convite e recuperação de senha do portal). FORA de
     // `public`: chave de API no bundle do navegador é chave vazada.
     // Sem as duas, o servidor não envia — em dev registra no log, em produção
@@ -202,6 +205,17 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'vercel',
+    vercel: {
+      config: {
+        /**
+         * Lembrete de leads parados, 12:00 UTC = 9h em Brasília: chega no
+         * começo do expediente, quando dá para ligar. Um por dia porque o plano
+         * Hobby da Vercel só aceita cron diário — e mais que isso seria
+         * insistência, não lembrete.
+         */
+        crons: [{ path: '/api/cron/leads-parados', schedule: '0 12 * * *' }],
+      },
+    },
     routeRules: {
       // Painel é SPA (sem SSR) — mantém o bundle do Supabase fora das páginas públicas.
       // X-Robots-Tag: o Disallow do robots.txt impede o crawl, mas não a indexação

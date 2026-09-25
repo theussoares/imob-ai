@@ -26,11 +26,13 @@ const SEGREDOS = [
   'config.mailFrom',
   'config.supabaseServiceKey',
   'config.rateLimitIpSalt',
+  'config.cronSecret',
   'config.public.supabaseUrl',
   'config.public.supabaseKey',
   'useRuntimeConfig().mailFrom',
   'useRuntimeConfig().mailApiKey',
   'useRuntimeConfig().rateLimitIpSalt',
+  'useRuntimeConfig().cronSecret',
   'useRuntimeConfig().supabaseServiceKey',
 ]
 

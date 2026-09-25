@@ -43,6 +43,16 @@ export async function getTenantBySlug(client: Client, slug: string): Promise<Ten
   return data ? toTenantModel(data) : null
 }
 
+/**
+ * Tenant pelo id. Para quem não tem requisição de onde tirar o tenant — o cron
+ * de lembrete de leads, que recebe só o `tenant_id` da linha.
+ */
+export async function getTenantById(client: Client, id: string): Promise<Tenant | null> {
+  const { data, error } = await client.from('tenants').select('*').eq('id', id).maybeSingle()
+  if (error) throw error
+  return data ? toTenantModel(data) : null
+}
+
 export async function updateTenantSettings(
   client: Client,
   tenantId: string,

@@ -48,7 +48,7 @@ export function fakeSupabase(
     // `assertSubmitRateLimit` (rate-limit) encadeiam ambos `.eq(...).gte(...)`
     // — sem o método a cadeia quebra em runtime com "gte is not a function",
     // só visível ao escrever o primeiro teste que exercita esse caminho.
-    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'gte', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'maybeSingle', 'single']
+    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'gte', 'lt', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'maybeSingle', 'single']
     for (const m of methods) {
       chain[m] = (...args: unknown[]) => {
         calls.push({ table, method: m, args })
@@ -109,6 +109,13 @@ export function fakeSupabaseWithAuth(opts: {
       listUsers: async () => {
         authCalls.push({ method: 'listUsers', args: [] })
         return { data: { users }, error: null }
+      },
+      getUserById: async (id: string) => {
+        authCalls.push({ method: 'getUserById', args: [id] })
+        const user = users.find((u) => u.id === id) ?? null
+        return user
+          ? { data: { user }, error: null }
+          : { data: { user: null }, error: { message: 'User not found' } }
       },
       generateLink: async (params: { type: string; email: string }) => {
         authCalls.push({ method: 'generateLink', args: [params] })

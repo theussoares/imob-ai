@@ -180,6 +180,9 @@ const SELECT_ALL_PERMITIDO: Record<string, string> = {
   updateLead: 'painel',
   listMembers: 'painel',
   inviteMember: 'painel',
+  // Cron de lembrete de leads: não há requisição pública, e o tenant vira
+  // só nome e e-mail dentro de um aviso para a própria imobiliária.
+  getTenantById: 'cron interno, sem payload público',
   // Compartilhada entre site e painel: o site só lê `.phone` do resultado, e o
   // teste comportamental acima prova que o resto não chega ao payload.
   fetchBrokersById: 'helper compartilhado, coberto pelo teste de payload',

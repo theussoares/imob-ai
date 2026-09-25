@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto'
+
 /**
  * Segredos que precisam valer em EXECUÇÃO, e não só no build.
  *
@@ -66,4 +68,17 @@ export function segredoDeRuntime(doConfig: string | null | undefined, nomeNoAmbi
  */
 export function segredosAusentes(valores: Record<string, string | null | undefined>): string[] {
   return Object.keys(valores).filter((nome) => !limpo(valores[nome]))
+}
+
+/**
+ * Compara um segredo recebido com o esperado em tempo constante.
+ *
+ * Com `===`, a resposta sai mais rápido quanto antes aparece o primeiro
+ * caractere errado — e dá para descobrir o segredo letra a letra medindo o
+ * tempo. O tamanho diferente vaza, e isso é aceito: o que protege é o conteúdo.
+ */
+export function mesmoSegredo(recebido: string, esperado: string): boolean {
+  const a = Buffer.from(recebido)
+  const b = Buffer.from(esperado)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
