@@ -17,6 +17,7 @@ const icons: Record<string, string> = {
   mail: 'tabler:mail',
   'chevron-left': 'tabler:chevron-left',
   'chevron-right': 'tabler:chevron-right',
+  'chevron-down': 'tabler:chevron-down',
   expand: 'tabler:arrows-maximize',
   instagram: 'tabler:brand-instagram',
   world: 'tabler:world',

@@ -251,6 +251,21 @@ PR:**
 
 A base legal é a execução do contrato de locação (art. 7º, V).
 
+### B6. Decisões tomadas na implementação (0051, aplicada em 25/09)
+
+| Decisão | Alternativa descartada | Motivo |
+|---|---|---|
+| Boleto com `billingType: BOLETO` (Pix impresso no mesmo documento) | emitir boleto e Pix separados | o inquilino escolhe na hora; uma cobrança só para baixar |
+| Notificações do Asaas desligadas (`notificationDisabled`) | deixar o Asaas mandar e-mail/SMS | são cobradas por envio na conta da imobiliária, e ninguém pediu isso ao conectar. A régua de cobrança é item da seção 7 |
+| Baixa manual de boleto emitido precisa quitar o saldo e baixa o boleto no Asaas (`receiveInCash`) | aceitar baixa parcial | o Asaas só baixa o boleto inteiro; parcial deixaria o boleto pagável pelo valor cheio (inquilino paga em dobro). Para parcial: cancelar e emitir outro |
+| Chave de idempotência da liquidação por PAGAMENTO (`asaas:pago:<id>`), igual na baixa manual | por evento | CONFIRMED e RECEIVED do mesmo pagamento, e o eco da nossa baixa manual, colidem na mesma chave |
+| Trava de emissão (`issued_at` antes da rede) + cancelamento do boleto órfão | confiar no botão desabilitado | duplo clique ou duas abas geravam dois boletos do mesmo mês |
+| URL do webhook nova a cada conexão; segredo guardado só como hash | URL fixa por tenant | webhook antigo que não pôde ser removido passa a bater num id inexistente |
+| "Simular pagamento" só com conta E cobrança de sandbox | só checar a conta | conta trocada para produção depois não pode "confirmar" boleto real |
+| Feriado bancário nacional (fixos + Carnaval, Sexta Santa, Corpus Christi) no prazo do repasse | ignorar feriado | repasse "até sexta" que cai no feriado é reclamação certa; municipal fica de fora (data editável) |
+
+**Para produção:** definir `NUXT_PAYMENTS_ENCRYPTION_KEY` (32+ caracteres) na Vercel e fazer redeploy. Sem ela, conectar a conta responde 503 legível e o arranque registra `config.segredos_ausentes`.
+
 ---
 
 ## 4B. Frente C — cadastro de cliente e contrato de locação
@@ -349,7 +364,7 @@ criação: todo contrato nasce ativo, e encerrar é ação da ficha.
 |---|---|
 | **0049_crm_historico_agenda** | `lead_events` e `lead_tasks` (RLS de membro + `revoke all from anon`); `leads.lost_reason`; `brokers.receives_leads` e `last_lead_at`; `tenants.lead_distribution`; função `proximo_corretor_da_roleta(tenant)` |
 | **0050_contrato_locacao** | `portal_users.user_id`/`email` anuláveis (cliente sem acesso); em `contracts`: `term_months`, `guarantee_type`; em `contract_internal`: garantia (valor, detalhes), seguro incêndio, multa, juros, taxa de locação, prazo de repasse (ver 4B) |
-| **0051_cobranca_provedor** | `tenant_payment_accounts` (provedor, ambiente, chave cifrada, token do webhook; **só service_role**); `payment_customers` (pessoa ↔ id no provedor); em `contract_charges`: `provider`, `external_id`, `payment_url`, `digitable_line`, `pix_copy_paste`, `issued_at` |
+| **0051_cobranca_provedor** (aplicada) | `tenant_payment_accounts` (provedor, ambiente, chave cifrada, token do webhook; **só service_role**); `payment_customers` (pessoa ↔ id no provedor); em `contract_charges`: `provider`, `external_id`, `payment_url`, `digitable_line`, `pix_copy_paste`, `issued_at` |
 
 As tabelas financeiras estão vazias. Esta é a janela de migração a custo zero
 que a spec de 21/09 descreveu.

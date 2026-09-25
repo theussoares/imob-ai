@@ -460,6 +460,9 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
       </section>
       <p v-else class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
 
+      <!-- Cobranças: o que se faz todo mês, por isso logo abaixo das pendências. -->
+      <AdminContratoCobrancas :contract-id="contrato.id" :rent-amount="contrato.rentAmount" :due-day="contrato.dueDay" :ativo="form.status === 'ativo'" />
+
       <!-- Pessoas -->
       <section class="admin-card secao">
         <div class="secao-topo">

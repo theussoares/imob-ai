@@ -300,6 +300,12 @@ useHead({ title: "Configurações · Painel" });
     </form>
 
     <!--
+      Cobrança é parte da locação: só aparece para quem tem contratos (a Área
+      do Cliente), pelo mesmo motivo do menu lateral.
+    -->
+    <AdminCobrancaConta v-if="areaCliente" />
+
+    <!--
       Fora do formulário de cima e com salvamento próprio, de propósito: ver o
       comentário no script. Só aparece para quem contratou o recurso — o painel
       não oferece tela de recurso que a imobiliária não tem (mesmo raciocínio
