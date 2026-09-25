@@ -45,12 +45,14 @@ useHead({ title: 'Entrar · Painel' })
       <h1 style="font-size: 22px; margin: 6px 0 14px">Entrar no painel</h1>
 
       <label class="admin-label" for="email">E-mail</label>
-      <input id="email" v-model="email" class="admin-input" type="email" autocomplete="email" required />
+      <input id="email" v-model="email" class="admin-input" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required />
 
       <label class="admin-label" for="pass" style="margin-top: 12px">Senha</label>
-      <input id="pass" v-model="password" class="admin-input" type="password" autocomplete="current-password" required />
+      <AdminPasswordInput id="pass" v-model="password" autocomplete="current-password" />
 
-      <p v-if="error" style="color: #b91c1c; font-size: 13px; margin: 10px 0 0">{{ error }}</p>
+      <!-- role="alert": o erro aparece abaixo do botão que a pessoa acabou de
+           apertar, e sem o anúncio o leitor de tela não dizia que falhou. -->
+      <p v-if="error" role="alert" style="color: #b91c1c; font-size: 13px; margin: 10px 0 0">{{ error }}</p>
 
       <button class="admin-btn" type="submit" style="margin-top: 16px; width: 100%" :disabled="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}

@@ -138,22 +138,10 @@ useHead({
         </p>
         <form @submit.prevent="save">
           <label class="admin-label" for="senha">Nova senha</label>
-          <input
-            id="senha"
-            v-model="password"
-            class="admin-input"
-            type="password"
-            autocomplete="new-password"
-          />
+          <AdminPasswordInput id="senha" v-model="password" autocomplete="new-password" />
 
           <label class="admin-label" for="senha2">Repita a senha</label>
-          <input
-            id="senha2"
-            v-model="confirmPassword"
-            class="admin-input"
-            type="password"
-            autocomplete="new-password"
-          />
+          <AdminPasswordInput id="senha2" v-model="confirmPassword" autocomplete="new-password" />
 
           <p v-if="error" class="err" role="alert">{{ error }}</p>
 

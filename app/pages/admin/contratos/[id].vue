@@ -371,7 +371,7 @@ useHead({ title: criando.value ? 'Novo contrato · Painel' : 'Contrato · Painel
                   <template v-if="!p.ativo"> · acesso desativado</template>
                 </small>
               </div>
-              <button class="admin-btn danger" type="button" @click="desvincular(p)">
+              <button class="admin-btn danger-ghost" type="button" @click="desvincular(p)">
                 Remover
               </button>
             </li>
@@ -467,7 +467,7 @@ useHead({ title: criando.value ? 'Novo contrato · Painel' : 'Contrato · Painel
                 <button class="admin-btn ghost" type="button" @click="alternarPublicacao(d)">
                   {{ d.publishedAt ? 'Despublicar' : 'Publicar' }}
                 </button>
-                <button class="admin-btn danger" type="button" @click="apagarDocumento(d)">
+                <button class="admin-btn danger-ghost" type="button" @click="apagarDocumento(d)">
                   Apagar
                 </button>
               </div>

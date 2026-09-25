@@ -161,7 +161,7 @@ useHead({ title: "Quem somos · Painel" });
             >
               ↓
             </button>
-            <button type="button" class="admin-btn danger sm" @click="removeBlock(i)">Remover</button>
+            <button type="button" class="admin-btn danger-ghost sm" @click="removeBlock(i)">Remover</button>
           </div>
         </div>
 
@@ -288,7 +288,7 @@ useHead({ title: "Quem somos · Painel" });
               <input type="file" accept="image/*" hidden @change="pickImage(`${i}:${j}`, (url) => (img.url = url), $event)" />
             </label>
             <input v-model="img.alt" class="admin-input" placeholder="Texto alternativo" />
-            <button type="button" class="admin-btn danger sm" @click="removeGalleryImage(i, j)">Remover</button>
+            <button type="button" class="admin-btn danger-ghost sm" @click="removeGalleryImage(i, j)">Remover</button>
           </div>
           <button type="button" class="admin-btn ghost sm" :disabled="b.images.length >= GALLERY_IMAGES_MAX" style="margin-top: 8px" @click="addGalleryImage(i)">
             + Adicionar foto
@@ -322,7 +322,7 @@ useHead({ title: "Quem somos · Painel" });
               <input type="file" accept="image/*" hidden @change="pickImage(`${i}:${j}`, (url) => (item.url = url), $event)" />
             </label>
             <input v-model="item.alt" class="admin-input" placeholder="Nome (texto alternativo)" />
-            <button type="button" class="admin-btn danger sm" @click="removeLogo(i, j)">Remover</button>
+            <button type="button" class="admin-btn danger-ghost sm" @click="removeLogo(i, j)">Remover</button>
           </div>
           <button type="button" class="admin-btn ghost sm" :disabled="b.items.length >= LOGOS_MAX" style="margin-top: 8px" @click="addLogo(i)">
             + Adicionar logo
@@ -348,8 +348,8 @@ useHead({ title: "Quem somos · Painel" });
         </button>
       </div>
 
-      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
-      <p v-if="saved" style="color: var(--wa-dark); margin-top: 14px; font-weight: 600">Salvo! ✅</p>
+      <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+      <p v-if="saved" role="status" style="color: var(--wa-dark); margin-top: 14px; font-weight: 600">Salvo! <AppIcon name="check" /></p>
 
       <div style="margin-top: 18px">
         <button class="admin-btn" type="submit" :disabled="saving">

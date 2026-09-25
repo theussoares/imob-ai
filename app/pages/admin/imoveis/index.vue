@@ -20,6 +20,7 @@ const {
   data: properties,
   refresh,
   pending,
+  error: loadError,
 } = useLazyAsyncData(
   "admin:properties:list",
   () => adminFetch<Property[]>("/api/admin/properties"),
@@ -40,6 +41,14 @@ const filters = reactive({
   brokerId: "",
 });
 
+// Na URL: voltar da edição devolve a lista filtrada como estava. Ver
+// shared/utils/list-query.ts.
+useListQuery(filters, ["q", "type", "purpose", "status", "brokerId"] as const, {
+  type: PROPERTY_TYPES,
+  purpose: ["venda", "aluguel"],
+  status: PROPERTY_STATUSES,
+});
+
 function resetFilters() {
   filters.q = "";
   filters.type = "";
@@ -48,7 +57,9 @@ function resetFilters() {
   filters.brokerId = "";
 }
 
-const filtersOpen = ref(false);
+// Chegou filtrado (link, voltar da edição): o painel abre mostrando QUAIS
+// filtros estão valendo, senão a lista curta pareceria catálogo incompleto.
+const filtersOpen = ref(Object.values(filters).some(Boolean));
 
 const activeFilterCount = computed(
   () =>
@@ -247,12 +258,27 @@ useHead({ title: "Imóveis · Painel" });
       </div>
       <span class="sr-only" role="status">Carregando imóveis...</span>
     </template>
-    <p v-else-if="!properties?.length" class="admin-card muted-block">
-      Nenhum imóvel cadastrado ainda. Clique em “Novo imóvel”.
-    </p>
-    <p v-else-if="!filtered.length" class="admin-card muted-block">
-      Nenhum imóvel encontrado com esses filtros.
-    </p>
+    <!--
+      Erro ANTES do vazio: a lista nasce com `default: []`, então uma falha de
+      rede caía no "Nenhum imóvel cadastrado ainda" — a pessoa achava que o
+      catálogo tinha sumido, e não que a internet tinha caído.
+    -->
+    <div v-else-if="loadError" class="admin-card state-card" role="alert">
+      <p>Não foi possível carregar os imóveis. Verifique a conexão.</p>
+      <button type="button" class="admin-btn" @click="refresh()">
+        Tentar de novo
+      </button>
+    </div>
+    <div v-else-if="!properties?.length" class="admin-card state-card">
+      <p>Nenhum imóvel cadastrado ainda.</p>
+      <NuxtLink class="admin-btn" to="/admin/imoveis/novo">Cadastrar o primeiro imóvel</NuxtLink>
+    </div>
+    <div v-else-if="!filtered.length" class="admin-card state-card">
+      <p>Nenhum imóvel encontrado com esses filtros.</p>
+      <button type="button" class="admin-btn ghost" @click="resetFilters">
+        Limpar filtros
+      </button>
+    </div>
 
     <template v-else>
       <!-- Mobile: cards -->
@@ -289,7 +315,9 @@ useHead({ title: "Imóveis · Painel" });
               v-if="p.location || p.broker || p.ownerName"
               class="row-internal"
             >
-              <div v-if="p.location" class="int-loc">📍 {{ p.location }}</div>
+              <div v-if="p.location" class="int-loc"><AppIcon name="pin" /> {{ p.location }}</div>
+              <!-- Sem telefone o nome também precisa aparecer: antes o bloco
+                   inteiro ficava vazio para corretor sem WhatsApp cadastrado. -->
               <div v-if="p.broker" class="int-line">
                 <a
                   v-if="p.broker.name && waHref(p.broker.phone)"
@@ -297,11 +325,13 @@ useHead({ title: "Imóveis · Painel" });
                   :href="waHref(p.broker.phone)"
                   target="_blank"
                   rel="noopener"
-                  aria-label="WhatsApp do captador"
+                  :aria-label="`WhatsApp do corretor ${p.broker.name}`"
                 >
-                  <span>👤 Corretor: {{ p.broker.name }}</span>
+                  <AppIcon name="user" />
+                  <span>Corretor: {{ p.broker.name }}</span>
                   <AppIcon name="wa"
                 /></a>
+                <span v-else><AppIcon name="user" /> Corretor: {{ p.broker.name }}</span>
               </div>
               <div v-if="p.ownerName" class="int-line">
                 <a
@@ -310,11 +340,13 @@ useHead({ title: "Imóveis · Painel" });
                   :href="waHref(p.ownerPhone)"
                   target="_blank"
                   rel="noopener"
-                  aria-label="WhatsApp do proprietário"
+                  :aria-label="`WhatsApp do proprietário ${p.ownerName}`"
                 >
-                  <span>🔑 Proprietário: {{ p.ownerName }}</span>
+                  <AppIcon name="key" />
+                  <span>Proprietário: {{ p.ownerName }}</span>
                   <AppIcon name="wa" />
                 </a>
+                <span v-else><AppIcon name="key" /> Proprietário: {{ p.ownerName }}</span>
               </div>
             </div>
 
@@ -324,12 +356,16 @@ useHead({ title: "Imóveis · Painel" });
                 :to="`/admin/imoveis/${p.id}`"
                 >Editar</NuxtLink
               >
+              <!-- Contorno vermelho, não botão cheio: com o mesmo peso do
+                   "Editar", colado nele, "Excluir" competia pela atenção como
+                   se fosse a ação principal do card — e é a que menos se usa
+                   e a única que não volta. A confirmação continua. -->
               <button
-                class="admin-btn danger sm"
+                class="admin-btn danger-ghost sm"
                 :disabled="deleting === p.id"
                 @click="remove(p)"
               >
-                {{ deleting === p.id ? "..." : "Excluir" }}
+                {{ deleting === p.id ? "Excluindo…" : "Excluir" }}
               </button>
             </div>
           </div>
@@ -365,7 +401,7 @@ useHead({ title: "Imóveis · Painel" });
               </td>
               <td class="td-internal">
                 <div v-if="p.broker" class="int-line">
-                  <span>👤 {{ p.broker.name }}</span>
+                  <span><AppIcon name="user" /> {{ p.broker.name }}</span>
                   <a
                     v-if="waHref(p.broker.phone)"
                     class="wa-mini"
@@ -377,7 +413,7 @@ useHead({ title: "Imóveis · Painel" });
                   /></a>
                 </div>
                 <div v-if="p.ownerName" class="int-line">
-                  <span>🔑 {{ p.ownerName }}</span>
+                  <span><AppIcon name="key" /> {{ p.ownerName }}</span>
                   <a
                     v-if="waHref(p.ownerPhone)"
                     class="wa-mini"
@@ -388,7 +424,7 @@ useHead({ title: "Imóveis · Painel" });
                     ><AppIcon name="wa"
                   /></a>
                 </div>
-                <div v-if="p.location" class="int-loc">📍 {{ p.location }}</div>
+                <div v-if="p.location" class="int-loc"><AppIcon name="pin" /> {{ p.location }}</div>
                 <span
                   v-if="!p.broker && !p.ownerName && !p.location"
                   style="color: var(--line-2)"
@@ -399,14 +435,16 @@ useHead({ title: "Imóveis · Painel" });
                 <NuxtLink
                   class="admin-btn ghost sm"
                   :to="`/admin/imoveis/${p.id}`"
+                  :aria-label="`Editar ${p.code}`"
                   >Editar</NuxtLink
                 >
                 <button
-                  class="admin-btn danger sm"
+                  class="admin-btn danger-ghost sm"
                   :disabled="deleting === p.id"
+                  :aria-label="`Excluir ${p.code}`"
                   @click="remove(p)"
                 >
-                  {{ deleting === p.id ? "..." : "Excluir" }}
+                  {{ deleting === p.id ? "Excluindo…" : "Excluir" }}
                 </button>
               </td>
             </tr>
@@ -640,7 +678,24 @@ useHead({ title: "Imóveis · Painel" });
   gap: 8px;
   margin-top: 8px;
 }
+.state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.state-card p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.int-loc :deep(svg),
+.int-line :deep(svg) {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
 .row-actions .admin-btn {
+  min-height: 44px;
   flex: 1;
   text-align: center;
 }

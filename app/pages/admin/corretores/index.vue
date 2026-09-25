@@ -8,7 +8,7 @@ const { askConfirm } = useConfirm()
 
 // Lazy (sem `await`): abre a tela na hora e mostra "Carregando" em vez de segurar
 // a navegação até a requisição terminar.
-const { data: brokers, refresh, pending } = useLazyAsyncData(
+const { data: brokers, refresh, pending, error: loadError } = useLazyAsyncData(
   'admin:brokers',
   () => adminFetch<Broker[]>('/api/admin/brokers'),
   { server: false, default: () => [] as Broker[] },
@@ -199,6 +199,7 @@ useHead({ title: 'Corretores · Painel' })
 
     <div class="admin-card">
       <p v-if="pending" style="color: var(--ink-soft)">Carregando...</p>
+      <AdminLoadError v-else-if="loadError" what="os corretores" @retry="refresh()" />
       <p v-else-if="!brokers?.length" style="color: var(--ink-soft)">Nenhum corretor cadastrado ainda.</p>
       <ul v-else class="broker-list">
         <li v-for="b in brokers" :key="b.id" class="broker">
@@ -221,7 +222,7 @@ useHead({ title: 'Corretores · Painel' })
               <AppIcon name="wa" /> WhatsApp
             </a>
             <button class="admin-btn ghost sm" @click="edit(b)">Editar</button>
-            <button class="admin-btn danger sm" @click="remove(b)">Excluir</button>
+            <button class="admin-btn danger-ghost sm" @click="remove(b)">Excluir</button>
           </div>
         </li>
       </ul>

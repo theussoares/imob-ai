@@ -47,7 +47,8 @@ const successes = computed(() =>
 .toasts {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  /* Acima da barra inferior do celular — sem isto o toast nascia atrás dela. */
+  bottom: calc(16px + var(--admin-bottom-nav, 0px) + env(safe-area-inset-bottom));
   z-index: 60;
   display: flex;
   flex-direction: column;

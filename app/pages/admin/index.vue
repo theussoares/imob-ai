@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { Property } from "~~/shared/models/property";
+import type { Lead } from "~~/shared/models/lead";
+import { LEAD_TYPE_LABELS } from "~~/shared/models/lead";
+import { leadsParaAtender } from "~~/shared/utils/lead-agenda";
 import {
   PROPERTY_TYPE_LABELS,
   PROPERTY_STATUS_LABELS,
@@ -10,7 +13,7 @@ definePageMeta({ layout: "admin", middleware: "admin" });
 const tenant = useTenant();
 const siteUrl = usePublicSiteUrl();
 
-const { data: properties, pending } = useLazyAsyncData(
+const { data: properties, pending, error: loadError, refresh } = useLazyAsyncData(
   // Mesma chave da listagem de imóveis: compartilha a entrada em vez de manter
   // duas cópias do mesmo GET. Não é cache entre navegações — sem `getCachedData`
   // o Nuxt refaz a requisição a cada visita, que é o que se quer aqui (contagem
@@ -21,6 +24,25 @@ const { data: properties, pending } = useLazyAsyncData(
 );
 
 const list = computed(() => properties.value ?? []);
+
+/**
+ * Contatos esperando resposta — o primeiro bloco da tela. Ver
+ * shared/utils/lead-agenda.ts para a ordem e o porquê.
+ *
+ * Mesma chave da tela de Contatos, pelo mesmo motivo da de imóveis acima.
+ * Carrega à parte: se falhar, o resto do dashboard continua de pé.
+ */
+const { data: leads, pending: leadsPending, error: leadsError } = useLazyAsyncData(
+  "admin:leads",
+  () => adminFetch<Lead[]>("/api/admin/leads"),
+  { server: false, default: () => [] as Lead[] },
+);
+const agenda = computed(() => leadsParaAtender(leads.value ?? []));
+
+function waHref(phone?: string | null) {
+  const d = (phone || "").replace(/\D/g, "");
+  return d ? `https://wa.me/${d}` : "";
+}
 
 const stats = computed(() => {
   const l = list.value;
@@ -97,7 +119,71 @@ useHead({ title: "Dashboard · Painel" });
       Visão geral do seu catálogo.
     </p>
 
-    <div v-if="pending" style="color: var(--ink-soft)">Carregando...</div>
+    <!--
+      Antes das métricas: é o que tem prazo. Ver `agenda` no script.
+    -->
+    <section class="admin-card agenda" aria-labelledby="agenda-t">
+      <div class="card-head">
+        <h2 id="agenda-t">Para atender agora</h2>
+        <NuxtLink to="/admin/leads" class="see-all">Todos os contatos →</NuxtLink>
+      </div>
+      <p v-if="leadsPending && !leads?.length" class="muted">Carregando contatos…</p>
+      <p v-else-if="leadsError" class="muted" role="alert">
+        Não foi possível carregar os contatos agora.
+      </p>
+      <p v-else-if="!agenda.total" class="agenda-ok">
+        <AppIcon name="check" /> Ninguém esperando resposta.
+      </p>
+      <ul v-else class="agenda-list">
+        <li v-for="i in agenda.itens" :key="i.lead.id">
+          <div class="ag-info">
+            <strong>{{ i.lead.name || "Sem nome" }}</strong>
+            <span class="ag-meta">
+              <template v-if="i.motivo === 'retorno_atrasado'">
+                <AppIcon name="clock" /> Retorno atrasado
+              </template>
+              <template v-else>
+                Novo · {{ relTime(new Date(i.lead.createdAt).getTime()) }}
+              </template>
+              · {{ LEAD_TYPE_LABELS[i.lead.leadType] }}
+            </span>
+          </div>
+          <a
+            v-if="waHref(i.lead.phone)"
+            class="admin-btn sm ag-wa"
+            :href="waHref(i.lead.phone)"
+            target="_blank"
+            rel="noopener"
+            :aria-label="`WhatsApp de ${i.lead.name || 'contato sem nome'}`"
+          >
+            <AppIcon name="wa" /> WhatsApp
+          </a>
+        </li>
+      </ul>
+      <p v-if="agenda.total > agenda.itens.length" class="ag-more">
+        + {{ agenda.total - agenda.itens.length }} esperando.
+        <NuxtLink to="/admin/leads">Ver todos</NuxtLink>
+      </p>
+    </section>
+
+    <div v-if="pending && !properties?.length" class="muted" role="status">Carregando...</div>
+
+    <!-- Sem isto, uma falha de rede mostrava "0 cadastrados" e "Tudo certo —
+         seu catálogo está completo": a pior mensagem possível para um erro. -->
+    <div v-else-if="loadError" class="admin-card state-card" role="alert">
+      <p>Não foi possível carregar o catálogo. Verifique a conexão.</p>
+      <button type="button" class="admin-btn" @click="refresh()">Tentar de novo</button>
+    </div>
+
+    <!-- Conta nova: sem imóvel, os números zerados não dizem o que fazer. -->
+    <div v-else-if="!list.length" class="admin-card state-card">
+      <h2 class="start-t">Comece pelo primeiro imóvel</h2>
+      <p>
+        Com um imóvel publicado o site já aparece completo. Depois vale conferir
+        as cores e o logo em Configurações.
+      </p>
+      <NuxtLink class="admin-btn" to="/admin/imoveis/novo">Cadastrar imóvel</NuxtLink>
+    </div>
 
     <template v-else>
       <!-- Métricas -->
@@ -146,7 +232,7 @@ useHead({ title: "Dashboard · Painel" });
             :href="siteUrl"
             target="_blank"
             rel="noopener"
-            >Ver site ↗</a
+            >Ver site <AppIcon name="external" /><span class="sr-only"> (abre em nova aba)</span></a
           >
           <NuxtLink class="admin-btn ghost" to="/admin/config"
             >Configurações</NuxtLink
@@ -158,7 +244,7 @@ useHead({ title: "Dashboard · Painel" });
       <div class="two-col">
         <div class="admin-card">
           <div class="card-head">
-            <h3>Imóveis recentes</h3>
+            <h2>Imóveis recentes</h2>
             <NuxtLink to="/admin/imoveis" class="see-all">Ver todos →</NuxtLink>
           </div>
           <p v-if="!recent.length" style="color: var(--ink-soft)">
@@ -197,28 +283,24 @@ useHead({ title: "Dashboard · Painel" });
         </div>
 
         <div class="admin-card health">
-          <h3>Saúde do catálogo</h3>
+          <h2>Saúde do catálogo</h2>
 
           <p v-if="issues.attention === 0" class="health-ok">
-            🟢 Tudo certo — seu catálogo está completo.
+            <AppIcon name="check" /> Tudo certo — seu catálogo está completo.
           </p>
           <template v-else>
             <p class="health-warn">
-              🟡 {{ issues.attention }}
+              <AppIcon name="alert" /> {{ issues.attention }}
               {{
                 issues.attention === 1 ? "imóvel precisa" : "imóveis precisam"
               }}
               de atenção
             </p>
             <ul class="health-list">
-              <li v-if="issues.semFotos">⚠️ {{ issues.semFotos }} sem fotos</li>
-              <li v-if="issues.semDesc">
-                ⚠️ {{ issues.semDesc }} sem descrição
-              </li>
-              <li v-if="issues.semPreco">⚠️ {{ issues.semPreco }} sem preço</li>
-              <li v-if="issues.semBairro">
-                ⚠️ {{ issues.semBairro }} sem bairro
-              </li>
+              <li v-if="issues.semFotos">{{ issues.semFotos }} sem fotos</li>
+              <li v-if="issues.semDesc">{{ issues.semDesc }} sem descrição</li>
+              <li v-if="issues.semPreco">{{ issues.semPreco }} sem preço</li>
+              <li v-if="issues.semBairro">{{ issues.semBairro }} sem bairro</li>
             </ul>
           </template>
 
@@ -237,7 +319,7 @@ useHead({ title: "Dashboard · Painel" });
 
       <!-- Dica -->
       <div class="tip">
-        💡 Imóveis com boas fotos recebem mais atenção.
+        <AppIcon name="bulb" /> Imóveis com boas fotos recebem mais atenção.
         <NuxtLink to="/admin/imoveis">Ver imóveis →</NuxtLink>
       </div>
     </template>
@@ -307,12 +389,12 @@ useHead({ title: "Dashboard · Painel" });
   gap: 10px;
   margin-bottom: 12px;
 }
-.card-head h3,
-.health h3 {
+.card-head h2,
+.health h2 {
   font-family: "Space Grotesk", sans-serif;
   font-size: 16px;
 }
-.health h3 {
+.health h2 {
   margin-bottom: 12px;
 }
 .see-all {
@@ -329,8 +411,16 @@ useHead({ title: "Dashboard · Painel" });
 .table-wrap {
   overflow-x: auto;
 }
-.table-wrap .recent-table {
-  min-width: 480px;
+/* No celular, tipo e finalidade saem da tabela em vez de ela rolar na
+   horizontal: rolagem lateral escondida dentro de um card é gesto que quase
+   ninguém descobre, e a coluna Status ficava fora da tela. */
+@media (max-width: 519px) {
+  .recent-table th:nth-child(2),
+  .recent-table td:nth-child(2),
+  .recent-table th:nth-child(3),
+  .recent-table td:nth-child(3) {
+    display: none;
+  }
 }
 .rec-link {
   color: var(--ink);
@@ -341,6 +431,84 @@ useHead({ title: "Dashboard · Painel" });
   color: var(--brand);
 }
 
+.muted {
+  color: var(--ink-soft);
+  margin: 0;
+}
+.agenda {
+  margin-bottom: 18px;
+  border-left: 4px solid var(--brand);
+}
+.agenda-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--wa-dark);
+  font-weight: 600;
+}
+.agenda-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.agenda-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.agenda-list li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.ag-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ag-meta {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.ag-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  flex: none;
+  text-decoration: none;
+}
+.ag-more {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.state-card p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.start-t {
+  font-size: 18px;
+}
+:deep(svg) {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
 .health-ok {
   color: var(--wa-dark);
   font-weight: 600;

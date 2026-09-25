@@ -10,6 +10,7 @@ const {
   data: members,
   pending,
   refresh,
+  error: loadError,
 } = useLazyAsyncData(
   "admin:members",
   () => adminFetch<MemberView[]>("/api/admin/members"),
@@ -147,6 +148,7 @@ useHead({ title: "Usuários · Painel" });
     </div>
 
     <p v-if="pending" class="admin-card muted-block">Carregando...</p>
+    <AdminLoadError v-else-if="loadError" what="os usuários" @retry="refresh()" />
     <div v-else class="admin-card list-card">
       <h3 class="section-t">Com acesso ({{ members.length }})</h3>
       <div v-for="m in members" :key="m.id" class="m-row">
@@ -154,7 +156,7 @@ useHead({ title: "Usuários · Painel" });
           <strong>{{ m.email }}</strong>
           <span v-if="m.pending" class="badge">Convite pendente</span>
         </div>
-        <button class="admin-btn danger sm" @click="revoke(m)">Remover</button>
+        <button class="admin-btn danger-ghost sm" @click="revoke(m)">Remover</button>
       </div>
     </div>
   </div>

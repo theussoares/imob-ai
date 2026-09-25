@@ -3,7 +3,7 @@ import type { Contract } from '~~/shared/models/portal'
 
 definePageMeta({ layout: 'admin', middleware: ['admin', 'area-cliente'] })
 
-const { data: contratos, pending } = useLazyAsyncData(
+const { data: contratos, pending, error: loadError, refresh } = useLazyAsyncData(
   'admin:contracts',
   () => adminFetch<Contract[]>('/api/admin/contracts'),
   { server: false, default: () => [] as Contract[] },
@@ -38,6 +38,8 @@ useHead({ title: 'Contratos · Painel' })
     </div>
 
     <p v-if="pending" class="dica">Carregando…</p>
+
+    <AdminLoadError v-else-if="loadError" what="os contratos" @retry="refresh()" />
 
     <div v-else-if="!contratos.length" class="admin-card">
       <p class="dica">

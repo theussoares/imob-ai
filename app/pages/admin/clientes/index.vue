@@ -10,6 +10,7 @@ const {
   data: clientes,
   refresh,
   pending,
+  error: loadError,
 } = useLazyAsyncData(
   'admin:portal-users',
   () => adminFetch<PortalUser[]>('/api/admin/portal-users'),
@@ -235,6 +236,7 @@ useHead({ title: 'Clientes · Painel' })
       <h2 class="admin-h2">Cadastrados</h2>
 
       <p v-if="pending" class="dica">Carregando…</p>
+      <AdminLoadError v-else-if="loadError" what="os clientes" @retry="refresh()" />
       <p v-else-if="!clientes.length" class="dica">
         Nenhum cliente cadastrado ainda. Use o formulário acima para convidar o
         primeiro.

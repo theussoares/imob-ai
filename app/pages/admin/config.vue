@@ -274,7 +274,7 @@ useHead({ title: "Configurações · Painel" });
           feedUrl
         }}</a>
         <button type="button" class="admin-btn ghost" @click="copyFeed">
-          {{ feedCopied ? "Copiado! ✅" : "Copiar link" }}
+          {{ feedCopied ? "Copiado!" : "Copiar link" }}
         </button>
       </div>
       <p class="hint-text">
@@ -283,12 +283,13 @@ useHead({ title: "Configurações · Painel" });
         custo.
       </p>
 
-      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+      <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
         v-if="saved"
+        role="status"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
       >
-        Configurações salvas! ✅
+        Configurações salvas! <AppIcon name="check" />
       </p>
 
       <div style="margin-top: 18px">
@@ -341,12 +342,13 @@ useHead({ title: "Configurações · Painel" });
         </div>
       </div>
 
-      <p v-if="aiToneError" style="color: #b91c1c; margin-top: 14px">{{ aiToneError }}</p>
+      <p v-if="aiToneError" role="alert" style="color: #b91c1c; margin-top: 14px">{{ aiToneError }}</p>
       <p
         v-if="aiToneSaved"
+        role="status"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
       >
-        Tom salvo! ✅
+        Tom salvo! <AppIcon name="check" />
       </p>
 
       <div style="margin-top: 18px">

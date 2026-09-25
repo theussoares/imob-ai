@@ -29,6 +29,7 @@ const {
   data: leads,
   pending,
   refresh,
+  error: loadError,
 } = useLazyAsyncData(
   "admin:leads",
   () => adminFetch<Lead[]>("/api/admin/leads"),
@@ -44,12 +45,41 @@ const { data: brokers } = useLazyAsyncData(
 const brokerName = (id: string | null) =>
   id ? (brokers.value?.find((b) => b.id === id)?.name ?? "") : "";
 
-const view = ref<"funil" | "lista">("funil");
+const route = useRoute();
+const router = useRouter();
+
+/**
+ * Visão e filtro de tipo moram na URL (`?visao=lista&tipo=busca_compra`):
+ * voltar de outra tela ou recarregar devolvia sempre o funil sem filtro.
+ *
+ * Sem `visao` na URL, o celular abre em LISTA: o funil lá são seis colunas de
+ * 280px lado a lado, rolando na horizontal dentro da tela, e mover um card
+ * dependia de arrastar — gesto que no toque briga com a rolagem.
+ */
+const visaoDaUrl = route.query.visao === "lista" || route.query.visao === "funil"
+  ? (route.query.visao as "funil" | "lista")
+  : null;
+const view = ref<"funil" | "lista">(visaoDaUrl ?? "funil");
+onMounted(() => {
+  if (!visaoDaUrl && window.matchMedia("(max-width: 859px)").matches) view.value = "lista";
+});
 const showLost = ref(false);
 
 // Filtro por tipo. Vale para o quadro E para os contadores: um resumo que
 // ignora o filtro faria os números contradizerem as colunas na tela.
-const typeFilter = ref<LeadType | "todos">("todos");
+const tipoDaUrl = String(route.query.tipo || "");
+const typeFilter = ref<LeadType | "todos">(
+  (LEAD_TYPES as string[]).includes(tipoDaUrl) ? (tipoDaUrl as LeadType) : "todos",
+);
+watch([view, typeFilter], ([v, t]) => {
+  router.replace({
+    query: {
+      ...route.query,
+      visao: v,
+      tipo: t === "todos" ? undefined : t,
+    },
+  });
+});
 const allLeads = computed(() => leads.value ?? []);
 const typeCounts = computed(() => {
   const c = Object.fromEntries(LEAD_TYPES.map((t) => [t, 0])) as Record<
@@ -161,6 +191,21 @@ function move(l: Lead, stage: LeadStage) {
   if (leads.value)
     leads.value = leads.value.map((x) => (x.id === l.id ? { ...x, stage } : x)); // otimista
   patchLead(l.id, { stage });
+}
+
+/**
+ * Mudar de etapa pelo seletor do card — a alternativa ao arraste (WCAG
+ * 2.5.7), e o único jeito no celular. Estava escondida dentro de "Detalhes",
+ * onde ainda confundia: salvava na hora, enquanto o resto do mesmo painel só
+ * salvava no botão "Salvar".
+ *
+ * No card, com toast: no arraste o card visivelmente muda de coluna; aqui, na
+ * lista, nada se mexe na tela, e sem aviso a pessoa não sabe se pegou.
+ */
+function moveVia(l: Lead, stage: LeadStage) {
+  if (l.stage === stage) return;
+  move(l, stage);
+  toast.success(`${l.name || "Contato"} movido para ${LEAD_STAGE_LABELS[stage]}.`);
 }
 
 async function remove(l: Lead) {
@@ -331,6 +376,28 @@ function openEditor(l: Lead) {
     edit.leadType = l.leadType;
   }
 }
+/**
+ * O editor tem anotações — o histórico do atendimento. Sair da tela com ele
+ * aberto e alterado perdia o texto sem aviso.
+ */
+function editorDirty() {
+  const l = editingId.value ? leads.value?.find((x) => x.id === editingId.value) : null;
+  if (!l) return false;
+  return (
+    edit.name !== (l.name || "") ||
+    edit.phone !== (l.phone || "") ||
+    edit.notes !== (l.notes || "") ||
+    edit.nextContactAt !== dateToInput(l.nextContactAt) ||
+    edit.brokerId !== (l.brokerId || "") ||
+    edit.leadType !== l.leadType
+  );
+}
+const newDirty = () =>
+  showNew.value && !!(newForm.name || newForm.phone || newForm.message);
+useUnsavedGuard(() => editorDirty() || newDirty());
+
+const [DefineEditor, ReuseEditor] = createReusableTemplate<{ l: Lead }>();
+
 async function saveEditor(l: Lead) {
   await patchLead(l.id, {
     name: edit.name.trim() || null,
@@ -371,6 +438,7 @@ function resetNew() {
 async function createNew() {
   if (!newForm.name.trim()) {
     newErr.value = "Informe ao menos o nome.";
+    document.getElementById("nl-nome")?.focus();
     return;
   }
   saving.value = true;
@@ -392,6 +460,7 @@ async function createNew() {
     if (leads.value) leads.value = [created, ...leads.value];
     resetNew();
     showNew.value = false;
+    toast.success(`${created.name || "Contato"} adicionado ao funil.`);
   } catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string } };
     newErr.value = err?.data?.statusMessage || "Não foi possível salvar.";
@@ -452,6 +521,104 @@ useHead({ title: "Contatos · Painel" });
 
 <template>
   <div>
+    <!--
+      O editor é definido UMA vez e reusado no funil e na lista. Antes ele só
+      existia dentro dos cards do funil, e o "Detalhes" da lista abria um
+      editor que não estava na página: pela lista não havia como editar, mudar
+      de etapa nem excluir.
+    -->
+    <DefineEditor v-slot="{ l }">
+          <div class="editor">
+            <div class="ed-row">
+              <div>
+                <label class="admin-label" :for="`ed-nome-${l.id}`">Nome</label
+                ><input :id="`ed-nome-${l.id}`"
+                  v-model="edit.name" class="admin-input" />
+              </div>
+              <div>
+                <label class="admin-label" :for="`ed-fone-${l.id}`">WhatsApp / telefone</label
+                ><input
+                  :id="`ed-fone-${l.id}`"
+                  v-model="edit.phone"
+                  class="admin-input"
+                  type="tel"
+                  inputmode="numeric"
+                />
+              </div>
+            </div>
+            <div class="ed-row">
+              <div>
+                <label class="admin-label" :for="`ed-tipo-${l.id}`">Tipo de contato</label>
+                <select :id="`ed-tipo-${l.id}`"
+                  v-model="edit.leadType" class="admin-input">
+                  <option v-for="t in LEAD_TYPES" :key="t" :value="t">
+                    {{ LEAD_TYPE_LABELS[t] }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="admin-label">Origem</label>
+                <p class="ed-static">
+                  {{ LEAD_SOURCE_LABELS[l.source] }}
+                  <!-- Fica no editor, não no card: com seis pessoas mexendo, um
+                       "alterado por" em cada card viraria ruído no quadro. -->
+                  <small v-if="nameFor(l.updatedBy)" class="ed-who"
+                    >Última alteração por {{ nameFor(l.updatedBy) }}</small
+                  >
+                </p>
+              </div>
+            </div>
+            <p v-if="changedWhileEditing" class="ed-warn">
+              Outra pessoa alterou este contato agora. O que você digitou
+              continua aqui, mas salvar vai sobrescrever a alteração dela —
+              feche e reabra para ver o estado atual.
+            </p>
+            <label class="admin-label" :for="`ed-notas-${l.id}`"
+              >Anotações (histórico do atendimento)</label
+            >
+            <textarea
+              :id="`ed-notas-${l.id}`"
+              v-model="edit.notes"
+              class="admin-textarea"
+              rows="3"
+              placeholder="O que foi conversado, objeções, imóveis mostrados..."
+            />
+            <div class="ed-row">
+              <div>
+                <label class="admin-label" :for="`ed-retorno-${l.id}`">Próximo retorno</label
+                ><input
+                  :id="`ed-retorno-${l.id}`"
+                  v-model="edit.nextContactAt"
+                  class="admin-input"
+                  type="date"
+                />
+              </div>
+              <div v-if="brokers?.length">
+                <label class="admin-label" :for="`ed-corretor-${l.id}`">Corretor</label>
+                <select :id="`ed-corretor-${l.id}`"
+                  v-model="edit.brokerId" class="admin-input">
+                  <option value="">— ninguém —</option>
+                  <option v-for="b in brokers" :key="b.id" :value="b.id">
+                    {{ b.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="ed-actions">
+              <button
+                class="admin-btn"
+                :disabled="busy === l.id"
+                @click="saveEditor(l)"
+              >
+                Salvar
+              </button>
+              <button class="admin-btn danger-ghost sm" @click="remove(l)">
+                Excluir
+              </button>
+            </div>
+          </div>
+    </DefineEditor>
+
     <div class="page-head">
       <div>
         <h1>Contatos</h1>
@@ -474,16 +641,18 @@ useHead({ title: "Contatos · Painel" });
       </p>
       <div class="new-grid">
         <div>
-          <label class="admin-label">Nome *</label>
+          <label class="admin-label" for="nl-nome">Nome *</label>
           <input
+            id="nl-nome"
             v-model="newForm.name"
             class="admin-input"
             placeholder="Nome do interessado"
           />
         </div>
         <div>
-          <label class="admin-label">WhatsApp / telefone</label>
+          <label class="admin-label" for="nl-fone">WhatsApp / telefone</label>
           <input
+            id="nl-fone"
             v-model="newForm.phone"
             class="admin-input"
             type="tel"
@@ -492,32 +661,36 @@ useHead({ title: "Contatos · Painel" });
           />
         </div>
         <div>
-          <label class="admin-label">Tipo de contato</label>
-          <select v-model="newForm.leadType" class="admin-input">
+          <label class="admin-label" for="nl-tipo">Tipo de contato</label>
+          <select id="nl-tipo"
+            v-model="newForm.leadType" class="admin-input">
             <option v-for="t in LEAD_TYPES" :key="t" :value="t">
               {{ LEAD_TYPE_LABELS[t] }}
             </option>
           </select>
         </div>
         <div>
-          <label class="admin-label">Etapa</label>
-          <select v-model="newForm.stage" class="admin-input">
+          <label class="admin-label" for="nl-etapa">Etapa</label>
+          <select id="nl-etapa"
+            v-model="newForm.stage" class="admin-input">
             <option v-for="s in LEAD_STAGES" :key="s" :value="s">
               {{ LEAD_STAGE_LABELS[s] }}
             </option>
           </select>
         </div>
         <div>
-          <label class="admin-label">Próximo retorno</label>
+          <label class="admin-label" for="nl-retorno">Próximo retorno</label>
           <input
+            id="nl-retorno"
             v-model="newForm.nextContactAt"
             class="admin-input"
             type="date"
           />
         </div>
         <div v-if="brokers?.length">
-          <label class="admin-label">Corretor responsável</label>
-          <select v-model="newForm.brokerId" class="admin-input">
+          <label class="admin-label" for="nl-corretor">Corretor responsável</label>
+          <select id="nl-corretor"
+            v-model="newForm.brokerId" class="admin-input">
             <option value="">— ninguém —</option>
             <option v-for="b in brokers" :key="b.id" :value="b.id">
               {{ b.name }}
@@ -525,8 +698,9 @@ useHead({ title: "Contatos · Painel" });
           </select>
         </div>
         <div class="new-msg">
-          <label class="admin-label">O que ele procura / observação</label>
+          <label class="admin-label" for="nl-msg">O que ele procura / observação</label>
           <textarea
+            id="nl-msg"
             v-model="newForm.message"
             class="admin-textarea"
             rows="2"
@@ -534,7 +708,7 @@ useHead({ title: "Contatos · Painel" });
           />
         </div>
       </div>
-      <p v-if="newErr" class="err">{{ newErr }}</p>
+      <p v-if="newErr" class="err" role="alert">{{ newErr }}</p>
       <div class="new-actions">
         <button class="admin-btn" :disabled="saving" @click="createNew">
           {{ saving ? "Salvando..." : "Adicionar ao funil" }}
@@ -595,14 +769,24 @@ useHead({ title: "Contatos · Painel" });
 
     <div v-if="allLeads.length" class="toolbar">
       <div class="view-toggle">
-        <button :class="{ on: view === 'funil' }" @click="view = 'funil'">
+        <button
+          type="button"
+          :class="{ on: view === 'funil' }"
+          :aria-pressed="view === 'funil'"
+          @click="view = 'funil'"
+        >
           Funil
         </button>
-        <button :class="{ on: view === 'lista' }" @click="view = 'lista'">
+        <button
+          type="button"
+          :class="{ on: view === 'lista' }"
+          :aria-pressed="view === 'lista'"
+          @click="view = 'lista'"
+        >
           Lista
         </button>
       </div>
-      <select v-model="typeFilter" class="admin-input type-filter">
+      <select v-model="typeFilter" class="admin-input type-filter" aria-label="Filtrar por tipo de contato">
         <option value="todos">Todos os tipos ({{ allLeads.length }})</option>
         <option
           v-for="t in LEAD_TYPES"
@@ -615,7 +799,13 @@ useHead({ title: "Contatos · Painel" });
       </select>
     </div>
 
-    <p v-if="pending" class="admin-card muted-block">Carregando...</p>
+    <p v-if="pending && !allLeads.length" class="admin-card muted-block" role="status">Carregando...</p>
+    <!-- Antes do vazio: com `default: []`, falha de rede virava "Nenhum
+         contato ainda" — a corretora achava que não tinha chegado ninguém. -->
+    <div v-else-if="loadError" class="admin-card muted-block state-card" role="alert">
+      <p>Não foi possível carregar os contatos. Verifique a conexão.</p>
+      <button type="button" class="admin-btn" @click="refresh()">Tentar de novo</button>
+    </div>
     <p
       v-else-if="!list.length && allLeads.length"
       class="admin-card muted-block"
@@ -625,12 +815,13 @@ useHead({ title: "Contatos · Painel" });
         Ver todos os contatos
       </button>
     </p>
-    <p v-else-if="!list.length" class="admin-card muted-block">
-      Nenhum contato ainda. Quando alguém preencher o formulário no site ele
-      aparece aqui — ou use
-      <strong>“+ Novo contato”</strong> para registrar um lead que chegou por
-      outro canal.
-    </p>
+    <div v-else-if="!list.length" class="admin-card muted-block state-card">
+      <p>
+        Nenhum contato ainda. Quando alguém preencher o formulário no site ele
+        aparece aqui — ou registre um lead que chegou por outro canal.
+      </p>
+      <button type="button" class="admin-btn" @click="showNew = true">+ Novo contato</button>
+    </div>
 
     <!-- FUNIL -->
     <div v-else-if="view === 'funil'" class="board">
@@ -680,21 +871,21 @@ useHead({ title: "Contatos · Painel" });
             :to="propertyPath(l.property)"
             target="_blank"
           >
-            🏠 {{ l.property.code }} · {{ l.property.title }}
+            <AppIcon name="home" /> {{ l.property.code }} · {{ l.property.title }}
           </NuxtLink>
 
           <p v-if="l.message" class="c-msg">{{ l.message }}</p>
-          <p v-if="l.notes" class="c-notes">📝 {{ l.notes }}</p>
+          <p v-if="l.notes" class="c-notes"><AppIcon name="notes" /> {{ l.notes }}</p>
 
           <div
             v-if="l.nextContactAt"
             class="c-return"
             :class="{ over: isOverdue(l) }"
           >
-            ⏰ {{ returnLabel(l.nextContactAt) }}
+            <AppIcon name="clock" /> {{ returnLabel(l.nextContactAt) }}
           </div>
           <div v-if="brokerName(l.brokerId)" class="c-broker">
-            👤 {{ brokerName(l.brokerId) }}
+            <AppIcon name="user" /> {{ brokerName(l.brokerId) }}
           </div>
 
           <div class="c-actions">
@@ -707,123 +898,30 @@ useHead({ title: "Contatos · Painel" });
             >
               <AppIcon name="wa" /> WhatsApp
             </a>
-            <button class="admin-btn ghost sm" @click="openEditor(l)">
+            <button
+              class="admin-btn ghost sm"
+              :aria-expanded="editingId === l.id"
+              @click="openEditor(l)"
+            >
               {{ editingId === l.id ? "Fechar" : "Detalhes" }}
             </button>
           </div>
-
-          <!-- Editor -->
-          <div v-if="editingId === l.id" class="editor">
-            <div class="ed-row">
-              <div>
-                <label class="admin-label">Nome</label
-                ><input v-model="edit.name" class="admin-input" />
-              </div>
-              <div>
-                <label class="admin-label">WhatsApp / telefone</label
-                ><input
-                  v-model="edit.phone"
-                  class="admin-input"
-                  type="tel"
-                  inputmode="numeric"
-                />
-              </div>
-            </div>
-            <div class="ed-row">
-              <div>
-                <label class="admin-label">Tipo de contato</label>
-                <select v-model="edit.leadType" class="admin-input">
-                  <option v-for="t in LEAD_TYPES" :key="t" :value="t">
-                    {{ LEAD_TYPE_LABELS[t] }}
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="admin-label">Origem</label>
-                <p class="ed-static">
-                  {{ LEAD_SOURCE_LABELS[l.source] }}
-                  <!-- Fica no editor, não no card: com seis pessoas mexendo, um
-                       "alterado por" em cada card viraria ruído no quadro. -->
-                  <small v-if="nameFor(l.updatedBy)" class="ed-who"
-                    >Última alteração por {{ nameFor(l.updatedBy) }}</small
-                  >
-                </p>
-              </div>
-            </div>
-            <p v-if="changedWhileEditing" class="ed-warn">
-              Outra pessoa alterou este contato agora. O que você digitou
-              continua aqui, mas salvar vai sobrescrever a alteração dela —
-              feche e reabra para ver o estado atual.
-            </p>
-            <label class="admin-label"
-              >Anotações (histórico do atendimento)</label
+          <label class="c-stage">
+            <span>Etapa</span>
+            <select
+              :value="l.stage"
+              class="admin-input"
+              :disabled="busy === l.id"
+              @change="moveVia(l, ($event.target as HTMLSelectElement).value as LeadStage)"
             >
-            <textarea
-              v-model="edit.notes"
-              class="admin-textarea"
-              rows="3"
-              placeholder="O que foi conversado, objeções, imóveis mostrados..."
-            />
-            <div class="ed-row">
-              <div>
-                <label class="admin-label">Próximo retorno</label
-                ><input
-                  v-model="edit.nextContactAt"
-                  class="admin-input"
-                  type="date"
-                />
-              </div>
-              <div v-if="brokers?.length">
-                <label class="admin-label">Corretor</label>
-                <select v-model="edit.brokerId" class="admin-input">
-                  <option value="">— ninguém —</option>
-                  <option v-for="b in brokers" :key="b.id" :value="b.id">
-                    {{ b.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label class="admin-label">Mover para</label>
-              <select
-                :value="l.stage"
-                class="admin-input"
-                @change="
-                  move(
-                    l,
-                    ($event.target as HTMLSelectElement).value as LeadStage,
-                  )
-                "
-              >
-                <option
-                  v-for="opt in [
-                    'novo',
-                    'contato',
-                    'visita',
-                    'proposta',
-                    'fechado',
-                    'perdido',
-                  ] as LeadStage[]"
-                  :key="opt"
-                  :value="opt"
-                >
-                  {{ LEAD_STAGE_LABELS[opt] }}
-                </option>
-              </select>
-            </div>
-            <div class="ed-actions">
-              <button
-                class="admin-btn"
-                :disabled="busy === l.id"
-                @click="saveEditor(l)"
-              >
-                Salvar
-              </button>
-              <button class="admin-btn danger sm" @click="remove(l)">
-                Excluir
-              </button>
-            </div>
-          </div>
+              <option v-for="opt in LEAD_STAGES" :key="opt" :value="opt">
+                {{ LEAD_STAGE_LABELS[opt] }}
+              </option>
+            </select>
+          </label>
+
+          <!-- Mesmo editor da lista: ver DefineEditor no topo do template. -->
+          <ReuseEditor v-if="editingId === l.id" :l="l" />
         </article>
       </section>
     </div>
@@ -846,7 +944,7 @@ useHead({ title: "Contatos · Painel" });
         </div>
         <p v-if="l.message" class="c-msg">{{ l.message }}</p>
         <div v-if="isOverdue(l)" class="c-return over">
-          ⏰ {{ returnLabel(l.nextContactAt!) }}
+          <AppIcon name="clock" /> {{ returnLabel(l.nextContactAt!) }}
         </div>
         <div class="c-actions">
           <a
@@ -857,16 +955,34 @@ useHead({ title: "Contatos · Painel" });
             rel="noopener"
             ><AppIcon name="wa" /> WhatsApp</a
           >
-          <button class="admin-btn ghost sm" @click="openEditor(l)">
-            Detalhes
+          <button
+            class="admin-btn ghost sm"
+            :aria-expanded="editingId === l.id"
+            @click="openEditor(l)"
+          >
+            {{ editingId === l.id ? "Fechar" : "Detalhes" }}
           </button>
         </div>
+        <label class="c-stage">
+          <span>Etapa</span>
+          <select
+            :value="l.stage"
+            class="admin-input"
+            :disabled="busy === l.id"
+            @change="moveVia(l, ($event.target as HTMLSelectElement).value as LeadStage)"
+          >
+            <option v-for="opt in LEAD_STAGES" :key="opt" :value="opt">
+              {{ LEAD_STAGE_LABELS[opt] }}
+            </option>
+          </select>
+        </label>
+        <ReuseEditor v-if="editingId === l.id" :l="l" />
       </article>
     </div>
 
     <!-- Perdidos -->
     <div v-if="lostLeads.length" class="lost">
-      <button class="lost-toggle" @click="showLost = !showLost">
+      <button class="lost-toggle" :aria-expanded="showLost" @click="showLost = !showLost">
         {{ showLost ? "▾" : "▸" }} Perdidos ({{ lostLeads.length }})
       </button>
       <div v-if="showLost" class="lost-list">
@@ -881,7 +997,7 @@ useHead({ title: "Contatos · Painel" });
             <button class="admin-btn ghost sm" @click="move(l, 'novo')">
               Reabrir
             </button>
-            <button class="admin-btn danger sm" @click="remove(l)">
+            <button class="admin-btn danger-ghost sm" @click="remove(l)">
               Excluir
             </button>
           </div>
@@ -1281,6 +1397,46 @@ useHead({ title: "Contatos · Painel" });
 .admin-btn.sm :deep(svg) {
   width: 14px;
   height: 14px;
+}
+/* 40px no card (alvo de toque): com 7px de padding davam ~30px. */
+.c-actions .admin-btn.sm {
+  min-height: 40px;
+}
+@media (pointer: coarse) {
+  .c-actions .admin-btn.sm {
+    min-height: 44px;
+  }
+}
+.c-prop :deep(svg),
+.c-notes :deep(svg),
+.c-return :deep(svg),
+.c-broker :deep(svg) {
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
+}
+.c-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.c-stage .admin-input {
+  padding: 8px 10px;
+  font-size: 13.5px;
+  min-height: 40px;
+}
+.state-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.state-card p {
+  margin: 0;
 }
 
 /* Editor */

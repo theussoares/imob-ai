@@ -553,21 +553,23 @@ useHead({ title: "Meu site · Painel" });
             type="button"
             class="admin-btn ghost sm"
             :disabled="i === 0"
+            :aria-label="`Subir o link ${i + 1}`"
             @click="moveLink(i, -1)"
           >
-            ↑
+            <span aria-hidden="true">↑</span>
           </button>
           <button
             type="button"
             class="admin-btn ghost sm"
             :disabled="i === (form.footerLinks?.length ?? 0) - 1"
+            :aria-label="`Descer o link ${i + 1}`"
             @click="moveLink(i, 1)"
           >
-            ↓
+            <span aria-hidden="true">↓</span>
           </button>
           <button
             type="button"
-            class="admin-btn danger sm"
+            class="admin-btn danger-ghost sm"
             @click="removeLink(i)"
           >
             Remover
@@ -576,12 +578,13 @@ useHead({ title: "Meu site · Painel" });
         <p v-if="linkProblem(l)" class="fl-err">{{ linkProblem(l) }}</p>
       </div>
 
-      <p v-if="error" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
+      <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
         v-if="saved"
+        role="status"
         style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
       >
-        Salvo! ✅
+        Salvo! <AppIcon name="check" />
       </p>
 
       <div style="margin-top: 18px">
