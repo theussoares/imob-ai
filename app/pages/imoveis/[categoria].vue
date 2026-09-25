@@ -12,7 +12,6 @@ import { loteDoCatalogo } from '~~/shared/utils/catalog-lote'
 
 const route = useRoute()
 const tenant = useTenant()
-const requestFetch = useRequestFetch()
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true })
 
 const category = parseCategorySlug(String(route.params.categoria))
@@ -20,16 +19,8 @@ if (!category) {
   throw createError({ statusCode: 404, statusMessage: 'Categoria não encontrada.' })
 }
 
-// Mesma chave da home: navegar home <-> categoria não refaz requisição, e o
-// payload SSR não é duplicado.
-const { data: properties } = await useAsyncData(
-  'properties',
-  () => requestFetch<PropertyCard[]>('/api/properties'),
-  {
-    default: () => [] as PropertyCard[],
-    getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
-  },
-)
+// Mesma chave e formato da home — ver useCatalogCards.
+const { data: properties } = await useCatalogCards()
 
 const inCategory = computed(() =>
   (properties.value ?? []).filter(

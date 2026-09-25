@@ -1,5 +1,5 @@
 import type { ComponentPublicInstance } from "vue";
-import type { PropertyImage } from "~~/shared/models/property";
+import type { CardPhoto } from "~~/shared/models/property";
 
 /**
  * Índice ativo + navegação circular sobre uma lista de fotos do imóvel.
@@ -23,7 +23,9 @@ import type { PropertyImage } from "~~/shared/models/property";
  * 1600px inteira — desfazendo o ganho de banda que motivou trocar a
  * transformação sob demanda pela derivada estática.
  */
-export function useImageCarousel(getImages: () => PropertyImage[], opts?: { full?: boolean }) {
+// Genérico: o card passa `CardPhoto` (só o endereço, ver enxugarFotosDoCard) e
+// a galeria passa `PropertyImage` completo, que ela usa para `key` e `alt`.
+export function useImageCarousel<T extends CardPhoto>(getImages: () => T[], opts?: { full?: boolean }) {
   const activeIndex = ref(0);
   const activeImage = computed(() => getImages()[activeIndex.value] || null);
   const activeSrc = computed(() => {

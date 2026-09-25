@@ -18,25 +18,13 @@ import { hasStructuredAddress, tenantCoordinates } from "~~/shared/utils/address
 import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 
 const tenant = useTenant();
-const requestFetch = useRequestFetch();
 const requestUrl = useRequestURL();
 
 // Domínio-raiz da plataforma -> landing da Moradi (sem catálogo/tenant).
 const platformRoot = useState("platformRoot", () => false);
 if (platformRoot.value) setPageLayout("landing");
 
-const { data: properties } = await useAsyncData(
-  "properties",
-  () =>
-    platformRoot.value
-      ? Promise.resolve([] as PropertyCard[])
-      : requestFetch<PropertyCard[]>("/api/properties"),
-  {
-    default: () => [] as PropertyCard[],
-    getCachedData: (key, nuxtApp) =>
-      nuxtApp.payload.data[key] ?? nuxtApp.static.data[key],
-  },
-);
+const { data: properties } = await useCatalogCards({ vazio: platformRoot.value });
 
 const list = computed(() => properties.value ?? []);
 // useState (não reactive local): sobrevive à navegação SPA (voltar do /{slug}/{codigo}

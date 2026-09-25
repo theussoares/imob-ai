@@ -87,8 +87,24 @@ export interface PropertyCard {
   highStandard: boolean
   featured: boolean
   brokerPhone?: string | null
-  /** Até 5 fotos (capa sempre em [0]) para o carrossel do card — ver `IMAGES_PER_CARD`. */
-  images: PropertyImage[]
+  /**
+   * Até 5 fotos (capa sempre em [0]) para o carrossel do card — ver
+   * `IMAGES_PER_CARD`. `CardPhoto`, não `PropertyImage`: o endpoint entrega a
+   * foto completa, mas o card só lê o endereço, e as páginas enxugam antes de
+   * irem para o payload (ver `app/composables/useCatalogCards.ts`).
+   */
+  images: CardPhoto[]
+}
+
+/**
+ * O que o card de catálogo lê de cada foto: um endereço, e na capa as duas
+ * derivadas (`url` 1600px vira imagem de compartilhamento via `homeOgImage`;
+ * `urlSm` 640px é o que o card mostra). Qualquer campo a mais aqui volta a
+ * inflar o payload da home — `id`, `alt`, `position` e `isCover` eram 27% dele.
+ */
+export interface CardPhoto {
+  url: string
+  urlSm?: string | null
 }
 
 /** Payload de imagem enviado pelo painel ao criar/editar um imóvel. */
