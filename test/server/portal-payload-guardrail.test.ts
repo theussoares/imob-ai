@@ -311,9 +311,12 @@ describe('conta de equipe não vira cadastro de cliente', () => {
     expect(fonte).toContain('ehMembroDePainel')
     expect(fonte).toContain("from('tenant_members')")
 
-    // Só para cadastro novo: recusar no reenvio quebraria um vínculo que já
-    // existe, sem proteger nada.
-    expect(fonte).toContain('!existente && (await ehMembroDePainel(')
+    // Só para vínculo novo: recusar no reenvio quebraria um vínculo que já
+    // existe, sem proteger nada. "Novo" inclui o cliente cadastrado SEM acesso
+    // (0050) que ganha acesso agora — ligar a conta a ele é o mesmo risco de
+    // um cadastro do zero, e a recusa precisa valer ali também.
+    expect(fonte).toContain('const vinculoNovo = !existente || !existente.user_id')
+    expect(fonte).toContain('vinculoNovo && (await ehMembroDePainel(')
   })
 
   test('a recusa não revela que a conta é administrativa', () => {

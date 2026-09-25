@@ -253,12 +253,103 @@ A base legal é a execução do contrato de locação (art. 7º, V).
 
 ---
 
+## 4B. Frente C — cadastro de cliente e contrato de locação
+
+Adicionado em 25/09, depois de revisar os fluxos atuais. O diagnóstico: as telas
+de Clientes e Contratos nasceram para **publicar PDF na Área do Cliente** e agora
+precisam servir para **administrar a locação e cobrar**. Sobra passo, falta dado.
+
+### O que o mercado e a lei dizem (e o que isso decide aqui)
+
+| Fonte | O que diz | Decisão nossa |
+|---|---|---|
+| Lei 8.245/91, art. 37 e parágrafo único | quatro garantias (caução, fiança, seguro-fiança, cessão fiduciária de quotas); **mais de uma no mesmo contrato é nula** e é contravenção | garantia é **escolha única** (rádio), nunca checkbox |
+| Lei 8.245/91, art. 38 §2º | caução em dinheiro **até 3 aluguéis** | o validador recusa caução acima de 3× o aluguel |
+| Lei 8.245/91, art. 22, VIII | o seguro contra incêndio é do **locador**, salvo cláusula em contrário | campo "quem paga o seguro incêndio", com padrão locador |
+| Lei 8.245/91, art. 46 | prazo **≥ 30 meses** permite retomada sem justificativa no fim do prazo | prazo em meses com atalhos 12 e 30, e a dica do art. 46 no 30 |
+| Lei 10.192/2001 | reajuste no mínimo **anual**, no aniversário | índice é lista (IGP-M, IPCA, INPC, IVAR); não existe "periodicidade" para escolher |
+| Tabelas CRECI e mercado | taxa de administração de 8% a 10% (mercado 5–12%); taxa de locação costuma ser o 1º aluguel | taxa de administração padrão 10%, e taxa de locação em % do 1º aluguel, padrão 100% |
+| Prática de repasse | 3 a 7 dias úteis após o pagamento; sem cláusula, 5 dias úteis é o aceito | repasse em dias úteis, padrão 5 |
+| Imobzi | contato e imóvel **precisam existir** antes da locação; garantias: fiador, CredPago, caução, seguro-fiança, título de capitalização, nenhuma; beneficiário do repasse é o proprietário por padrão | criar a pessoa **dentro** do fluxo (é o atrito que o concorrente tem); mesma lista de garantias, com "garantia de empresa (ex.: CredPago)" |
+| Kenlo | "não possui garantia" e seguro incêndio podem ser **preenchidos depois**; contrato fica **pendente** até ter o que a cobrança exige | só o essencial é obrigatório; o resto vira **pendência** visível na ficha do contrato |
+| NN/g (formulários) | acima de ~10 campos, etapas curtas reduzem o esforço percebido | criação em **4 etapas**; a edição é uma página só com as mesmas seções |
+
+Fontes: [Lei 8.245 art. 37 (Jusbrasil)](https://www.jusbrasil.com.br/topicos/11731475/artigo-37-da-lei-n-8245-de-18-de-outubro-de-1991),
+[garantias (Projuris)](https://www.projuris.com.br/blog/garantias-contrato-locacao/),
+[art. 22 (Modelo Inicial)](https://modeloinicial.com.br/lei/L-8245-1991/lei-inquilinato/art-22),
+[reajuste e Lei 10.192 (ImobiBrasil)](https://www.imobibrasil.com.br/blog/reajuste-de-aluguel-2026-como-calcular-o-igp-m-e-ipca/),
+[taxa de administração (Jetimob)](https://www.jetimob.com/blog/taxa-administracao-imobiliaria/),
+[prazo de repasse (GeraContratos)](https://geracontratos.com.br/recursos/imobiliaria-nao-repassa-aluguel),
+[Imobzi, criar locação](https://help.imobzi.com/pt-br/article/como-criar-uma-locacao-10od3u5/),
+[Kenlo, cadastrar contratos](https://fresh.kenlo.com.br/support/solutions/articles/156000020873-novo-locac%C3%A3o-l-como-cadastrar-contratos-de-locac%C3%A3o),
+[NN/g, progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/).
+
+### Cliente não é o mesmo que acesso ao portal
+
+Hoje cadastrar cliente **é** convidar: e-mail obrigatório, convite na hora. Não
+dá para ter o fiador que nunca vai entrar, nem o proprietário que só usa
+WhatsApp.
+
+- `portal_users.user_id` e `email` passam a aceitar nulo: **cliente sem acesso**.
+  Toda regra de segurança do portal compara `user_id = auth.uid()` (conferido no
+  banco em 25/09: `is_portal_user`, `portal_my_parties`, `portal_users_read`), e
+  `NULL = x` nunca é verdadeiro — cliente sem acesso não enxerga nada, por
+  construção.
+- "Dar acesso à Área do Cliente" é uma ação separada, que exige e-mail e passa
+  pela MESMA regra de token de `convidarClientePortal` (sem exceção nova).
+- CPF/CNPJ passa a ser validado por dígito verificador quando preenchido, e é
+  **pendência** para cobrar (boleto exige).
+
+### O contrato: 4 etapas na criação
+
+1. **Imóvel e pessoas**: imóvel escolhido da carteira (preenche endereço e
+   aluguel) ou endereço digitado; proprietário e inquilino buscados ou
+   **criados ali mesmo** (nome e WhatsApp bastam).
+2. **Valores e prazo**: aluguel, dia de vencimento, início, prazo em meses
+   (término calculado), índice de reajuste, multa (até 10%) e juros (até 1% a.m.).
+3. **Garantia e seguro**: uma garantia só, com os campos dela (caução: valor;
+   seguro-fiança/título: seguradora e apólice; fiador: a pessoa); quem paga o
+   seguro incêndio.
+4. **Administração**: taxa de administração, taxa de locação, prazo de repasse,
+   destino do repasse (Pix ou conta do proprietário), acesso ao portal de cada
+   pessoa com e-mail e "marcar o imóvel como alugado".
+
+Obrigatório para criar: imóvel **ou** endereço, inquilino, aluguel, vencimento
+e início. O resto aparece como **pendência** na ficha: sem CPF do inquilino,
+sem multa/juros, sem destino de repasse, sem garantia. A cobrança (frente B) lê
+as mesmas pendências e não emite enquanto houver uma que a impede.
+
+O código vira automático (`LOC-2026-001`, editável). "Situação" some da
+criação: todo contrato nasce ativo, e encerrar é ação da ficha.
+
+### Decisões
+
+| Decisão | Alternativa descartada | Motivo |
+|---|---|---|
+| Pessoa criada dentro do contrato | exigir cadastro prévio, como o Imobzi | é o atrito que mais atrasa o primeiro contrato, e na demo parece burocracia |
+| Pendência em vez de campo obrigatório | tudo obrigatório na criação | contrato antigo sendo migrado raramente tem tudo à mão (o Kenlo chegou ao mesmo lugar) |
+| Termos financeiros em `contract_internal` | colunas em `contracts` | `contracts` é lida pelo portal; taxa e repasse são margem da imobiliária |
+| Destino do repasse = o do proprietário (`payout_destinations`, 0041) | escolher destino por contrato já | um proprietário por contrato cobre a demo; vários proprietários com percentual é `add column`, não migração |
+| Imóvel vira "Alugado" por opção marcada por padrão | automático, sem perguntar | muda o site público; ato que se vê e se desmarca |
+
+### Fora do escopo, por decisão
+
+- **Vários proprietários com percentual e beneficiário diferente do dono.** Existe
+  no Superlógica e no Imobzi; entra quando o primeiro cliente tiver um espólio.
+- **Geração do PDF do contrato a partir de modelo** (spec de 01/09, módulo 1).
+- **Vistoria**: fica como documento anexado, sem laudo estruturado.
+- **Aluguel garantido.** A imobiliária paga o proprietário mesmo com atraso do
+  inquilino. É produto financeiro, não campo.
+
+---
+
 ## 5. Modelo de dados novo (migrations)
 
 | Migration | Conteúdo |
 |---|---|
 | **0049_crm_historico_agenda** | `lead_events` e `lead_tasks` (RLS de membro + `revoke all from anon`); `leads.lost_reason`; `brokers.receives_leads` e `last_lead_at`; `tenants.lead_distribution`; função `proximo_corretor_da_roleta(tenant)` |
-| **0050_cobranca_provedor** | `tenant_payment_accounts` (provedor, ambiente, chave cifrada, token do webhook; **só service_role**); `payment_customers` (pessoa ↔ id no provedor); em `contract_charges`: `provider`, `external_id`, `payment_url`, `digitable_line`, `pix_copy_paste`, `issued_at`; em `contract_internal`: `fine_percent` e `interest_monthly_percent` |
+| **0050_contrato_locacao** | `portal_users.user_id`/`email` anuláveis (cliente sem acesso); em `contracts`: `term_months`, `guarantee_type`; em `contract_internal`: garantia (valor, detalhes), seguro incêndio, multa, juros, taxa de locação, prazo de repasse (ver 4B) |
+| **0051_cobranca_provedor** | `tenant_payment_accounts` (provedor, ambiente, chave cifrada, token do webhook; **só service_role**); `payment_customers` (pessoa ↔ id no provedor); em `contract_charges`: `provider`, `external_id`, `payment_url`, `digitable_line`, `pix_copy_paste`, `issued_at` |
 
 As tabelas financeiras estão vazias. Esta é a janela de migração a custo zero
 que a spec de 21/09 descreveu.

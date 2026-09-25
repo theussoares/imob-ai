@@ -300,21 +300,42 @@ export type Database = {
           admin_fee_percent: number | null
           contract_id: string
           external_id: string | null
+          fine_percent: number | null
+          fire_insurance_payer: string | null
+          guarantee_amount: number | null
+          guarantee_details: string | null
+          interest_monthly_percent: number | null
           notes: string | null
+          payout_business_days: number | null
+          rent_fee_percent: number | null
           updated_at: string
         }
         Insert: {
           admin_fee_percent?: number | null
           contract_id: string
           external_id?: string | null
+          fine_percent?: number | null
+          fire_insurance_payer?: string | null
+          guarantee_amount?: number | null
+          guarantee_details?: string | null
+          interest_monthly_percent?: number | null
           notes?: string | null
+          payout_business_days?: number | null
+          rent_fee_percent?: number | null
           updated_at?: string
         }
         Update: {
           admin_fee_percent?: number | null
           contract_id?: string
           external_id?: string | null
+          fine_percent?: number | null
+          fire_insurance_payer?: string | null
+          guarantee_amount?: number | null
+          guarantee_details?: string | null
+          interest_monthly_percent?: number | null
           notes?: string | null
+          payout_business_days?: number | null
+          rent_fee_percent?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -374,6 +395,7 @@ export type Database = {
           created_at: string
           due_day: number | null
           ends_on: string | null
+          guarantee_type: string | null
           id: string
           property_id: string | null
           rent_amount: number | null
@@ -381,6 +403,7 @@ export type Database = {
           started_on: string | null
           status: Database["public"]["Enums"]["contract_status"]
           tenant_id: string
+          term_months: number | null
           updated_at: string
         }
         Insert: {
@@ -390,6 +413,7 @@ export type Database = {
           created_at?: string
           due_day?: number | null
           ends_on?: string | null
+          guarantee_type?: string | null
           id?: string
           property_id?: string | null
           rent_amount?: number | null
@@ -397,6 +421,7 @@ export type Database = {
           started_on?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           tenant_id: string
+          term_months?: number | null
           updated_at?: string
         }
         Update: {
@@ -406,6 +431,7 @@ export type Database = {
           created_at?: string
           due_day?: number | null
           ends_on?: string | null
+          guarantee_type?: string | null
           id?: string
           property_id?: string | null
           rent_amount?: number | null
@@ -413,6 +439,7 @@ export type Database = {
           started_on?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           tenant_id?: string
+          term_months?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -985,42 +1012,42 @@ export type Database = {
           active: boolean
           created_at: string
           doc: string | null
-          email: string
+          email: string | null
           id: string
           last_recovery_at: string | null
           name: string
           phone: string | null
           tenant_id: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
-          email: string
+          email?: string | null
           id?: string
           last_recovery_at?: string | null
           name: string
           phone?: string | null
           tenant_id: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
-          email?: string
+          email?: string | null
           id?: string
           last_recovery_at?: string | null
           name?: string
           phone?: string | null
           tenant_id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

@@ -321,3 +321,74 @@ describe('o e-mail em si', () => {
     expect(enviados[0]?.para).toBe('giane@exemplo.com')
   })
 })
+
+/**
+ * Cliente cadastrado SEM acesso (0050) ganhando acesso. A mesma pergunta da
+ * suíte — quando sai um token? — para o caminho novo: a linha já existe, mas
+ * sem conta. Ela NÃO pode ser tratada como reenvio (que é o que "a linha
+ * existe" diria), senão o caso 3 voltaria pela porta dos fundos.
+ */
+describe('cliente sem acesso ganhando acesso', () => {
+  const semAcesso = () => linha({ user_id: null, access_confirmed_at: null })
+
+  test('conta nasce agora: liga a conta à MESMA linha, confirmada, com link de senha', async () => {
+    const { client, calls } = fakeSupabaseWithAuth({
+      results: {
+        portal_users: [{ data: semAcesso(), error: null }, { data: linha({ user_id: 'novo-user' }), error: null }],
+        tenant_members: { data: null, error: null },
+      },
+      users: [],
+    })
+
+    const r = await convidar(client)
+
+    const update = calls.find((c) => c.table === 'portal_users' && c.method === 'update')!.args[0] as Record<string, unknown>
+    expect(update.user_id).toBe('novo-user')
+    expect(update.access_confirmed_at).not.toBeNull()
+    // Trava contra duas abas: só liga se ainda estiver sem conta.
+    expect(calls.some((c) => c.table === 'portal_users' && c.method === 'is' && c.args[0] === 'user_id')).toBe(true)
+    // Nada de insert: é a mesma pessoa, não um cadastro novo.
+    expect(calls.some((c) => c.table === 'portal_users' && c.method === 'insert')).toBe(false)
+    expect(r.jaEraCliente).toBe(false)
+    expect(levouToken()).toBe(true)
+  })
+
+  test('⚠️ e-mail com conta de terceiro: liga SEM confirmação e avisa SEM token', async () => {
+    const { client, calls, authCalls } = fakeSupabaseWithAuth({
+      results: {
+        portal_users: [{ data: semAcesso(), error: null }, { data: linha({ user_id: 'u-de-outro-tenant' }), error: null }],
+        tenant_members: { data: null, error: null },
+      },
+      users: [{ id: 'u-de-outro-tenant', email: 'giane@exemplo.com' }],
+    })
+
+    const r = await convidar(client)
+
+    const update = calls.find((c) => c.table === 'portal_users' && c.method === 'update')!.args[0] as Record<string, unknown>
+    expect(update.access_confirmed_at).toBeNull()
+    expect(r.semToken).toBe(true)
+    expect(gerou(authCalls, 'recovery')).toBe(false)
+    expect(levouToken()).toBe(false)
+  })
+
+  test('e-mail de conta de equipe é recusado também aqui — vínculo novo é vínculo novo', async () => {
+    const { client, calls } = fakeSupabaseWithAuth({
+      results: {
+        portal_users: [{ data: semAcesso(), error: null }],
+        tenant_members: { data: { id: 'm-1' }, error: null },
+      },
+      users: [{ id: 'u-operador', email: 'giane@exemplo.com' }],
+    })
+
+    await expect(convidar(client)).rejects.toMatchObject({ statusCode: 409 })
+    expect(calls.some((c) => c.table === 'portal_users' && c.method === 'update')).toBe(false)
+  })
+
+  test('sem e-mail não há acesso: recusado antes de qualquer chamada ao Auth', async () => {
+    const { client, authCalls } = fakeSupabaseWithAuth({ results: {}, users: [] })
+    await expect(
+      convidarClientePortal(client, TENANT, REMETENTE, { ...ENTRADA, email: null }, REDIRECT, PORTAL),
+    ).rejects.toMatchObject({ statusCode: 422 })
+    expect(authCalls).toHaveLength(0)
+  })
+})

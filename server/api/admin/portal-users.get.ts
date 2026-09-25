@@ -1,7 +1,7 @@
-import { listPortalUsers } from '~~/server/repositories/portal-user.repository'
+import { listClientsWithContracts } from '~~/server/repositories/portal-user.repository'
 
-/** Lista os clientes do portal deste tenant. */
+/** Clientes da imobiliária, com os contratos e o papel de cada um. */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
-  return listPortalUsers(client, tenant.id)
+  return listClientsWithContracts(client, tenant.id)
 })

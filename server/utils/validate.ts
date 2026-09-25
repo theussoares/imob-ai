@@ -14,6 +14,14 @@ import type {
 } from '~~/shared/models/lead-activity'
 import { LEAD_MANUAL_EVENT_KINDS, LEAD_TASK_KINDS } from '~~/shared/models/lead-activity'
 import { assertMaxLength } from '~~/server/utils/rate-limit'
+import type { GuaranteeType, LeaseCreateInput, PayoutDestinationInput } from '~~/shared/models/lease'
+import {
+  GUARANTEE_TYPES,
+  MAX_CAUCAO_ALUGUEIS,
+  MAX_FINE_PERCENT,
+  MAX_INTEREST_MONTHLY_PERCENT,
+} from '~~/shared/models/lease'
+import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { dentroDoBrasil } from '~~/shared/utils/address'
 import { isHexColor } from '~~/shared/utils/brand-color'
@@ -393,6 +401,20 @@ export function assertContractInput(input: unknown): asserts input is ContractIn
       statusMessage: 'Informe o imóvel do catálogo ou escreva o endereço do contrato.',
     })
   }
+  if (temImovel && !ehUuid(String(c.propertyId))) {
+    throw createError({ statusCode: 422, statusMessage: 'Imóvel inválido.' })
+  }
+  if (c.termMonths !== undefined && c.termMonths !== null) {
+    const m = Number(c.termMonths)
+    if (!Number.isInteger(m) || m < 1 || m > 600) {
+      throw createError({ statusCode: 422, statusMessage: 'Prazo deve ser em meses, entre 1 e 600.' })
+    }
+  }
+  // Uma garantia só (Lei 8.245, art. 37, parágrafo único): um valor da lista,
+  // nunca uma lista de valores.
+  if (c.guaranteeType !== undefined && c.guaranteeType !== null && !GUARANTEE_TYPES.includes(c.guaranteeType as GuaranteeType)) {
+    throw createError({ statusCode: 422, statusMessage: 'Escolha uma garantia da lista. A lei não permite mais de uma no mesmo contrato.' })
+  }
 }
 
 /** Valida o cadastro de um cliente do portal. */
@@ -407,15 +429,38 @@ export function assertPortalUserInput(input: unknown): asserts input is PortalUs
   }
 
   // O e-mail é a identidade da pessoa no Auth e a chave do convite. E-mail
-  // errado aqui não é campo errado: é convite entregue a outra pessoa.
+  // errado aqui não é campo errado: é convite entregue a outra pessoa. Sem
+  // convite (cliente sem acesso, 0050) ele é opcional — mas se vier, é válido.
   const email = String(u.email ?? '').trim()
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+  if (u.convidar && !email) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe o e-mail para enviar o convite da Área do Cliente.' })
+  }
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     throw createError({ statusCode: 422, statusMessage: 'E-mail inválido.' })
   }
 
   if (u.phone !== undefined && u.phone !== null && String(u.phone).trim() && !isValidWhatsapp(String(u.phone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do cliente inválido.' })
   }
+  assertDocumentoOpcional(u.doc)
+}
+
+/**
+ * CPF/CNPJ, quando informado, fecha o dígito verificador: o boleto exige o
+ * documento do pagador e o provedor recusa o que não fecha.
+ */
+function assertDocumentoOpcional(v: unknown) {
+  if (v === undefined || v === null || !String(v).trim()) return
+  if (!tipoDeDocumento(String(v))) {
+    throw createError({ statusCode: 422, statusMessage: 'CPF/CNPJ inválido. Confira os números.' })
+  }
+}
+
+/** Percentual opcional dentro de [min, max], com mensagem que diz o limite. */
+function assertPercentual(v: unknown, max: number, mensagem: string) {
+  if (v === undefined || v === null || v === '') return
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0 || n > max) throw createError({ statusCode: 422, statusMessage: mensagem })
 }
 
 /** Valida o público-alvo de um documento vindo do painel. */
@@ -454,6 +499,40 @@ export function assertContractInternalInput(input: unknown): asserts input is Co
         statusMessage: 'Taxa de administração deve ser entre 0 e 100.',
       })
     }
+  }
+  // Os mesmos tetos dos CHECKs da 0050, adiantados para virar frase legível.
+  assertPercentual(i.finePercent, MAX_FINE_PERCENT, `Multa por atraso: no máximo ${MAX_FINE_PERCENT}%.`)
+  assertPercentual(i.interestMonthlyPercent, MAX_INTEREST_MONTHLY_PERCENT, `Juros de mora: no máximo ${MAX_INTEREST_MONTHLY_PERCENT}% ao mês.`)
+  assertPercentual(i.rentFeePercent, 100, 'Taxa de locação: entre 0% e 100% do primeiro aluguel.')
+  if (i.payoutBusinessDays !== undefined && i.payoutBusinessDays !== null) {
+    const d = Number(i.payoutBusinessDays)
+    if (!Number.isInteger(d) || d < 0 || d > 30) {
+      throw createError({ statusCode: 422, statusMessage: 'Prazo de repasse: entre 0 e 30 dias úteis.' })
+    }
+  }
+  if (i.guaranteeAmount !== undefined && i.guaranteeAmount !== null) {
+    const v = Number(i.guaranteeAmount)
+    if (!Number.isFinite(v) || v < 0) throw createError({ statusCode: 422, statusMessage: 'Valor da garantia inválido.' })
+  }
+  if (i.fireInsurancePayer !== undefined && i.fireInsurancePayer !== null && !['locador', 'locatario', 'nao_contratado'].includes(String(i.fireInsurancePayer))) {
+    throw createError({ statusCode: 422, statusMessage: 'Seguro incêndio: opção inválida.' })
+  }
+  if (i.guaranteeDetails != null) assertMaxLength(String(i.guaranteeDetails), 1000, 'Detalhes da garantia')
+}
+
+/**
+ * Caução em dinheiro até 3 aluguéis (Lei 8.245, art. 38, §2º). Função à parte
+ * porque cruza dois registros: o valor mora em `contract_internal` e o aluguel
+ * em `contracts`.
+ */
+export function assertCaucaoDentroDoLimite(guaranteeType: unknown, guaranteeAmount: unknown, rentAmount: unknown) {
+  if (guaranteeType !== 'caucao' || guaranteeAmount == null || rentAmount == null) return
+  const limite = Number(rentAmount) * MAX_CAUCAO_ALUGUEIS
+  if (Number(guaranteeAmount) > limite + 0.001) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: `Caução acima do permitido: até ${MAX_CAUCAO_ALUGUEIS} aluguéis (Lei 8.245, art. 38).`,
+    })
   }
 }
 
@@ -514,4 +593,91 @@ export function idDeRota(valor: string | null | undefined, rotulo = 'ID'): strin
     throw createError({ statusCode: 400, statusMessage: `${rotulo} inválido.` })
   }
   return id
+}
+
+/** Pessoa do contrato: `{ id }` de alguém da carteira, ou `{ nova }` com nome. */
+function assertPessoa(v: unknown, rotulo: string, obrigatoria: boolean) {
+  if (v === undefined || v === null) {
+    if (obrigatoria) throw createError({ statusCode: 422, statusMessage: `Informe o ${rotulo}.` })
+    return
+  }
+  const p = v as Record<string, unknown>
+  if (typeof p.id === 'string') {
+    if (!ehUuid(p.id)) throw createError({ statusCode: 422, statusMessage: `${rotulo[0]!.toUpperCase()}${rotulo.slice(1)} inválido.` })
+    return
+  }
+  if (p.nova && typeof p.nova === 'object') {
+    // Mesmas regras do cadastro de cliente, sem convite: quem é criado aqui
+    // nasce sem acesso, e o convite (se pedido) sai depois, pelo caminho de sempre.
+    assertPortalUserInput({ ...(p.nova as object), convidar: false })
+    return
+  }
+  throw createError({ statusCode: 422, statusMessage: `Informe o ${rotulo}.` })
+}
+
+/** Destino do repasse (Pix ou conta), nos formatos que o CHECK da 0041 aceita. */
+export function assertRepasseInput(v: unknown): asserts v is PayoutDestinationInput {
+  if (v === undefined || v === null) throw createError({ statusCode: 422, statusMessage: 'Informe o Pix ou a conta do repasse.' })
+  assertRepasse(v)
+}
+
+function assertRepasse(v: unknown) {
+  if (v === undefined || v === null) return
+  const r = v as Record<string, unknown>
+  if (!String(r.holderName ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Repasse: informe o titular.' })
+  if (!tipoDeDocumento(String(r.holderDoc ?? ''))) {
+    throw createError({ statusCode: 422, statusMessage: 'Repasse: CPF/CNPJ do titular inválido.' })
+  }
+  if (r.kind === 'pix') {
+    if (!['cpf', 'cnpj', 'email', 'telefone', 'aleatoria'].includes(String(r.pixKeyType))) {
+      throw createError({ statusCode: 422, statusMessage: 'Repasse: tipo de chave Pix inválido.' })
+    }
+    if (!String(r.pixKey ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Repasse: informe a chave Pix.' })
+    assertMaxLength(String(r.pixKey), 140, 'Chave Pix')
+    return
+  }
+  if (r.kind === 'conta_bancaria') {
+    if (!/^\d{3}$/.test(String(r.bankCode ?? ''))) {
+      throw createError({ statusCode: 422, statusMessage: 'Repasse: código do banco tem 3 dígitos (ex.: 001, 237, 341).' })
+    }
+    if (!/^\d{1,6}$/.test(String(r.branch ?? ''))) throw createError({ statusCode: 422, statusMessage: 'Repasse: agência inválida.' })
+    if (!/^\d{1,20}$/.test(String(r.account ?? ''))) throw createError({ statusCode: 422, statusMessage: 'Repasse: conta inválida.' })
+    if (!['corrente', 'poupanca', 'pagamento'].includes(String(r.accountType))) {
+      throw createError({ statusCode: 422, statusMessage: 'Repasse: tipo de conta inválido.' })
+    }
+    return
+  }
+  throw createError({ statusCode: 422, statusMessage: 'Repasse: escolha Pix ou conta bancária.' })
+}
+
+/**
+ * O contrato inteiro do assistente. Obrigatório só o que a locação não
+ * existe sem (imóvel ou endereço, inquilino, aluguel, vencimento, início); o
+ * resto vira pendência — ver `pendenciasDoContrato`.
+ */
+export function assertLeaseCreateInput(input: unknown): asserts input is LeaseCreateInput {
+  if (!input || typeof input !== 'object') throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  const l = input as Record<string, unknown>
+
+  if (!(Number(l.rentAmount) > 0)) throw createError({ statusCode: 422, statusMessage: 'Informe o valor do aluguel.' })
+  if (l.dueDay == null) throw createError({ statusCode: 422, statusMessage: 'Informe o dia do vencimento.' })
+  if (!l.startedOn || !/^\d{4}-\d{2}-\d{2}$/.test(String(l.startedOn))) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe a data de início.' })
+  }
+  // Reaproveita as regras do contrato (vencimento, imóvel/endereço, prazo,
+  // garantia) e dos campos internos (multa, juros, taxas), sem duplicar.
+  assertContractInput({ ...l, code: String(l.code ?? '').trim() || 'gerado' })
+  assertContractInternalInput(l)
+  assertCaucaoDentroDoLimite(l.guaranteeType, l.guaranteeAmount, l.rentAmount)
+
+  assertPessoa(l.inquilino, 'inquilino', true)
+  assertPessoa(l.proprietario, 'proprietário', false)
+  assertPessoa(l.fiador, 'fiador', false)
+  if (l.fiador && l.guaranteeType !== 'fiador') {
+    throw createError({ statusCode: 422, statusMessage: 'Fiador só com a garantia "Fiador" — a lei não permite duas garantias.' })
+  }
+  if (l.repasse && !l.proprietario) {
+    throw createError({ statusCode: 422, statusMessage: 'O repasse precisa de um proprietário no contrato.' })
+  }
+  assertRepasse(l.repasse)
 }
