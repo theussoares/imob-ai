@@ -47,6 +47,7 @@ const icons: Record<string, string> = {
   contacts: 'tabler:address-book',
   refresh: 'tabler:refresh',
   external: 'tabler:external-link',
+  spark: 'tabler:sparkles',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

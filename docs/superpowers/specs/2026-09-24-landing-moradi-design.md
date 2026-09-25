@@ -22,6 +22,10 @@ vista e FAQ.
   Instrument Serif itálico em uma palavra por título no máximo.
 - Imagens em `public/moradi/` (WebP): prints da demo (inclusive com três cores
   de marca), fotos Unsplash (licença Unsplash, uso comercial livre).
+  Os prints saem de `scripts/prints-landing.mjs` (Playwright contra o dev
+  server, tenant `demo`, cores aplicadas só na captura). Toda mudança visual no
+  catálogo pede rodar de novo: o print é prova só enquanto for igual à demo —
+  na primeira mudança, ele passou a mostrar um defeito já corrigido.
 - Preços, teste grátis de 3 dias e recursos tirados do código e do banco.
 
 ## Fora do escopo por decisão

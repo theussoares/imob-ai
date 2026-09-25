@@ -34,3 +34,24 @@ export interface AiGeneration {
  */
 export const COTA_MENSAL_DESCRICAO = 100
 export const COTA_MINUTO_DESCRICAO = 10
+
+/** Saldo de gerações do mês, como o painel mostra antes de gerar. */
+export interface SaldoMensalIA {
+  usadas: number
+  limite: number
+  restantes: number
+}
+
+/**
+ * `usadas` pode passar do teto: reservas concorrentes e tentativas que falham
+ * também contam (ver `gerarDescricao`). O saldo nunca fica negativo na tela —
+ * "restam -2" não diz nada que "restam 0" não diga melhor.
+ */
+export function saldoMensalDescricao(usadas: number): SaldoMensalIA {
+  const u = Number.isFinite(usadas) && usadas > 0 ? Math.floor(usadas) : 0
+  return {
+    usadas: u,
+    limite: COTA_MENSAL_DESCRICAO,
+    restantes: Math.max(0, COTA_MENSAL_DESCRICAO - u),
+  }
+}
