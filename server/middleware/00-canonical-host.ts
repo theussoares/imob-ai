@@ -16,6 +16,10 @@ export default defineEventHandler(async (event) => {
   // 301 em POST mudaria o método da requisição no caminho. Só leitura.
   if (event.method !== 'GET' && event.method !== 'HEAD') return
 
+  // O cron da Vercel não segue redirect: um 301 aqui faria o lembrete diário
+  // parar de sair, com o cron marcado como "executado" no painel da Vercel.
+  if ((event.path || '').startsWith('/api/cron/')) return
+
   const hostname = getHostname(event)
 
   /**
