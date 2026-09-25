@@ -62,10 +62,12 @@ export type Database = {
           creci: string | null
           email: string | null
           id: string
+          last_lead_at: string | null
           name: string
           phone: string | null
           photo_url: string | null
           public_visible: boolean
+          receives_leads: boolean
           tenant_id: string
           updated_at: string
         }
@@ -76,10 +78,12 @@ export type Database = {
           creci?: string | null
           email?: string | null
           id?: string
+          last_lead_at?: string | null
           name: string
           phone?: string | null
           photo_url?: string | null
           public_visible?: boolean
+          receives_leads?: boolean
           tenant_id: string
           updated_at?: string
         }
@@ -90,10 +94,12 @@ export type Database = {
           creci?: string | null
           email?: string | null
           id?: string
+          last_lead_at?: string | null
           name?: string
           phone?: string | null
           photo_url?: string | null
           public_visible?: boolean
+          receives_leads?: boolean
           tenant_id?: string
           updated_at?: string
         }
@@ -426,6 +432,137 @@ export type Database = {
           },
         ]
       }
+      lead_events: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          lead_id: string
+          meta: Json
+          occurred_at: string
+          tenant_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          lead_id: string
+          meta?: Json
+          occurred_at?: string
+          tenant_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          lead_id?: string
+          meta?: Json
+          occurred_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_events_lead_id_tenant_id_fkey"
+            columns: ["lead_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tasks: {
+        Row: {
+          broker_id: string | null
+          canceled_at: string | null
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          done_by: string | null
+          due_at: string
+          id: string
+          kind: string
+          lead_id: string | null
+          property_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          broker_id?: string | null
+          canceled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          due_at: string
+          id?: string
+          kind: string
+          lead_id?: string | null
+          property_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          broker_id?: string | null
+          canceled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          due_at?: string
+          id?: string
+          kind?: string
+          lead_id?: string | null
+          property_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tasks_broker_id_tenant_id_fkey"
+            columns: ["broker_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_lead_id_tenant_id_fkey"
+            columns: ["lead_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_property_id_tenant_id_fkey"
+            columns: ["property_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           broker_id: string | null
@@ -433,6 +570,7 @@ export type Database = {
           id: string
           ip_hash: string | null
           lead_type: string
+          lost_reason: string | null
           message: string | null
           name: string | null
           next_contact_at: string | null
@@ -451,6 +589,7 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           lead_type?: string
+          lost_reason?: string | null
           message?: string | null
           name?: string | null
           next_contact_at?: string | null
@@ -469,6 +608,7 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           lead_type?: string
+          lost_reason?: string | null
           message?: string | null
           name?: string | null
           next_contact_at?: string | null
@@ -1195,22 +1335,23 @@ export type Database = {
           footer_links: Json
           footer_pages: Json
           footer_text: string | null
+          header_style: string
           hero_cta_href: string | null
           hero_cta_label: string | null
           hero_image: string | null
           hero_image_position: string
-          header_style: string
-          site_theme: string
           hero_subtitle: string | null
           hero_title: string | null
           id: string
           instagram: string | null
           latitude: number | null
+          lead_distribution: string
           logo_url: string | null
           longitude: number | null
           name: string
           phone: string | null
           portal_enabled: boolean
+          site_theme: string
           slug: string
           state: string | null
           tagline: string | null
@@ -1241,22 +1382,23 @@ export type Database = {
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
+          header_style?: string
           hero_cta_href?: string | null
           hero_cta_label?: string | null
           hero_image?: string | null
           hero_image_position?: string
-          header_style?: string
-          site_theme?: string
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           instagram?: string | null
           latitude?: number | null
+          lead_distribution?: string
           logo_url?: string | null
           longitude?: number | null
           name: string
           phone?: string | null
           portal_enabled?: boolean
+          site_theme?: string
           slug: string
           state?: string | null
           tagline?: string | null
@@ -1287,22 +1429,23 @@ export type Database = {
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
+          header_style?: string
           hero_cta_href?: string | null
           hero_cta_label?: string | null
           hero_image?: string | null
           hero_image_position?: string
-          header_style?: string
-          site_theme?: string
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           instagram?: string | null
           latitude?: number | null
+          lead_distribution?: string
           logo_url?: string | null
           longitude?: number | null
           name?: string
           phone?: string | null
           portal_enabled?: boolean
+          site_theme?: string
           slug?: string
           state?: string | null
           tagline?: string | null
@@ -1384,6 +1527,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      proximo_corretor_da_roleta: {
+        Args: { p_tenant_id: string }
+        Returns: string | null
+      }
       is_member_of_slug: { Args: { folder: string }; Returns: boolean }
       is_portal_user: { Args: { t_id: string }; Returns: boolean }
       is_tenant_member: { Args: { t_id: string }; Returns: boolean }

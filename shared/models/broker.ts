@@ -13,6 +13,10 @@ export interface Broker {
   bio: string | null
   /** Optou por aparecer no carrossel de corretores da página "Quem somos"? Padrão: não. */
   publicVisible: boolean
+  /** Entra na roleta de leads (quando a imobiliária usa roleta). Padrão: não. */
+  receivesLeads: boolean
+  /** Último lead que a roleta entregou — define quem é o próximo. */
+  lastLeadAt: string | null
 }
 
 export interface BrokerInput {
@@ -24,6 +28,7 @@ export interface BrokerInput {
   photoUrl?: string | null
   bio?: string | null
   publicVisible?: boolean
+  receivesLeads?: boolean
 }
 
 /**

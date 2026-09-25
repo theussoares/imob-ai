@@ -4,7 +4,16 @@ import { areaRangeError, priceRangeError, roomsRangeError } from '~~/shared/util
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
 import type { BrokerInput } from '~~/shared/models/broker'
 import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
-import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
+import { ALL_LEAD_STAGES, LEAD_TYPES, toLeadLostReason } from '~~/shared/models/lead'
+import type {
+  LeadEventInput,
+  LeadManualEventKind,
+  LeadTaskInput,
+  LeadTaskKind,
+  LeadTaskUpdateInput,
+} from '~~/shared/models/lead-activity'
+import { LEAD_MANUAL_EVENT_KINDS, LEAD_TASK_KINDS } from '~~/shared/models/lead-activity'
+import { assertMaxLength } from '~~/server/utils/rate-limit'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { dentroDoBrasil } from '~~/shared/utils/address'
 import { isHexColor } from '~~/shared/utils/brand-color'
@@ -210,7 +219,7 @@ export function assertLeadCreateInput(input: unknown): asserts input is LeadCrea
   assertOptionalDate(l.nextContactAt, 'Data de retorno')
 }
 
-/** Valida a edição de um lead (mover no funil, anotar, agendar). */
+/** Valida a edição de um lead (mover no funil, trocar o responsável). */
 export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpdateInput {
   if (!input || typeof input !== 'object') {
     throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
@@ -225,7 +234,86 @@ export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpda
   if (l.name !== undefined && l.name !== null && !String(l.name).trim()) {
     throw createError({ statusCode: 422, statusMessage: 'Nome não pode ficar vazio.' })
   }
-  assertOptionalDate(l.nextContactAt, 'Data de retorno')
+  if (l.lostReason !== undefined && l.lostReason !== null && !toLeadLostReason(l.lostReason)) {
+    throw createError({ statusCode: 422, statusMessage: 'Motivo de perda inválido.' })
+  }
+  // Perder sem dizer por quê é o que tornaria o relatório de perdas inútil.
+  if (l.stage === 'perdido' && !toLeadLostReason(l.lostReason)) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe o motivo da perda.' })
+  }
+  // Anotação e retorno viraram linha do tempo e tarefa (0049). Recusar em vez
+  // de ignorar: uma tela antiga que ainda mande estes campos acharia que
+  // salvou, e a anotação sumiria calada.
+  if (l.notes !== undefined || l.nextContactAt !== undefined) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Anotações e retornos agora ficam no histórico e na agenda do contato.',
+    })
+  }
+}
+
+/** Registro manual na linha do tempo. */
+export function assertLeadEventInput(input: unknown): asserts input is LeadEventInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const e = input as Record<string, unknown>
+  if (!LEAD_MANUAL_EVENT_KINDS.includes(e.kind as LeadManualEventKind)) {
+    throw createError({ statusCode: 422, statusMessage: 'Tipo de registro inválido.' })
+  }
+  const body = String(e.body ?? '').trim()
+  if (!body) throw createError({ statusCode: 422, statusMessage: 'Escreva o que aconteceu.' })
+  assertMaxLength(body, 4000, 'Registro')
+  assertOptionalDate(e.occurredAt, 'Data do registro')
+  // Registro no futuro seria agenda, não histórico — e empurraria o evento
+  // para o topo da linha do tempo. Um minuto de folga para relógio adiantado.
+  if (e.occurredAt && new Date(String(e.occurredAt)).getTime() > Date.now() + 60_000) {
+    throw createError({ statusCode: 422, statusMessage: 'O registro não pode ser no futuro. Para marcar algo, crie uma tarefa.' })
+  }
+}
+
+/** Tarefa nova (visita, retorno). Lead, imóvel e corretor são conferidos contra o tenant pela FK composta (0049). */
+export function assertLeadTaskInput(input: unknown): asserts input is LeadTaskInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const t = input as Record<string, unknown>
+  if (!LEAD_TASK_KINDS.includes(t.kind as LeadTaskKind)) {
+    throw createError({ statusCode: 422, statusMessage: 'Tipo de tarefa inválido.' })
+  }
+  const title = String(t.title ?? '').trim()
+  if (!title) throw createError({ statusCode: 422, statusMessage: 'Dê um título à tarefa.' })
+  assertMaxLength(title, 200, 'Título')
+  if (!t.dueAt || Number.isNaN(new Date(String(t.dueAt)).getTime())) {
+    throw createError({ statusCode: 422, statusMessage: 'Data da tarefa inválida.' })
+  }
+  for (const [campo, rotulo] of [['leadId', 'Contato'], ['propertyId', 'Imóvel'], ['brokerId', 'Corretor']] as const) {
+    const v = t[campo]
+    if (v !== undefined && v !== null && v !== '' && !ehUuid(String(v))) {
+      throw createError({ statusCode: 422, statusMessage: `${rotulo} inválido.` })
+    }
+  }
+}
+
+export function assertLeadTaskUpdateInput(input: unknown): asserts input is LeadTaskUpdateInput {
+  if (!input || typeof input !== 'object') {
+    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
+  }
+  const t = input as Record<string, unknown>
+  if (t.done && t.canceled) {
+    throw createError({ statusCode: 422, statusMessage: 'A tarefa não pode ser concluída e cancelada ao mesmo tempo.' })
+  }
+  if (t.dueAt !== undefined && Number.isNaN(new Date(String(t.dueAt)).getTime())) {
+    throw createError({ statusCode: 422, statusMessage: 'Data da tarefa inválida.' })
+  }
+  if (t.title !== undefined) {
+    const title = String(t.title ?? '').trim()
+    if (!title) throw createError({ statusCode: 422, statusMessage: 'Dê um título à tarefa.' })
+    assertMaxLength(title, 200, 'Título')
+  }
+  if (t.brokerId !== undefined && t.brokerId !== null && t.brokerId !== '' && !ehUuid(String(t.brokerId))) {
+    throw createError({ statusCode: 422, statusMessage: 'Corretor inválido.' })
+  }
 }
 
 /** Valida o payload de corretor vindo do painel. */
@@ -245,6 +333,9 @@ export function assertBrokerInput(input: unknown): asserts input is BrokerInput 
   }
   if (b.bio !== undefined && b.bio !== null && String(b.bio).length > 500) {
     throw createError({ statusCode: 422, statusMessage: 'Minibio muito longa (máx. 500 caracteres).' })
+  }
+  if (b.receivesLeads !== undefined && typeof b.receivesLeads !== 'boolean') {
+    throw createError({ statusCode: 422, statusMessage: 'Roleta: valor inválido.' })
   }
 }
 
