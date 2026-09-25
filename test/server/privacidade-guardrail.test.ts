@@ -82,6 +82,13 @@ describe('privacidade: o que a política afirma continua verdade', () => {
     for (const f of arquivos('server')) {
       for (const m of semComentarios(ler(f)).matchAll(/fetch\(\s*['"`]https:\/\/([^/'"`]+)/g)) hosts.add(m[1]!)
     }
+    // Adaptadores de serviço externo (`server/services`) montam a URL a partir
+    // de uma constante, não de um `fetch('https://…')` literal — e o Asaas
+    // passou invisível à regex acima na primeira versão. Aqui, QUALQUER
+    // endereço https escrito nesses arquivos conta como destino.
+    for (const f of arquivos('server/services')) {
+      for (const m of semComentarios(ler(f)).matchAll(/['"`]https:\/\/([a-z0-9.-]+)/g)) hosts.add(m[1]!)
+    }
     // SDKs chamam o serviço por dentro, sem URL no nosso código: vigiados pelo
     // package.json. A regex pega os nomes típicos de quem recebe dado de
     // pessoa (e-mail, SMS, anúncio, rastreamento, suporte, pagamento).
@@ -95,8 +102,14 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       `Serviço externo novo. Se ele recebe dado de visitante ou cliente, atualize "Com quem ` +
         `compartilhamos" em ${POLITICA} e veja a transferência internacional (Q3) em ${PARECER}.`,
     ).toEqual({
-      // Resend — "Resend" na política (e-mail de aviso de lead, EUA).
-      hosts: ['api.resend.com'],
+      hosts: [
+        // Asaas — "Asaas" na política (boleto e Pix do aluguel, no Brasil),
+        // produção e sandbox.
+        'api-sandbox.asaas.com',
+        'api.asaas.com',
+        // Resend — "Resend" na política (e-mail de aviso de lead, EUA).
+        'api.resend.com',
+      ],
       sdks: [
         // Descrição por IA: recebe só dados do imóvel, nunca do visitante —
         // `test/server/descricao-prompt.test.ts` trava isso. Por isso não

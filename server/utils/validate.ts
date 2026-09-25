@@ -35,6 +35,14 @@ import type {
 } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_ROLES, PORTAL_DOC_CATEGORIES } from '~~/shared/models/portal'
 import { ehUuid } from '~~/shared/utils/uuid'
+import type {
+  ChargeCreateInput,
+  ChargeItemKind,
+  ManualSettlementInput,
+  PaymentAccountInput,
+  SettlementMethod,
+} from '~~/shared/models/cobranca'
+import { CHARGE_ITEM_KINDS_MANUAIS, CHARGE_ITEM_LABELS, MANUAL_SETTLEMENT_METHODS } from '~~/shared/models/cobranca'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -680,4 +688,86 @@ export function assertLeaseCreateInput(input: unknown): asserts input is LeaseCr
     throw createError({ statusCode: 422, statusMessage: 'O repasse precisa de um proprietário no contrato.' })
   }
   assertRepasse(l.repasse)
+}
+
+// ---------------------------------------------------------------------------
+// Cobrança (0051)
+// ---------------------------------------------------------------------------
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/
+
+function assertValor(v: unknown, rotulo: string, { podeNegativo = false } = {}) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) throw createError({ statusCode: 422, statusMessage: `${rotulo}: valor inválido.` })
+  if (!podeNegativo && v <= 0) throw createError({ statusCode: 422, statusMessage: `${rotulo}: o valor precisa ser maior que zero.` })
+  // Teto de sanidade: um aluguel de R$ 10 milhões é dígito a mais, não negócio.
+  if (Math.abs(v) > 10_000_000) throw createError({ statusCode: 422, statusMessage: `${rotulo}: valor alto demais.` })
+  // Mais de 2 casas decimais é float de conta mal feita na tela; o banco
+  // arredondaria calado e o boleto sairia 1 centavo diferente do mostrado.
+  if (Math.abs(v * 100 - Math.round(v * 100)) > 1e-6) {
+    throw createError({ statusCode: 422, statusMessage: `${rotulo}: use no máximo 2 casas decimais.` })
+  }
+}
+
+export function assertChargeCreateInput(input: unknown): asserts input is ChargeCreateInput {
+  const b = (input ?? {}) as Record<string, unknown>
+  if (b.kind !== undefined && b.kind !== 'mensal' && b.kind !== 'avulsa') {
+    throw createError({ statusCode: 422, statusMessage: 'Tipo de cobrança inválido.' })
+  }
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(b.competence ?? ''))) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe o mês de referência (ocupação).' })
+  }
+  if (!DATA_ISO.test(String(b.dueOn ?? '')) || Number.isNaN(Date.parse(String(b.dueOn)))) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe o vencimento.' })
+  }
+  if (b.rentAmount !== undefined && b.rentAmount !== null) assertValor(b.rentAmount, 'Aluguel')
+  if (b.extras !== undefined) {
+    if (!Array.isArray(b.extras) || b.extras.length > 20) throw createError({ statusCode: 422, statusMessage: 'Itens inválidos.' })
+    for (const x of b.extras as Record<string, unknown>[]) {
+      if (!CHARGE_ITEM_KINDS_MANUAIS.includes(x?.kind as ChargeItemKind)) {
+        throw createError({ statusCode: 422, statusMessage: 'Tipo de item inválido.' })
+      }
+      const rotulo = CHARGE_ITEM_LABELS[x.kind as ChargeItemKind]
+      assertValor(x.amount, rotulo, { podeNegativo: true })
+      // Desconto é o único item que reduz; os outros só somam. Sinal trocado
+      // na tela viraria cobrança a menos sem ninguém perceber.
+      if (x.kind === 'desconto' ? (x.amount as number) >= 0 : (x.amount as number) <= 0) {
+        throw createError({ statusCode: 422, statusMessage: `${rotulo}: ${x.kind === 'desconto' ? 'desconto é negativo' : 'valor precisa ser positivo'}.` })
+      }
+      if (x.description != null) assertMaxLength(String(x.description), 120, 'Descrição do item')
+    }
+  }
+}
+
+export function assertManualSettlementInput(input: unknown): asserts input is ManualSettlementInput {
+  const b = (input ?? {}) as Record<string, unknown>
+  assertValor(b.amount, 'Pagamento')
+  if (!DATA_ISO.test(String(b.settledOn ?? ''))) throw createError({ statusCode: 422, statusMessage: 'Informe a data do pagamento.' })
+  if (!MANUAL_SETTLEMENT_METHODS.includes(b.method as SettlementMethod)) {
+    throw createError({ statusCode: 422, statusMessage: 'Forma de pagamento inválida.' })
+  }
+}
+
+export function assertPaymentAccountInput(input: unknown): asserts input is PaymentAccountInput {
+  const b = (input ?? {}) as Record<string, unknown>
+  if (b.provider !== 'asaas' && b.provider !== 'simulado') throw createError({ statusCode: 422, statusMessage: 'Provedor inválido.' })
+  if (b.environment !== 'sandbox' && b.environment !== 'producao') throw createError({ statusCode: 422, statusMessage: 'Ambiente inválido.' })
+  if (b.provider === 'simulado' && b.environment !== 'sandbox') {
+    throw createError({ statusCode: 422, statusMessage: 'O provedor simulado só existe como demonstração (sandbox).' })
+  }
+  if (b.provider === 'asaas') {
+    const chave = String(b.apiKey ?? '').trim()
+    if (chave.length < 20 || chave.length > 400 || /\s/.test(chave)) {
+      throw createError({ statusCode: 422, statusMessage: 'Cole a chave de API completa do Asaas (começa com $aact_).' })
+    }
+    // A chave de sandbox tem `_hmlg_` no meio. Chave de um ambiente no outro
+    // é o erro de configuração mais comum, e o Asaas só responde 401 — sem
+    // dizer que o problema é o ambiente.
+    const ehSandbox = chave.includes('_hmlg_')
+    if (b.environment === 'producao' && ehSandbox) {
+      throw createError({ statusCode: 422, statusMessage: 'Esta é uma chave de SANDBOX. Escolha o ambiente "Sandbox (testes)" ou cole a chave de produção.' })
+    }
+    if (b.environment === 'sandbox' && chave.includes('_prod_')) {
+      throw createError({ statusCode: 422, statusMessage: 'Esta é uma chave de PRODUÇÃO. Escolha o ambiente "Produção" ou cole a chave do sandbox.' })
+    }
+  }
 }

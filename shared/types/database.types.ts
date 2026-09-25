@@ -237,6 +237,7 @@ export type Database = {
       }
       contract_charges: {
         Row: {
+          bank_slip_url: string | null
           cancel_reason: string | null
           canceled_at: string | null
           canceled_by: string | null
@@ -244,13 +245,23 @@ export type Database = {
           contract_id: string
           created_at: string
           created_by: string | null
+          digitable_line: string | null
           due_on: string
+          external_id: string | null
+          fine_percent: number | null
           id: string
+          interest_monthly_percent: number | null
           issued_amount: number | null
+          issued_at: string | null
           kind: string
+          payment_url: string | null
+          pix_copy_paste: string | null
+          provider: string | null
+          provider_environment: string | null
           tenant_id: string
         }
         Insert: {
+          bank_slip_url?: string | null
           cancel_reason?: string | null
           canceled_at?: string | null
           canceled_by?: string | null
@@ -258,13 +269,23 @@ export type Database = {
           contract_id: string
           created_at?: string
           created_by?: string | null
+          digitable_line?: string | null
           due_on: string
+          external_id?: string | null
+          fine_percent?: number | null
           id?: string
+          interest_monthly_percent?: number | null
           issued_amount?: number | null
+          issued_at?: string | null
           kind?: string
+          payment_url?: string | null
+          pix_copy_paste?: string | null
+          provider?: string | null
+          provider_environment?: string | null
           tenant_id: string
         }
         Update: {
+          bank_slip_url?: string | null
           cancel_reason?: string | null
           canceled_at?: string | null
           canceled_by?: string | null
@@ -272,10 +293,19 @@ export type Database = {
           contract_id?: string
           created_at?: string
           created_by?: string | null
+          digitable_line?: string | null
           due_on?: string
+          external_id?: string | null
+          fine_percent?: number | null
           id?: string
+          interest_monthly_percent?: number | null
           issued_amount?: number | null
+          issued_at?: string | null
           kind?: string
+          payment_url?: string | null
+          pix_copy_paste?: string | null
+          provider?: string | null
+          provider_environment?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -738,6 +768,92 @@ export type Database = {
           },
           {
             foreignKeyName: "owner_payouts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_customers: {
+        Row: {
+          created_at: string
+          environment: string
+          external_id: string
+          id: string
+          portal_user_id: string
+          provider: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          environment: string
+          external_id: string
+          id?: string
+          portal_user_id: string
+          provider: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          external_id?: string
+          id?: string
+          portal_user_id?: string
+          provider?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_customers_portal_user_id_tenant_id_fkey"
+            columns: ["portal_user_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payment_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          external_id: string | null
+          id: string
+          outcome: string | null
+          provider: string
+          received_at: string
+          tenant_id: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          external_id?: string | null
+          id?: string
+          outcome?: string | null
+          provider: string
+          received_at?: string
+          tenant_id: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          external_id?: string | null
+          id?: string
+          outcome?: string | null
+          provider?: string
+          received_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_webhook_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1335,6 +1451,59 @@ export type Database = {
             foreignKeyName: "tenant_members_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_payment_accounts: {
+        Row: {
+          account_name: string | null
+          api_key_ciphertext: string | null
+          api_key_last4: string | null
+          connected_at: string
+          connected_by: string | null
+          environment: string
+          external_webhook_id: string | null
+          provider: string
+          tenant_id: string
+          updated_at: string
+          webhook_id: string
+          webhook_secret_hash: string | null
+        }
+        Insert: {
+          account_name?: string | null
+          api_key_ciphertext?: string | null
+          api_key_last4?: string | null
+          connected_at?: string
+          connected_by?: string | null
+          environment: string
+          external_webhook_id?: string | null
+          provider: string
+          tenant_id: string
+          updated_at?: string
+          webhook_id?: string
+          webhook_secret_hash?: string | null
+        }
+        Update: {
+          account_name?: string | null
+          api_key_ciphertext?: string | null
+          api_key_last4?: string | null
+          connected_at?: string
+          connected_by?: string | null
+          environment?: string
+          external_webhook_id?: string | null
+          provider?: string
+          tenant_id?: string
+          updated_at?: string
+          webhook_id?: string
+          webhook_secret_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_payment_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
