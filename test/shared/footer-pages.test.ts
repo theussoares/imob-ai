@@ -82,16 +82,15 @@ describe('sanitizeFooterPageOverrides', () => {
   })
 })
 
-describe('rascunho de política de privacidade', () => {
+describe('política de privacidade: publicação e indexação', () => {
   const CAMINHO = '/privacidade'
   const ARQUIVO = join(process.cwd(), 'app', 'pages', 'privacidade.vue')
   const registrada = STATIC_FOOTER_PAGES.some((p) => p.path === CAMINHO)
   const fonte = readFileSync(ARQUIVO, 'utf8')
 
   /**
-   * A página existe e responde na URL em TODO domínio de tenant, mas o texto
-   * jurídico ainda não passou por advogado — por isso ela não está no registro
-   * acima. Só que não estar no rodapé não a esconde de crawler: basta um link
+   * A página existe e responde na URL em TODO domínio de tenant. Enquanto o
+   * texto era rascunho, ela ficou fora do registro acima (publicada em 25/09). Só que não estar no rodapé não a esconde de crawler: basta um link
    * externo, um referrer ou o palpite de URL mais óbvio que existe para uma
    * política não revisada ser indexada e servida como a política de uma
    * imobiliária real, com um `canonical` afirmando ser a versão autoritativa.
@@ -179,5 +178,31 @@ describe('o registro marca o Quem somos', () => {
     const entrada = STATIC_FOOTER_PAGES.find((p) => p.path === '/quem-somos')
     expect(entrada, '/quem-somos saiu do registro').toBeTruthy()
     expect(entrada!.requires).toBe('about')
+  })
+})
+
+describe('página obrigatória', () => {
+  /**
+   * A política de privacidade não pode sumir por um interruptor do painel: a
+   * LGPD (art. 9º) pede acesso ostensivo, e a imobiliária que desligasse o
+   * link não saberia o que estava desligando.
+   */
+  const comObrigatoria = [
+    { path: '/quero-vender', label: 'Quero vender ou alugar' },
+    { path: '/privacidade', label: 'Privacidade', obrigatoria: true },
+  ]
+
+  test('ajuste "esconder" gravado no banco é ignorado', () => {
+    const r = resolveFooterPages(comObrigatoria, { '/privacidade': { visible: false } })
+    expect(r.map((p) => p.path)).toContain('/privacidade')
+  })
+
+  test('o rótulo continua sendo do cliente', () => {
+    const r = resolveFooterPages(comObrigatoria, { '/privacidade': { label: 'Política de privacidade' } })
+    expect(r.find((p) => p.path === '/privacidade')?.label).toBe('Política de privacidade')
+  })
+
+  test('a política está no registro como obrigatória', () => {
+    expect(STATIC_FOOTER_PAGES.find((p) => p.path === '/privacidade')?.obrigatoria).toBe(true)
   })
 })

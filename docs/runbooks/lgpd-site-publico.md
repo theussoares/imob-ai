@@ -35,7 +35,7 @@ Verificado no código e no banco em 25/09.
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |
 | Aviso de lead novo para a imobiliária | nome e telefone do lead | e-mail enviado pela Resend (EUA) | caixa de entrada da imobiliária |
 | Estatísticas de visita | URL visitada (sem query exceto `utm_*`), país, navegador, dispositivo; visitante identificado por hash do request que **zera todo dia** | Vercel Web Analytics e Speed Insights | conforme a Vercel |
-| Processamento de toda requisição | IP, user-agent, URL | funções da Vercel, região `iad1` (EUA) | logs de runtime da Vercel, retenção curta do plano |
+| Processamento de toda requisição | IP, user-agent, URL | funções da Vercel, região `gru1` (São Paulo) desde 25/09; antes `iad1` (EUA) | logs de runtime da Vercel, retenção curta do plano |
 
 **O que o site público NÃO faz** — e é o que sustenta a decisão sobre banner
 abaixo:
@@ -85,14 +85,14 @@ finalidade (FAQ 5.5). Venda de imóvel tem ciclo longo: quem pergunta hoje pode
 comprar daqui a um ano. Com 24 meses sem contato, a finalidade "responder a
 este pedido" já se esgotou com folga.
 
-**Risco residual:** **médio enquanto o expurgo não existir.** Hoje o lead fica
-para sempre. A política diz a verdade ("até que a imobiliária os apague"), então
-não há promessa descumprida, mas guardar sem prazo é o descumprimento em si.
+**Feito em 25/09.** O cron diário apaga leads sem nenhuma alteração há 24
+meses (`purgeStaleLeads`, prazo em `LEAD_RETENCAO_MESES`). Ficam de fora os
+leads `fechado` e os que têm retorno agendado no futuro. A política mostra o
+prazo lido da mesma constante, então o número prometido e o aplicado não têm
+como divergir. No dia em que foi ligado, havia um lead só, de 09/09, e nada
+seria apagado antes de 2028.
 
-**Ação:** job de expurgo no cron diário, que já apaga os cliques. Quando o job
-existir, a frase da política muda para "24 meses após o último contato". É
-exclusão automática de dado de cliente em produção, então precisa de aprovação
-explícita de quem opera a plataforma antes de ligar.
+**Risco residual:** baixo.
 
 ### Q3. Transferência internacional
 
@@ -111,17 +111,18 @@ atender as hipóteses previstas nos incisos II, V e VI do art. 7º". Então:
 - **clique no WhatsApp e anti-abuso** (art. 7º, IX): legítimo interesse **não**
   está na lista do art. 33, IX. O hash de IP é pseudonimizado, não anonimizado:
   a plataforma tem o sal e consegue refazer a associação, então continua sendo
-  dado pessoal. Hoje ele é calculado numa função em `iad1` (EUA). Isso exige
-  outro mecanismo do art. 33, na prática as cláusulas-padrão da Res. CD/ANPD
-  19/2024 no contrato com a Vercel.
+  dado pessoal. Até 25/09 ele era calculado numa função em `iad1` (EUA), o
+  que exigiria outro mecanismo do art. 33, na prática as cláusulas-padrão da
+  Res. CD/ANPD 19/2024 no contrato com a Vercel.
 
-**Risco residual:** baixo. É um hash, não um IP, e o volume é pequeno. Mas é
-uma lacuna formal.
+**Feito em 25/09.** As funções da Vercel rodam em `gru1` (São Paulo),
+configurado em `nitro.vercel.functions.regions` no `nuxt.config.ts`. O hash
+passa a ser calculado no Brasil, e a lacuna fecha sem depender de contrato.
+Também cai a latência: antes, cada requisição ia a Washington e voltava a São
+Paulo para falar com o banco.
 
-**Ação:** fixar as funções da Vercel em `gru1` (São Paulo). Com isso o hash é
-calculado no Brasil, e a lacuna desaparece sem depender de contrato. Também
-reduz a latência: hoje cada requisição vai a Washington e volta a São Paulo
-para falar com o banco. Medir antes de ligar em produção.
+**Risco residual:** baixo. O que continua saindo do país (e-mail de aviso,
+estatísticas anonimizadas) tem fundamento, como descrito acima.
 
 ### Q4. Registros de acesso (Marco Civil, art. 15)
 
@@ -189,12 +190,10 @@ contrato, não código.
 
 ### Q7. Publicação da política
 
-**Posição:** o texto de `/privacidade` está pronto para publicar. Tudo o que
-ele afirma corresponde ao que o sistema faz hoje.
-
-**Ação:** registrar a página em `STATIC_FOOTER_PAGES`, tirar o `noindex` e
-pôr o link no aviso do formulário de contato (`LeadForm.vue`), tudo na mesma
-mudança. Isso a publica no rodapé de **todas** as imobiliárias ao mesmo tempo.
+**Feito em 25/09.** A página está em `STATIC_FOOTER_PAGES` como
+`obrigatoria`: aparece no rodapé de todas as imobiliárias, e o painel deixa
+trocar o nome do link mas não esconder. Saiu o `noindex`, e os dois
+formulários (contato e "Quero vender") ganharam o link no aviso de coleta.
 
 ## Banner de cookies: decisão
 
@@ -224,10 +223,10 @@ clique é pior que nenhum, porque documenta a violação.
 
 | # | Ação | Dono | Prioridade |
 |---|---|---|---|
-| 1 | Publicar `/privacidade` (Q7) | engenharia | alta: sem ela, o art. 9º não é cumprido |
-| 2 | Expurgo de leads em 24 meses (Q2) | engenharia, com aprovação | alta |
+| 1 | ~~Publicar `/privacidade` (Q7)~~ feito em 25/09 | engenharia | — |
+| 2 | ~~Expurgo de leads em 24 meses (Q2)~~ feito em 25/09 | engenharia | — |
 | 3 | Guarda de registros de acesso por 6 meses (Q4) | infraestrutura (custo) | média |
-| 4 | Funções da Vercel em `gru1` (Q3) | engenharia | média |
+| 4 | ~~Funções da Vercel em `gru1` (Q3)~~ feito em 25/09 | engenharia | — |
 | 5 | Cláusula de incidente no contrato com a imobiliária (Q6) | comercial | média |
 | 6 | Porte do cliente no cadastro; encarregado de quem não for pequeno porte (Q5) | comercial | baixa |
 

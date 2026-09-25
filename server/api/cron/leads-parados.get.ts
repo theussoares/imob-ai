@@ -1,8 +1,11 @@
 import { enviarLembretesDeLeadsParados } from '~~/server/utils/lead-alert'
 import { purgeOldWhatsappClicks } from '~~/server/repositories/whatsapp-click.repository'
+import { purgeStaleLeads } from '~~/server/repositories/lead.repository'
+import { corteDeRetencaoDeLeads } from '~~/shared/models/lead'
 
 /**
- * Lembrete diário de leads parados (e a retenção dos cliques no WhatsApp). Chamado pelo cron da Vercel (ver
+ * Lembrete diário de leads parados, e a retenção dos cliques no WhatsApp e dos
+ * leads. Chamado pelo cron da Vercel (ver
  * `nitro.vercel.config.crons` em nuxt.config.ts).
  *
  * A Vercel manda `Authorization: Bearer <CRON_SECRET>`. Sem conferir, esta URL
@@ -41,6 +44,18 @@ export default defineEventHandler(async (event) => {
     logError('whatsapp_click.retencao_falhou', { reason: errMessage(e) })
   }
 
-  return { ...resultado, cliquesLimpos }
+  // Expurgo de leads parados (LGPD arts. 15 e 16; prazo em LEAD_RETENCAO_MESES).
+  // Mesma regra do bloco acima: falhar aqui não pode esconder o lembrete. E o
+  // prazo que a política de privacidade promete depende deste bloco rodar, então
+  // a falha grita no log.
+  let leadsExpurgados: number | null = null
+  try {
+    const agora = new Date()
+    leadsExpurgados = await purgeStaleLeads(serviceSupabase(), corteDeRetencaoDeLeads(agora), agora)
+  } catch (e) {
+    logError('lead.retencao_falhou', { reason: errMessage(e) })
+  }
+
+  return { ...resultado, cliquesLimpos, leadsExpurgados }
 })
 

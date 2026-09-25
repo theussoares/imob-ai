@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import { canalDoTitular } from '~~/shared/utils/canal-titular'
+import { LEAD_RETENCAO_MESES } from '~~/shared/models/lead'
 /**
  * Política de privacidade do site da imobiliária: o site público e a Área do
  * Cliente.
  *
- * ⚠️ **RASCUNHO — NÃO PUBLICADO.** Esta página existe e responde na URL, mas
- * NÃO está em `STATIC_FOOTER_PAGES`, então não aparece no rodapé de site
- * nenhum. Registrar lá é o ato de publicar. A revisão do texto foi feita (Q7
- * em `docs/runbooks/lgpd-site-publico.md`); falta a decisão de ligar.
- *
- * Por que é decisão e não detalhe: o registro torna a página visível no rodapé
- * de TODA imobiliária ao mesmo tempo. Uma política errada no ar, no site de um
- * cliente real, é pior que nenhuma.
+ * Publicada em 25/09: está em `STATIC_FOOTER_PAGES` como `obrigatoria`, então
+ * aparece no rodapé de TODA imobiliária e o painel não deixa esconder. O texto
+ * foi revisado no parecer (`docs/runbooks/lgpd-site-publico.md`).
  *
  * O texto descreve com precisão o que o sistema faz — isso é o que engenharia
  * pode afirmar. A forma jurídica (bases legais nomeadas, prazos, redação dos
@@ -43,22 +39,12 @@ const canal = computed(() =>
 )
 const ROTULO_DO_CANAL = { email: 'pelo e-mail', whatsapp: 'pelo WhatsApp', telefone: 'pelo telefone' } as const
 
-// `noindex` enquanto for rascunho, e isto não é cautela sobrando: a página
-// responde na URL em QUALQUER domínio de tenant, então basta um crawler chegar
-// — link externo, referrer, palpite — para um texto jurídico não revisado ser
-// indexado como a política de privacidade de uma imobiliária real. O canonical
-// ainda afirmaria que aquela é a versão autoritativa.
-//
-// ⚠️ Quando a página for registrada em
-// `STATIC_FOOTER_PAGES`, ESTA LINHA SAI JUNTO — publicar no rodapé e continuar
-// pedindo para não indexar é contradição.
 useHead(() => ({
   // Sem o nome da imobiliária: o `titleTemplate` do `app.vue` já o acrescenta
   // a todo título, e somar os dois rendia "Privacidade · OLMI · OLMI". (O
   // fallback anterior era pior que a duplicação: numa página sem tenant
   // resolvido, o título da política virava "Área do Cliente".)
   title: 'Privacidade',
-  meta: [{ name: 'robots', content: 'noindex, nofollow' }],
   link: [{ rel: 'canonical', href: `${url.origin}/privacidade` }],
 }))
 </script>
@@ -197,13 +183,17 @@ useHead(() => ({
     </p>
     <ul>
       <li><b>Supabase:</b> banco de dados e armazenamento de arquivos, no Brasil.</li>
-      <li><b>Vercel:</b> hospedagem do site e estatísticas de visita, nos Estados Unidos.</li>
+      <li>
+        <b>Vercel:</b> hospedagem do site, com o processamento no Brasil, e
+        estatísticas de visita, nos Estados Unidos.
+      </li>
       <li><b>Resend:</b> envio de e-mails, nos Estados Unidos.</li>
     </ul>
     <!--
-      Transferência internacional (LGPD art. 33): o contato e o aviso por e-mail
-      estão cobertos pelo art. 33, IX (atender o art. 7º, V). O hash de IP do
-      clique no WhatsApp não está, enquanto as funções rodarem em `iad1` — ver
+      Transferência internacional (LGPD art. 33): as funções rodam em `gru1`
+      (São Paulo, nuxt.config.ts), então o formulário e o hash de IP são
+      processados no Brasil. O que sai do país é o e-mail de aviso (Resend),
+      coberto pelo art. 33, IX, e as estatísticas anonimizadas da Vercel — ver
       Q3 em docs/runbooks/lgpd-site-publico.md. Não afirmar aqui garantia
       contratual que ninguém verificou.
     -->
@@ -214,14 +204,15 @@ useHead(() => ({
     <h2>Por quanto tempo guardamos</h2>
     <ul>
       <!--
-        Retenção de leads: o sistema NÃO apaga pedidos de contato sozinho. A
-        frase abaixo descreve o comportamento real. Quando o prazo for decidido
-        (proposta de 24 meses sem interação, no runbook) e o expurgo existir,
-        ela muda junto — nunca antes do job existir.
+        O prazo vem de LEAD_RETENCAO_MESES, a mesma constante que o expurgo do
+        cron diário usa (server/api/cron/leads-parados.get.ts). As duas
+        exceções abaixo são as do `purgeStaleLeads`: mudou lá, muda aqui.
       -->
       <li>
-        <b>Pedidos de contato:</b> ficam guardados até que {{ nome }} os apague.
-        Você pode pedir a exclusão a qualquer momento.
+        <b>Pedidos de contato:</b> são apagados automaticamente depois de
+        {{ LEAD_RETENCAO_MESES }} meses sem nenhum andamento, a menos que tenham
+        virado negócio ou tenham um retorno agendado. Você pode pedir a exclusão
+        antes disso, a qualquer momento.
       </li>
       <li>
         <b>Registros de clique no WhatsApp:</b> 90 dias. Depois disso são
