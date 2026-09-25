@@ -75,7 +75,7 @@ const recursos = [
   { icone: "home", t: "Captação \"Quero vender\"", d: "Página para o proprietário oferecer o imóvel, direto no seu funil." },
   { icone: "phone", t: "App no celular", d: "O painel instala na tela inicial e avisa quando há versão nova." },
   { icone: "panel", t: "Quem somos e rodapé", d: "Página institucional, redes sociais e endereço editáveis no painel." },
-  { icone: "lock", t: "Domínio e marca próprios", d: "Seu domínio, seu logo, suas cores, sem selo da Moradi no anúncio." },
+  { icone: "lock", t: "Domínio e marca próprios", d: "Seu domínio, seu logo, suas cores e o tema do site, sem selo da Moradi no anúncio." },
 ];
 
 /**
@@ -84,10 +84,14 @@ const recursos = [
  * campo de marca do painel (`brand_primary`/`brand_accent`) aplicadas à demo —
  * é exatamente o que um cliente consegue fazer sozinho, então não é montagem.
  */
+// Tema + cores, não só cores: com a mesma fonte e os mesmos cards, três cores
+// ainda pareciam o mesmo site. Os três são temas reais do painel (Meu site →
+// Aparência), e os prints saem de scripts/prints-landing.mjs com os mesmos
+// valores — mudou aqui, muda lá.
 const temas = [
-  { nome: "Verde e coral", cores: ["#0f3d38", "#f87171"], img: "/moradi/tema-verde.webp", alt: "Site de demonstração com a marca em verde e coral" },
-  { nome: "Marinho e dourado", cores: ["#1b2a4a", "#c9a24a"], img: "/moradi/tema-marinho.webp", alt: "O mesmo site com a marca em azul-marinho e dourado" },
-  { nome: "Vinho e areia", cores: ["#6d1f2f", "#e0b48a"], img: "/moradi/tema-vinho.webp", alt: "O mesmo site com a marca em vinho e areia" },
+  { nome: "Moderno", sub: "verde e coral", cores: ["#0f3d38", "#f87171"], img: "/moradi/tema-moderno.webp", alt: "Site de demonstração no tema Moderno, com a marca em verde e coral" },
+  { nome: "Alto padrão", sub: "marinho e dourado", cores: ["#1b2a4a", "#c9a24a"], img: "/moradi/tema-alto-padrao.webp", alt: "O mesmo site no tema Alto padrão, com cabeçalho escuro e a marca em azul-marinho e dourado" },
+  { nome: "Acolhedor", sub: "vinho e areia", cores: ["#6d1f2f", "#e0b48a"], img: "/moradi/tema-acolhedor.webp", alt: "O mesmo site no tema Acolhedor, com o cabeçalho na cor vinho da marca" },
 ];
 
 const comparacao = [
@@ -397,16 +401,16 @@ useSeoMeta({
           <div class="head center">
             <span class="lp-eyebrow">Sua marca, não a nossa</span>
             <h2>A mesma plataforma, com a cara de cada imobiliária.</h2>
-            <p>Logo, cores e textos você define no painel. O cliente vê o seu nome do começo ao fim, sem selo da Moradi atravessando o anúncio.</p>
+            <p>Tema, cores, logo e textos você escolhe no painel. O cliente vê o seu nome do começo ao fim, sem selo da Moradi atravessando o anúncio.</p>
           </div>
           <div class="brands">
             <figure v-for="t in temas" :key="t.nome" class="brand-card">
               <div class="phone"><img :src="t.img" :alt="t.alt" width="700" height="1400" loading="lazy" decoding="async"></div>
-              <figcaption><span class="chips"><i v-for="c in t.cores" :key="c" :style="{ background: c }" /></span>{{ t.nome }}</figcaption>
+              <figcaption><span class="chips"><i v-for="c in t.cores" :key="c" :style="{ background: c }" /></span><span><b>{{ t.nome }}</b> · {{ t.sub }}</span></figcaption>
             </figure>
           </div>
           <p class="fine">
-            Três variações do site de demonstração, trocando só as cores da marca.
+            O mesmo site de demonstração em três temas, trocados no painel em um clique.
             <a :href="demoUrl" target="_blank" rel="noopener">Abra a demo e clique em tudo</a>.
           </p>
         </section>
@@ -426,7 +430,7 @@ useSeoMeta({
                 <li><svg aria-hidden="true"><use href="#lp-i-check" /></svg><div><b>Cadastrar e editar imóveis</b><span>Fotos, preço, descrição e características, do computador ou do celular.</span></div></li>
                 <li><svg aria-hidden="true"><use href="#lp-i-check" /></svg><div><b>Acompanhar cada lead</b><span>O contato entra no funil na hora, com o imóvel de origem e a data do retorno.</span></div></li>
                 <li><svg aria-hidden="true"><use href="#lp-i-check" /></svg><div><b>Marcar como vendido ou alugado</b><span>Sai do site e dos portais, sem anúncio velho no ar.</span></div></li>
-                <li><svg aria-hidden="true"><use href="#lp-i-check" /></svg><div><b>Mudar cores, textos e capa</b><span>O site acompanha a sua marca quando ela mudar.</span></div></li>
+                <li><svg aria-hidden="true"><use href="#lp-i-check" /></svg><div><b>Mudar tema, cores, textos e capa</b><span>O site acompanha a sua marca quando ela mudar.</span></div></li>
               </ul>
             </div>
           </div>

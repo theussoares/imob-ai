@@ -34,11 +34,17 @@ const OUT = process.env.OUT_DIR
   ? new URL(`file://${process.env.OUT_DIR.replace(/\/?$/, '/')}`)
   : new URL('../public/moradi/', import.meta.url)
 
-/** Mesmas duplas da lista `temas` em app/components/MoradiLanding.vue. */
+/**
+ * O celular do topo da landing (tema-verde) é o site padrão; os outros três são
+ * os temas da seção "sua marca" — mesmos valores da lista `temas` em
+ * app/components/MoradiLanding.vue. Tema e cabeçalho entram como atributos no
+ * <html>, que é exatamente o que o layout público faz com o valor do banco.
+ */
 const TEMAS = [
-  { arquivo: 'tema-verde', brand: '#0f3d38', wa: '#f87171' },
-  { arquivo: 'tema-marinho', brand: '#1b2a4a', wa: '#c9a24a' },
-  { arquivo: 'tema-vinho', brand: '#6d1f2f', wa: '#e0b48a' },
+  { arquivo: 'tema-verde', brand: '#0f3d38', wa: '#f87171', tema: 'classico', cabecalho: 'claro' },
+  { arquivo: 'tema-moderno', brand: '#0f3d38', wa: '#f87171', tema: 'moderno', cabecalho: 'claro' },
+  { arquivo: 'tema-alto-padrao', brand: '#1b2a4a', wa: '#c9a24a', tema: 'alto_padrao', cabecalho: 'escuro' },
+  { arquivo: 'tema-acolhedor', brand: '#6d1f2f', wa: '#e0b48a', tema: 'acolhedor', cabecalho: 'marca' },
 ]
 
 // O botão flutuante do devtools do Nuxt aparece no dev server e sairia no print.
@@ -61,6 +67,14 @@ async function abrir(browser, { width, height, scale, mobile }) {
 async function preparar(page, cores) {
   const vars = cores ? `html:root { --brand: ${cores.brand} !important; --wa: ${cores.wa} !important; }` : ''
   await page.addStyleTag({ content: SEM_DEVTOOLS + vars })
+  if (cores?.tema) {
+    await page.evaluate(({ tema, cabecalho }) => {
+      document.documentElement.dataset.tema = tema
+      document.documentElement.dataset.cabecalho = cabecalho
+    }, cores)
+    // A troca de tema pode pedir uma fonte que ainda não desceu.
+    await page.evaluate(() => document.fonts.ready)
+  }
 }
 
 /** Espera as fotos visíveis decodificarem — print com card cinza não prova nada. */
