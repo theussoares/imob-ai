@@ -6,7 +6,10 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },
 
-  modules: ['@vueuse/nuxt', '@vercel/analytics', '@vercel/speed-insights', '@nuxt/icon', '@nuxt/fonts', '@vite-pwa/nuxt'],
+  // @vercel/analytics e @vercel/speed-insights saíram daqui: os módulos não aceitam
+  // `beforeSend`, e sem ele o painel e a Área do Cliente (com id de contrato na
+  // URL) iam para a Vercel. Quem injeta é app/plugins/observabilidade.client.ts.
+  modules: ['@vueuse/nuxt', '@nuxt/icon', '@nuxt/fonts', '@vite-pwa/nuxt'],
 
   /**
    * PWA do painel. Ver docs/superpowers/specs/2026-09-09-pwa-painel-design.md.
