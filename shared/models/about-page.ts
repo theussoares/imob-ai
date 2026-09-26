@@ -154,3 +154,67 @@ export interface AboutPageContent {
 }
 
 export const EMPTY_ABOUT_CONTENT: AboutPageContent = { blocks: [] }
+
+/**
+ * Uma linha de "para que serve" por tipo, para a paleta de blocos do painel.
+ *
+ * O `<select>` só com o nome do tipo obrigava a pessoa a adivinhar como cada
+ * bloco fica e quando usá-lo. Aqui mora o critério, não a descrição visual —
+ * a miniatura da paleta mostra a forma.
+ */
+export const ABOUT_BLOCK_TYPE_PURPOSE: Record<AboutBlockType, string> = {
+  heading: 'Abre uma seção nova da página.',
+  text: 'Parágrafo corrido: a história, como vocês trabalham.',
+  image: 'Uma foto grande, com legenda opcional.',
+  stat: 'Um número concreto — "18 anos", "1.200 famílias".',
+  banner: 'Faixa com foto de fundo, frase de impacto e botão.',
+  split: 'Texto ao lado de uma foto real — ideal para a história.',
+  gallery: 'Carrossel de fotos do escritório e da equipe.',
+  testimonial: 'Fala de um cliente, com nome e o que ele fez.',
+  logos: 'Selos, certificações e portais parceiros.',
+  team: 'Os corretores marcados como públicos, sempre atualizados.',
+}
+
+/** Um bloco do modelo recomendado, com a dica do que escrever nele. */
+export interface AboutTemplateBlock {
+  block: AboutBlock
+  hint: string
+}
+
+/**
+ * Estrutura recomendada para a página: credibilidade → prova → contato
+ * (o contato é a moldura fixa do site, não entra aqui).
+ *
+ * Os blocos saem VAZIOS de propósito. Texto-exemplo ("Fundada em 2005 por...")
+ * esquecido no lugar vira conteúdo falso publicado no site do cliente; bloco
+ * vazio é descartado pelo sanitizador e simplesmente não aparece. A orientação
+ * vai na dica, que existe só no painel.
+ *
+ * Função, e não constante: cada chamada precisa de objetos novos, senão dois
+ * cliques no botão inseririam os MESMOS blocos duas vezes, editados juntos.
+ */
+export function recommendedAboutBlocks(): AboutTemplateBlock[] {
+  const numero = 'Números em destaque: há quanto tempo vocês atuam, quantas famílias atenderam, em quantas cidades. Número concreto convence mais que adjetivo.'
+  const depoimento = 'Depoimento com contexto: no complemento, diga o que o cliente fez (comprou, vendeu, alugou), o bairro e o ano.'
+  return [
+    { block: emptyAboutBlock('stat'), hint: numero },
+    { block: emptyAboutBlock('stat'), hint: numero },
+    { block: emptyAboutBlock('stat'), hint: numero },
+    {
+      block: emptyAboutBlock('split'),
+      hint: 'Nossa história: por que a imobiliária começou e para quem ela existe. Use uma foto real do fundador ou da sede, não de banco de imagem.',
+    },
+    {
+      block: emptyAboutBlock('heading'),
+      hint: 'Título da seção "Como trabalhamos" (ou outro nome que combine com vocês).',
+    },
+    {
+      block: emptyAboutBlock('text'),
+      hint: 'Como trabalhamos: 3 ou 4 compromissos que o cliente consegue conferir — "Visita no mesmo dia", "Contrato revisado por advogado". Evite "missão, visão e valores".',
+    },
+    { block: emptyAboutBlock('team'), hint: 'A equipe entra sozinha, a partir da tela Corretores.' },
+    { block: emptyAboutBlock('testimonial'), hint: depoimento },
+    { block: emptyAboutBlock('testimonial'), hint: depoimento },
+    { block: emptyAboutBlock('logos'), hint: 'Selos, certificações e portais onde vocês anunciam.' },
+  ]
+}

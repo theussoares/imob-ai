@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ABOUT_BLOCK_TYPE_LABELS, ABOUT_BLOCK_TYPES, emptyAboutBlock } from "~~/shared/models/about-page";
+import { ABOUT_BLOCK_TYPE_LABELS, emptyAboutBlock, recommendedAboutBlocks } from "~~/shared/models/about-page";
 import type { AboutBlock, AboutBlockType } from "~~/shared/models/about-page";
+import type { Broker } from "~~/shared/models/broker";
+import { aboutChecklist } from "~~/shared/utils/about-checklist";
 import { ABOUT_BLOCKS_MAX, aboutTemConteudoMinimo, GALLERY_IMAGES_MAX, LOGOS_MAX } from "~~/shared/utils/about-content";
 definePageMeta({ layout: "admin", middleware: ['admin', 'quem-somos'] });
 
@@ -12,13 +14,73 @@ const { tenant, form, saving, saved, error, save: persist } = useTenantSettings(
 const toast = useToast();
 
 const blocks = computed(() => form.aboutContent?.blocks ?? []);
-const newBlockType = ref<AboutBlockType>("heading");
+const cheio = computed(() => blocks.value.length >= ABOUT_BLOCKS_MAX);
 
-function addBlock() {
-  if (blocks.value.length >= ABOUT_BLOCKS_MAX) return;
-  form.aboutContent = {
-    blocks: [...blocks.value, emptyAboutBlock(newBlockType.value)],
-  };
+// ---- Identidade de bloco ----
+//
+// Tudo que é "deste bloco" — chave do v-for, qual está aberto, a dica do modelo
+// — é preso ao OBJETO, não ao índice. Com "+" entre blocos, inserir no meio
+// desloca todos os índices seguintes: preso ao índice, o bloco aberto pularia
+// para o vizinho e o campo em foco trocaria de conteúdo sob o cursor.
+//
+// `toRaw` dos dois lados: o bloco entra na lista cru e volta dela como proxy
+// reativo, e para um WeakMap os dois são chaves diferentes.
+const chaves = new WeakMap<object, number>();
+let proximaChave = 0;
+function chave(b: AboutBlock): number {
+  const raw = toRaw(b);
+  let k = chaves.get(raw);
+  if (k === undefined) chaves.set(raw, (k = ++proximaChave));
+  return k;
+}
+
+/**
+ * Um bloco aberto por vez. Todos abertos era uma parede de campos — dez blocos
+ * viravam três telas de inputs sem hierarquia; fechados, cada um mostra tipo e
+ * resumo, e a página se lê como um sumário.
+ */
+const aberto = shallowRef<object | null>(null);
+const estaAberto = (b: AboutBlock) => aberto.value === toRaw(b);
+function alternar(b: AboutBlock) {
+  aberto.value = estaAberto(b) ? null : toRaw(b);
+}
+
+/** Dica do modelo recomendado: vive só no painel, nunca é salva. */
+const dicas = new WeakMap<object, string>();
+const dicaDe = (b: AboutBlock) => dicas.get(toRaw(b));
+
+/** Onde a paleta está aberta: índice de inserção (0 = antes do primeiro). */
+const paletaEm = ref<number | null>(null);
+
+function inserir(novos: AboutBlock[], em: number) {
+  const vagas = ABOUT_BLOCKS_MAX - blocks.value.length;
+  if (vagas <= 0) return;
+  const arr = [...blocks.value];
+  arr.splice(em, 0, ...novos.slice(0, vagas));
+  form.aboutContent = { blocks: arr };
+  paletaEm.value = null;
+  // Abre o primeiro inserido e leva o foco a ele: sem isso, quem usa teclado
+  // ou leitor de tela fica no botão "+", que some com a paleta, e perde o lugar.
+  const primeiro = toRaw(novos[0]!);
+  aberto.value = primeiro;
+  nextTick(() => document.getElementById(`${uid}-bloco-${chaves.get(primeiro)}`)?.focus());
+}
+function adicionar(type: AboutBlockType, em: number) {
+  inserir([emptyAboutBlock(type)], em);
+}
+
+/**
+ * "Montar a estrutura recomendada" com a página vazia. Seguro por construção:
+ * os blocos vêm vazios, e o sanitizador descarta bloco vazio ao salvar — nada
+ * do modelo aparece no site sem a pessoa escrever. Ver `recommendedAboutBlocks`.
+ */
+function usarModelo() {
+  const modelo = recommendedAboutBlocks();
+  for (const { block, hint } of modelo) dicas.set(block, hint);
+  inserir(
+    modelo.map((m) => m.block),
+    0,
+  );
 }
 
 // Remover não pergunta: devolve por alguns segundos. Um clique apagava um
@@ -138,10 +200,29 @@ watch(
 const dirty = computed(() => retrato() !== original.value);
 useUnsavedGuard(() => dirty.value);
 
+const salvoAs = ref("");
 async function save() {
   await persist(() => (form.aboutEnabled && !podePublicar.value ? `${MOTIVO_SEM_MINIMO} Ou desligue a publicação.` : null));
-  if (saved.value) original.value = retrato();
+  if (!saved.value) return;
+  original.value = retrato();
+  salvoAs.value = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
+
+// ---- Checklist e equipe ----
+//
+// O bloco "equipe" some do site quando nenhum corretor está marcado como
+// público — e nada no painel dizia isso. Contamos aqui, com o mesmo critério da
+// leitura pública (`listPublicBrokers`: ativo E público). Lazy: a tela abre na
+// hora; enquanto carrega, `null` e o checklist não acusa nada.
+const { data: corretores } = useLazyAsyncData(
+  "admin:quem-somos:brokers",
+  () => adminFetch<Broker[]>("/api/admin/brokers"),
+  { server: false, default: () => null },
+);
+const corretoresPublicos = computed(() =>
+  corretores.value ? corretores.value.filter((c) => c.active && c.publicVisible).length : null,
+);
+const checklist = computed(() => aboutChecklist(form.aboutContent, corretoresPublicos.value));
 
 // ---- Rótulos e nomes acessíveis ----
 //
@@ -204,6 +285,7 @@ useHead({ title: "Quem somos · Painel" });
         coisa que se faz depois de montar os blocos, e a decisão precisa estar
         na mesma tela do conteúdo que ela publica.
       -->
+      <div class="ab-publish">
       <label class="ab-publicar" :class="{ travado: !form.aboutEnabled && !podePublicar }">
         <input
           v-model="form.aboutEnabled"
@@ -223,15 +305,67 @@ useHead({ title: "Quem somos · Painel" });
         </span>
       </label>
 
-      <div v-if="!blocks.length" class="ab-empty">
-        Nenhum bloco ainda. Adicione o primeiro abaixo — comece por um "Texto"
-        contando quem vocês são.
+      <!-- Orienta, não bloqueia: ver `aboutChecklist`. -->
+      <div class="ab-checklist">
+        <span :id="`${uid}-checklist`" class="ab-checklist-t">O que costuma fazer uma boa página</span>
+        <ul :aria-labelledby="`${uid}-checklist`">
+          <li v-for="item in checklist" :key="item.key" :class="{ ok: item.ok }">
+            <span class="ab-check" aria-hidden="true">{{ item.ok ? "✓" : "○" }}</span>
+            <span class="sr-only">{{ item.ok ? "Feito:" : "Pendente:" }}</span>
+            {{ item.label }}
+            <NuxtLink v-if="item.key === 'equipe' && corretoresPublicos === 0" to="/admin/corretores">Abrir Corretores</NuxtLink>
+          </li>
+        </ul>
+      </div>
       </div>
 
-      <div v-for="(b, i) in blocks" :key="i" class="ab-block">
+      <div v-if="!blocks.length" class="ab-empty">
+        <p>
+          Nenhum bloco ainda. O jeito mais rápido é partir da estrutura que costuma
+          funcionar — números, história, como vocês trabalham, equipe, depoimentos
+          e selos. Os blocos entram vazios, com a dica do que escrever em cada um;
+          o que ficar vazio não aparece no site.
+        </p>
+        <div class="ab-empty-actions">
+          <button type="button" class="admin-btn" @click="usarModelo">Montar a estrutura recomendada</button>
+          <button type="button" class="admin-btn ghost" @click="paletaEm = 0">Escolher um bloco</button>
+        </div>
+      </div>
+
+      <template v-for="(b, i) in blocks" :key="chave(b)">
+      <!--
+        "+" entre blocos: antes, bloco novo só entrava no fim, e colocar um
+        depoimento no meio custava N cliques de seta.
+      -->
+      <AdminAboutBlockPalette
+        v-if="paletaEm === i"
+        :titulo="`Inserir bloco antes do bloco ${i + 1}`"
+        class="ab-pal"
+        @pick="(t) => adicionar(t, i)"
+        @cancel="paletaEm = null"
+      />
+      <div v-else-if="i > 0 && !cheio" class="ab-gap">
+        <button type="button" class="ab-gap-btn" @click="paletaEm = i">
+          <span aria-hidden="true">+</span> Inserir bloco aqui
+          <span class="sr-only">, entre o bloco {{ i }} e o {{ i + 1 }}</span>
+        </button>
+      </div>
+
+      <div class="ab-block" :class="{ open: estaAberto(b) }">
         <div class="ab-block-head">
-          <span class="ab-type">{{ ABOUT_BLOCK_TYPE_LABELS[b.type] }}</span>
-          <span class="ab-preview">{{ blockLabel(b) }}</span>
+          <button
+            :id="`${uid}-bloco-${chave(b)}`"
+            type="button"
+            class="ab-toggle"
+            :aria-expanded="estaAberto(b)"
+            :aria-controls="`${uid}-corpo-${chave(b)}`"
+            @click="alternar(b)"
+          >
+            <span class="ab-chevron" aria-hidden="true">›</span>
+            <span class="ab-type">{{ ABOUT_BLOCK_TYPE_LABELS[b.type] }}</span>
+            <span class="ab-preview">{{ blockLabel(b) }}</span>
+            <span v-if="isUploading(b)" class="ab-busy">Enviando...</span>
+          </button>
           <div class="ab-actions">
             <button
               type="button"
@@ -261,6 +395,9 @@ useHead({ title: "Quem somos · Painel" });
             </button>
           </div>
         </div>
+
+        <div v-if="estaAberto(b)" :id="`${uid}-corpo-${chave(b)}`" class="ab-body">
+        <p v-if="dicaDe(b)" class="ab-dica">{{ dicaDe(b) }}</p>
 
         <div v-if="b.type === 'heading'" class="ab-fields">
           <label class="admin-label" :for="fid(i, 'text')">Título</label>
@@ -501,21 +638,36 @@ useHead({ title: "Quem somos · Painel" });
             Mostra, em carrossel, quem marcou "Mostrar este corretor no site" na tela
             <NuxtLink to="/admin/corretores">Corretores</NuxtLink>. Sem edição aqui — atualize foto e minibio lá.
           </p>
+          <p v-if="corretoresPublicos === 0" class="ab-alerta" role="note">
+            Nenhum corretor aparece no site ainda, então este bloco não será mostrado.
+            Marque "Mostrar este corretor no site" em
+            <NuxtLink to="/admin/corretores">Corretores</NuxtLink>.
+          </p>
+        </div>
         </div>
       </div>
+      </template>
 
-      <div class="ab-add">
-        <label class="sr-only" :for="`${uid}-novo-tipo`">Tipo do novo bloco</label>
-        <select :id="`${uid}-novo-tipo`" v-model="newBlockType" class="admin-input">
-          <option v-for="t in ABOUT_BLOCK_TYPES" :key="t" :value="t">{{ ABOUT_BLOCK_TYPE_LABELS[t] }}</option>
-        </select>
-        <button type="button" class="admin-btn ghost" :disabled="blocks.length >= ABOUT_BLOCKS_MAX" @click="addBlock">
-          + Adicionar bloco
+      <AdminAboutBlockPalette
+        v-if="paletaEm !== null && paletaEm >= blocks.length"
+        :titulo="blocks.length ? 'Adicionar bloco no fim' : 'Escolha o primeiro bloco'"
+        class="ab-pal"
+        @pick="(t) => adicionar(t, blocks.length)"
+        @cancel="paletaEm = null"
+      />
+      <div v-else-if="blocks.length" class="ab-add">
+        <button type="button" class="admin-btn ghost" :disabled="cheio" @click="paletaEm = blocks.length">
+          + Adicionar bloco no fim
         </button>
+        <span v-if="cheio" class="hint-text">Limite de {{ ABOUT_BLOCKS_MAX }} blocos.</span>
       </div>
 
       <p v-if="error" role="alert" class="ab-error">{{ error }}</p>
 
+      <!--
+        Barra fixa no pé: o botão ficava no fim de um formulário de dez blocos,
+        e "Salvo!" aparecia onde ninguém estava olhando.
+      -->
       <div class="ab-save">
         <button class="admin-btn" type="submit" :disabled="saving">
           {{ saving ? "Salvando..." : "Salvar" }}
@@ -524,7 +676,7 @@ useHead({ title: "Quem somos · Painel" });
              alteração nova na tela é mentir sobre o estado. -->
         <span role="status" class="ab-state" :class="{ ok: saved && !dirty }">
           <template v-if="dirty">Alterações não salvas</template>
-          <template v-else-if="saved">Salvo! <AppIcon name="check" /></template>
+          <template v-else-if="saved">Salvo às {{ salvoAs }} <AppIcon name="check" /></template>
         </span>
       </div>
     </form>
@@ -569,25 +721,164 @@ useHead({ title: "Quem somos · Painel" });
   line-height: 1.45;
 }
 
+.ab-publish {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+@media (min-width: 900px) {
+  .ab-publish {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.ab-publish .ab-publicar {
+  margin-bottom: 0;
+}
+.ab-checklist {
+  font-size: var(--fs-label);
+}
+.ab-checklist-t {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.ab-checklist ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.ab-checklist li {
+  color: var(--ink-soft);
+}
+.ab-checklist li.ok {
+  color: var(--ink);
+}
+.ab-check {
+  display: inline-block;
+  width: 1.2em;
+  font-weight: 700;
+}
+.ab-checklist li.ok .ab-check {
+  color: var(--wa-dark);
+}
+
 .ab-empty {
+  padding: 18px;
+  margin-bottom: 14px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--r-md);
   color: var(--ink-soft);
   font-size: var(--fs-ui);
-  padding: 14px 0;
+}
+.ab-empty p {
+  margin: 0 0 12px;
+  max-width: 70ch;
+}
+.ab-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ab-pal {
+  margin-bottom: 10px;
+}
+.ab-gap {
+  display: flex;
+  justify-content: center;
+  margin: -6px 0 4px;
+}
+.ab-gap-btn {
+  border: none;
+  background: none;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.ab-gap-btn:hover,
+.ab-gap-btn:focus-visible {
+  color: var(--brand);
+  background: var(--brand-ghost);
 }
 .ab-block {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 14px;
-  margin-bottom: 14px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+.ab-block.open {
+  border-color: var(--line-2);
+  padding-bottom: 14px;
 }
 .ab-block-head {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+.ab-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ab-chevron {
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-soft);
+  transition: transform 0.15s;
+}
+.ab-block.open .ab-chevron {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ab-chevron {
+    transition: none;
+  }
+}
+.ab-busy {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--brand);
+  font-weight: 600;
+}
+.ab-body {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.ab-dica {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--brand-ghost);
+  font-size: var(--fs-label);
+  line-height: 1.45;
+}
+.ab-alerta {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--danger-line);
+  background: var(--danger-ghost);
+  font-size: var(--fs-label);
 }
 .ab-type {
+  flex: none;
   font-size: var(--fs-caption);
   font-weight: 700;
   text-transform: uppercase;
@@ -616,9 +907,6 @@ useHead({ title: "Quem somos · Painel" });
   align-items: center;
   margin-top: 6px;
 }
-.ab-add select {
-  max-width: 220px;
-}
 .ab-add-item {
   align-self: flex-start;
   margin-top: 8px;
@@ -631,11 +919,19 @@ useHead({ title: "Quem somos · Painel" });
   margin-top: 14px;
 }
 .ab-save {
+  position: sticky;
+  bottom: calc(var(--admin-bottom-nav, 0px) + env(safe-area-inset-bottom));
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin-top: 18px;
+  /* Sangra até a borda do .admin-card (padding 20px). */
+  margin: 18px -20px -20px;
+  padding: 12px 20px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 var(--r-md) var(--r-md);
 }
 .ab-state {
   font-size: var(--fs-label);
