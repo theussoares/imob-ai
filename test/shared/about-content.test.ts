@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { ABOUT_BLOCKS_MAX, GALLERY_IMAGES_MAX, LOGOS_MAX, sanitizeAboutContent } from '~~/shared/utils/about-content'
+import {
+  ABOUT_BLOCKS_MAX,
+  aboutTemConteudoMinimo,
+  GALLERY_IMAGES_MAX,
+  LOGOS_MAX,
+  sanitizeAboutContent,
+} from '~~/shared/utils/about-content'
 
 describe('sanitizeAboutContent', () => {
   test('mantém blocos válidos de cada tipo, já aparados', () => {
@@ -167,5 +173,43 @@ describe('sanitizeAboutContent', () => {
     expect(sanitizeAboutContent({ blocks: [{ type: 'team', title: ' Conheça o time ' }] })).toEqual({
       blocks: [{ type: 'team', title: 'Conheça o time' }],
     })
+  })
+})
+
+/**
+ * O interruptor de publicar só liga com este mínimo. A ameaça é a página rala
+ * no ar: zero blocos cai no parágrafo genérico de fallback, e um "Quem somos"
+ * só com números ou logos não diz quem é a imobiliária.
+ */
+describe('aboutTemConteudoMinimo', () => {
+  test('página vazia não pode ser publicada', () => {
+    expect(aboutTemConteudoMinimo({ blocks: [] })).toBe(false)
+    expect(aboutTemConteudoMinimo(null)).toBe(false)
+  })
+
+  test('um texto basta', () => {
+    expect(aboutTemConteudoMinimo({ blocks: [{ type: 'text', body: 'Fundada em 2005.' }] })).toBe(true)
+  })
+
+  test('texto só com espaços não conta — o site o descartaria', () => {
+    expect(aboutTemConteudoMinimo({ blocks: [{ type: 'text', body: '   ' }] })).toBe(false)
+  })
+
+  test('"texto + imagem" conta pelo texto, não pela foto', () => {
+    const split = { type: 'split', imageUrl: 'https://cdn.exemplo.com/a.webp', imageAlt: '', imagePosition: 'right' }
+    expect(aboutTemConteudoMinimo({ blocks: [{ ...split, title: '', body: '' }] })).toBe(false)
+    expect(aboutTemConteudoMinimo({ blocks: [{ ...split, title: 'Nossa história', body: '' }] })).toBe(true)
+  })
+
+  test('números, título e equipe sozinhos não bastam', () => {
+    expect(
+      aboutTemConteudoMinimo({
+        blocks: [
+          { type: 'heading', text: 'Quem somos' },
+          { type: 'stat', value: '20 anos', label: 'de mercado' },
+          { type: 'team', title: '' },
+        ],
+      }),
+    ).toBe(false)
   })
 })

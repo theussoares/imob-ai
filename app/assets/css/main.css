@@ -24,6 +24,12 @@
      ganhe o hover escurecido de graça, sem pedir um segundo campo no admin. */
   --wa-dark: color-mix(in srgb, var(--wa) 82%, black);
 
+  /* Vermelho de erro/destrutivo do painel. Estava repetido como #b91c1c em
+     cada tela — um painel com tema próprio teria que caçar todos. */
+  --danger: #b91c1c;
+  --danger-line: #fca5a5;
+  --danger-ghost: #fef2f2;
+
   --shadow: 0 1px 2px rgba(20, 22, 26, 0.06), 0 6px 20px rgba(20, 22, 26, 0.06);
   --shadow-lg: 0 20px 48px rgba(20, 22, 26, 0.18);
   --r: 14px;
@@ -1698,17 +1704,17 @@ a.btn-detail:hover {
   border: 1.5px solid var(--line-2);
 }
 .admin-btn.danger {
-  background: #b91c1c;
+  background: var(--danger);
 }
 /* Destrutivo SECUNDÁRIO: para excluir em lista, onde a ação vive ao lado da
    principal. Vermelho para dizer o que é, sem o peso de botão cheio. */
 .admin-btn.danger-ghost {
   background: var(--paper);
-  color: #b91c1c;
-  border: 1.5px solid #fca5a5;
+  color: var(--danger);
+  border: 1.5px solid var(--danger-line);
 }
 .admin-btn.danger-ghost:hover {
-  background: #fef2f2;
+  background: var(--danger-ghost);
 }
 .admin-btn:disabled {
   opacity: 0.55;

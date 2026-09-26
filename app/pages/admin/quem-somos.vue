@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ABOUT_BLOCK_TYPE_LABELS, ABOUT_BLOCK_TYPES, emptyAboutBlock } from "~~/shared/models/about-page";
 import type { AboutBlock, AboutBlockType } from "~~/shared/models/about-page";
-import { ABOUT_BLOCKS_MAX, GALLERY_IMAGES_MAX, LOGOS_MAX } from "~~/shared/utils/about-content";
+import { ABOUT_BLOCKS_MAX, aboutTemConteudoMinimo, GALLERY_IMAGES_MAX, LOGOS_MAX } from "~~/shared/utils/about-content";
 definePageMeta({ layout: "admin", middleware: ['admin', 'quem-somos'] });
 
 // Tela própria (em vez de mais uma seção em "Meu site"): a edição aqui é por
 // bloco — adicionar, reordenar, remover — um editor pequeno, não mais um grupo
 // de campos. Cada tipo de bloco (shared/models/about-page.ts) é uma peça de
 // Lego que a imobiliária encaixa na ordem que quiser.
-const { form, saving, saved, error, save: persist } = useTenantSettings(["aboutContent", "aboutEnabled"]);
+const { tenant, form, saving, saved, error, save: persist } = useTenantSettings(["aboutContent", "aboutEnabled"]);
+const toast = useToast();
 
 const blocks = computed(() => form.aboutContent?.blocks ?? []);
 const newBlockType = ref<AboutBlockType>("heading");
@@ -19,9 +20,32 @@ function addBlock() {
     blocks: [...blocks.value, emptyAboutBlock(newBlockType.value)],
   };
 }
+
+// Remover não pergunta: devolve por alguns segundos. Um clique apagava um
+// depoimento de 600 caracteres sem volta, e `confirm()` não resolveria — vira
+// reflexo de "OK". O bloco reentra na posição de onde saiu (ou no fim, se a
+// lista encolheu), e é o MESMO objeto: um upload que ainda estava subindo para
+// ele continua caindo no lugar certo.
+const avisosDeDesfazer: number[] = [];
 function removeBlock(i: number) {
+  const removido = blocks.value[i];
+  if (!removido) return;
   form.aboutContent = { blocks: blocks.value.filter((_, n) => n !== i) };
+  avisosDeDesfazer.push(
+    toast.undoable(`Bloco "${ABOUT_BLOCK_TYPE_LABELS[removido.type]}" removido.`, () => {
+      if (blocks.value.length >= ABOUT_BLOCKS_MAX) {
+        toast.error(`A página já tem ${ABOUT_BLOCKS_MAX} blocos. Remova outro para trazer este de volta.`);
+        return;
+      }
+      const arr = [...blocks.value];
+      arr.splice(Math.min(i, arr.length), 0, removido);
+      form.aboutContent = { blocks: arr };
+    }),
+  );
 }
+// O desfazer de uma tela que já fechou mexeria num formulário que não existe mais.
+onBeforeUnmount(() => avisosDeDesfazer.forEach(toast.dismiss));
+
 /** Setas em vez de arrastar, mesma escolha do rodapé: poucos itens, sem lib nova. */
 function moveBlock(i: number, delta: number) {
   const arr = [...blocks.value];
@@ -34,30 +58,30 @@ function moveBlock(i: number, delta: number) {
 // ---- Upload de imagem, compartilhado por todo bloco que tem foto ----
 //
 // useBrandUpload é um composable — precisa ser chamado uma vez no setup, não
-// por campo do editor (blocos e itens de galeria/logos são dinâmicos). Em vez
-// de um `uploadingAt` por tipo de bloco, guarda uma CHAVE de texto (índice do
-// bloco, ou "índice do bloco:índice do item" para galeria/logos) e um setter —
-// assim um único upload em andamento serve imagem única, split, banner,
-// galeria e logos sem duplicar a integração com o Storage.
-const uploadingKey = ref<string | null>(null);
-let pendingSetter: ((url: string) => void) | null = null;
-const { uploading: uploadingImage, onFile: onImageFile } = useBrandUpload({
+// por campo do editor (blocos e itens de galeria/logos são dinâmicos). Cada
+// envio leva o PRÓPRIO destino (o setter) até o fim: antes havia um único
+// "setter pendente", e enviar a foto do bloco B antes de a do A terminar
+// gravava a foto de A em B e descartava a de B — numa galeria de 12 fotos,
+// enviar em sequência é o uso normal.
+//
+// O "Enviando..." é marcado pelo OBJETO de destino (bloco ou item), não pelo
+// índice: reordenar durante o envio mudaria o índice e o aviso pularia de bloco.
+const enviando = reactive(new Set<object>());
+const { onFile: onImageFile } = useBrandUpload({
   bucket: "tenant-hero",
   prefix: "about",
   maxEdge: IMAGE_SIZE_LG,
-  onDone: (url) => {
-    pendingSetter?.(url);
-    uploadingKey.value = null;
-    pendingSetter = null;
-  },
 });
-function pickImage(key: string, setter: (url: string) => void, e: Event) {
-  uploadingKey.value = key;
-  pendingSetter = setter;
-  onImageFile(e);
+async function pickImage(alvo: object, setter: (url: string) => void, e: Event) {
+  enviando.add(alvo);
+  try {
+    await onImageFile(e, setter);
+  } finally {
+    enviando.delete(alvo);
+  }
 }
-function isUploading(key: string): boolean {
-  return uploadingImage.value && uploadingKey.value === key;
+function isUploading(alvo: object): boolean {
+  return enviando.has(alvo);
 }
 
 // ---- Itens de galeria/logos (arrays dentro de um bloco só) ----
@@ -82,9 +106,57 @@ function removeLogo(i: number, j: number) {
   b.items = b.items.filter((_, n) => n !== j);
 }
 
-// Wrapper sem argumento: `persist` aceita um `validate` opcional, mas o tipo
-// dele não bate com o SubmitEvent que o @submit passaria direto.
-const save = () => persist();
+// ---- Publicar ----
+//
+// O interruptor só LIGA com o mínimo (um texto, ou "texto + imagem" com texto):
+// publicar vazio mostrava o parágrafo genérico de fallback, a página rala que o
+// 404 de `quem-somos.vue` existe para evitar. Desligar sempre pode. Quem já
+// está no ar sem o mínimo (publicou antes desta regra) é barrado no salvar, com
+// a saída dita na mensagem — não dá para desmarcar por ela sem avisar.
+const podePublicar = computed(() => aboutTemConteudoMinimo(form.aboutContent));
+const MOTIVO_SEM_MINIMO = 'Para publicar, a página precisa de pelo menos um bloco "Texto" ou "Texto + imagem lado a lado" preenchido.';
+
+// ---- Alterações não salvas ----
+//
+// Retrato do que está gravado, comparado com o formulário. Tirado depois do
+// preenchimento (o watchEffect de useTenantSettings) e de novo a cada salvar —
+// NÃO a cada mudança do tenant, que pode ser recarregado por fora e zeraria o
+// aviso com o trabalho ainda na tela.
+function retrato() {
+  return JSON.stringify({ c: form.aboutContent, e: form.aboutEnabled });
+}
+const original = ref(retrato());
+watch(
+  () => !!tenant.value,
+  async (carregado) => {
+    if (!carregado) return;
+    await nextTick();
+    original.value = retrato();
+  },
+  { immediate: true },
+);
+const dirty = computed(() => retrato() !== original.value);
+useUnsavedGuard(() => dirty.value);
+
+async function save() {
+  await persist(() => (form.aboutEnabled && !podePublicar.value ? `${MOTIVO_SEM_MINIMO} Ou desligue a publicação.` : null));
+  if (saved.value) original.value = retrato();
+}
+
+// ---- Rótulos e nomes acessíveis ----
+//
+// Rótulo sem `for` não nomeia o campo: o leitor de tela anunciava "campo de
+// edição" em todos, e clicar no rótulo não focava nada. Os blocos são
+// dinâmicos, então o id é gerado — `useId()` para não colidir com outro
+// formulário na mesma tela, índice e campo para ser único entre blocos.
+const uid = useId();
+function fid(i: number, campo: string) {
+  return `${uid}-${i}-${campo}`;
+}
+/** "bloco 3, Depoimento: Maria" — o que as setas e o remover dizem ao leitor de tela. */
+function descreve(b: AboutBlock, i: number) {
+  return `bloco ${i + 1}, ${ABOUT_BLOCK_TYPE_LABELS[b.type]}: ${blockLabel(b)}`;
+}
 
 function blockLabel(b: AboutBlock): string {
   switch (b.type) {
@@ -117,10 +189,12 @@ useHead({ title: "Quem somos · Painel" });
 <template>
   <div>
     <h1>Quem somos</h1>
-    <p style="color: var(--ink-soft); margin-bottom: 18px">
+    <p class="ab-intro">
       Monte a página <code>/quem-somos</code> em blocos — banner, texto com imagem, galeria de
       fotos, depoimentos, carrossel de corretores e mais. Adicione, reordene e
-      remova como quiser; o site mostra na mesma ordem daqui.
+      remova como quiser; o site mostra na mesma ordem daqui. O título com o nome
+      da imobiliária, o CRECI e o contato no fim da página entram sozinhos, vindos
+      de "Meu site" e "Configurações".
       <a href="/quem-somos" target="_blank" rel="noopener">Ver a página ↗</a>
     </p>
 
@@ -130,21 +204,28 @@ useHead({ title: "Quem somos · Painel" });
         coisa que se faz depois de montar os blocos, e a decisão precisa estar
         na mesma tela do conteúdo que ela publica.
       -->
-      <label class="ab-publicar">
-        <input v-model="form.aboutEnabled" type="checkbox">
+      <label class="ab-publicar" :class="{ travado: !form.aboutEnabled && !podePublicar }">
+        <input
+          v-model="form.aboutEnabled"
+          type="checkbox"
+          :disabled="!form.aboutEnabled && !podePublicar"
+          :aria-describedby="`${uid}-publicar-dica`"
+        >
         <span>
           <b>Publicar a página no site</b>
-          <small>
-            Desligado, <code>/quem-somos</code> não existe para o visitante e o
-            link some do rodapé. Deixe assim enquanto a página não tiver
-            conteúdo — página em branco no ar é pior que página nenhuma.
+          <small :id="`${uid}-publicar-dica`">
+            <template v-if="!podePublicar">{{ MOTIVO_SEM_MINIMO }}</template>
+            <template v-else>
+              Desligado, <code>/quem-somos</code> não existe para o visitante e o
+              link some do rodapé.
+            </template>
           </small>
         </span>
       </label>
 
       <div v-if="!blocks.length" class="ab-empty">
-        Nenhum bloco ainda. Adicione o primeiro abaixo; enquanto isso, deixe a
-        publicação desligada.
+        Nenhum bloco ainda. Adicione o primeiro abaixo — comece por um "Texto"
+        contando quem vocês são.
       </div>
 
       <div v-for="(b, i) in blocks" :key="i" class="ab-block">
@@ -152,27 +233,49 @@ useHead({ title: "Quem somos · Painel" });
           <span class="ab-type">{{ ABOUT_BLOCK_TYPE_LABELS[b.type] }}</span>
           <span class="ab-preview">{{ blockLabel(b) }}</span>
           <div class="ab-actions">
-            <button type="button" class="admin-btn ghost sm" :disabled="i === 0" @click="moveBlock(i, -1)">↑</button>
+            <button
+              type="button"
+              class="admin-btn ghost sm"
+              :disabled="i === 0"
+              :aria-label="`Mover ${descreve(b, i)} para cima`"
+              @click="moveBlock(i, -1)"
+            >
+              <span aria-hidden="true">↑</span>
+            </button>
             <button
               type="button"
               class="admin-btn ghost sm"
               :disabled="i === blocks.length - 1"
+              :aria-label="`Mover ${descreve(b, i)} para baixo`"
               @click="moveBlock(i, 1)"
             >
-              ↓
+              <span aria-hidden="true">↓</span>
             </button>
-            <button type="button" class="admin-btn danger-ghost sm" @click="removeBlock(i)">Remover</button>
+            <button
+              type="button"
+              class="admin-btn danger-ghost sm"
+              :aria-label="`Remover ${descreve(b, i)}`"
+              @click="removeBlock(i)"
+            >
+              Remover
+            </button>
           </div>
         </div>
 
         <div v-if="b.type === 'heading'" class="ab-fields">
-          <label class="admin-label">Título</label>
-          <input v-model="b.text" class="admin-input" placeholder="Ex.: Nossa história" />
+          <label class="admin-label" :for="fid(i, 'text')">Título</label>
+          <input :id="fid(i, 'text')" v-model="b.text" class="admin-input" placeholder="Ex.: Nossa história" />
         </div>
 
         <div v-else-if="b.type === 'text'" class="ab-fields">
-          <label class="admin-label">Texto</label>
-          <textarea v-model="b.body" class="admin-textarea" rows="4" placeholder="Conte a história da imobiliária..." />
+          <label class="admin-label" :for="fid(i, 'body')">Texto</label>
+          <textarea
+            :id="fid(i, 'body')"
+            v-model="b.body"
+            class="admin-textarea"
+            rows="4"
+            placeholder="Conte a história da imobiliária..."
+          />
         </div>
 
         <div v-else-if="b.type === 'image'" class="ab-fields">
@@ -182,56 +285,61 @@ useHead({ title: "Quem somos · Painel" });
               <AppIcon v-else name="home" />
             </div>
             <label class="admin-btn ghost file-btn">
-              {{ isUploading(`${i}`) ? "Enviando..." : b.url ? "Trocar imagem" : "Enviar imagem" }}
-              <input type="file" accept="image/*" hidden @change="pickImage(`${i}`, (url) => (b.url = url), $event)" />
+              {{ isUploading(b) ? "Enviando..." : b.url ? "Trocar imagem" : "Enviar imagem" }}
+              <input type="file" accept="image/*" hidden @change="pickImage(b, (url) => (b.url = url), $event)" />
             </label>
             <button v-if="b.url" type="button" class="admin-btn ghost" @click="b.url = ''">Remover</button>
           </div>
-          <div class="form-grid" style="margin-top: 10px">
+          <div class="form-grid mt">
             <div>
-              <label class="admin-label">Texto alternativo (acessibilidade)</label>
-              <input v-model="b.alt" class="admin-input" placeholder="Ex.: Equipe da imobiliária" />
+              <label class="admin-label" :for="fid(i, 'alt')">Texto alternativo (acessibilidade)</label>
+              <input :id="fid(i, 'alt')" v-model="b.alt" class="admin-input" placeholder="Ex.: Equipe da imobiliária" />
             </div>
             <div>
-              <label class="admin-label">Legenda (opcional)</label>
-              <input v-model="b.caption" class="admin-input" />
+              <label class="admin-label" :for="fid(i, 'caption')">Legenda (opcional)</label>
+              <input :id="fid(i, 'caption')" v-model="b.caption" class="admin-input" />
             </div>
           </div>
         </div>
 
         <div v-else-if="b.type === 'stat'" class="ab-fields form-grid">
           <div>
-            <label class="admin-label">Número</label>
-            <input v-model="b.value" class="admin-input" placeholder="Ex.: 20 anos" />
+            <label class="admin-label" :for="fid(i, 'value')">Número</label>
+            <input :id="fid(i, 'value')" v-model="b.value" class="admin-input" placeholder="Ex.: 20 anos" />
           </div>
           <div>
-            <label class="admin-label">Legenda</label>
-            <input v-model="b.label" class="admin-input" placeholder="Ex.: de mercado" />
+            <label class="admin-label" :for="fid(i, 'label')">Legenda</label>
+            <input :id="fid(i, 'label')" v-model="b.label" class="admin-input" placeholder="Ex.: de mercado" />
           </div>
         </div>
 
         <div v-else-if="b.type === 'banner'" class="ab-fields">
-          <label class="admin-label">Título</label>
-          <input v-model="b.title" class="admin-input" placeholder="Ex.: 20 anos cuidando de quem confia na gente" />
-          <div class="logo-row" style="margin-top: 10px">
+          <label class="admin-label" :for="fid(i, 'title')">Título</label>
+          <input
+            :id="fid(i, 'title')"
+            v-model="b.title"
+            class="admin-input"
+            placeholder="Ex.: 20 anos cuidando de quem confia na gente"
+          />
+          <div class="logo-row mt">
             <div class="hero-img-preview wide">
               <img v-if="b.imageUrl" :src="supabaseRenderImage(b.imageUrl, { width: 200, height: 120, quality: 70 })" alt="" />
               <AppIcon v-else name="home" />
             </div>
             <label class="admin-btn ghost file-btn">
-              {{ isUploading(`${i}`) ? "Enviando..." : b.imageUrl ? "Trocar imagem de fundo" : "Enviar imagem de fundo" }}
-              <input type="file" accept="image/*" hidden @change="pickImage(`${i}`, (url) => (b.imageUrl = url), $event)" />
+              {{ isUploading(b) ? "Enviando..." : b.imageUrl ? "Trocar imagem de fundo" : "Enviar imagem de fundo" }}
+              <input type="file" accept="image/*" hidden @change="pickImage(b, (url) => (b.imageUrl = url), $event)" />
             </label>
             <button v-if="b.imageUrl" type="button" class="admin-btn ghost" @click="b.imageUrl = ''">Remover</button>
           </div>
-          <div class="form-grid" style="margin-top: 10px">
+          <div class="form-grid mt">
             <div>
-              <label class="admin-label">Botão — texto (opcional)</label>
-              <input v-model="b.ctaLabel" class="admin-input" placeholder="Ex.: Fale com a gente" />
+              <label class="admin-label" :for="fid(i, 'cta-label')">Botão — texto (opcional)</label>
+              <input :id="fid(i, 'cta-label')" v-model="b.ctaLabel" class="admin-input" placeholder="Ex.: Fale com a gente" />
             </div>
             <div>
-              <label class="admin-label">Botão — link (opcional)</label>
-              <input v-model="b.ctaHref" class="admin-input" placeholder="/quero-vender ou https://..." />
+              <label class="admin-label" :for="fid(i, 'cta-href')">Botão — link (opcional)</label>
+              <input :id="fid(i, 'cta-href')" v-model="b.ctaHref" class="admin-input" placeholder="/quero-vender ou https://..." />
             </div>
           </div>
           <p class="hint-text">O botão só aparece se texto e link estiverem preenchidos.</p>
@@ -244,35 +352,47 @@ useHead({ title: "Quem somos · Painel" });
               <AppIcon v-else name="home" />
             </div>
             <label class="admin-btn ghost file-btn">
-              {{ isUploading(`${i}`) ? "Enviando..." : b.imageUrl ? "Trocar imagem" : "Enviar imagem" }}
-              <input type="file" accept="image/*" hidden @change="pickImage(`${i}`, (url) => (b.imageUrl = url), $event)" />
+              {{ isUploading(b) ? "Enviando..." : b.imageUrl ? "Trocar imagem" : "Enviar imagem" }}
+              <input type="file" accept="image/*" hidden @change="pickImage(b, (url) => (b.imageUrl = url), $event)" />
             </label>
             <button v-if="b.imageUrl" type="button" class="admin-btn ghost" @click="b.imageUrl = ''">Remover</button>
           </div>
-          <div class="form-grid" style="margin-top: 10px">
+          <div class="form-grid mt">
             <div>
-              <label class="admin-label">Texto alternativo da imagem</label>
-              <input v-model="b.imageAlt" class="admin-input" />
+              <label class="admin-label" :for="fid(i, 'image-alt')">Texto alternativo da imagem</label>
+              <input :id="fid(i, 'image-alt')" v-model="b.imageAlt" class="admin-input" />
             </div>
             <div>
-              <label class="admin-label">Posição da imagem</label>
-              <div class="pos-toggle">
-                <button type="button" class="pos-btn" :class="{ on: b.imagePosition === 'left' }" @click="b.imagePosition = 'left'">
+              <span :id="fid(i, 'pos')" class="admin-label">Posição da imagem</span>
+              <div class="pos-toggle" role="group" :aria-labelledby="fid(i, 'pos')">
+                <button
+                  type="button"
+                  class="pos-btn"
+                  :class="{ on: b.imagePosition === 'left' }"
+                  :aria-pressed="b.imagePosition === 'left'"
+                  @click="b.imagePosition = 'left'"
+                >
                   Esquerda
                 </button>
-                <button type="button" class="pos-btn" :class="{ on: b.imagePosition === 'right' }" @click="b.imagePosition = 'right'">
+                <button
+                  type="button"
+                  class="pos-btn"
+                  :class="{ on: b.imagePosition === 'right' }"
+                  :aria-pressed="b.imagePosition === 'right'"
+                  @click="b.imagePosition = 'right'"
+                >
                   Direita
                 </button>
               </div>
             </div>
           </div>
-          <div style="margin-top: 10px">
-            <label class="admin-label">Título</label>
-            <input v-model="b.title" class="admin-input" />
+          <div class="mt">
+            <label class="admin-label" :for="fid(i, 'title')">Título</label>
+            <input :id="fid(i, 'title')" v-model="b.title" class="admin-input" />
           </div>
-          <div style="margin-top: 10px">
-            <label class="admin-label">Texto</label>
-            <textarea v-model="b.body" class="admin-textarea" rows="4" />
+          <div class="mt">
+            <label class="admin-label" :for="fid(i, 'body')">Texto</label>
+            <textarea :id="fid(i, 'body')" v-model="b.body" class="admin-textarea" rows="4" />
           </div>
         </div>
 
@@ -284,28 +404,56 @@ useHead({ title: "Quem somos · Painel" });
               <AppIcon v-else name="home" />
             </div>
             <label class="admin-btn ghost file-btn sm">
-              {{ isUploading(`${i}:${j}`) ? "Enviando..." : img.url ? "Trocar" : "Enviar" }}
-              <input type="file" accept="image/*" hidden @change="pickImage(`${i}:${j}`, (url) => (img.url = url), $event)" />
+              {{ isUploading(img) ? "Enviando..." : img.url ? "Trocar" : "Enviar" }}
+              <input type="file" accept="image/*" hidden @change="pickImage(img, (url) => (img.url = url), $event)" />
             </label>
-            <input v-model="img.alt" class="admin-input" placeholder="Texto alternativo" />
-            <button type="button" class="admin-btn danger-ghost sm" @click="removeGalleryImage(i, j)">Remover</button>
+            <input
+              v-model="img.alt"
+              class="admin-input"
+              placeholder="Texto alternativo"
+              :aria-label="`Texto alternativo da foto ${j + 1}`"
+            />
+            <button
+              type="button"
+              class="admin-btn danger-ghost sm"
+              :aria-label="`Remover foto ${j + 1}`"
+              @click="removeGalleryImage(i, j)"
+            >
+              Remover
+            </button>
           </div>
-          <button type="button" class="admin-btn ghost sm" :disabled="b.images.length >= GALLERY_IMAGES_MAX" style="margin-top: 8px" @click="addGalleryImage(i)">
+          <button
+            type="button"
+            class="admin-btn ghost sm ab-add-item"
+            :disabled="b.images.length >= GALLERY_IMAGES_MAX"
+            @click="addGalleryImage(i)"
+          >
             + Adicionar foto
           </button>
         </div>
 
         <div v-else-if="b.type === 'testimonial'" class="ab-fields">
-          <label class="admin-label">Depoimento</label>
-          <textarea v-model="b.quote" class="admin-textarea" rows="3" placeholder="O que o cliente disse..." />
-          <div class="form-grid" style="margin-top: 10px">
+          <label class="admin-label" :for="fid(i, 'quote')">Depoimento</label>
+          <textarea
+            :id="fid(i, 'quote')"
+            v-model="b.quote"
+            class="admin-textarea"
+            rows="3"
+            placeholder="O que o cliente disse..."
+          />
+          <div class="form-grid mt">
             <div>
-              <label class="admin-label">Nome do cliente</label>
-              <input v-model="b.authorName" class="admin-input" />
+              <label class="admin-label" :for="fid(i, 'author')">Nome do cliente</label>
+              <input :id="fid(i, 'author')" v-model="b.authorName" class="admin-input" />
             </div>
             <div>
-              <label class="admin-label">Complemento (opcional)</label>
-              <input v-model="b.authorRole" class="admin-input" placeholder="Ex.: comprou um apartamento em 2026" />
+              <label class="admin-label" :for="fid(i, 'role')">Complemento (opcional)</label>
+              <input
+                :id="fid(i, 'role')"
+                v-model="b.authorRole"
+                class="admin-input"
+                placeholder="Ex.: comprou um apartamento em 2026"
+              />
             </div>
           </div>
         </div>
@@ -318,20 +466,37 @@ useHead({ title: "Quem somos · Painel" });
               <AppIcon v-else name="home" />
             </div>
             <label class="admin-btn ghost file-btn sm">
-              {{ isUploading(`${i}:${j}`) ? "Enviando..." : item.url ? "Trocar" : "Enviar" }}
-              <input type="file" accept="image/*" hidden @change="pickImage(`${i}:${j}`, (url) => (item.url = url), $event)" />
+              {{ isUploading(item) ? "Enviando..." : item.url ? "Trocar" : "Enviar" }}
+              <input type="file" accept="image/*" hidden @change="pickImage(item, (url) => (item.url = url), $event)" />
             </label>
-            <input v-model="item.alt" class="admin-input" placeholder="Nome (texto alternativo)" />
-            <button type="button" class="admin-btn danger-ghost sm" @click="removeLogo(i, j)">Remover</button>
+            <input
+              v-model="item.alt"
+              class="admin-input"
+              placeholder="Nome (texto alternativo)"
+              :aria-label="`Nome do logo ${j + 1}`"
+            />
+            <button
+              type="button"
+              class="admin-btn danger-ghost sm"
+              :aria-label="`Remover logo ${j + 1}`"
+              @click="removeLogo(i, j)"
+            >
+              Remover
+            </button>
           </div>
-          <button type="button" class="admin-btn ghost sm" :disabled="b.items.length >= LOGOS_MAX" style="margin-top: 8px" @click="addLogo(i)">
+          <button
+            type="button"
+            class="admin-btn ghost sm ab-add-item"
+            :disabled="b.items.length >= LOGOS_MAX"
+            @click="addLogo(i)"
+          >
             + Adicionar logo
           </button>
         </div>
 
         <div v-else-if="b.type === 'team'" class="ab-fields">
-          <label class="admin-label">Título da seção (opcional)</label>
-          <input v-model="b.title" class="admin-input" placeholder="Nossa equipe" />
+          <label class="admin-label" :for="fid(i, 'title')">Título da seção (opcional)</label>
+          <input :id="fid(i, 'title')" v-model="b.title" class="admin-input" placeholder="Nossa equipe" />
           <p class="hint-text">
             Mostra, em carrossel, quem marcou "Mostrar este corretor no site" na tela
             <NuxtLink to="/admin/corretores">Corretores</NuxtLink>. Sem edição aqui — atualize foto e minibio lá.
@@ -340,7 +505,8 @@ useHead({ title: "Quem somos · Painel" });
       </div>
 
       <div class="ab-add">
-        <select v-model="newBlockType" class="admin-input">
+        <label class="sr-only" :for="`${uid}-novo-tipo`">Tipo do novo bloco</label>
+        <select :id="`${uid}-novo-tipo`" v-model="newBlockType" class="admin-input">
           <option v-for="t in ABOUT_BLOCK_TYPES" :key="t" :value="t">{{ ABOUT_BLOCK_TYPE_LABELS[t] }}</option>
         </select>
         <button type="button" class="admin-btn ghost" :disabled="blocks.length >= ABOUT_BLOCKS_MAX" @click="addBlock">
@@ -348,29 +514,44 @@ useHead({ title: "Quem somos · Painel" });
         </button>
       </div>
 
-      <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
-      <p v-if="saved" role="status" style="color: var(--wa-dark); margin-top: 14px; font-weight: 600">Salvo! <AppIcon name="check" /></p>
+      <p v-if="error" role="alert" class="ab-error">{{ error }}</p>
 
-      <div style="margin-top: 18px">
+      <div class="ab-save">
         <button class="admin-btn" type="submit" :disabled="saving">
           {{ saving ? "Salvando..." : "Salvar" }}
         </button>
+        <!-- "Salvo!" some ao voltar a editar: continuar dizendo "salvo" com
+             alteração nova na tela é mentir sobre o estado. -->
+        <span role="status" class="ab-state" :class="{ ok: saved && !dirty }">
+          <template v-if="dirty">Alterações não salvas</template>
+          <template v-else-if="saved">Salvo! <AppIcon name="check" /></template>
+        </span>
       </div>
     </form>
   </div>
 </template>
 
 <style scoped>
+.ab-intro {
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
 .ab-publicar {
   display: flex;
   gap: 10px;
   align-items: flex-start;
   padding: 12px 14px;
   margin-bottom: 16px;
-  border: 1px solid var(--line, #e5e7eb);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: #f9fafb;
+  background: var(--surface);
   cursor: pointer;
+}
+.ab-publicar.travado {
+  cursor: not-allowed;
+}
+.ab-publicar.travado b {
+  color: var(--ink-soft);
 }
 .ab-publicar input {
   margin-top: 3px;
@@ -384,7 +565,7 @@ useHead({ title: "Quem somos · Painel" });
   display: block;
   margin-top: 2px;
   font-size: var(--fs-caption);
-  color: var(--ink-soft, #6b7280);
+  color: var(--ink-soft);
   line-height: 1.45;
 }
 
@@ -437,6 +618,32 @@ useHead({ title: "Quem somos · Painel" });
 }
 .ab-add select {
   max-width: 220px;
+}
+.ab-add-item {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+.mt {
+  margin-top: 10px;
+}
+.ab-error {
+  color: var(--danger);
+  margin-top: 14px;
+}
+.ab-save {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.ab-state {
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+.ab-state.ok {
+  color: var(--wa-dark);
+  font-weight: 600;
 }
 .ab-fields {
   display: flex;
