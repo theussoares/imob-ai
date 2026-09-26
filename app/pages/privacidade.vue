@@ -127,7 +127,9 @@ useHead(() => ({
       </li>
       <li>
         <b>Registro dos seus acessos:</b> cada vez que um documento é baixado,
-        guardamos quem baixou, quando e de qual endereço de internet.
+        guardamos quem baixou, quando e de qual endereço de internet. Guardamos
+        também a data da sua primeira entrada na Área do Cliente, para que
+        {{ nome }} saiba que o seu acesso está funcionando.
       </li>
     </ul>
 

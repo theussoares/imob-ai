@@ -10,12 +10,13 @@ import {
   somar,
   somarDiasUteis,
 } from '~~/shared/models/cobranca'
-import { LEASE_DEFAULTS } from '~~/shared/models/lease'
+import { LEASE_DEFAULTS, pagadorDoContrato } from '~~/shared/models/lease'
 import type { Tenant } from '~~/shared/models/tenant'
 import type { PaymentAccountRow } from '~~/server/mappers/cobranca.mapper'
 import { getContract, getContractInternal, listContractParties } from '~~/server/repositories/contract.repository'
 import {
   activeDestinationId,
+  cancelPendingPayout,
   createPayoutForCharge,
   forgetWebhookEvent,
   getCharge,
@@ -23,6 +24,7 @@ import {
   getPaymentAccount,
   getPaymentCustomer,
   insertSettlement,
+  listActivePayoutsForCharge,
   lockChargeForIssue,
   markChargeCanceled,
   markChargeIssued,
@@ -95,7 +97,7 @@ export async function emitirCobranca(client: Client, tenant: Tenant, chargeId: s
     listContractParties(client, tenant.id, contrato.id),
     getPaymentAccount(service, tenant.id),
   ])
-  const inquilino = partes.find((p) => p.role === 'inquilino')
+  const inquilino = pagadorDoContrato(partes.filter((p) => p.role === 'inquilino'))
 
   const impedimentos = impedimentosDeEmissao({
     status: charge.status,
@@ -265,6 +267,12 @@ export async function baixarManualmente(
       try {
         await provedorDaConta(conta).baixarPorFora(charge.externalId, input.amount, input.settledOn)
       } catch (e) {
+        // O provedor recusa a baixa de um boleto que lá já foi pago ou
+        // removido ("cobrança não está pendente") — e o motivo mais comum é o
+        // webhook não ter chegado. Antes de mostrar o erro cru, pergunta ao
+        // provedor o que aconteceu e traz para cá.
+        const r = e instanceof ErroDoProvedor && !e.credencialInvalida ? await sincronizarComProvedor(service, tenant.id, charge.id).catch(() => null) : null
+        if (r?.mudou) throw createError({ statusCode: 409, statusMessage: r.mensagem })
         comoErroHttp(e)
       }
     } else {
@@ -301,8 +309,59 @@ export async function baixarManualmente(
 }
 
 /**
+ * Traz para cá o estado que a cobrança tem no provedor, pelo MESMO caminho do
+ * webhook (`processarEventoDePagamento`).
+ *
+ * O sintoma do teste de 26/09: "Simular pagamento" funcionava no Asaas, o
+ * webhook não chegava ao localhost, e a cobrança ficava "Em aberto" aqui.
+ * "Recebi por fora" então mostrava o erro cru do Asaas ("cobrança não está
+ * pendente"). Em produção o mesmo acontece quando o Asaas pausa a fila do
+ * webhook depois de falhas seguidas.
+ *
+ * Só lê do provedor; quem escreve é o processamento do evento, com a mesma
+ * idempotência do webhook — se ele chegar depois, vira no-op.
+ */
+export async function sincronizarComProvedor(
+  service: Client,
+  tenantId: string,
+  chargeId: string,
+): Promise<{ mudou: boolean; mensagem: string }> {
+  const charge = await getCharge(service, tenantId, chargeId)
+  if (!charge) throw createError({ statusCode: 404, statusMessage: 'Cobrança não encontrada.' })
+  if (!charge.provider || !charge.externalId) {
+    return { mudou: false, mensagem: 'Esta cobrança não foi emitida no provedor.' }
+  }
+  const conta = await getPaymentAccount(service, tenantId)
+  if (!conta || conta.provider !== charge.provider || conta.environment !== charge.providerEnvironment) {
+    throw createError({ statusCode: 409, statusMessage: 'O boleto foi emitido por outra conta de cobrança. Confira no painel do provedor.' })
+  }
+  let evento: EventoDePagamento | null
+  try {
+    evento = await provedorDaConta(conta).consultar(charge.externalId)
+  } catch (e) {
+    comoErroHttp(e)
+  }
+  if (!evento) return { mudou: false, mensagem: 'Nada novo no provedor: a cobrança continua em aberto lá também.' }
+  const resultado = await processarEventoDePagamento(service, tenantId, conta.provider as PaymentProviderName, evento)
+  const MENSAGENS: Record<string, string> = {
+    liquidada: `O provedor já registrava o pagamento (${evento.data.split('-').reverse().join('/')}). A cobrança foi atualizada aqui.`,
+    paga_apos_cancelamento: 'O provedor registra pagamento numa cobrança cancelada aqui. O pagamento foi registrado; confira com o inquilino.',
+    cancelada: 'A cobrança foi removida no provedor. Ela foi cancelada aqui também.',
+    estornada: 'O pagamento foi estornado no provedor. A cobrança foi atualizada aqui.',
+    estornada_repasse_ja_pago: 'O pagamento foi estornado no provedor, e o repasse ao proprietário já tinha sido feito. Acerte com o proprietário.',
+  }
+  const mensagem = MENSAGENS[resultado]
+  return mensagem ? { mudou: true, mensagem } : { mudou: false, mensagem: 'A cobrança já estava em dia com o provedor.' }
+}
+
+/**
  * Cobrança paga → repasse PENDENTE ao proprietário (B3.8). Chamada depois de
  * toda liquidação; idempotente pela chave `cobranca:<id>`.
+ *
+ * Depois de um estorno a chave ganha o número de estornos. O repasse do
+ * pagamento estornado foi cancelado, mas a linha continua lá com a chave
+ * antiga (o índice único da 0042 não olha `canceled_at`); se a cobrança for
+ * paga de novo, a mesma chave colidiria e o proprietário nunca receberia.
  *
  * Contrato sem proprietário vinculado não gera repasse: a imobiliária pode
  * ser a própria dona, ou o vínculo ainda não foi feito — a ficha já mostra
@@ -333,8 +392,44 @@ export async function gerarRepasseSeQuitada(service: Client, tenantId: string, c
     bruto: calculo.bruto,
     taxaAdm: calculo.taxaAdm,
     adminFeePercent: interno?.adminFeePercent ?? null,
+    estornos: charge.settlements.filter((s) => s.amount < 0).length,
   })
   return r === 'ok' ? 'criado' : 'duplicado'
+}
+
+/**
+ * Estorno → o repasse daquela cobrança não pode mais sair.
+ *
+ * Sem isto o estorno criava as linhas negativas e o repasse continuava
+ * pendente: a imobiliária transferia ao proprietário um dinheiro que já tinha
+ * voltado ao inquilino, e só descobria no extrato do Asaas.
+ *
+ * Repasse já pago não se desfaz por código — o dinheiro saiu da conta da
+ * imobiliária por transferência manual (B3.8). Esse caso grita no log e volta
+ * como `repasse_ja_pago`, para o diário do webhook dizer que falta uma ação
+ * humana (cobrar o proprietário de volta, ou descontar no próximo repasse).
+ *
+ * Se a cobrança continua quitada depois do estorno (houve outro pagamento que
+ * cobre o total), o repasse fica: o proprietário tem a receber do mesmo jeito.
+ */
+export async function cancelarRepasseSeEstornada(
+  service: Client,
+  tenantId: string,
+  chargeId: string,
+): Promise<'mantido' | 'cancelado' | 'sem_repasse' | 'repasse_ja_pago'> {
+  const charge = await getCharge(service, tenantId, chargeId)
+  if (!charge || charge.status === 'paga') return 'mantido'
+  const repasses = await listActivePayoutsForCharge(service, tenantId, chargeId)
+  if (!repasses.length) return 'sem_repasse'
+  let jaPago = false
+  for (const r of repasses) {
+    const cancelou = !r.paidAt && (await cancelPendingPayout(service, tenantId, r.id, 'Pagamento estornado no provedor', null))
+    if (!cancelou) {
+      jaPago = true
+      logError('cobranca.estorno_com_repasse_pago', { chargeId, payoutId: r.id })
+    }
+  }
+  return jaPago ? 'repasse_ja_pago' : 'cancelado'
 }
 
 /**
@@ -413,6 +508,11 @@ async function aplicarEvento(service: Client, tenantId: string, provider: Paymen
   if (e.tipo === 'estornado') {
     const n = await reverseSettlements(service, tenantId, charge, e.data, `${provider}:estorno:${e.externalId}`)
     if (n) logWarn('cobranca.estornada', { chargeId: charge.id, liquidacoes: n })
+    // Roda mesmo com `n === 0`: se a tentativa anterior caiu entre as linhas
+    // negativas e o repasse, o reenvio encontra o estorno já gravado e é aqui
+    // que o repasse ainda é cancelado.
+    const repasse = await cancelarRepasseSeEstornada(service, tenantId, charge.id)
+    if (repasse === 'repasse_ja_pago') return 'estornada_repasse_ja_pago'
     return n ? 'estornada' : 'estorno_ja_registrado'
   }
   return 'ignorado'

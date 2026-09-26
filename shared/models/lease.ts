@@ -133,8 +133,17 @@ export interface DadosParaPendencias {
 export function pendenciasDoContrato(d: DadosParaPendencias): Pendencia[] {
   const p: Pendencia[] = []
   if (!d.inquilinos.length) p.push({ codigo: 'sem_inquilino', texto: 'Sem inquilino vinculado.', bloqueiaCobranca: true })
-  else if (d.inquilinos.some((i) => !i.doc)) {
+  else if (d.inquilinos.every((i) => !i.doc)) {
     p.push({ codigo: 'inquilino_sem_documento', texto: 'Inquilino sem CPF/CNPJ: o boleto exige.', bloqueiaCobranca: true })
+  } else if (d.inquilinos.some((i) => !i.doc)) {
+    // O boleto sai no nome de UM inquilino (`pagadorDoContrato`), e basta o
+    // documento dele. Este aviso dizia "impede o boleto" com um segundo
+    // inquilino sem CPF, e o boleto era emitido normalmente — a tela mentia.
+    p.push({
+      codigo: 'inquilino_sem_documento',
+      texto: 'Um dos inquilinos está sem CPF/CNPJ. O boleto sai no nome de quem tem.',
+      bloqueiaCobranca: false,
+    })
   }
   if (!d.rentAmount || !d.dueDay) {
     p.push({ codigo: 'sem_vencimento', texto: 'Falta o valor do aluguel ou o dia do vencimento.', bloqueiaCobranca: true })
@@ -152,6 +161,19 @@ export function pendenciasDoContrato(d: DadosParaPendencias): Pendencia[] {
   }
   if (!d.guaranteeType) p.push({ codigo: 'sem_garantia', texto: 'Garantia não informada.', bloqueiaCobranca: false })
   return p
+}
+
+/**
+ * Em nome de quem o boleto sai: o primeiro inquilino COM documento, porque o
+ * boleto registrado exige CPF/CNPJ do pagador. Sem nenhum com documento, o
+ * primeiro — e a emissão recusa com a mesma mensagem da pendência.
+ *
+ * Uma função só para a pendência da ficha e para a emissão: eram duas regras
+ * (a ficha olhava "algum sem CPF", a emissão olhava "o primeiro"), e elas
+ * discordavam justamente no caso de dois inquilinos.
+ */
+export function pagadorDoContrato<T extends { doc: string | null }>(inquilinos: readonly T[]): T | null {
+  return inquilinos.find((i) => !!i.doc) ?? inquilinos[0] ?? null
 }
 
 /** Pessoa do contrato: uma que já existe, ou uma nova criada no mesmo passo. */
@@ -207,4 +229,47 @@ export interface LeaseCreateInput {
   repasse?: PayoutDestinationInput | null
   /** Manda o convite da Área do Cliente a quem tiver e-mail e ainda não tiver acesso. */
   convidarPartes?: boolean
+}
+
+/** O que a checagem de sobreposição precisa de cada contrato. */
+export interface VigenciaDoContrato {
+  id: string
+  code: string
+  propertyId: string | null
+  status: 'ativo' | 'encerrado'
+  startedOn: string | null
+  endsOn: string | null
+}
+
+/**
+ * Contrato ATIVO do mesmo imóvel cuja vigência cruza a informada.
+ *
+ * Existe porque o assistente aceitou criar o LOC-2026-003 no NC-0267 com o
+ * LOC-2026-001 ativo no mesmo período: a tela só mostrava "já alugado" e o
+ * servidor não conferia nada. Dois contratos ativos no mesmo imóvel viram duas
+ * cobranças de aluguel e dois repasses ao mesmo proprietário.
+ *
+ * Por que não o `status = 'rented'` do imóvel: ele é vitrine (tira o imóvel da
+ * lista do site) e a imobiliária troca à mão — imóvel alugado fora do sistema
+ * existe, e contrato ativo com o imóvel ainda "Publicado" também.
+ *
+ * Datas faltando valem como aberto naquele lado: contrato sem fim ocupa o
+ * imóvel indefinidamente, que é o lado seguro de errar. Comparação de string
+ * funciona porque as datas são 'AAAA-MM-DD'.
+ */
+export function contratoQueOcupa(
+  contratos: readonly VigenciaDoContrato[],
+  alvo: { propertyId?: string | null; startedOn?: string | null; endsOn?: string | null; excetoId?: string },
+): VigenciaDoContrato | null {
+  if (!alvo.propertyId) return null
+  return (
+    contratos.find(
+      (c) =>
+        c.id !== alvo.excetoId &&
+        c.propertyId === alvo.propertyId &&
+        c.status === 'ativo' &&
+        (!alvo.endsOn || !c.startedOn || c.startedOn <= alvo.endsOn) &&
+        (!alvo.startedOn || !c.endsOn || c.endsOn >= alvo.startedOn),
+    ) ?? null
+  )
 }

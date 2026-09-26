@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'vitest'
 import {
+  aMaiorSeMarcarFeito,
   calcularRepasse,
   competenciaParaData,
   estadoDaCobranca,
   feriadosBancarios,
   hojeEmSaoPaulo,
   impedimentosDeEmissao,
+  repassesAMaior,
   somar,
   somarDiasUteis,
   vencimentoPadrao,
@@ -118,5 +120,64 @@ describe('o que impede emitir', () => {
     // 01h UTC de 11/10 ainda é 10/10 em São Paulo: um vencimento no dia 10
     // não pode virar "vencida" às 22h do próprio dia.
     expect(hojeEmSaoPaulo(new Date('2026-10-11T01:00:00Z'))).toBe('2026-10-10')
+  })
+})
+
+describe('repasse feito a mais (estorno depois do repasse)', () => {
+  // O repasse pendente o servidor cancela; o que já saiu da conta da
+  // imobiliária só aparece se a tela souber calcular.
+  const cob = (settledTotal: number) => ({ id: 'ch1', competence: '2026-09-01', settledTotal })
+  const feito = { status: 'pago' as const, gross: 2500, net: 2300, sourceChargeId: 'ch1' }
+
+  test('estorno total depois do repasse feito: a recuperar é o LÍQUIDO transferido', () => {
+    expect(repassesAMaior([cob(0)], [feito])).toEqual([{ chargeId: 'ch1', competence: '2026-09-01', valor: 2300 }])
+  })
+
+  test('repasse pendente ou cancelado não conta: nada saiu da conta', () => {
+    expect(repassesAMaior([cob(0)], [{ ...feito, status: 'pendente' }, { ...feito, status: 'cancelado' }])).toEqual([])
+  })
+
+  test('sem estorno, nenhum aviso', () => {
+    expect(repassesAMaior([cob(2500)], [feito])).toEqual([])
+  })
+
+  test('pago de novo e repassado de novo: o proprietário recebeu duas vezes por um pagamento', () => {
+    expect(repassesAMaior([cob(2500)], [feito, { ...feito }])).toEqual([expect.objectContaining({ valor: 2300 })])
+  })
+
+  test('estorno parcial: a recuperar é a parte proporcional do líquido', () => {
+    expect(repassesAMaior([cob(1500)], [feito])[0]!.valor).toBe(920)
+  })
+
+  test('repasse de outra cobrança não se mistura', () => {
+    expect(repassesAMaior([cob(0), { id: 'ch2', competence: '2026-10-01', settledTotal: 2500 }], [{ ...feito, sourceChargeId: 'ch2' }])).toEqual([])
+  })
+})
+
+describe('aviso ANTES de marcar o repasse como feito', () => {
+  // Estornado depois do repasse, pago de novo: o servidor cria um segundo
+  // repasse que parece normal. Marcá-lo como feito é pagar duas vezes.
+  const cob = { id: 'ch1', competence: '2026-09-01', settledTotal: 2500 }
+  const feito = { id: 'po1', status: 'pago' as const, gross: 2500, net: 2300, sourceChargeId: 'ch1' }
+  const novo = { id: 'po2', status: 'pendente' as const, gross: 2500, net: 2300, sourceChargeId: 'ch1' }
+
+  test('segundo repasse do mesmo pagamento: avisa o líquido que sairia a mais', () => {
+    expect(aMaiorSeMarcarFeito([cob], [feito, novo], 'po2')).toBe(2300)
+  })
+
+  test('repasse comum, sem estorno no caminho: 0', () => {
+    expect(aMaiorSeMarcarFeito([cob], [novo], 'po2')).toBe(0)
+  })
+
+  test('excesso que já existia não é contado de novo (só o que ESTE clique acrescenta)', () => {
+    // Estorno total sem novo pagamento: po1 já está a mais; marcar outro
+    // repasse de outra cobrança não tem nada a ver com isso.
+    const outra = { id: 'ch2', competence: '2026-10-01', settledTotal: 2500 }
+    expect(aMaiorSeMarcarFeito([{ ...cob, settledTotal: 0 }, outra], [feito, { ...novo, sourceChargeId: 'ch2' }], 'po2')).toBe(0)
+  })
+
+  test('repasse já feito ou cancelado: nada a avisar', () => {
+    expect(aMaiorSeMarcarFeito([cob], [feito, { ...novo, status: 'cancelado' }], 'po2')).toBe(0)
+    expect(aMaiorSeMarcarFeito([cob], [feito], 'po1')).toBe(0)
   })
 })

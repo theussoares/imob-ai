@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { PortalUser, PortalUserInput } from '~~/shared/models/portal'
 import { toPortalUserModel, toPortalUserRow } from '~~/server/mappers/portal-user.mapper'
+import { assertDocumentoLivre } from '~~/server/repositories/portal-user.repository'
 import {
   emailAcessoLiberado,
   emailConvitePortal,
@@ -225,6 +226,10 @@ export async function convidarClientePortal(
     .eq('tenant_id', tenantId)
     .eq('email', email)
     .maybeSingle()
+
+  // Antes de `obterAcesso`: recusar depois deixaria uma conta criada no Auth
+  // para um cadastro que não vai existir.
+  if (!existente) await assertDocumentoLivre(service, tenantId, input.doc)
 
   const acesso = await obterAcesso(service, email, redirectTo)
 

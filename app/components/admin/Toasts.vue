@@ -1,10 +1,22 @@
 <script setup lang="ts">
-const { items, dismiss } = useToast();
+import type { Toast } from "~/composables/useToast";
+
+const { items, dismiss, clearErrors } = useToast();
+
+// Erro de uma tela não segue a pessoa para a próxima: lá ele não diz respeito a
+// nada que ela esteja vendo.
+const route = useRoute();
+watch(() => route.path, clearErrors);
 
 const errors = computed(() => items.value.filter((t) => t.kind === "error"));
 const successes = computed(() =>
   items.value.filter((t) => t.kind === "success"),
 );
+
+function runAction(t: Toast) {
+  dismiss(t.id);
+  t.action?.run();
+}
 </script>
 
 <template>
@@ -30,6 +42,9 @@ const successes = computed(() =>
     <div class="stack" role="status" aria-live="polite">
       <div v-for="t in successes" :key="t.id" class="toast ok">
         <span>{{ t.message }}</span>
+        <button v-if="t.action" type="button" class="act" @click="runAction(t)">
+          {{ t.action.label }}
+        </button>
         <button
           type="button"
           class="x"
@@ -47,8 +62,10 @@ const successes = computed(() =>
 .toasts {
   position: fixed;
   right: 16px;
-  /* Acima da barra inferior do celular — sem isto o toast nascia atrás dela. */
-  bottom: calc(16px + var(--admin-bottom-nav, 0px) + env(safe-area-inset-bottom));
+  /* No TOPO. Embaixo eles cobriam a barra "Salvar alterações" da ficha do
+     contrato, fixa no rodapé (e, no celular, disputavam o espaço com a
+     navegação inferior): o aviso de erro tampava o botão que o resolveria. */
+  top: calc(16px + env(safe-area-inset-top));
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -87,9 +104,19 @@ const successes = computed(() =>
 }
 .x {
   margin-left: auto;
+  /* Área de toque de 32px: o × tinha ~12px de largura, e o "às vezes o X não
+     fecha" do teste de 26/09 era o clique caindo ao lado dele. A margem
+     negativa devolve o espaço para o card não crescer. */
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -6px -6px -6px auto;
   border: none;
+  border-radius: var(--r-sm);
   background: none;
-  padding: 0 2px;
+  padding: 0;
   font-size: var(--fs-title-sm);
   line-height: 1;
   color: inherit;
@@ -99,10 +126,26 @@ const successes = computed(() =>
 .x:hover {
   opacity: 1;
 }
+.act {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Com a ação ao lado, o × não precisa mais empurrar para a direita. */
+.act + .x {
+  margin-left: 0;
+}
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
 }
 @media (prefers-reduced-motion: reduce) {

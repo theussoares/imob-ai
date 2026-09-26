@@ -52,6 +52,12 @@ const { display: phoneDisplay, onInput: onPhoneInput, isValid: phoneValid } = us
   'whatsapp',
 )
 const docInvalido = computed(() => !!form.doc.trim() && !tipoDeDocumento(form.doc))
+// O aviso do formulário é sobre o que estava digitado: mudou, ele sai. Senão
+// "CPF inválido" seguia na tela com o CPF já corrigido.
+watch(
+  () => ({ ...form }),
+  () => (error.value = ''),
+)
 // Convidar sem e-mail não é opção: a caixa desmarca sozinha se o e-mail sumir.
 watch(
   () => form.email,
@@ -98,6 +104,7 @@ async function cadastrar() {
       method: 'POST',
       body: { ...form, email: form.email.trim() || null, doc: form.doc.trim() || null },
     })
+    toast.clearErrors()
     if (r.convidado) avisarConvite(r as RespostaConvite, form.name.trim())
     else toast.success(`${form.name.trim()} cadastrado.`)
     Object.assign(form, vazio())
@@ -128,11 +135,14 @@ type EstadoAcesso = 'sem_acesso' | 'convidado' | 'com_acesso' | 'desativado'
 function estado(c: Cliente): EstadoAcesso {
   if (!c.userId) return 'sem_acesso'
   if (!c.active) return 'desativado'
-  return c.accessConfirmed ? 'com_acesso' : 'convidado'
+  // "Acessa" só depois de entrar de fato. Antes, o rótulo não afirma que o
+  // e-mail chegou: o convite pode ter falhado, e dizer "enviado" faria a
+  // imobiliária esperar um cliente que nunca foi avisado.
+  return c.hasLoggedIn ? 'com_acesso' : 'convidado'
 }
 const ESTADO_LABEL: Record<EstadoAcesso, string> = {
   sem_acesso: 'Sem acesso ao portal',
-  convidado: 'Convite enviado',
+  convidado: 'Convidado, ainda não entrou',
   com_acesso: 'Acessa o portal',
   desativado: 'Acesso desativado',
 }
@@ -202,6 +212,7 @@ async function salvarEdicao(c: Cliente) {
         ...(c.userId ? {} : { email: edicao.email.trim() || null }),
       },
     })
+    toast.clearErrors()
     toast.success('Cadastro atualizado.')
     editandoId.value = null
     await refresh()

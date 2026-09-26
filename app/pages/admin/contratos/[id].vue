@@ -31,6 +31,8 @@ import {
 import { defaultAudienceFor, describeAudience } from '~~/shared/utils/portal-access'
 import { formatarDocumento, tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import { formatWhatsapp } from '~~/shared/utils/phone'
+import { ACCEPT_DE_DOCUMENTO, FORMATOS_DE_DOCUMENTO, TAMANHO_MAX_DOCUMENTO } from '~~/shared/utils/arquivo-documento'
+import { EXEMPLO_CHAVE_PIX, ROTULO_CHAVE_PIX, chavePixValida } from '~~/shared/utils/pix'
 import type { ParteDoContrato } from '~~/server/repositories/contract.repository'
 
 /**
@@ -87,9 +89,16 @@ const internal = reactive({
   rentFeePercent: null as number | null,
   payoutBusinessDays: null as number | null,
 })
-let salvo = ''
-const retrato = () => JSON.stringify([form, internal])
-const alterado = computed(() => !carregando.value && retrato() !== salvo)
+// `salvo` é ref, não `let`: o `computed` só recalcula quando uma dependência
+// REATIVA muda. Com `let`, gravar o retrato depois de salvar não invalidava
+// `alterado` — a barra ficava na tela e a saída seguia perguntando "Sair sem
+// salvar?" sobre um contrato já salvo.
+const salvo = ref('')
+// `''` conta como `null`: `v-model.number` num campo apagado devolve `''`, e o
+// banco devolve `null`. Sem isto, digitar e apagar um valor num campo que
+// estava vazio acusava alteração sem haver nenhuma.
+const retrato = () => JSON.stringify([form, internal], (_, v) => (v === '' ? null : v))
+const alterado = computed(() => !carregando.value && retrato() !== salvo.value)
 
 async function carregar() {
   carregando.value = true
@@ -130,7 +139,7 @@ async function carregar() {
       rentFeePercent: i?.rentFeePercent ?? null,
       payoutBusinessDays: i?.payoutBusinessDays ?? null,
     })
-    salvo = retrato()
+    salvo.value = retrato()
     await carregarDocumentos()
   } catch {
     erroCarga.value = 'Não foi possível carregar este contrato.'
@@ -141,11 +150,23 @@ async function carregar() {
 onMounted(carregar)
 
 // O término acompanha o prazo; sem prazo, é a data digitada.
+//
+// Só quando QUEM EDITA muda início ou prazo, não quando `carregar` preenche o
+// form: o watcher roda depois de o retrato de referência ser gravado, e um
+// `endsOn` do banco que não bate com `fimDoPrazo` (contrato importado, ou
+// gravado antes da regra da véspera) fazia a ficha abrir já "alterada" — com a
+// barra de salvar à vista e a pergunta ao sair, sem a pessoa ter tocado em nada.
+// Reescrever o término em silêncio só por abrir a tela também não é papel dela.
+// `flush: 'sync'` é o que torna o `carregando` confiável aqui: no flush padrão
+// o watcher roda depois, e só pegaria `carregando` ainda verdadeiro enquanto
+// houvesse um `await` entre o `Object.assign` e o `finally` de `carregar`.
 watch(
   () => [form.startedOn, form.termMonths] as const,
   ([inicio, meses]) => {
+    if (carregando.value) return
     if (inicio && meses) form.endsOn = fimDoPrazo(inicio, meses) ?? form.endsOn
   },
+  { flush: 'sync' },
 )
 
 const pendencias = computed(() =>
@@ -170,9 +191,22 @@ async function salvar() {
     erroSalvar.value = `Caução até ${MAX_CAUCAO_ALUGUEIS} aluguéis (Lei 8.245, art. 38).`
     return
   }
+  // Trocar a garantia com fiador vinculado tira o fiador do contrato (uma
+  // garantia só, art. 37). É a pessoa perdendo acesso aos documentos: pergunta.
+  const fiadores = form.guaranteeType && form.guaranteeType !== 'fiador' ? partes.value.filter((p) => p.role === 'fiador') : []
+  if (fiadores.length) {
+    const nomes = fiadores.map((p) => p.nome).join(', ')
+    const ok = await askConfirm({
+      title: `Remover ${nomes} do contrato?`,
+      description: `A garantia passa a ser ${GUARANTEE_LABELS[form.guaranteeType!]}, e a lei permite uma só (art. 37). ${nomes} deixa de ser fiador e perde o acesso aos documentos deste contrato. O cadastro continua.`,
+      confirmLabel: 'Trocar e remover o fiador',
+      danger: true,
+    })
+    if (!ok) return
+  }
   salvando.value = true
   try {
-    const body: ContractInput & { internal: ContractInternalInput } = {
+    const body: ContractInput & { internal: ContractInternalInput; removerFiador: boolean } = {
       code: form.code,
       addressLabel: form.addressLabel || null,
       propertyId: form.propertyId,
@@ -184,6 +218,7 @@ async function salvar() {
       adjustmentIndex: form.adjustmentIndex || null,
       termMonths: form.termMonths,
       guaranteeType: form.guaranteeType,
+      removerFiador: fiadores.length > 0,
       internal: {
         ...internal,
         guaranteeAmount: form.guaranteeType === 'caucao' ? internal.guaranteeAmount : null,
@@ -194,8 +229,11 @@ async function salvar() {
     }
     const c = await adminFetch<Contract>(`/api/admin/contracts/${id.value}`, { method: 'PUT', body })
     contrato.value = c
-    salvo = retrato()
-    toast.success('Contrato salvo.')
+    if (fiadores.length) {
+      partes.value = partes.value.filter((p) => p.role !== 'fiador')
+    }
+    salvo.value = retrato()
+    toast.success(fiadores.length ? 'Contrato salvo. O fiador saiu do contrato.' : 'Contrato salvo.')
   } catch (e: unknown) {
     erroSalvar.value = (e as { data?: { statusMessage?: string } })?.data?.statusMessage || 'Não foi possível salvar.'
   } finally {
@@ -288,6 +326,9 @@ function abrirRepasse() {
 const salvandoRepasse = ref(false)
 async function salvarRepasse() {
   if (!rep.holderName.trim() || !tipoDeDocumento(rep.holderDoc)) return toast.error('Informe o titular e um CPF/CNPJ válido.')
+  if (rep.tipo === 'pix' && !chavePixValida(rep.pixKeyType, rep.pixKey)) {
+    return toast.error(`A chave Pix não é um ${ROTULO_CHAVE_PIX[rep.pixKeyType]} válido.`)
+  }
   salvandoRepasse.value = true
   try {
     const titular = { holderName: rep.holderName.trim(), holderDoc: rep.holderDoc.replace(/\D/g, '') }
@@ -338,7 +379,23 @@ async function carregarDocumentos() {
   documentos.value = await adminFetch<PortalDocument[]>(`/api/admin/contracts/${id.value}/documentos`)
 }
 function escolherArquivo(e: Event) {
-  arquivo.value = (e.target as HTMLInputElement).files?.[0] ?? null
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0] ?? null
+  // Aviso cedo, para a pessoa não preencher o resto à toa. Quem decide é o
+  // servidor, pelo conteúdo: `type` aqui vem só da extensão do nome.
+  if (f && !(f.type in FORMATOS_DE_DOCUMENTO)) {
+    toast.error(`Formato não aceito. Envie ${Object.values(FORMATOS_DE_DOCUMENTO).join(', ')}.`)
+    input.value = ''
+    arquivo.value = null
+    return
+  }
+  if (f && f.size > TAMANHO_MAX_DOCUMENTO) {
+    toast.error(`Arquivo grande demais (máximo ${TAMANHO_MAX_DOCUMENTO / 1024 / 1024} MB).`)
+    input.value = ''
+    arquivo.value = null
+    return
+  }
+  arquivo.value = f
   if (arquivo.value && !doc.title.trim()) doc.title = arquivo.value.name.replace(/\.[^.]+$/, '')
 }
 async function enviarDocumento() {
@@ -354,7 +411,7 @@ async function enviarDocumento() {
     const caminho = `${slug}/${id.value}/${crypto.randomUUID()}.${ext}`
     const { error: erroUpload } = await client.storage
       .from('portal-docs')
-      .upload(caminho, arquivo.value, { upsert: false, contentType: arquivo.value.type || 'application/pdf' })
+      .upload(caminho, arquivo.value, { upsert: false, contentType: arquivo.value.type })
     if (erroUpload) throw erroUpload
     await adminFetch('/api/admin/portal-documents', {
       method: 'POST',
@@ -380,6 +437,21 @@ async function enviarDocumento() {
     toast.error(err?.data?.statusMessage || err?.message || 'Não foi possível enviar.')
   } finally {
     enviandoDoc.value = false
+  }
+}
+/**
+ * Abre em outra aba. A aba nasce ANTES do `await`: aberta depois da resposta,
+ * o Safari e o Chrome no celular tratam como pop-up e bloqueiam.
+ */
+async function abrirDocumento(d: PortalDocument, baixar = false) {
+  const aba = baixar ? null : window.open('', '_blank')
+  try {
+    const { url } = await adminFetch<{ url: string }>(`/api/admin/portal-documents/${d.id}/abrir${baixar ? '?baixar=1' : ''}`, { method: 'POST' })
+    if (aba) aba.location.href = url
+    else location.href = url
+  } catch (e: unknown) {
+    aba?.close()
+    toast.error((e as { data?: { statusMessage?: string } })?.data?.statusMessage || 'Não foi possível abrir o documento.')
   }
 }
 async function alternarPublicacao(d: PortalDocument) {
@@ -449,7 +521,9 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
         </button>
       </header>
 
-      <section v-if="pendencias.length" class="pendencias" aria-labelledby="pend-t">
+      <!-- Encerrado não gera cobrança nem repasse: "falta para cobrar" ali é
+           uma lista de tarefas que ninguém deve fazer. -->
+      <section v-if="form.status === 'ativo' && pendencias.length" class="pendencias" aria-labelledby="pend-t">
         <h2 id="pend-t"><AppIcon name="alert" /> Falta para cobrar e repassar</h2>
         <ul>
           <li v-for="p in pendencias" :key="p.codigo">
@@ -458,10 +532,10 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
           </li>
         </ul>
       </section>
-      <p v-else class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
+      <p v-else-if="form.status === 'ativo'" class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
 
       <!-- Cobranças: o que se faz todo mês, por isso logo abaixo das pendências. -->
-      <AdminContratoCobrancas :contract-id="contrato.id" :rent-amount="contrato.rentAmount" :due-day="contrato.dueDay" :ativo="form.status === 'ativo'" />
+      <AdminContratoCobrancas :contract-id="contrato.id" :rent-amount="contrato.rentAmount" :due-day="contrato.dueDay" :started-on="contrato.startedOn" :ends-on="contrato.endsOn" :ativo="form.status === 'ativo'" />
 
       <!-- Pessoas -->
       <section class="admin-card secao">
@@ -623,7 +697,7 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
                     <option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="telefone">Telefone</option><option value="aleatoria">Chave aleatória</option>
                   </select>
                 </div>
-                <div class="span2"><label class="admin-label" for="r-pk">Chave Pix</label><input id="r-pk" v-model="rep.pixKey" class="admin-input" autocomplete="off" /></div>
+                <div class="span2"><label class="admin-label" for="r-pk">Chave Pix</label><input id="r-pk" v-model="rep.pixKey" class="admin-input" autocomplete="off" :placeholder="EXEMPLO_CHAVE_PIX[rep.pixKeyType]" /></div>
               </template>
               <template v-else>
                 <div><label class="admin-label" for="r-b">Banco (código)</label><input id="r-b" v-model="rep.bankCode" class="admin-input" maxlength="3" inputmode="numeric" placeholder="001, 237…" /></div>
@@ -667,6 +741,8 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
               <small>{{ PORTAL_DOC_LABELS[d.category] }} · {{ describeAudience(d.audience) }}<template v-if="!d.publishedAt"> · <span class="rascunho">rascunho</span></template></small>
             </div>
             <div class="linha-acoes">
+              <button class="admin-btn ghost sm" type="button" @click="abrirDocumento(d)">Abrir</button>
+              <button class="admin-btn ghost sm" type="button" @click="abrirDocumento(d, true)">Baixar</button>
               <button class="admin-btn ghost sm" type="button" @click="alternarPublicacao(d)">{{ d.publishedAt ? 'Despublicar' : 'Publicar' }}</button>
               <button class="admin-btn danger-ghost sm" type="button" @click="apagarDocumento(d)">Apagar</button>
             </div>
@@ -676,7 +752,7 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
 
         <div v-if="mostrandoEnvio" class="envio">
           <div class="grade">
-            <div class="span2"><label class="admin-label" for="arq">Arquivo (PDF ou imagem)</label><input id="arq" class="admin-input" type="file" accept="application/pdf,image/*" @change="escolherArquivo" /></div>
+            <div class="span2"><label class="admin-label" for="arq">Arquivo ({{ Object.values(FORMATOS_DE_DOCUMENTO).join(', ') }}, até {{ TAMANHO_MAX_DOCUMENTO / 1024 / 1024 }} MB)</label><input id="arq" class="admin-input" type="file" :accept="ACCEPT_DE_DOCUMENTO" @change="escolherArquivo" /></div>
             <div>
               <label class="admin-label" for="cat">Tipo</label>
               <select id="cat" v-model="doc.category" class="admin-input"><option v-for="c in PORTAL_DOC_CATEGORIES" :key="c" :value="c">{{ PORTAL_DOC_LABELS[c] }}</option></select>

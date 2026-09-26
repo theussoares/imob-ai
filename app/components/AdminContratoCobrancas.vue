@@ -13,7 +13,11 @@ import {
   CHARGE_STATUS_LABELS,
   MANUAL_SETTLEMENT_METHODS,
   SETTLEMENT_METHOD_LABELS,
+  aMaiorSeMarcarFeito,
+  competenciaForaDaVigencia,
   hojeEmSaoPaulo,
+  proximaCompetenciaLivre,
+  repassesAMaior,
   somar,
   vencimentoPadrao,
 } from '~~/shared/models/cobranca'
@@ -32,6 +36,8 @@ const props = defineProps<{
   contractId: string
   rentAmount: number | null
   dueDay: number | null
+  startedOn: string | null
+  endsOn: string | null
   ativo: boolean
 }>()
 
@@ -44,17 +50,27 @@ const conta = ref<PaymentAccountView | null>(null)
 const carregando = ref(true)
 const erroCarga = ref('')
 
+/**
+ * Só a leitura MAIS NOVA escreve na tela. A lista é recarregada de vários
+ * lugares ao mesmo tempo (depois de emitir, e pelas releituras de 3s e 8s do
+ * "Simular pagamento"), e sem esta guarda uma resposta antiga que chegasse por
+ * último punha a lista de antes de volta. É a explicação mais provável para
+ * "o boleto novo só apareceu depois de recarregar a página" (teste de 26/09).
+ */
+let leitura = 0
 async function carregar() {
   erroCarga.value = ''
+  const minha = ++leitura
   try {
     const r = await adminFetch<{ cobrancas: Charge[]; repasses: OwnerPayout[]; conta: PaymentAccountView | null }>(
       `/api/admin/contracts/${props.contractId}/cobrancas`,
     )
+    if (minha !== leitura) return
     cobrancas.value = r.cobrancas
     repasses.value = r.repasses
     conta.value = r.conta
   } catch {
-    erroCarga.value = 'Não foi possível carregar as cobranças.'
+    if (minha === leitura) erroCarga.value = 'Não foi possível carregar as cobranças.'
   } finally {
     carregando.value = false
   }
@@ -83,17 +99,18 @@ const nova = reactive<{ competence: string; dueOn: string; rentAmount: number | 
   extras: [],
 })
 
-/** Próximo mês ainda sem cobrança mensal ativa, a partir do mês corrente. */
+/**
+ * Próximo mês ainda sem cobrança mensal ativa, a partir do mês corrente ou do
+ * início do contrato — o que vier depois. Sem o início na conta, contrato que
+ * começa em outubro sugeria "setembro" e cobrava um mês em que o inquilino
+ * ainda não morava lá.
+ */
 function proximaCompetencia(): string {
   const ocupadas = new Set(cobrancas.value.filter((c) => c.kind === 'mensal' && c.status !== 'cancelada').map((c) => c.competence.slice(0, 7)))
-  const [a, m] = hojeEmSaoPaulo().split('-').map(Number) as [number, number]
-  for (let i = 0; i < 24; i++) {
-    const d = new Date(Date.UTC(a, m - 1 + i, 1))
-    const k = d.toISOString().slice(0, 7)
-    if (!ocupadas.has(k)) return k
-  }
-  return hojeEmSaoPaulo().slice(0, 7)
+  return proximaCompetenciaLivre(ocupadas, vigencia.value) ?? hojeEmSaoPaulo().slice(0, 7)
 }
+const vigencia = computed(() => ({ startedOn: props.startedOn, endsOn: props.endsOn }))
+const competenciaFora = computed(() => (nova.competence ? competenciaForaDaVigencia(nova.competence, vigencia.value) : null))
 
 function abrirGerar() {
   nova.competence = proximaCompetencia()
@@ -120,7 +137,9 @@ const totalNova = computed(() => somar([nova.rentAmount ?? 0, ...nova.extras.map
 async function salvarNova(emitirJunto: boolean) {
   if (!nova.rentAmount || nova.rentAmount <= 0) return toast.error('Informe o aluguel do mês.')
   if (nova.extras.some((x) => !x.amount || x.amount <= 0)) return toast.error('Preencha o valor de cada item (ou remova a linha).')
+  if (totalNova.value <= 0) return toast.error('O desconto não pode ser maior que o aluguel e os outros itens: o total ficaria zerado ou negativo.')
   if (nova.dueOn < hojeEmSaoPaulo()) return toast.error('O vencimento não pode estar no passado.')
+  if (competenciaFora.value) return toast.error(competenciaFora.value === 'antes' ? 'Este mês é anterior ao início do contrato.' : 'Este mês é posterior ao fim do contrato.')
   salvandoNova.value = true
   try {
     const c = await adminFetch<Charge>(`/api/admin/contracts/${props.contractId}/cobrancas`, {
@@ -187,6 +206,14 @@ async function cancelar(c: Charge) {
 }
 
 async function apagar(c: Charge) {
+  // Mesma regra dos documentos e do cancelamento: apagar pede confirmação.
+  const ok = await askConfirm({
+    title: `Apagar o rascunho de ${mesExtenso(c.competence)}?`,
+    description: `A cobrança de ${brl(c.total)} ainda não foi emitida; apagar tira ela do contrato. Não dá para desfazer.`,
+    confirmLabel: 'Apagar rascunho',
+    danger: true,
+  })
+  if (!ok) return
   ocupado.value = c.id
   try {
     await adminFetch(`/api/admin/cobrancas/${c.id}`, { method: 'DELETE' })
@@ -204,16 +231,30 @@ async function simular(c: Charge) {
   try {
     const r = await adminFetch<{ aguardandoWebhook: boolean }>(`/api/admin/cobrancas/${c.id}/simular-pagamento`, { method: 'POST' })
     if (r.aguardandoWebhook) {
-      toast.success('Pagamento confirmado no sandbox do Asaas. A baixa chega pelo webhook em instantes.')
-      // O webhook costuma chegar em segundos; duas releituras cobrem o caso
-      // comum sem deixar a tela consultando para sempre.
-      setTimeout(carregar, 3000)
-      setTimeout(carregar, 8000)
+      toast.success('Pagamento confirmado no sandbox do Asaas. A baixa chega em instantes.')
+      // Consulta o Asaas em vez de só esperar o webhook: em localhost ele
+      // nunca chega, e a cobrança ficava "Em aberto" com o pagamento feito lá.
+      // Se o webhook chegar antes, a consulta vira no-op (mesma idempotência).
+      setTimeout(() => sincronizar(c, true), 3000)
     } else {
       toast.success('Pagamento simulado. Veja o repasse gerado abaixo.')
     }
   } catch (e) {
     toast.error(msg(e, 'Não foi possível simular o pagamento.'))
+  } finally {
+    ocupado.value = null
+    await carregar()
+  }
+}
+
+/** `silencioso`: a releitura automática não avisa "nada novo" — só o clique. */
+async function sincronizar(c: Charge, silencioso = false) {
+  ocupado.value = c.id
+  try {
+    const r = await adminFetch<{ mudou: boolean; mensagem: string }>(`/api/admin/cobrancas/${c.id}/sincronizar`, { method: 'POST' })
+    if (r.mudou || !silencioso) toast.success(r.mensagem)
+  } catch (e) {
+    if (!silencioso) toast.error(msg(e, 'Não foi possível consultar o Asaas.'))
   } finally {
     ocupado.value = null
     await carregar()
@@ -236,6 +277,9 @@ async function registrarBaixa(c: Charge) {
     toast.success('Pagamento registrado.')
     baixando.value = null
   } catch (e) {
+    // 409 com a cobrança já atualizada pelo provedor (ver `baixarManualmente`):
+    // não há mais baixa a fazer, e o formulário aberto só confundiria.
+    if ((e as { statusCode?: number })?.statusCode === 409) baixando.value = null
     toast.error(msg(e, 'Não foi possível registrar o pagamento.'))
   } finally {
     ocupado.value = null
@@ -253,11 +297,22 @@ async function copiar(texto: string, oque: string) {
 }
 
 async function repassePago(p: OwnerPayout) {
-  const ok = await askConfirm({
-    title: `Marcar o repasse de ${mesExtenso(p.competence)} como feito?`,
-    description: `Confirme que ${brl(p.net)} já foi transferido ao proprietário.`,
-    confirmLabel: 'Marcar como feito',
-  })
+  const aMaior = aMaiorSeMarcarFeito(cobrancas.value, repasses.value, p.id)
+  const ok = await askConfirm(
+    aMaior > 0
+      ? {
+          title: `O proprietário já recebeu por ${mesExtenso(p.competence)}`,
+          description: `Um repasse desta competência foi feito antes de o pagamento ser estornado. Se transferir ${brl(p.net)} agora, ${brl(aMaior)} terão saído a mais. Só marque como feito se descontou esse valor.`,
+          confirmLabel: 'Marcar mesmo assim',
+          cancelLabel: 'Não transferir',
+          danger: true,
+        }
+      : {
+          title: `Marcar o repasse de ${mesExtenso(p.competence)} como feito?`,
+          description: `Confirme que ${brl(p.net)} já foi transferido ao proprietário.`,
+          confirmLabel: 'Marcar como feito',
+        },
+  )
   if (!ok) return
   try {
     await adminFetch(`/api/admin/repasses/${p.id}/pago`, { method: 'POST' })
@@ -277,6 +332,8 @@ const pagamentoResumo = (c: Charge) => {
 }
 const aReceber = computed(() => somar(cobrancas.value.filter((c) => emAberto(c.status)).map((c) => c.total - c.settledTotal)))
 const repassesPendentes = computed(() => repasses.value.filter((p) => p.status === 'pendente'))
+const aRecuperar = computed(() => repassesAMaior(cobrancas.value, repasses.value))
+const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.value.some((a) => a.chargeId === p.sourceChargeId)
 </script>
 
 <template>
@@ -304,8 +361,20 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
       <div class="cob-grade">
         <div>
           <label class="admin-label" for="cob-comp">Mês de referência</label>
-          <input id="cob-comp" v-model="nova.competence" class="admin-input" type="month" required />
-          <small class="hint-text">O mês em que o inquilino morou.</small>
+          <input
+            id="cob-comp"
+            v-model="nova.competence"
+            class="admin-input"
+            type="month"
+            :min="startedOn?.slice(0, 7)"
+            :max="endsOn?.slice(0, 7)"
+            :aria-invalid="!!competenciaFora"
+            required
+          />
+          <small v-if="competenciaFora" class="hint-text cob-fora" role="alert">
+            {{ competenciaFora === 'antes' ? 'Antes do início do contrato: o inquilino ainda não morava lá.' : 'Depois do fim do contrato.' }}
+          </small>
+          <small v-else class="hint-text">O mês em que o inquilino morou.</small>
         </div>
         <div>
           <label class="admin-label" for="cob-venc">Vencimento</label>
@@ -332,7 +401,7 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
       <button type="button" class="link-btn cob-add" @click="addExtra"><AppIcon name="plus" /> Condomínio, IPTU, seguro ou desconto</button>
 
       <div class="cob-rodape">
-        <p class="cob-total">Total <b>{{ brl(totalNova) }}</b></p>
+        <p class="cob-total" :class="{ 'cob-fora': totalNova <= 0 }">Total <b>{{ brl(totalNova) }}</b></p>
         <div class="cob-acoes">
           <button v-if="conta" type="button" class="admin-btn sm" :disabled="salvandoNova" @click="salvarNova(true)">
             {{ salvandoNova ? 'Emitindo…' : 'Gerar e emitir boleto' }}
@@ -424,6 +493,9 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
                 Simular pagamento do inquilino
               </button>
               <button type="button" class="admin-btn ghost sm" @click="abrirBaixa(c)">Recebi por fora</button>
+              <button v-if="c.externalId && c.provider !== 'simulado'" type="button" class="admin-btn ghost sm" :disabled="ocupado === c.id" @click="sincronizar(c)">
+                Consultar no Asaas
+              </button>
               <button v-if="c.status !== 'parcial'" type="button" class="admin-btn danger-ghost sm" :disabled="ocupado === c.id" @click="cancelar(c)">Cancelar</button>
             </template>
             <template v-else-if="c.status === 'emitindo'">
@@ -437,6 +509,13 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 
     <template v-if="repasses.length">
       <h3 class="section-t cob-rep-t">Repasses ao proprietário</h3>
+      <!-- Fica enquanto o recebido não cobrir o que foi repassado: não há
+           botão de "resolvido" porque não há onde registrar a devolução. -->
+      <p v-for="a in aRecuperar" :key="a.chargeId" class="cob-aviso alerta" role="alert">
+        O pagamento de <b>{{ mesExtenso(a.competence) }}</b> foi estornado depois do repasse:
+        <b>{{ brl(a.valor) }}</b> foram transferidos a mais ao proprietário. Peça a devolução ou desconte no
+        próximo repasse.
+      </p>
       <ul class="cob-rep">
         <li v-for="p in repasses" :key="p.id">
           <span class="cob-mes">
@@ -444,9 +523,13 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
             <small>
               {{ brl(p.gross) }} recebido<template v-if="p.adminFee"> − {{ brl(p.adminFee) }} de taxa</template>
             </small>
+            <small v-if="p.status === 'pendente' && aMaiorSeMarcarFeito(cobrancas, repasses, p.id) > 0" class="cob-rep-ja">
+              Já repassado antes do estorno: não transfira de novo
+            </small>
           </span>
           <span class="cob-valor">{{ brl(p.net) }}</span>
-          <span v-if="p.status === 'pago'" class="cob-st ok">Feito</span>
+          <span v-if="estornadoDepois(p)" class="cob-st alerta">Feito · estornado</span>
+          <span v-else-if="p.status === 'pago'" class="cob-st ok">Feito</span>
           <span v-else-if="p.status === 'cancelado'" class="cob-st">Cancelado</span>
           <span v-else class="cob-rep-acao">
             <small>até {{ dataBR(p.scheduledFor) }}</small>
@@ -462,6 +545,9 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 </template>
 
 <style scoped>
+.cob-fora {
+  color: var(--danger);
+}
 .cob-topo {
   display: flex;
   align-items: flex-start;
@@ -493,6 +579,15 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 .cob-aviso.teste {
   background: #fef3c7;
   color: #92400e;
+}
+.cob-mes .cob-rep-ja {
+  color: #991b1b;
+  font-weight: 600;
+}
+.cob-aviso.alerta,
+.cob-st.alerta {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .cob-nova {
   display: grid;

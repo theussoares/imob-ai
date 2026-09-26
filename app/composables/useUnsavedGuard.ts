@@ -20,17 +20,33 @@
 export function useUnsavedGuard(isDirty: () => boolean) {
   const { askConfirm } = useConfirm();
   let liberado = false;
+  // Quem já respondeu "Sair sem salvar" não é perguntado de novo na MESMA
+  // saída. Middleware que redireciona (o `?tenant=` fora de produção, o login
+  // com a sessão vencida) reinicia a navegação, e o guard roda outra vez: o
+  // diálogo reabria, e o `close` atrasado do primeiro respondia `false` ao
+  // segundo — a pessoa clicava em sair e ficava. Não é o `liberado`, que é
+  // para sempre: se a saída falhar, a proteção volta (ver o `afterEach`).
+  let saindo = false;
 
   onBeforeRouteLeave(async () => {
-    if (liberado || !isDirty()) return true;
-    return await askConfirm({
+    if (liberado || saindo || !isDirty()) return true;
+    saindo = await askConfirm({
       title: "Sair sem salvar?",
       description: "As alterações feitas nesta tela serão perdidas.",
       confirmLabel: "Sair sem salvar",
       cancelLabel: "Continuar editando",
       danger: true,
     });
+    return saindo;
   });
+
+  // O redirect não passa por aqui (o vue-router só chama o `afterEach` da
+  // navegação final); passa a navegação abortada ou cancelada, que deixa a
+  // pessoa nesta tela com as alterações ainda não salvas.
+  const pararDeOuvir = useRouter().afterEach((_to, _from, falha) => {
+    if (falha) saindo = false;
+  });
+  onBeforeUnmount(pararDeOuvir);
 
   function onBeforeUnload(e: BeforeUnloadEvent) {
     if (liberado || !isDirty()) return;

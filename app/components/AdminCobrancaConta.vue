@@ -321,7 +321,7 @@ const dataConexao = computed(() =>
 }
 .cc-ok {
   margin: 12px 0 0;
-  color: var(--wa-dark);
+  color: var(--ok);
   font-weight: 600;
 }
 @media (max-width: 560px) {

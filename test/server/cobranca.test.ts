@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createHash } from 'node:crypto'
-import { criarAsaas, eventoDoAsaas, telefoneParaAsaas } from '~~/server/services/payments/asaas'
+import { criarAsaas, eventoDaConsulta, eventoDoAsaas, telefoneParaAsaas } from '~~/server/services/payments/asaas'
 import { ErroDoProvedor } from '~~/server/services/payments/provider'
 import { mesmoSegredo } from '~~/server/utils/segredo'
 import { fakeSupabase, hadEq } from '../helpers/fake-supabase'
@@ -347,3 +347,128 @@ describe('webhook: autenticação', () => {
     expect(processar).toHaveBeenCalledWith(expect.anything(), 't1', 'asaas', expect.objectContaining({ externalId: 'pay_1' }))
   })
 })
+
+describe('estorno → repasse', () => {
+  // A ameaça: o Asaas devolve o dinheiro ao inquilino e o repasse daquela
+  // cobrança continua pendente — a imobiliária transfere ao proprietário um
+  // valor que já não tem.
+  async function carregar() {
+    vi.stubGlobal('decifrar', (s: string) => s)
+    return import('~~/server/utils/cobranca')
+  }
+  const estorno = { eventId: 'evt_r', tipo: 'estornado' as const, bruto: 'PAYMENT_REFUNDED', externalId: 'pay_123', valor: 2400, data: '2026-10-20', metodo: 'boleto' as const, emDinheiro: false }
+  const pago = { id: 's1', amount: 2400, settled_on: '2026-10-09', method: 'boleto', created_by: null }
+  const devolvido = { id: 's1r', amount: -2400, settled_on: '2026-10-20', method: 'boleto', created_by: null }
+
+  function banco(over: Record<string, unknown> = {}) {
+    return fakeSupabase({
+      payment_webhook_events: { data: null, error: null },
+      contract_charges: [
+        { data: chargeRow({ charge_settlements: [pago] }), error: null }, // pelo id externo
+        { data: chargeRow({ charge_settlements: [pago, devolvido] }), error: null }, // releitura depois do estorno
+      ],
+      charge_settlements: { data: null, error: null },
+      owner_payouts: [
+        { data: [{ id: 'po1', paid_at: null }], error: null }, // repasses de pé
+        { data: [{ id: 'po1' }], error: null }, // o cancelamento pegou
+      ],
+      ...over,
+    } as never)
+  }
+  const cancelamentos = (calls: ReturnType<typeof fakeSupabase>['calls']) =>
+    calls.filter((c) => c.table === 'owner_payouts' && c.method === 'update').map((c) => c.args[0] as Record<string, unknown>)
+
+  test('repasse pendente é cancelado, pelo tenant e só se ainda não saiu', async () => {
+    const { processarEventoDePagamento } = await carregar()
+    const { client, calls } = banco()
+    expect(await processarEventoDePagamento(client, 't1', 'asaas', estorno)).toBe('estornada')
+    expect(cancelamentos(calls)).toEqual([expect.objectContaining({ canceled_by: null, cancel_reason: 'Pagamento estornado no provedor' })])
+    expect(hadEq(calls, 'owner_payouts', 'tenant_id')).toBe(true)
+    // A busca é pelo item (a chave muda depois do estorno; a origem, não).
+    expect(calls.some((c) => c.table === 'owner_payouts' && c.method === 'eq' && c.args[0] === 'payout_items.source_charge_id' && c.args[1] === 'ch1')).toBe(true)
+    const travas = calls.filter((c) => c.table === 'owner_payouts' && c.method === 'is').map((c) => c.args[0])
+    expect(travas).toEqual(expect.arrayContaining(['paid_at', 'canceled_at']))
+  })
+
+  test('repasse JÁ PAGO: não é tocado, e o diário diz que falta ação humana', async () => {
+    const { processarEventoDePagamento } = await carregar()
+    const { client, calls } = banco({ owner_payouts: { data: [{ id: 'po1', paid_at: '2026-10-16T12:00:00Z' }], error: null } })
+    expect(await processarEventoDePagamento(client, 't1', 'asaas', estorno)).toBe('estornada_repasse_ja_pago')
+    expect(cancelamentos(calls)).toHaveLength(0)
+    const outcome = calls.find((c) => c.table === 'payment_webhook_events' && c.method === 'update')!.args[0]
+    expect(outcome).toEqual({ outcome: 'estornada_repasse_ja_pago' })
+  })
+
+  test('"Marcar como pago" entre a leitura e o cancelamento: conta como já pago', async () => {
+    const { processarEventoDePagamento } = await carregar()
+    const { client } = banco({ owner_payouts: [{ data: [{ id: 'po1', paid_at: null }], error: null }, { data: [], error: null }] })
+    expect(await processarEventoDePagamento(client, 't1', 'asaas', estorno)).toBe('estornada_repasse_ja_pago')
+  })
+
+  test('reenvio depois de queda no meio: estorno já gravado, e o repasse AINDA é cancelado', async () => {
+    const { processarEventoDePagamento } = await carregar()
+    const { client, calls } = banco({ charge_settlements: { data: null, error: { code: '23505', message: 'dup' } } })
+    expect(await processarEventoDePagamento(client, 't1', 'asaas', estorno)).toBe('estorno_ja_registrado')
+    expect(cancelamentos(calls)).toHaveLength(1)
+  })
+
+  test('outro pagamento ainda quita a cobrança: o repasse fica', async () => {
+    const { processarEventoDePagamento } = await carregar()
+    const outro = { id: 's2', amount: 2400, settled_on: '2026-10-21', method: 'pix', created_by: 'u1' }
+    const { client, calls } = banco({
+      contract_charges: [
+        { data: chargeRow({ charge_settlements: [pago, outro] }), error: null },
+        { data: chargeRow({ charge_settlements: [pago, outro, devolvido] }), error: null },
+      ],
+    })
+    await processarEventoDePagamento(client, 't1', 'asaas', estorno)
+    expect(calls.some((c) => c.table === 'owner_payouts')).toBe(false)
+  })
+
+  test('paga de novo depois do estorno: o novo repasse tem chave própria (não colide com o cancelado)', async () => {
+    const { gerarRepasseSeQuitada } = await carregar()
+    const contrato = { id: 'c1', tenant_id: 't1', code: 'LOC-1', property_id: null, address_label: 'Rua A', status: 'ativo', started_on: '2026-01-01', ends_on: null, rent_amount: 2400, due_day: 10, adjustment_index: null, term_months: null, guarantee_type: null, source: 'manual', created_at: '', updated_at: '' }
+    const dono = { id: 'p2', role: 'proprietario', portal_user_id: 'pu2', portal_users: { name: 'Jorge', email: null, active: true, doc: null, phone: null, user_id: null, tenant_id: 't1' } }
+    const chave = async (settlements: unknown[]) => {
+      const { client, calls } = fakeSupabase({
+        contract_charges: { data: chargeRow({ charge_settlements: settlements }), error: null },
+        contracts: { data: contrato, error: null },
+        contract_parties: { data: [dono], error: null },
+        owner_payouts: { data: { id: 'po2' }, error: null },
+      })
+      expect(await gerarRepasseSeQuitada(client, 't1', 'ch1')).toBe('criado')
+      return (calls.find((c) => c.table === 'owner_payouts' && c.method === 'insert')!.args[0] as Record<string, unknown>).idempotency_key
+    }
+    // O caso comum não muda de chave: repasses já gravados seguem idempotentes.
+    expect(await chave([pago])).toBe('cobranca:ch1')
+    expect(await chave([pago, devolvido, { ...pago, id: 's3', settled_on: '2026-10-22' }])).toBe('cobranca:ch1:apos-estorno-1')
+  })
+})
+
+describe('eventoDaConsulta', () => {
+  // O webhook não chega ao localhost (e o Asaas pode pausar a fila em
+  // produção): a cobrança paga lá ficava "Em aberto" aqui. A consulta traz o
+  // estado pelo MESMO caminho do webhook, e só isso a torna segura.
+  test('pago lá vira evento "pago", com o id da cobrança lá (a chave da idempotência)', () => {
+    const e = eventoDaConsulta({ id: 'pay_1', status: 'RECEIVED', value: 1300, paymentDate: '2026-09-26', billingType: 'BOLETO' })!
+    expect(e.tipo).toBe('pago')
+    expect(e.externalId).toBe('pay_1')
+    expect(e.valor).toBe(1300)
+    expect(e.data).toBe('2026-09-26')
+  })
+
+  test('o id do evento é sintético e não colide com um evento real do webhook', () => {
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'CONFIRMED', value: 10 })!.eventId).toBe('consulta:pay_1:CONFIRMED')
+  })
+
+  test('removida e estornada lá também voltam', () => {
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'PENDING', deleted: true })!.tipo).toBe('cancelado')
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'REFUNDED', value: 10 })!.tipo).toBe('estornado')
+  })
+
+  test('em aberto ou vencida não é evento: nada a aplicar', () => {
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'PENDING' })).toBeNull()
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'OVERDUE' })).toBeNull()
+  })
+})
+

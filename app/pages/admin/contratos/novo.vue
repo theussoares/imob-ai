@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PortalUser } from '~~/shared/models/portal'
+import type { Contract, PortalUser } from '~~/shared/models/portal'
 import type { Property } from '~~/shared/models/property'
 import type {
   FireInsurancePayer,
@@ -18,9 +18,11 @@ import {
   MAX_CAUCAO_ALUGUEIS,
   MAX_FINE_PERCENT,
   MAX_INTEREST_MONTHLY_PERCENT,
+  contratoQueOcupa,
   fimDoPrazo,
 } from '~~/shared/models/lease'
 import { formatarDocumento, tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
+import { EXEMPLO_CHAVE_PIX, ROTULO_CHAVE_PIX, chavePixValida } from '~~/shared/utils/pix'
 
 /**
  * Novo contrato de locação em 4 etapas.
@@ -46,6 +48,12 @@ const { data: clientes } = useLazyAsyncData('admin:novo-contrato:clientes', () =
 const { data: imoveis } = useLazyAsyncData('admin:novo-contrato:imoveis', () => adminFetch<Property[]>('/api/admin/properties'), {
   server: false,
   default: () => [] as Property[],
+})
+
+// Só para avisar do imóvel ocupado já no passo 2; quem decide é o servidor.
+const { data: contratos } = useLazyAsyncData('admin:novo-contrato:contratos', () => adminFetch<Contract[]>('/api/admin/contracts'), {
+  server: false,
+  default: () => [] as Contract[],
 })
 
 const ETAPAS = ['Imóvel e pessoas', 'Valores e prazo', 'Garantia e seguro', 'Administração'] as const
@@ -101,17 +109,30 @@ const imoveisFiltrados = computed(() => {
     .slice(0, 8)
 })
 const imovel = computed(() => imoveis.value?.find((p) => p.id === f.propertyId) ?? null)
+/**
+ * O aluguel que veio do imóvel, para saber se o campo ainda é "do imóvel" ou
+ * já foi digitado. Sem isto, trocar o NC-0267 (R$ 1.850) pelo NC-0275
+ * (R$ 1.250) mantinha R$ 1.850 no passo 2, e o resumo seguia mostrando aluguel
+ * e repasse do imóvel anterior. Valor digitado à mão é respeitado na troca.
+ */
+const aluguelDoImovel = ref<number | null>(null)
 function escolherImovel(p: Property) {
   f.propertyId = p.id
   f.foraDoCatalogo = false
   if (!f.addressLabel) f.addressLabel = p.location || [p.title, p.neighborhood].filter(Boolean).join(' · ')
   // O preço de um imóvel de aluguel É o aluguel; de venda, não diz nada.
-  if (p.purpose === 'aluguel' && !f.rentAmount) f.rentAmount = p.price
+  const novo = p.purpose === 'aluguel' ? p.price : null
+  if (!f.rentAmount || f.rentAmount === aluguelDoImovel.value) f.rentAmount = novo
+  aluguelDoImovel.value = novo
 }
 function limparImovel() {
   f.propertyId = null
   f.addressLabel = ''
 }
+/** Contrato ativo que já ocupa o imóvel escolhido nas datas digitadas. */
+const ocupante = computed(() =>
+  contratoQueOcupa(contratos.value ?? [], { propertyId: f.propertyId, startedOn: f.startedOn, endsOn: termino.value }),
+)
 
 const idsUsados = computed(() =>
   [f.inquilino, f.proprietario, f.fiador].flatMap((p) => (p && 'id' in p ? [p.id] : [])),
@@ -140,6 +161,15 @@ const brl = (n: number | null | undefined) =>
 
 // ---- Etapa 3: garantia ----
 const maxCaucao = computed(() => (f.rentAmount ? f.rentAmount * MAX_CAUCAO_ALUGUEIS : null))
+// Caução sugerida (3 aluguéis) acompanha o aluguel; digitada, fica.
+watch(
+  () => f.rentAmount,
+  (novo, antigo) => {
+    if (f.guaranteeType === 'caucao' && antigo && novo && f.guaranteeAmount === antigo * MAX_CAUCAO_ALUGUEIS) {
+      f.guaranteeAmount = novo * MAX_CAUCAO_ALUGUEIS
+    }
+  },
+)
 watch(
   () => f.guaranteeType,
   (g) => {
@@ -155,14 +185,30 @@ const recebeProprietario = computed(() =>
 const taxaLocacaoValor = computed(() =>
   f.rentAmount != null && f.rentFeePercent != null ? (f.rentAmount * f.rentFeePercent) / 100 : null,
 )
-const temEmail = computed(() =>
-  [f.inquilino, f.proprietario, f.fiador].some((p) => {
-    if (!p) return false
-    if ('nova' in p) return !!p.nova.email
-    const c = clientes.value?.find((x) => x.id === p.id)
-    return !!c?.email && !c.userId
-  }),
-)
+/**
+ * Quem pode receber o convite, separado de quem tem e-mail. Eram uma conta só,
+ * e a frase "ninguém aqui tem e-mail" aparecia quando as três pessoas tinham —
+ * só que todas já com acesso.
+ */
+const situacaoDoConvite = computed<'pode' | 'todos_com_acesso' | 'sem_email'>(() => {
+  let comEmail = 0
+  let pendentes = 0
+  for (const p of [f.inquilino, f.proprietario, f.guaranteeType === 'fiador' ? f.fiador : null]) {
+    if (!p) continue
+    const c = 'nova' in p ? { email: p.nova.email, userId: null } : clientes.value?.find((x) => x.id === p.id)
+    if (!c?.email) continue
+    comEmail++
+    if (!c.userId) pendentes++
+  }
+  if (pendentes) return 'pode'
+  return comEmail ? 'todos_com_acesso' : 'sem_email'
+})
+const temEmail = computed(() => situacaoDoConvite.value === 'pode')
+const AJUDA_CONVITE = {
+  pode: 'Para quem tem e-mail e ainda não acessa: eles veem o contrato, os boletos e os documentos.',
+  todos_com_acesso: 'Todos com e-mail aqui já foram convidados para a Área do Cliente: o contrato aparece lá para eles. Para reenviar o convite, use a tela de Clientes.',
+  sem_email: 'Ninguém aqui tem e-mail cadastrado. Dá para convidar depois, em Clientes.',
+} as const
 
 // ---- Validação por etapa ----
 const erros = ref<string[]>([])
@@ -176,6 +222,11 @@ function errosDaEtapa(n: number): string[] {
     if (!(Number(f.rentAmount) > 0)) e.push('Informe o valor do aluguel.')
     if (!f.dueDay || f.dueDay < 1 || f.dueDay > 31) e.push('Dia do vencimento entre 1 e 31.')
     if (!f.startedOn) e.push('Informe a data de início.')
+    // O servidor já recusava 0, mas só no último passo, depois de a pessoa
+    // preencher garantia e repasse em cima de um prazo que não existe.
+    if (f.termMonths != null && (!Number.isInteger(f.termMonths) || f.termMonths < 1 || f.termMonths > 600))
+      e.push('Prazo em meses, entre 1 e 600 (ou deixe em branco se não houver).')
+    if (ocupante.value) e.push(`O imóvel já está alugado no contrato ${ocupante.value.code}, ativo nesse período. Encerre aquele contrato ou mude as datas.`)
     if (f.finePercent != null && (f.finePercent < 0 || f.finePercent > MAX_FINE_PERCENT)) e.push(`Multa: no máximo ${MAX_FINE_PERCENT}%.`)
     if (f.interestMonthlyPercent != null && (f.interestMonthlyPercent < 0 || f.interestMonthlyPercent > MAX_INTEREST_MONTHLY_PERCENT))
       e.push(`Juros: no máximo ${MAX_INTEREST_MONTHLY_PERCENT}% ao mês.`)
@@ -189,6 +240,7 @@ function errosDaEtapa(n: number): string[] {
     if (!f.holderName.trim()) e.push('Repasse: informe o titular.')
     if (!tipoDeDocumento(f.holderDoc)) e.push('Repasse: CPF/CNPJ do titular inválido.')
     if (f.repasseTipo === 'pix' && !f.pixKey.trim()) e.push('Repasse: informe a chave Pix.')
+    else if (f.repasseTipo === 'pix' && !chavePixValida(f.pixKeyType, f.pixKey)) e.push(`Repasse: a chave Pix não é um ${ROTULO_CHAVE_PIX[f.pixKeyType]} válido.`)
     if (f.repasseTipo === 'conta_bancaria') {
       if (!/^\d{3}$/.test(f.bankCode)) e.push('Repasse: código do banco com 3 dígitos (ex.: 001, 237, 341).')
       if (!f.branch.trim() || !f.account.trim()) e.push('Repasse: agência e conta.')
@@ -196,6 +248,15 @@ function errosDaEtapa(n: number): string[] {
   }
   return e
 }
+// Corrigiu o campo, o aviso da etapa se atualiza — antes ficava na tela
+// dizendo "CPF inválido" até a pessoa clicar em Continuar de novo.
+watch(
+  () => ({ ...f }),
+  () => {
+    if (erros.value.length) erros.value = errosDaEtapa(etapa.value)
+  },
+  { deep: true },
+)
 function irPara(n: number) {
   // Pode voltar sempre; avançar só com a etapa atual (e as anteriores) em ordem.
   if (n <= etapa.value) {
@@ -267,16 +328,18 @@ async function criar() {
       rentFeePercent: f.rentFeePercent,
       payoutBusinessDays: f.payoutBusinessDays,
       repasse: repasse(),
-      convidarPartes: f.convidarPartes,
+      convidarPartes: f.convidarPartes && temEmail.value,
     }
     const r = await adminFetch<{ contrato: { id: string; code: string }; convites: { nome: string; enviado: boolean }[] }>(
       '/api/admin/contracts/locacao',
       { method: 'POST', body },
     )
     const falhos = r.convites.filter((c) => !c.enviado)
+    // Navega ANTES de avisar: a troca de página limpa os erros (Toasts.vue), e
+    // o do convite falho sumiria antes de ser lido.
+    await router.push(`/admin/contratos/${r.contrato.id}`)
     toast.success(`Contrato ${r.contrato.code} criado.`)
     if (falhos.length) toast.error(`O convite não saiu para ${falhos.map((c) => c.nome).join(', ')}. Reenvie pela tela de Clientes.`)
-    await router.push(`/admin/contratos/${r.contrato.id}`)
   } catch (e: unknown) {
     erros.value = [(e as { data?: { statusMessage?: string } })?.data?.statusMessage || 'Não foi possível criar o contrato.']
   } finally {
@@ -319,6 +382,9 @@ useUnsavedGuard(() => !criando.value && (!!f.inquilino || !!f.propertyId || !!f.
               <div>
                 <b>{{ imovel.code }} · {{ imovel.title }}</b>
                 <small>{{ imovel.purpose === 'aluguel' ? `Aluguel ${brl(imovel.price)}` : 'Imóvel de venda' }}</small>
+                <small v-if="ocupante" class="ocupado" role="status">
+                  Já alugado no contrato {{ ocupante.code }}, ativo até {{ dataBR(ocupante.endsOn) || 'sem data de fim' }}. Só dá para seguir com início depois disso.
+                </small>
               </div>
               <button type="button" class="link-btn" @click="limparImovel">Trocar</button>
             </div>
@@ -490,7 +556,7 @@ useUnsavedGuard(() => !criando.value && (!!f.inquilino || !!f.propertyId || !!f.
                 </div>
                 <div class="span2">
                   <label class="admin-label" for="pix">Chave Pix</label>
-                  <input id="pix" v-model="f.pixKey" class="admin-input" autocomplete="off" />
+                  <input id="pix" v-model="f.pixKey" class="admin-input" autocomplete="off" :placeholder="EXEMPLO_CHAVE_PIX[f.pixKeyType]" />
                 </div>
               </template>
               <template v-else>
@@ -536,7 +602,7 @@ useUnsavedGuard(() => !criando.value && (!!f.inquilino || !!f.propertyId || !!f.
             <input v-model="f.convidarPartes" type="checkbox" :disabled="!temEmail" />
             <span>
               <b>Enviar convite da Área do Cliente</b>
-              <small>{{ temEmail ? 'Para quem tem e-mail e ainda não acessa: eles veem o contrato, os boletos e os documentos.' : 'Ninguém aqui tem e-mail cadastrado. Dá para convidar depois, em Clientes.' }}</small>
+              <small>{{ AJUDA_CONVITE[situacaoDoConvite] }}</small>
             </span>
           </label>
         </template>
@@ -727,6 +793,10 @@ useUnsavedGuard(() => !criando.value && (!!f.inquilino || !!f.propertyId || !!f.
 .escolhido small {
   color: var(--ink-soft);
   font-size: var(--fs-label);
+}
+.escolhido .ocupado {
+  color: var(--danger);
+  font-weight: 600;
 }
 .opcoes {
   list-style: none;

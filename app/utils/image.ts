@@ -135,3 +135,24 @@ export function supabaseRenderImage(
 
   return `${renderUrl}${sep}width=${width}&height=${height}&resize=contain&quality=${quality}`
 }
+
+/**
+ * `srcset` por largura para foto do "Quem somos", pela mesma API de
+ * transformação.
+ *
+ * A altura pedida é o dobro da largura de propósito: com `resize=contain` a
+ * caixa é um teto, e só a largura pode ser o lado que limita — é o que torna o
+ * descritor `480w` verdadeiro para foto em pé e deitada. Com a altura igual à
+ * largura, uma foto em pé sairia mais estreita que o `w` anunciado, e o
+ * navegador escolheria a versão errada.
+ *
+ * Poucas larguras (duas, em geral): cada uma é uma transformação a mais por
+ * foto, e esta API já estourou cota uma vez (ver `supabaseRenderImage`).
+ * URL externa não tem transformação — devolve vazio e o `src` segura sozinho.
+ */
+export function supabaseSrcset(url: string, widths: number[], quality = 75): string {
+  if (!url || !url.includes('/storage/v1/object/public/')) return ''
+  return widths
+    .map((w) => `${supabaseRenderImage(url, { width: w, height: w * 2, quality })} ${w}w`)
+    .join(', ')
+}

@@ -76,62 +76,23 @@ const activeAlt = computed(() => {
     : props.title;
 });
 
-// Tela cheia
-const lightboxOpen = ref(false);
+// Tela cheia. Foco de volta a quem abriu, Tab preso, Esc e trava de scroll
+// vêm de useModalDialog — o mesmo diálogo das fotos do "Quem somos".
 const closeBtn = ref<HTMLButtonElement | null>(null);
 const lightboxEl = ref<HTMLElement | null>(null);
-/** Quem abriu a tela cheia — é para lá que o foco volta ao fechar. */
-let openerEl: HTMLElement | null = null;
+const { open: lightboxOpen, show, hide: closeLightbox } = useModalDialog(lightboxEl);
 
 async function openLightbox() {
   if (!active.value) return;
-  openerEl = import.meta.client ? (document.activeElement as HTMLElement | null) : null;
-  lightboxOpen.value = true;
-  await nextTick();
-  closeBtn.value?.focus(); // acessibilidade: foco vai pro overlay
+  await show(() => closeBtn.value);
   // A tira do overlay acabou de nascer: se a pessoa abriu na foto 12, ela
   // precisa já aparecer destacada e visível, não lá no começo da fila.
   lbStrip.value
     ?.querySelectorAll<HTMLElement>(".lb-thumb")
     [activeIndex.value]?.scrollIntoView({ block: "nearest", inline: "center" });
 }
-/**
- * Devolve o foco a quem abriu. Sem isto o foco caía no `<body>` ao fechar, e
- * quem navega por teclado voltava ao topo da página, tendo de tabular tudo de
- * novo até a galeria (padrão de diálogo da WAI-ARIA APG).
- */
-async function closeLightbox() {
-  lightboxOpen.value = false;
-  await nextTick();
-  openerEl?.focus();
-  openerEl = null;
-}
 
-/**
- * Prende o Tab dentro do diálogo. `aria-modal` avisa o leitor de tela, mas não
- * segura o teclado: sem isto o Tab saía da tela cheia e ia focando links da
- * página ESCONDIDA atrás do overlay, sem nada visível mudar.
- */
-onKeyStroke("Tab", (e) => {
-  if (!lightboxOpen.value || !lightboxEl.value) return;
-  const focaveis = [
-    ...lightboxEl.value.querySelectorAll<HTMLElement>("button:not([disabled]), [href], [tabindex]:not([tabindex='-1'])"),
-  ];
-  if (!focaveis.length) return;
-  const primeiro = focaveis[0]!;
-  const ultimo = focaveis[focaveis.length - 1]!;
-  const atual = document.activeElement;
-  if (e.shiftKey && (atual === primeiro || !lightboxEl.value.contains(atual))) {
-    e.preventDefault();
-    ultimo.focus();
-  } else if (!e.shiftKey && (atual === ultimo || !lightboxEl.value.contains(atual))) {
-    e.preventDefault();
-    primeiro.focus();
-  }
-});
-
-// Teclado só enquanto a tela cheia está aberta.
-onKeyStroke("Escape", () => lightboxOpen.value && closeLightbox());
+// Setas só enquanto a tela cheia está aberta (o Esc é do useModalDialog).
 onKeyStroke("ArrowRight", () => lightboxOpen.value && go(1));
 onKeyStroke("ArrowLeft", () => lightboxOpen.value && go(-1));
 
@@ -175,15 +136,6 @@ function onGalleryClick() {
   openLightbox();
 }
 
-// Trava o scroll do fundo enquanto o overlay está aberto.
-watch(lightboxOpen, (open) => {
-  if (import.meta.client) {
-    document.documentElement.style.overflow = open ? "hidden" : "";
-  }
-});
-onBeforeUnmount(() => {
-  if (import.meta.client) document.documentElement.style.overflow = "";
-});
 </script>
 
 <template>
