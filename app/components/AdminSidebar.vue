@@ -21,9 +21,6 @@ const TODOS: NavItem[] = [
   { to: "/admin", label: "Dashboard", exact: true, icon: "dashboard", principal: true },
   { to: "/admin/imoveis", label: "Imóveis", exact: false, icon: "home", principal: true },
   { to: "/admin/leads", label: "Contatos", exact: false, icon: "contacts", principal: true },
-  // Logo abaixo de Contatos: é a tela que o corretor abre de manhã, e a
-  // agenda sem o funil ao lado vira lista solta.
-  { to: "/admin/agenda", label: "Agenda", exact: false, icon: "calendar" },
   { to: "/admin/corretores", label: "Corretores", exact: false, icon: "users" },
   // Contratos e Clientes são a Área do Cliente vista do lado da imobiliária, e
   // ficam juntos: cadastrar um contrato sem ter os clientes é meio caminho.

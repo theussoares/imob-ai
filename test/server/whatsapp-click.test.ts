@@ -203,7 +203,7 @@ describe('POST /api/admin/leads a partir de um clique', () => {
   async function handlerCom(results: Parameters<typeof fakeSupabase>[0], body: Record<string, unknown>) {
     const fake = fakeSupabase(results)
     stubHandlerGlobals({
-      requireTenantMember: async () => ({ client: fake.client, tenant: { id: 't1', slug: 'olmi' }, user: { id: 'u1' } }),
+      requireTenantMember: async () => ({ client: fake.client, tenant: { id: 't1', slug: 'olmi' } }),
       readBody: async () => body,
       assertLeadCreateInput,
     })

@@ -16,11 +16,8 @@ import {
   LEAD_TYPES,
   LEAD_TYPE_LABELS,
   LEAD_SOURCE_LABELS,
-  LEAD_LOST_REASONS,
-  LEAD_LOST_REASON_LABELS,
   seekingTypeFor,
 } from "~~/shared/models/lead";
-import type { LeadLostReason } from "~~/shared/models/lead";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
@@ -169,7 +166,10 @@ const busy = ref<string | null>(null);
  */
 const inFlight = ref(new Set<string>());
 
-async function patchLead(id: string, body: Partial<Lead>): Promise<boolean> {
+async function patchLead(
+  id: string,
+  body: Partial<Lead> & { nextContactAt?: string | null },
+) {
   busy.value = id;
   inFlight.value.add(id);
   try {
@@ -179,11 +179,9 @@ async function patchLead(id: string, body: Partial<Lead>): Promise<boolean> {
     });
     if (leads.value)
       leads.value = leads.value.map((x) => (x.id === id ? updated : x));
-    return true;
   } catch {
     await refresh(); // desfaz o otimista voltando ao estado do servidor
     toast.error("Não foi possível salvar. Tente de novo.");
-    return false;
   } finally {
     busy.value = null;
     inFlight.value.delete(id);
@@ -363,104 +361,38 @@ const changedWhileEditing = ref(false);
 const edit = reactive({
   name: "",
   phone: "",
+  notes: "",
+  nextContactAt: "",
   brokerId: "",
   leadType: "indefinido" as LeadType,
 });
-/**
- * Detalhes do contato numa gaveta lateral, e não dentro do card: o card do
- * funil tem 280px, e o histórico e a agenda (0049) espremidos ali ficavam
- * ilegíveis. A gaveta é a mesma no funil e na lista.
- */
-const editingLead = computed(() =>
-  editingId.value ? (leads.value?.find((x) => x.id === editingId.value) ?? null) : null,
-);
-let focoAntes: HTMLElement | null = null;
-function closeEditor() {
-  editingId.value = null;
-  losing.value = false;
-  focoAntes?.focus();
-  focoAntes = null;
-}
-/**
- * A gaveta se declara modal (`aria-modal`), então o Tab não pode escapar para
- * o funil atrás do véu: quem navega por teclado se perderia numa tela que
- * nem enxerga.
- */
-function prenderFoco(e: KeyboardEvent) {
-  const box = (e.currentTarget as HTMLElement) ?? null;
-  if (!box) return;
-  const focaveis = [...box.querySelectorAll<HTMLElement>(
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  )].filter((el) => el.offsetParent !== null);
-  if (!focaveis.length) return;
-  const primeiro = focaveis[0]!, ultimo = focaveis[focaveis.length - 1]!;
-  if (e.shiftKey && document.activeElement === primeiro) {
-    e.preventDefault();
-    ultimo.focus();
-  } else if (!e.shiftKey && document.activeElement === ultimo) {
-    e.preventDefault();
-    primeiro.focus();
-  }
-}
 function openEditor(l: Lead) {
-  if (editingId.value === l.id) return closeEditor();
-  focoAntes = document.activeElement as HTMLElement | null;
-  editingId.value = l.id;
-  nextTick(() => document.getElementById("drawer-close")?.focus());
+  editingId.value = editingId.value === l.id ? null : l.id;
   changedWhileEditing.value = false;
-  losing.value = false;
   if (editingId.value) {
     edit.name = l.name || "";
     edit.phone = l.phone || "";
+    edit.notes = l.notes || "";
+    edit.nextContactAt = dateToInput(l.nextContactAt);
     edit.brokerId = l.brokerId || "";
     edit.leadType = l.leadType;
   }
 }
-/** Sair da tela com o cadastro alterado e não salvo perdia a edição sem aviso. */
+/**
+ * O editor tem anotações — o histórico do atendimento. Sair da tela com ele
+ * aberto e alterado perdia o texto sem aviso.
+ */
 function editorDirty() {
   const l = editingId.value ? leads.value?.find((x) => x.id === editingId.value) : null;
   if (!l) return false;
   return (
     edit.name !== (l.name || "") ||
     edit.phone !== (l.phone || "") ||
+    edit.notes !== (l.notes || "") ||
+    edit.nextContactAt !== dateToInput(l.nextContactAt) ||
     edit.brokerId !== (l.brokerId || "") ||
     edit.leadType !== l.leadType
   );
-}
-
-/**
- * `?lead=<id>` abre o contato direto — é como a agenda leva a pessoa do
- * compromisso para o histórico de quem ela vai atender.
- */
-const leadDaUrl = String(route.query.lead || "");
-if (leadDaUrl) {
-  const stop = watch(
-    leads,
-    (ls) => {
-      const l = ls?.find((x) => x.id === leadDaUrl);
-      if (!l) return;
-      stop();
-      if (l.stage === "perdido") showLost.value = true;
-      else openEditor(l);
-      nextTick(() => document.getElementById(`lead-${l.id}`)?.scrollIntoView({ block: "center" }));
-    },
-    { immediate: true },
-  );
-}
-
-// ---- Perda com motivo ----
-// Mover para "perdido" exige motivo (o servidor recusa sem): é o relatório de
-// perdas. Fica dentro do editor, e não como coluna de arrastar, pelo mesmo
-// motivo que o funil não mostra "perdido": é arquivo, não etapa de trabalho.
-const losing = ref(false);
-const lostReason = ref<LeadLostReason | "">("");
-async function markLost(l: Lead) {
-  if (!lostReason.value) return;
-  const motivo = lostReason.value;
-  if (!(await patchLead(l.id, { stage: "perdido", lostReason: motivo }))) return;
-  lostReason.value = "";
-  closeEditor();
-  toast.success(`${l.name || "Contato"} arquivado como perdido (${LEAD_LOST_REASON_LABELS[motivo].toLowerCase()}).`);
 }
 const newDirty = () =>
   showNew.value && !!(newForm.name || newForm.phone || newForm.message);
@@ -469,15 +401,15 @@ useUnsavedGuard(() => editorDirty() || newDirty());
 const [DefineEditor, ReuseEditor] = createReusableTemplate<{ l: Lead }>();
 
 async function saveEditor(l: Lead) {
-  const ok = await patchLead(l.id, {
+  await patchLead(l.id, {
     name: edit.name.trim() || null,
     phone: edit.phone.trim() || null,
+    notes: edit.notes.trim() || null,
+    nextContactAt: inputToIso(edit.nextContactAt),
     brokerId: edit.brokerId || null,
     leadType: edit.leadType,
   });
-  // A gaveta fica aberta: salvar o cadastro não encerra o atendimento, e o
-  // histórico e a agenda continuam logo abaixo.
-  if (ok) toast.success("Dados do contato salvos.");
+  editingId.value = null;
 }
 
 // ---- Novo contato manual ----
@@ -602,8 +534,14 @@ function returnLabel(iso: string) {
   if (days === 1) return `retornar amanhã (${date})`;
   return `retornar ${date}`;
 }
-// <input type="date"> -> timestamptz, ancorado ao meio-dia local pra não
-// pular de dia por causa de fuso ao converter para ISO.
+// timestamptz <-> <input type="date">. Ancora ao meio-dia local pra não pular
+// de dia por causa de fuso ao converter para ISO.
+function dateToInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
 function inputToIso(day: string): string | null {
   if (!day) return null;
   const d = new Date(`${day}T12:00:00`);
@@ -667,7 +605,26 @@ useHead({ title: "Contatos · Painel" });
               continua aqui, mas salvar vai sobrescrever a alteração dela —
               feche e reabra para ver o estado atual.
             </p>
+            <label class="admin-label" :for="`ed-notas-${l.id}`"
+              >Anotações (histórico do atendimento)</label
+            >
+            <textarea
+              :id="`ed-notas-${l.id}`"
+              v-model="edit.notes"
+              class="admin-textarea"
+              rows="3"
+              placeholder="O que foi conversado, objeções, imóveis mostrados..."
+            />
             <div class="ed-row">
+              <div>
+                <label class="admin-label" :for="`ed-retorno-${l.id}`">Próximo retorno</label
+                ><input
+                  :id="`ed-retorno-${l.id}`"
+                  v-model="edit.nextContactAt"
+                  class="admin-input"
+                  type="date"
+                />
+              </div>
               <div v-if="brokers?.length">
                 <label class="admin-label" :for="`ed-corretor-${l.id}`">Corretor</label>
                 <select :id="`ed-corretor-${l.id}`"
@@ -687,31 +644,10 @@ useHead({ title: "Contatos · Painel" });
               >
                 Salvar
               </button>
-              <button
-                v-if="l.stage !== 'perdido' && !losing"
-                class="admin-btn ghost sm"
-                @click="losing = true"
-              >
-                <AppIcon name="lost" /> Marcar como perdido
-              </button>
-              <button class="admin-btn danger-ghost sm ed-del" @click="remove(l)">
+              <button class="admin-btn danger-ghost sm" @click="remove(l)">
                 Excluir
               </button>
             </div>
-            <form v-if="losing" class="lose" @submit.prevent="markLost(l)">
-              <label class="admin-label" :for="`ed-perda-${l.id}`">Por que perdemos este contato?</label>
-              <div class="lose-row">
-                <select :id="`ed-perda-${l.id}`" v-model="lostReason" class="admin-input" required>
-                  <option value="" disabled>Escolha o motivo</option>
-                  <option v-for="r in LEAD_LOST_REASONS" :key="r" :value="r">{{ LEAD_LOST_REASON_LABELS[r] }}</option>
-                </select>
-                <button class="admin-btn danger sm" :disabled="!lostReason || busy === l.id">Arquivar como perdido</button>
-                <button type="button" class="admin-btn ghost sm" @click="losing = false; lostReason = ''">Voltar</button>
-              </div>
-              <small class="lose-hint">O motivo vira o relatório de perdas. Dá para reabrir depois, em "Perdidos".</small>
-            </form>
-
-            <AdminLeadTimeline :lead="l" :brokers="brokers ?? []" @changed="scheduleRefresh" />
           </div>
     </DefineEditor>
 
@@ -719,8 +655,8 @@ useHead({ title: "Contatos · Painel" });
       <div>
         <h1>Contatos</h1>
         <p class="sub">
-          Seu funil de atendimento. Mova o contato conforme ele avança, registre
-          cada conversa e deixe sempre um próximo passo agendado.
+          Seu funil de atendimento. Mova o contato conforme ele avança e agende
+          o próximo retorno.
         </p>
       </div>
       <button class="admin-btn" @click="showNew = !showNew">
@@ -946,7 +882,6 @@ useHead({ title: "Contatos · Painel" });
         <article
           v-for="l in byStage[s]"
           :key="l.id"
-          :id="`lead-${l.id}`"
           class="card"
           :class="{
             over: isOverdue(l),
@@ -1008,7 +943,7 @@ useHead({ title: "Contatos · Painel" });
               :aria-expanded="editingId === l.id"
               @click="openEditor(l)"
             >
-              Abrir
+              {{ editingId === l.id ? "Fechar" : "Detalhes" }}
             </button>
           </div>
           <label class="c-stage">
@@ -1025,6 +960,8 @@ useHead({ title: "Contatos · Painel" });
             </select>
           </label>
 
+          <!-- Mesmo editor da lista: ver DefineEditor no topo do template. -->
+          <ReuseEditor v-if="editingId === l.id" :l="l" />
         </article>
       </section>
     </div>
@@ -1035,7 +972,6 @@ useHead({ title: "Contatos · Painel" });
         v-for="l in [...list]
           .filter((x) => x.stage !== 'perdido')
           .sort(sortColumn)"
-        :id="`lead-${l.id}`"
         :key="l.id"
         class="admin-card lead"
       >
@@ -1064,7 +1000,7 @@ useHead({ title: "Contatos · Painel" });
             :aria-expanded="editingId === l.id"
             @click="openEditor(l)"
           >
-            Abrir
+            {{ editingId === l.id ? "Fechar" : "Detalhes" }}
           </button>
         </div>
         <label class="c-stage">
@@ -1080,6 +1016,7 @@ useHead({ title: "Contatos · Painel" });
             </option>
           </select>
         </label>
+        <ReuseEditor v-if="editingId === l.id" :l="l" />
       </article>
     </div>
 
@@ -1094,8 +1031,6 @@ useHead({ title: "Contatos · Painel" });
             >{{ l.name || "Sem nome"
             }}<template v-if="l.property">
               · {{ l.property.code }}</template
-            ><small v-if="l.lostReason" class="lost-why">
-              {{ LEAD_LOST_REASON_LABELS[l.lostReason] }}</small
             ></span
           >
           <div class="lost-actions">
@@ -1109,50 +1044,6 @@ useHead({ title: "Contatos · Painel" });
         </div>
       </div>
     </div>
-
-    <Teleport to="body">
-      <Transition name="scrim">
-        <div v-if="editingLead" class="scrim" aria-hidden="true" @click="closeEditor" />
-      </Transition>
-      <Transition name="drawer">
-        <aside
-          v-if="editingLead"
-          class="drawer"
-          role="dialog"
-          aria-modal="true"
-          :aria-labelledby="`dr-t-${editingLead.id}`"
-          @keydown.esc="closeEditor"
-          @keydown.tab="prenderFoco"
-        >
-          <header class="dr-head">
-            <div class="dr-id">
-              <h2 :id="`dr-t-${editingLead.id}`">{{ editingLead.name || "Sem nome" }}</h2>
-              <p class="dr-sub">
-                <span class="pill">{{ LEAD_STAGE_LABELS[editingLead.stage] }}</span>
-                <span class="ltype" :class="`t-${editingLead.leadType}`">{{ LEAD_TYPE_LABELS[editingLead.leadType] }}</span>
-                <NuxtLink v-if="editingLead.property" class="dr-prop" :to="propertyPath(editingLead.property)" target="_blank">
-                  <AppIcon name="home" /> {{ editingLead.property.code }}
-                </NuxtLink>
-              </p>
-            </div>
-            <a
-              v-if="waHref(editingLead.phone)"
-              class="admin-btn sm dr-wa"
-              :href="waHref(editingLead.phone)"
-              target="_blank"
-              rel="noopener"
-            ><AppIcon name="wa" /> WhatsApp</a>
-            <button id="drawer-close" type="button" class="dr-close" aria-label="Fechar detalhes" @click="closeEditor">
-              <AppIcon name="close" />
-            </button>
-          </header>
-          <div class="dr-body">
-            <p v-if="editingLead.message" class="dr-msg">“{{ editingLead.message }}”</p>
-            <ReuseEditor :l="editingLead" />
-          </div>
-        </aside>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -1188,171 +1079,6 @@ useHead({ title: "Contatos · Painel" });
   color: #b91c1c;
   font-size: var(--fs-label);
   margin: 12px 0 0;
-}
-
-/* Gaveta de detalhes */
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(20, 22, 26, 0.32);
-}
-.drawer {
-  position: fixed;
-  z-index: 61;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(560px, 100vw);
-  display: flex;
-  flex-direction: column;
-  background: var(--paper);
-  box-shadow: -12px 0 40px rgba(20, 22, 26, 0.16);
-}
-.dr-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--line);
-}
-.dr-id {
-  flex: 1;
-  min-width: 0;
-}
-.dr-id h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-title-sm);
-  letter-spacing: -0.01em;
-  overflow-wrap: anywhere;
-}
-.dr-sub {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin: 6px 0 0;
-}
-.dr-prop {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-caption);
-  font-weight: 600;
-  color: var(--brand);
-}
-.dr-prop :deep(svg) {
-  width: 13px;
-  height: 13px;
-}
-.dr-wa {
-  flex: none;
-  text-decoration: none;
-}
-.dr-close {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--ink-soft);
-  cursor: pointer;
-}
-.dr-close:hover {
-  background: var(--surface);
-  color: var(--ink);
-}
-.dr-close:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-.dr-close :deep(svg) {
-  width: 20px;
-  height: 20px;
-}
-.dr-body {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 16px 20px 28px;
-}
-.dr-body .editor {
-  margin: 0;
-  padding: 0;
-  border-top: none;
-}
-.dr-msg {
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border-radius: var(--r-md);
-  background: var(--surface);
-  font-size: var(--fs-ui);
-  color: var(--ink-soft);
-  white-space: pre-wrap;
-}
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateX(100%);
-}
-.scrim-enter-active,
-.scrim-leave-active {
-  transition: opacity 0.2s ease-out;
-}
-.scrim-enter-from,
-.scrim-leave-to {
-  opacity: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  .drawer-enter-active,
-  .drawer-leave-active,
-  .scrim-enter-active,
-  .scrim-leave-active {
-    transition: none;
-  }
-}
-
-/* Perda com motivo */
-.ed-del {
-  margin-left: auto;
-}
-.lose {
-  margin-top: 12px;
-  padding: 12px;
-  border-radius: var(--r-md);
-  background: #fbf0ef;
-}
-.lose-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.lose-row .admin-input {
-  flex: 1 1 200px;
-  width: auto;
-}
-.lose-hint {
-  display: block;
-  margin-top: 8px;
-  color: #7a3434;
-  font-size: var(--fs-caption);
-}
-.lost-why {
-  margin-left: 8px;
-  padding: 2px 8px;
-  border-radius: var(--r-pill);
-  background: var(--surface);
-  color: var(--ink-soft);
-  font-size: var(--fs-caption);
-  font-weight: 600;
 }
 
 /* Novo contato */
@@ -1662,10 +1388,7 @@ useHead({ title: "Contatos · Painel" });
   cursor: grabbing;
 }
 .card.over {
-  /* Tinta no card inteiro, e não a faixa grossa na lateral: o texto
-     "retorno atrasado" já diz o que é, a cor só chama o olho. */
-  border-color: #e5b8b8;
-  background: #fffafa;
+  border-left: 3px solid #b23b3b;
 }
 .card.busy {
   opacity: 0.6;
@@ -1788,7 +1511,6 @@ useHead({ title: "Contatos · Painel" });
 }
 .ed-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }

@@ -14,7 +14,6 @@ export function toPortalUserModel(row: PortalUserRow): PortalUser {
     doc: row.doc,
     phone: row.phone,
     active: row.active,
-    accessConfirmed: !!row.access_confirmed_at,
     createdAt: row.created_at,
   }
 }
@@ -27,8 +26,7 @@ export function toPortalUserModel(row: PortalUserRow): PortalUser {
 export function toPortalUserRow(
   input: PortalUserInput,
   tenantId: string,
-  // Nulo = cadastro sem acesso ao portal (0050).
-  userId: string | null,
+  userId: string,
 ): PortalUserInsert {
   return {
     tenant_id: tenantId,
@@ -36,7 +34,7 @@ export function toPortalUserRow(
     name: input.name.trim(),
     // O índice único é sobre lower(email); gravar normalizado evita que o banco
     // e a aplicação discordem sobre o que é o "mesmo" e-mail.
-    email: input.email?.trim().toLowerCase() || null,
+    email: input.email.trim().toLowerCase(),
     doc: input.doc?.trim() || null,
     phone: input.phone?.trim() || null,
   }

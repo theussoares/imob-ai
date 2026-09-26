@@ -17,8 +17,6 @@ export function toBrokerModel(row: BrokerRow): Broker {
     photoUrl: row.photo_url,
     bio: row.bio,
     publicVisible: row.public_visible,
-    receivesLeads: row.receives_leads,
-    lastLeadAt: row.last_lead_at,
   }
 }
 
@@ -33,9 +31,6 @@ export function toBrokerRow(input: BrokerInput, tenantId: string): BrokerInsert 
     photo_url: input.photoUrl?.trim() || null,
     bio: input.bio?.trim() || null,
     public_visible: input.publicVisible ?? false,
-    // Só quando veio: este row serve também à edição, e um formulário que não
-    // conhece o campo tiraria o corretor da roleta sem ninguém pedir.
-    ...(input.receivesLeads !== undefined ? { receives_leads: input.receivesLeads } : {}),
   }
 }
 

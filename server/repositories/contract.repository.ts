@@ -233,13 +233,8 @@ export interface ParteDoContrato {
   role: ContractPartyRole
   /** Nome do cliente, para a tela do painel não precisar de uma segunda busca. */
   nome: string
-  email: string | null
+  email: string
   ativo: boolean
-  /** CPF/CNPJ — a ficha mostra a pendência "inquilino sem documento". */
-  doc: string | null
-  telefone: string | null
-  /** Tem conta no portal (0050: cliente pode existir sem acesso). */
-  temAcesso: boolean
 }
 
 /**
@@ -259,15 +254,13 @@ export async function listContractParties(
     // O embed é filtrado por tenant com `!inner`: `contract_parties` não tem
     // coluna de tenant própria, então sem isto um id de contrato de outra
     // imobiliária devolveria as partes dela.
-    .select('id, role, portal_user_id, portal_users!inner(name, email, active, doc, phone, user_id, tenant_id)')
+    .select('id, role, portal_user_id, portal_users!inner(name, email, active, tenant_id)')
     .eq('contract_id', contractId)
     .eq('portal_users.tenant_id', tenantId)
   if (error) throw error
 
   return (data ?? []).map((row) => {
-    const pu = (row as unknown as {
-      portal_users: { name: string; email: string | null; active: boolean; doc: string | null; phone: string | null; user_id: string | null }
-    }).portal_users
+    const pu = (row as { portal_users: { name: string; email: string; active: boolean } }).portal_users
     return {
       id: row.id,
       portalUserId: row.portal_user_id,
@@ -275,9 +268,6 @@ export async function listContractParties(
       nome: pu.name,
       email: pu.email,
       ativo: pu.active,
-      doc: pu.doc,
-      telefone: pu.phone,
-      temAcesso: !!pu.user_id,
     }
   })
 }
@@ -336,25 +326,4 @@ export async function removeContractParty(
     .eq('id', partyId)
     .eq('contract_id', contractId)
   if (error) throw error
-}
-
-/**
- * Próximo código livre no formato LOC-AAAA-NNN. Sugestão, não sequência
- * garantida: dois contratos criados no mesmo instante podem calcular o mesmo
- * número, e o índice único (tenant_id, code) recusa o segundo — quem chama
- * tenta de novo com o seguinte (ver `criarLocacao`).
- */
-export async function nextContractCode(client: Client, tenantId: string, ano: number): Promise<string> {
-  const prefixo = `LOC-${ano}-`
-  const { data, error } = await client
-    .from('contracts')
-    .select('code')
-    .eq('tenant_id', tenantId)
-    .ilike('code', `${prefixo}%`)
-  if (error) throw error
-  const maior = (data ?? []).reduce((m, r) => {
-    const n = Number(r.code.slice(prefixo.length))
-    return Number.isInteger(n) && n > m ? n : m
-  }, 0)
-  return `${prefixo}${String(maior + 1).padStart(3, '0')}`
 }

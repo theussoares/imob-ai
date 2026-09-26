@@ -4,7 +4,6 @@ import { isValidBrPhone, onlyDigits } from '~~/shared/utils/phone'
 import { createLead } from '~~/server/repositories/lead.repository'
 import { getPropertyByCode } from '~~/server/repositories/property.repository'
 import { avisarNovoLead } from '~~/server/utils/lead-alert'
-import { distribuirPelaRoleta } from '~~/server/utils/lead-crm'
 import { formatPropertyCode } from '~~/shared/utils/property-specs'
 
 /**
@@ -75,9 +74,8 @@ export default defineEventHandler(async (event) => {
   // formulário só decide quando não há imóvel (ex.: "quero vender o meu").
   const leadType = propertyPurpose ? seekingTypeFor(propertyPurpose) : toLeadType(body.leadType)
 
-  let leadId: string
   try {
-    leadId = await createLead(service, {
+    await createLead(service, {
       tenantId: tenant.id,
       propertyId,
       name,
@@ -102,11 +100,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Antes do aviso, para o e-mail ir também para o corretor que recebeu o
-  // lead: é ele quem precisa ligar, e o aviso só para os donos do painel
-  // deixaria a roleta dependendo de alguém repassar.
-  const corretor = await distribuirPelaRoleta(service, tenant, leadId)
-
   // `await`, e não `event.waitUntil`: o preset `vercel` do Nitro 2.13 não
   // repassa o `waitUntil` para a plataforma (conferido no runtime do preset) —
   // a promessa ficaria só numa lista interna e a função seria congelada assim
@@ -118,7 +111,7 @@ export default defineEventHandler(async (event) => {
     mensagem: message,
     tipo: LEAD_TYPE_LABELS[leadType],
     imovel: property ? { codigo: formatPropertyCode(property.code), titulo: property.title } : null,
-  }, corretor?.email ? [corretor.email] : [])
+  })
 
   return { ok: true }
 })

@@ -1077,7 +1077,8 @@ useHead(() => ({
   gap: 8px;
   margin: 8px 0 12px;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--line-2));
+  border: 1px solid var(--line-2);
+  border-left: 4px solid var(--brand);
   border-radius: var(--r-md);
   background: var(--brand-ghost);
 }

@@ -81,26 +81,20 @@ async function enviarParaTodos(
  */
 const TETO_AVISO_MS = 4000
 
-/**
- * Aviso imediato de lead novo. Chamado depois da gravação; nunca lança.
- *
- * `extras`: endereços além dos do painel — o corretor que a roleta escolheu.
- */
-export async function avisarNovoLead(tenant: Tenant, lead: LeadDoAviso, extras: string[] = []): Promise<void> {
+/** Aviso imediato de lead novo. Chamado depois da gravação; nunca lança. */
+export async function avisarNovoLead(tenant: Tenant, lead: LeadDoAviso): Promise<void> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const teto = new Promise<'teto'>((ok) => {
     timer = setTimeout(() => ok('teto'), TETO_AVISO_MS)
   })
-  const r = await Promise.race([enviarAvisoNovoLead(tenant, lead, extras), teto])
+  const r = await Promise.race([enviarAvisoNovoLead(tenant, lead), teto])
   clearTimeout(timer)
   if (r === 'teto') logWarn('lead_aviso.teto_de_tempo', { tenant: tenant.slug })
 }
 
-async function enviarAvisoNovoLead(tenant: Tenant, lead: LeadDoAviso, extras: string[]): Promise<void> {
+async function enviarAvisoNovoLead(tenant: Tenant, lead: LeadDoAviso): Promise<void> {
   try {
-    const doPainel = await destinatariosDoAviso(serviceSupabase(), tenant)
-    const vistos = new Set(doPainel)
-    const para = [...doPainel, ...extras.map((e) => e.trim().toLowerCase()).filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && !vistos.has(e) && vistos.add(e))]
+    const para = await destinatariosDoAviso(serviceSupabase(), tenant)
     if (!para.length) {
       // O caso da OLMI de novo, só que agora gritando: lead chegou e não há
       // para quem avisar. Resolve cadastrando o e-mail em Configurações.

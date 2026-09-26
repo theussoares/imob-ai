@@ -133,8 +133,6 @@ export interface Lead {
   nextContactAt: string | null
   /** Corretor responsável pelo atendimento (opcional). */
   brokerId: string | null
-  /** Motivo de perda; preenchido quando `stage` é 'perdido' (leads antigos podem não ter). */
-  lostReason: LeadLostReason | null
   createdAt: string
   updatedAt: string
   /** Quem alterou por último. Null em contato nunca editado no painel. */
@@ -177,58 +175,13 @@ export interface LeadCreateInput {
   whatsappClickId?: string | null
 }
 
-/**
- * Edição de um lead no painel (mover no funil, trocar o responsável).
- *
- * Sem `notes` e sem `nextContactAt`, de propósito: anotação virou evento da
- * linha do tempo (append-only) e retorno virou tarefa. Aceitar os dois aqui
- * deixaria um caminho que sobrescreve o histórico e outro que o trigger de
- * tarefas desfaz no minuto seguinte.
- */
+/** Edição de um lead no painel (mover no funil, anotar, agendar retorno). */
 export interface LeadUpdateInput {
   name?: string | null
   phone?: string | null
   stage?: LeadStage
   leadType?: LeadType
+  notes?: string | null
+  nextContactAt?: string | null
   brokerId?: string | null
-  /** Obrigatório quando `stage` vira 'perdido'. */
-  lostReason?: LeadLostReason | null
-}
-
-/**
- * Por que o lead foi perdido. Obrigatório ao mover para 'perdido' — é o
- * relatório que o dono da imobiliária pede ("por que estamos perdendo?"), e
- * um campo opcional ficaria vazio em quase todo lead.
- */
-export type LeadLostReason =
-  | 'preco'
-  | 'fechou_com_outro'
-  | 'sem_resposta'
-  | 'credito_negado'
-  | 'desistiu'
-  | 'imovel_indisponivel'
-  | 'outro'
-
-export const LEAD_LOST_REASONS: LeadLostReason[] = [
-  'preco',
-  'fechou_com_outro',
-  'sem_resposta',
-  'credito_negado',
-  'desistiu',
-  'imovel_indisponivel',
-  'outro',
-]
-
-export const LEAD_LOST_REASON_LABELS: Record<LeadLostReason, string> = {
-  preco: 'Preço',
-  fechou_com_outro: 'Fechou com outra imobiliária',
-  sem_resposta: 'Parou de responder',
-  credito_negado: 'Crédito/financiamento negado',
-  desistiu: 'Desistiu',
-  imovel_indisponivel: 'Imóvel indisponível',
-  outro: 'Outro',
-}
-
-export function toLeadLostReason(value: unknown): LeadLostReason | null {
-  return LEAD_LOST_REASONS.includes(value as LeadLostReason) ? (value as LeadLostReason) : null
 }

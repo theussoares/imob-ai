@@ -110,21 +110,3 @@ export async function getMembership(
   if (!data) return null
   return { id: data.id, tenantId: data.tenant_id, userId: data.user_id, role: data.role }
 }
-
-export type LeadDistribution = 'manual' | 'roleta'
-
-/**
- * Como a imobiliária distribui os leads do site (0049). Fora de
- * `TENANT_PUBLIC_COLUMNS` de propósito: é configuração interna, e o anon nem
- * tem grant na coluna.
- */
-export async function getLeadDistribution(client: Client, tenantId: string): Promise<LeadDistribution> {
-  const { data, error } = await client.from('tenants').select('lead_distribution').eq('id', tenantId).single()
-  if (error) throw error
-  return data.lead_distribution === 'roleta' ? 'roleta' : 'manual'
-}
-
-export async function setLeadDistribution(client: Client, tenantId: string, mode: LeadDistribution): Promise<void> {
-  const { error } = await client.from('tenants').update({ lead_distribution: mode }).eq('id', tenantId)
-  if (error) throw error
-}

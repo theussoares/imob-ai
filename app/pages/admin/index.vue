@@ -298,7 +298,7 @@ useHead({ title: "Dashboard · Painel" });
             </ul>
           </template>
 
-          <div class="bar"><span :style="{ transform: `scaleX(${pctPublished / 100})` }" /></div>
+          <div class="bar"><span :style="{ width: pctPublished + '%' }" /></div>
           <div class="health-meta">
             {{ stats.published }} de {{ stats.total }} imóveis publicados
             <template v-if="lastUpdated">
@@ -325,16 +325,6 @@ useHead({ title: "Dashboard · Painel" });
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 14px;
-}
-/* No celular cabem dois por linha; com número ímpar de indicadores o último
-   ficava sozinho, meio vazio, parecendo que faltava um card ao lado. */
-@media (max-width: 640px) {
-  .stat-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .stat-grid > :last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
 }
 .stat {
   display: flex;
@@ -448,6 +438,7 @@ useHead({ title: "Dashboard · Painel" });
 }
 .agenda {
   margin-bottom: 18px;
+  border-left: 4px solid var(--brand);
 }
 .agenda-ok {
   display: flex;
@@ -481,16 +472,12 @@ useHead({ title: "Dashboard · Painel" });
   min-width: 0;
 }
 .ag-meta {
-  /* Bloco com o ícone em linha, e não flex com quebra: no celular o flex
-     jogava o relógio sozinho numa linha e o texto na de baixo. */
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
   font-size: var(--fs-label);
   color: var(--ink-soft);
-}
-.ag-meta :deep(svg) {
-  width: 14px;
-  height: 14px;
-  vertical-align: -2px;
 }
 .ag-wa {
   display: inline-flex;
@@ -566,14 +553,7 @@ useHead({ title: "Dashboard · Painel" });
   height: 100%;
   background: var(--brand);
   border-radius: var(--r-pill);
-  /* Escala, não largura: animar `width` recalcula o layout a cada quadro. */
-  transform-origin: left;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  .bar span {
-    transition: none;
-  }
+  transition: width 0.4s;
 }
 .health-meta {
   font-size: var(--fs-label);

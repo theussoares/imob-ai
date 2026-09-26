@@ -7,7 +7,6 @@ import type {
   ContractInternalInput,
   ContractPartyRole,
 } from '~~/shared/models/portal'
-import type { FireInsurancePayer, GuaranteeType } from '~~/shared/models/lease'
 
 type ContractRow = Database['public']['Tables']['contracts']['Row']
 type ContractInsert = Database['public']['Tables']['contracts']['Insert']
@@ -28,9 +27,6 @@ export function toContractModel(row: ContractRow): Contract {
     rentAmount: row.rent_amount,
     dueDay: row.due_day,
     adjustmentIndex: row.adjustment_index,
-    termMonths: row.term_months,
-    // CHECK no banco (0050) garante a lista; o cast só troca string por união.
-    guaranteeType: (row.guarantee_type as GuaranteeType | null) ?? null,
     source: row.source === 'erp' ? 'erp' : 'manual',
     createdAt: row.created_at,
   }
@@ -72,23 +68,7 @@ export function toContractInternalModel(row: ContractInternalRow): ContractInter
     notes: row.notes,
     adminFeePercent: row.admin_fee_percent,
     externalId: row.external_id,
-    guaranteeAmount: row.guarantee_amount,
-    guaranteeDetails: row.guarantee_details,
-    fireInsurancePayer: (row.fire_insurance_payer as FireInsurancePayer | null) ?? null,
-    finePercent: row.fine_percent,
-    interestMonthlyPercent: row.interest_monthly_percent,
-    rentFeePercent: row.rent_fee_percent,
-    payoutBusinessDays: row.payout_business_days,
   }
-}
-
-/**
- * Só as chaves que vieram. `toContractRow` e `toContractInternalRow` servem
- * também à EDIÇÃO, que é um upsert/replace: um formulário que ainda não
- * conhece um campo (ou um PUT parcial) não pode zerar o que outra tela gravou.
- */
-function seVeio<K extends string, V>(chave: K, valor: V | undefined): Partial<Record<K, V>> {
-  return valor === undefined ? {} : ({ [chave]: valor } as Record<K, V>)
 }
 
 export function toContractRow(input: ContractInput, tenantId: string): ContractInsert {
@@ -103,8 +83,6 @@ export function toContractRow(input: ContractInput, tenantId: string): ContractI
     rent_amount: input.rentAmount ?? null,
     due_day: input.dueDay ?? null,
     adjustment_index: input.adjustmentIndex?.trim() || null,
-    ...seVeio('term_months', input.termMonths),
-    ...seVeio('guarantee_type', input.guaranteeType),
   }
 }
 
@@ -117,12 +95,5 @@ export function toContractInternalRow(
     notes: input.notes?.trim() || null,
     admin_fee_percent: input.adminFeePercent ?? null,
     external_id: input.externalId?.trim() || null,
-    ...seVeio('guarantee_amount', input.guaranteeAmount),
-    ...seVeio('guarantee_details', input.guaranteeDetails === undefined ? undefined : input.guaranteeDetails?.trim() || null),
-    ...seVeio('fire_insurance_payer', input.fireInsurancePayer),
-    ...seVeio('fine_percent', input.finePercent),
-    ...seVeio('interest_monthly_percent', input.interestMonthlyPercent),
-    ...seVeio('rent_fee_percent', input.rentFeePercent),
-    ...seVeio('payout_business_days', input.payoutBusinessDays),
   }
 }

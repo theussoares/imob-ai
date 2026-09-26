@@ -1,7 +1,7 @@
 import type { Database } from '~~/shared/types/database.types'
 import type { Lead, LeadStage } from '~~/shared/models/lead'
 import type { PropertyType } from '~~/shared/models/property'
-import { toLeadLostReason, toLeadSource, toLeadType } from '~~/shared/models/lead'
+import { toLeadSource, toLeadType } from '~~/shared/models/lead'
 
 type LeadRow = Database['public']['Tables']['leads']['Row']
 
@@ -31,7 +31,6 @@ export function toLeadModel(row: LeadRow, property: LeadPropertyFields = null): 
     notes: row.notes,
     nextContactAt: row.next_contact_at,
     brokerId: row.broker_id,
-    lostReason: toLeadLostReason(row.lost_reason),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,

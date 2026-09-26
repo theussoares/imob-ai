@@ -381,7 +381,8 @@ useHead({ title: "Imóveis · Painel" });
               <th>Código</th>
               <th>Título</th>
               <th>Tipo</th>
-              <th class="th-num">Preço</th>
+              <th>Pretensão</th>
+              <th>Preço</th>
               <th>Status</th>
               <th>Interno</th>
               <th></th>
@@ -402,11 +403,9 @@ useHead({ title: "Imóveis · Painel" });
               </td>
               <td class="mono">{{ p.code }}</td>
               <td>{{ p.title }}</td>
-              <td class="td-tipo">
-                {{ PROPERTY_TYPE_LABELS[p.type] }}
-                <small>{{ p.purpose === "aluguel" ? "Aluguel" : "Venda" }}</small>
-              </td>
-              <td class="td-num">{{ formatBRL(p.price) }}</td>
+              <td>{{ PROPERTY_TYPE_LABELS[p.type] }}</td>
+              <td>{{ p.purpose === "aluguel" ? "Aluguel" : "Venda" }}</td>
+              <td>{{ formatBRL(p.price) }}</td>
               <td>
                 <span class="pill" :class="{ muted: p.status !== 'active' }">
                   {{ PROPERTY_STATUS_LABELS[p.status] }}
@@ -731,28 +730,6 @@ useHead({ title: "Imóveis · Painel" });
      colunas apenas espremem. Entre o breakpoint de 760px e ~1000px era esse o
      sintoma — não cabia e também não rolava. */
   min-width: 980px;
-}
-/*
- * Tipo e pretensão numa célula só. Com as duas em colunas próprias a tabela
- * pedia ~1000px, e no desktop comum (1440px menos a barra lateral) sobravam
- * ~960: o "Excluir" ficava cortado atrás da rolagem horizontal, que ninguém
- * percebia que existia.
- */
-@media (min-width: 1200px) {
-  .table-wrap .admin-table {
-    min-width: 0;
-  }
-}
-.td-tipo small {
-  display: block;
-  color: var(--ink-soft);
-  font-size: var(--fs-caption);
-}
-.th-num,
-.td-num {
-  text-align: right;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 .td-actions {
   white-space: nowrap;

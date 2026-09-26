@@ -4,24 +4,7 @@ import { areaRangeError, priceRangeError, roomsRangeError } from '~~/shared/util
 import type { TenantSettingsInput } from '~~/shared/models/tenant'
 import type { BrokerInput } from '~~/shared/models/broker'
 import type { LeadCreateInput, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
-import { ALL_LEAD_STAGES, LEAD_TYPES, toLeadLostReason } from '~~/shared/models/lead'
-import type {
-  LeadEventInput,
-  LeadManualEventKind,
-  LeadTaskInput,
-  LeadTaskKind,
-  LeadTaskUpdateInput,
-} from '~~/shared/models/lead-activity'
-import { LEAD_MANUAL_EVENT_KINDS, LEAD_TASK_KINDS } from '~~/shared/models/lead-activity'
-import { assertMaxLength } from '~~/server/utils/rate-limit'
-import type { GuaranteeType, LeaseCreateInput, PayoutDestinationInput } from '~~/shared/models/lease'
-import {
-  GUARANTEE_TYPES,
-  MAX_CAUCAO_ALUGUEIS,
-  MAX_FINE_PERCENT,
-  MAX_INTEREST_MONTHLY_PERCENT,
-} from '~~/shared/models/lease'
-import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
+import { ALL_LEAD_STAGES, LEAD_TYPES } from '~~/shared/models/lead'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { dentroDoBrasil } from '~~/shared/utils/address'
 import { isHexColor } from '~~/shared/utils/brand-color'
@@ -35,14 +18,6 @@ import type {
 } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_ROLES, PORTAL_DOC_CATEGORIES } from '~~/shared/models/portal'
 import { ehUuid } from '~~/shared/utils/uuid'
-import type {
-  ChargeCreateInput,
-  ChargeItemKind,
-  ManualSettlementInput,
-  PaymentAccountInput,
-  SettlementMethod,
-} from '~~/shared/models/cobranca'
-import { CHARGE_ITEM_KINDS_MANUAIS, CHARGE_ITEM_LABELS, MANUAL_SETTLEMENT_METHODS } from '~~/shared/models/cobranca'
 
 // Derivado do registro: tipo novo passa a ser aceito sem tocar aqui.
 const TYPES = PROPERTY_TYPES as readonly string[]
@@ -235,7 +210,7 @@ export function assertLeadCreateInput(input: unknown): asserts input is LeadCrea
   assertOptionalDate(l.nextContactAt, 'Data de retorno')
 }
 
-/** Valida a edição de um lead (mover no funil, trocar o responsável). */
+/** Valida a edição de um lead (mover no funil, anotar, agendar). */
 export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpdateInput {
   if (!input || typeof input !== 'object') {
     throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
@@ -250,86 +225,7 @@ export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpda
   if (l.name !== undefined && l.name !== null && !String(l.name).trim()) {
     throw createError({ statusCode: 422, statusMessage: 'Nome não pode ficar vazio.' })
   }
-  if (l.lostReason !== undefined && l.lostReason !== null && !toLeadLostReason(l.lostReason)) {
-    throw createError({ statusCode: 422, statusMessage: 'Motivo de perda inválido.' })
-  }
-  // Perder sem dizer por quê é o que tornaria o relatório de perdas inútil.
-  if (l.stage === 'perdido' && !toLeadLostReason(l.lostReason)) {
-    throw createError({ statusCode: 422, statusMessage: 'Informe o motivo da perda.' })
-  }
-  // Anotação e retorno viraram linha do tempo e tarefa (0049). Recusar em vez
-  // de ignorar: uma tela antiga que ainda mande estes campos acharia que
-  // salvou, e a anotação sumiria calada.
-  if (l.notes !== undefined || l.nextContactAt !== undefined) {
-    throw createError({
-      statusCode: 422,
-      statusMessage: 'Anotações e retornos agora ficam no histórico e na agenda do contato.',
-    })
-  }
-}
-
-/** Registro manual na linha do tempo. */
-export function assertLeadEventInput(input: unknown): asserts input is LeadEventInput {
-  if (!input || typeof input !== 'object') {
-    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
-  }
-  const e = input as Record<string, unknown>
-  if (!LEAD_MANUAL_EVENT_KINDS.includes(e.kind as LeadManualEventKind)) {
-    throw createError({ statusCode: 422, statusMessage: 'Tipo de registro inválido.' })
-  }
-  const body = String(e.body ?? '').trim()
-  if (!body) throw createError({ statusCode: 422, statusMessage: 'Escreva o que aconteceu.' })
-  assertMaxLength(body, 4000, 'Registro')
-  assertOptionalDate(e.occurredAt, 'Data do registro')
-  // Registro no futuro seria agenda, não histórico — e empurraria o evento
-  // para o topo da linha do tempo. Um minuto de folga para relógio adiantado.
-  if (e.occurredAt && new Date(String(e.occurredAt)).getTime() > Date.now() + 60_000) {
-    throw createError({ statusCode: 422, statusMessage: 'O registro não pode ser no futuro. Para marcar algo, crie uma tarefa.' })
-  }
-}
-
-/** Tarefa nova (visita, retorno). Lead, imóvel e corretor são conferidos contra o tenant pela FK composta (0049). */
-export function assertLeadTaskInput(input: unknown): asserts input is LeadTaskInput {
-  if (!input || typeof input !== 'object') {
-    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
-  }
-  const t = input as Record<string, unknown>
-  if (!LEAD_TASK_KINDS.includes(t.kind as LeadTaskKind)) {
-    throw createError({ statusCode: 422, statusMessage: 'Tipo de tarefa inválido.' })
-  }
-  const title = String(t.title ?? '').trim()
-  if (!title) throw createError({ statusCode: 422, statusMessage: 'Dê um título à tarefa.' })
-  assertMaxLength(title, 200, 'Título')
-  if (!t.dueAt || Number.isNaN(new Date(String(t.dueAt)).getTime())) {
-    throw createError({ statusCode: 422, statusMessage: 'Data da tarefa inválida.' })
-  }
-  for (const [campo, rotulo] of [['leadId', 'Contato'], ['propertyId', 'Imóvel'], ['brokerId', 'Corretor']] as const) {
-    const v = t[campo]
-    if (v !== undefined && v !== null && v !== '' && !ehUuid(String(v))) {
-      throw createError({ statusCode: 422, statusMessage: `${rotulo} inválido.` })
-    }
-  }
-}
-
-export function assertLeadTaskUpdateInput(input: unknown): asserts input is LeadTaskUpdateInput {
-  if (!input || typeof input !== 'object') {
-    throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
-  }
-  const t = input as Record<string, unknown>
-  if (t.done && t.canceled) {
-    throw createError({ statusCode: 422, statusMessage: 'A tarefa não pode ser concluída e cancelada ao mesmo tempo.' })
-  }
-  if (t.dueAt !== undefined && Number.isNaN(new Date(String(t.dueAt)).getTime())) {
-    throw createError({ statusCode: 422, statusMessage: 'Data da tarefa inválida.' })
-  }
-  if (t.title !== undefined) {
-    const title = String(t.title ?? '').trim()
-    if (!title) throw createError({ statusCode: 422, statusMessage: 'Dê um título à tarefa.' })
-    assertMaxLength(title, 200, 'Título')
-  }
-  if (t.brokerId !== undefined && t.brokerId !== null && t.brokerId !== '' && !ehUuid(String(t.brokerId))) {
-    throw createError({ statusCode: 422, statusMessage: 'Corretor inválido.' })
-  }
+  assertOptionalDate(l.nextContactAt, 'Data de retorno')
 }
 
 /** Valida o payload de corretor vindo do painel. */
@@ -349,9 +245,6 @@ export function assertBrokerInput(input: unknown): asserts input is BrokerInput 
   }
   if (b.bio !== undefined && b.bio !== null && String(b.bio).length > 500) {
     throw createError({ statusCode: 422, statusMessage: 'Minibio muito longa (máx. 500 caracteres).' })
-  }
-  if (b.receivesLeads !== undefined && typeof b.receivesLeads !== 'boolean') {
-    throw createError({ statusCode: 422, statusMessage: 'Roleta: valor inválido.' })
   }
 }
 
@@ -409,20 +302,6 @@ export function assertContractInput(input: unknown): asserts input is ContractIn
       statusMessage: 'Informe o imóvel do catálogo ou escreva o endereço do contrato.',
     })
   }
-  if (temImovel && !ehUuid(String(c.propertyId))) {
-    throw createError({ statusCode: 422, statusMessage: 'Imóvel inválido.' })
-  }
-  if (c.termMonths !== undefined && c.termMonths !== null) {
-    const m = Number(c.termMonths)
-    if (!Number.isInteger(m) || m < 1 || m > 600) {
-      throw createError({ statusCode: 422, statusMessage: 'Prazo deve ser em meses, entre 1 e 600.' })
-    }
-  }
-  // Uma garantia só (Lei 8.245, art. 37, parágrafo único): um valor da lista,
-  // nunca uma lista de valores.
-  if (c.guaranteeType !== undefined && c.guaranteeType !== null && !GUARANTEE_TYPES.includes(c.guaranteeType as GuaranteeType)) {
-    throw createError({ statusCode: 422, statusMessage: 'Escolha uma garantia da lista. A lei não permite mais de uma no mesmo contrato.' })
-  }
 }
 
 /** Valida o cadastro de um cliente do portal. */
@@ -437,38 +316,15 @@ export function assertPortalUserInput(input: unknown): asserts input is PortalUs
   }
 
   // O e-mail é a identidade da pessoa no Auth e a chave do convite. E-mail
-  // errado aqui não é campo errado: é convite entregue a outra pessoa. Sem
-  // convite (cliente sem acesso, 0050) ele é opcional — mas se vier, é válido.
+  // errado aqui não é campo errado: é convite entregue a outra pessoa.
   const email = String(u.email ?? '').trim()
-  if (u.convidar && !email) {
-    throw createError({ statusCode: 422, statusMessage: 'Informe o e-mail para enviar o convite da Área do Cliente.' })
-  }
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     throw createError({ statusCode: 422, statusMessage: 'E-mail inválido.' })
   }
 
   if (u.phone !== undefined && u.phone !== null && String(u.phone).trim() && !isValidWhatsapp(String(u.phone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp/telefone do cliente inválido.' })
   }
-  assertDocumentoOpcional(u.doc)
-}
-
-/**
- * CPF/CNPJ, quando informado, fecha o dígito verificador: o boleto exige o
- * documento do pagador e o provedor recusa o que não fecha.
- */
-function assertDocumentoOpcional(v: unknown) {
-  if (v === undefined || v === null || !String(v).trim()) return
-  if (!tipoDeDocumento(String(v))) {
-    throw createError({ statusCode: 422, statusMessage: 'CPF/CNPJ inválido. Confira os números.' })
-  }
-}
-
-/** Percentual opcional dentro de [min, max], com mensagem que diz o limite. */
-function assertPercentual(v: unknown, max: number, mensagem: string) {
-  if (v === undefined || v === null || v === '') return
-  const n = Number(v)
-  if (!Number.isFinite(n) || n < 0 || n > max) throw createError({ statusCode: 422, statusMessage: mensagem })
 }
 
 /** Valida o público-alvo de um documento vindo do painel. */
@@ -507,40 +363,6 @@ export function assertContractInternalInput(input: unknown): asserts input is Co
         statusMessage: 'Taxa de administração deve ser entre 0 e 100.',
       })
     }
-  }
-  // Os mesmos tetos dos CHECKs da 0050, adiantados para virar frase legível.
-  assertPercentual(i.finePercent, MAX_FINE_PERCENT, `Multa por atraso: no máximo ${MAX_FINE_PERCENT}%.`)
-  assertPercentual(i.interestMonthlyPercent, MAX_INTEREST_MONTHLY_PERCENT, `Juros de mora: no máximo ${MAX_INTEREST_MONTHLY_PERCENT}% ao mês.`)
-  assertPercentual(i.rentFeePercent, 100, 'Taxa de locação: entre 0% e 100% do primeiro aluguel.')
-  if (i.payoutBusinessDays !== undefined && i.payoutBusinessDays !== null) {
-    const d = Number(i.payoutBusinessDays)
-    if (!Number.isInteger(d) || d < 0 || d > 30) {
-      throw createError({ statusCode: 422, statusMessage: 'Prazo de repasse: entre 0 e 30 dias úteis.' })
-    }
-  }
-  if (i.guaranteeAmount !== undefined && i.guaranteeAmount !== null) {
-    const v = Number(i.guaranteeAmount)
-    if (!Number.isFinite(v) || v < 0) throw createError({ statusCode: 422, statusMessage: 'Valor da garantia inválido.' })
-  }
-  if (i.fireInsurancePayer !== undefined && i.fireInsurancePayer !== null && !['locador', 'locatario', 'nao_contratado'].includes(String(i.fireInsurancePayer))) {
-    throw createError({ statusCode: 422, statusMessage: 'Seguro incêndio: opção inválida.' })
-  }
-  if (i.guaranteeDetails != null) assertMaxLength(String(i.guaranteeDetails), 1000, 'Detalhes da garantia')
-}
-
-/**
- * Caução em dinheiro até 3 aluguéis (Lei 8.245, art. 38, §2º). Função à parte
- * porque cruza dois registros: o valor mora em `contract_internal` e o aluguel
- * em `contracts`.
- */
-export function assertCaucaoDentroDoLimite(guaranteeType: unknown, guaranteeAmount: unknown, rentAmount: unknown) {
-  if (guaranteeType !== 'caucao' || guaranteeAmount == null || rentAmount == null) return
-  const limite = Number(rentAmount) * MAX_CAUCAO_ALUGUEIS
-  if (Number(guaranteeAmount) > limite + 0.001) {
-    throw createError({
-      statusCode: 422,
-      statusMessage: `Caução acima do permitido: até ${MAX_CAUCAO_ALUGUEIS} aluguéis (Lei 8.245, art. 38).`,
-    })
   }
 }
 
@@ -601,173 +423,4 @@ export function idDeRota(valor: string | null | undefined, rotulo = 'ID'): strin
     throw createError({ statusCode: 400, statusMessage: `${rotulo} inválido.` })
   }
   return id
-}
-
-/** Pessoa do contrato: `{ id }` de alguém da carteira, ou `{ nova }` com nome. */
-function assertPessoa(v: unknown, rotulo: string, obrigatoria: boolean) {
-  if (v === undefined || v === null) {
-    if (obrigatoria) throw createError({ statusCode: 422, statusMessage: `Informe o ${rotulo}.` })
-    return
-  }
-  const p = v as Record<string, unknown>
-  if (typeof p.id === 'string') {
-    if (!ehUuid(p.id)) throw createError({ statusCode: 422, statusMessage: `${rotulo[0]!.toUpperCase()}${rotulo.slice(1)} inválido.` })
-    return
-  }
-  if (p.nova && typeof p.nova === 'object') {
-    // Mesmas regras do cadastro de cliente, sem convite: quem é criado aqui
-    // nasce sem acesso, e o convite (se pedido) sai depois, pelo caminho de sempre.
-    assertPortalUserInput({ ...(p.nova as object), convidar: false })
-    return
-  }
-  throw createError({ statusCode: 422, statusMessage: `Informe o ${rotulo}.` })
-}
-
-/** Destino do repasse (Pix ou conta), nos formatos que o CHECK da 0041 aceita. */
-export function assertRepasseInput(v: unknown): asserts v is PayoutDestinationInput {
-  if (v === undefined || v === null) throw createError({ statusCode: 422, statusMessage: 'Informe o Pix ou a conta do repasse.' })
-  assertRepasse(v)
-}
-
-function assertRepasse(v: unknown) {
-  if (v === undefined || v === null) return
-  const r = v as Record<string, unknown>
-  if (!String(r.holderName ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Repasse: informe o titular.' })
-  if (!tipoDeDocumento(String(r.holderDoc ?? ''))) {
-    throw createError({ statusCode: 422, statusMessage: 'Repasse: CPF/CNPJ do titular inválido.' })
-  }
-  if (r.kind === 'pix') {
-    if (!['cpf', 'cnpj', 'email', 'telefone', 'aleatoria'].includes(String(r.pixKeyType))) {
-      throw createError({ statusCode: 422, statusMessage: 'Repasse: tipo de chave Pix inválido.' })
-    }
-    if (!String(r.pixKey ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Repasse: informe a chave Pix.' })
-    assertMaxLength(String(r.pixKey), 140, 'Chave Pix')
-    return
-  }
-  if (r.kind === 'conta_bancaria') {
-    if (!/^\d{3}$/.test(String(r.bankCode ?? ''))) {
-      throw createError({ statusCode: 422, statusMessage: 'Repasse: código do banco tem 3 dígitos (ex.: 001, 237, 341).' })
-    }
-    if (!/^\d{1,6}$/.test(String(r.branch ?? ''))) throw createError({ statusCode: 422, statusMessage: 'Repasse: agência inválida.' })
-    if (!/^\d{1,20}$/.test(String(r.account ?? ''))) throw createError({ statusCode: 422, statusMessage: 'Repasse: conta inválida.' })
-    if (!['corrente', 'poupanca', 'pagamento'].includes(String(r.accountType))) {
-      throw createError({ statusCode: 422, statusMessage: 'Repasse: tipo de conta inválido.' })
-    }
-    return
-  }
-  throw createError({ statusCode: 422, statusMessage: 'Repasse: escolha Pix ou conta bancária.' })
-}
-
-/**
- * O contrato inteiro do assistente. Obrigatório só o que a locação não
- * existe sem (imóvel ou endereço, inquilino, aluguel, vencimento, início); o
- * resto vira pendência — ver `pendenciasDoContrato`.
- */
-export function assertLeaseCreateInput(input: unknown): asserts input is LeaseCreateInput {
-  if (!input || typeof input !== 'object') throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
-  const l = input as Record<string, unknown>
-
-  if (!(Number(l.rentAmount) > 0)) throw createError({ statusCode: 422, statusMessage: 'Informe o valor do aluguel.' })
-  if (l.dueDay == null) throw createError({ statusCode: 422, statusMessage: 'Informe o dia do vencimento.' })
-  if (!l.startedOn || !/^\d{4}-\d{2}-\d{2}$/.test(String(l.startedOn))) {
-    throw createError({ statusCode: 422, statusMessage: 'Informe a data de início.' })
-  }
-  // Reaproveita as regras do contrato (vencimento, imóvel/endereço, prazo,
-  // garantia) e dos campos internos (multa, juros, taxas), sem duplicar.
-  assertContractInput({ ...l, code: String(l.code ?? '').trim() || 'gerado' })
-  assertContractInternalInput(l)
-  assertCaucaoDentroDoLimite(l.guaranteeType, l.guaranteeAmount, l.rentAmount)
-
-  assertPessoa(l.inquilino, 'inquilino', true)
-  assertPessoa(l.proprietario, 'proprietário', false)
-  assertPessoa(l.fiador, 'fiador', false)
-  if (l.fiador && l.guaranteeType !== 'fiador') {
-    throw createError({ statusCode: 422, statusMessage: 'Fiador só com a garantia "Fiador" — a lei não permite duas garantias.' })
-  }
-  if (l.repasse && !l.proprietario) {
-    throw createError({ statusCode: 422, statusMessage: 'O repasse precisa de um proprietário no contrato.' })
-  }
-  assertRepasse(l.repasse)
-}
-
-// ---------------------------------------------------------------------------
-// Cobrança (0051)
-// ---------------------------------------------------------------------------
-
-const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/
-
-function assertValor(v: unknown, rotulo: string, { podeNegativo = false } = {}) {
-  if (typeof v !== 'number' || !Number.isFinite(v)) throw createError({ statusCode: 422, statusMessage: `${rotulo}: valor inválido.` })
-  if (!podeNegativo && v <= 0) throw createError({ statusCode: 422, statusMessage: `${rotulo}: o valor precisa ser maior que zero.` })
-  // Teto de sanidade: um aluguel de R$ 10 milhões é dígito a mais, não negócio.
-  if (Math.abs(v) > 10_000_000) throw createError({ statusCode: 422, statusMessage: `${rotulo}: valor alto demais.` })
-  // Mais de 2 casas decimais é float de conta mal feita na tela; o banco
-  // arredondaria calado e o boleto sairia 1 centavo diferente do mostrado.
-  if (Math.abs(v * 100 - Math.round(v * 100)) > 1e-6) {
-    throw createError({ statusCode: 422, statusMessage: `${rotulo}: use no máximo 2 casas decimais.` })
-  }
-}
-
-export function assertChargeCreateInput(input: unknown): asserts input is ChargeCreateInput {
-  const b = (input ?? {}) as Record<string, unknown>
-  if (b.kind !== undefined && b.kind !== 'mensal' && b.kind !== 'avulsa') {
-    throw createError({ statusCode: 422, statusMessage: 'Tipo de cobrança inválido.' })
-  }
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(b.competence ?? ''))) {
-    throw createError({ statusCode: 422, statusMessage: 'Informe o mês de referência (ocupação).' })
-  }
-  if (!DATA_ISO.test(String(b.dueOn ?? '')) || Number.isNaN(Date.parse(String(b.dueOn)))) {
-    throw createError({ statusCode: 422, statusMessage: 'Informe o vencimento.' })
-  }
-  if (b.rentAmount !== undefined && b.rentAmount !== null) assertValor(b.rentAmount, 'Aluguel')
-  if (b.extras !== undefined) {
-    if (!Array.isArray(b.extras) || b.extras.length > 20) throw createError({ statusCode: 422, statusMessage: 'Itens inválidos.' })
-    for (const x of b.extras as Record<string, unknown>[]) {
-      if (!CHARGE_ITEM_KINDS_MANUAIS.includes(x?.kind as ChargeItemKind)) {
-        throw createError({ statusCode: 422, statusMessage: 'Tipo de item inválido.' })
-      }
-      const rotulo = CHARGE_ITEM_LABELS[x.kind as ChargeItemKind]
-      assertValor(x.amount, rotulo, { podeNegativo: true })
-      // Desconto é o único item que reduz; os outros só somam. Sinal trocado
-      // na tela viraria cobrança a menos sem ninguém perceber.
-      if (x.kind === 'desconto' ? (x.amount as number) >= 0 : (x.amount as number) <= 0) {
-        throw createError({ statusCode: 422, statusMessage: `${rotulo}: ${x.kind === 'desconto' ? 'desconto é negativo' : 'valor precisa ser positivo'}.` })
-      }
-      if (x.description != null) assertMaxLength(String(x.description), 120, 'Descrição do item')
-    }
-  }
-}
-
-export function assertManualSettlementInput(input: unknown): asserts input is ManualSettlementInput {
-  const b = (input ?? {}) as Record<string, unknown>
-  assertValor(b.amount, 'Pagamento')
-  if (!DATA_ISO.test(String(b.settledOn ?? ''))) throw createError({ statusCode: 422, statusMessage: 'Informe a data do pagamento.' })
-  if (!MANUAL_SETTLEMENT_METHODS.includes(b.method as SettlementMethod)) {
-    throw createError({ statusCode: 422, statusMessage: 'Forma de pagamento inválida.' })
-  }
-}
-
-export function assertPaymentAccountInput(input: unknown): asserts input is PaymentAccountInput {
-  const b = (input ?? {}) as Record<string, unknown>
-  if (b.provider !== 'asaas' && b.provider !== 'simulado') throw createError({ statusCode: 422, statusMessage: 'Provedor inválido.' })
-  if (b.environment !== 'sandbox' && b.environment !== 'producao') throw createError({ statusCode: 422, statusMessage: 'Ambiente inválido.' })
-  if (b.provider === 'simulado' && b.environment !== 'sandbox') {
-    throw createError({ statusCode: 422, statusMessage: 'O provedor simulado só existe como demonstração (sandbox).' })
-  }
-  if (b.provider === 'asaas') {
-    const chave = String(b.apiKey ?? '').trim()
-    if (chave.length < 20 || chave.length > 400 || /\s/.test(chave)) {
-      throw createError({ statusCode: 422, statusMessage: 'Cole a chave de API completa do Asaas (começa com $aact_).' })
-    }
-    // A chave de sandbox tem `_hmlg_` no meio. Chave de um ambiente no outro
-    // é o erro de configuração mais comum, e o Asaas só responde 401 — sem
-    // dizer que o problema é o ambiente.
-    const ehSandbox = chave.includes('_hmlg_')
-    if (b.environment === 'producao' && ehSandbox) {
-      throw createError({ statusCode: 422, statusMessage: 'Esta é uma chave de SANDBOX. Escolha o ambiente "Sandbox (testes)" ou cole a chave de produção.' })
-    }
-    if (b.environment === 'sandbox' && chave.includes('_prod_')) {
-      throw createError({ statusCode: 422, statusMessage: 'Esta é uma chave de PRODUÇÃO. Escolha o ambiente "Produção" ou cole a chave do sandbox.' })
-    }
-  }
 }
