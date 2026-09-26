@@ -5,6 +5,9 @@ import {
   GALLERY_IMAGES_MAX,
   LOGOS_MAX,
   sanitizeAboutContent,
+  STATS_MAX,
+  TESTIMONIALS_MAX,
+  VALUES_MAX,
 } from '~~/shared/utils/about-content'
 
 describe('sanitizeAboutContent', () => {
@@ -211,5 +214,55 @@ describe('aboutTemConteudoMinimo', () => {
         ],
       }),
     ).toBe(false)
+  })
+})
+
+describe('blocos com itens (stats, testimonials, values)', () => {
+  test('descarta o item incompleto e mantém o resto — número sem legenda não vai ao site', () => {
+    expect(
+      sanitizeAboutContent({
+        blocks: [
+          {
+            type: 'stats',
+            items: [
+              { value: ' 18 anos ', label: ' de mercado ' },
+              { value: '1.200', label: '' },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({ blocks: [{ type: 'stats', items: [{ value: '18 anos', label: 'de mercado' }] }] })
+  })
+
+  test('bloco sem nenhum item válido some', () => {
+    expect(
+      sanitizeAboutContent({
+        blocks: [
+          { type: 'stats', items: [{ value: '', label: '' }] },
+          { type: 'testimonials', items: [{ quote: 'Ótimo', authorName: '', authorRole: '' }] },
+          { type: 'values', title: 'Como trabalhamos', items: [{ title: '', body: 'sem título' }] },
+        ],
+      }),
+    ).toEqual({ blocks: [] })
+  })
+
+  test('respeita o teto de itens de cada bloco', () => {
+    const stat = { value: '1', label: 'x' }
+    const dep = { quote: 'Bom', authorName: 'Ana', authorRole: '' }
+    const val = { title: 'Visita no mesmo dia', body: '' }
+    const out = sanitizeAboutContent({
+      blocks: [
+        { type: 'stats', items: Array(STATS_MAX + 2).fill(stat) },
+        { type: 'testimonials', items: Array(TESTIMONIALS_MAX + 2).fill(dep) },
+        { type: 'values', title: '', items: Array(VALUES_MAX + 2).fill(val) },
+      ],
+    }).blocks as { items: unknown[] }[]
+    expect(out.map((b) => b.items.length)).toEqual([STATS_MAX, TESTIMONIALS_MAX, VALUES_MAX])
+  })
+
+  test('compromisso sem explicação é válido; título da seção vazio cai no padrão na página', () => {
+    expect(
+      sanitizeAboutContent({ blocks: [{ type: 'values', title: '', items: [{ title: ' Contrato revisado ', body: '' }] }] }),
+    ).toEqual({ blocks: [{ type: 'values', title: '', items: [{ title: 'Contrato revisado', body: '' }] }] })
   })
 })

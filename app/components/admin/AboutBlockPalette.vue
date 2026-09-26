@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ABOUT_BLOCK_TYPE_LABELS, ABOUT_BLOCK_TYPE_PURPOSE, ABOUT_BLOCK_TYPES } from "~~/shared/models/about-page";
+import { ABOUT_BLOCK_TYPE_LABELS, ABOUT_BLOCK_TYPE_PURPOSE, ABOUT_BLOCK_TYPES_OFERECIDOS } from "~~/shared/models/about-page";
 import type { AboutBlockType } from "~~/shared/models/about-page";
 
 /**
@@ -24,7 +24,7 @@ const tituloId = useId();
       <button type="button" class="admin-btn ghost sm" @click="emit('cancel')">Cancelar</button>
     </div>
     <div class="pal-grid">
-      <button v-for="t in ABOUT_BLOCK_TYPES" :key="t" type="button" class="pal-item" @click="emit('pick', t)">
+      <button v-for="t in ABOUT_BLOCK_TYPES_OFERECIDOS" :key="t" type="button" class="pal-item" @click="emit('pick', t)">
         <svg class="pal-thumb" viewBox="0 0 64 40" aria-hidden="true">
           <template v-if="t === 'heading'">
             <rect x="6" y="14" width="40" height="7" rx="2" />
@@ -37,11 +37,17 @@ const tituloId = useId();
             <rect x="6" y="5" width="52" height="30" rx="3" class="soft" />
             <path d="M12 31l12-12 9 9 6-5 13 8z" />
           </template>
-          <template v-else-if="t === 'stat'">
-            <rect x="8" y="10" width="20" height="10" rx="2" />
-            <rect x="8" y="24" width="20" height="3" rx="1.5" class="soft" />
-            <rect x="36" y="10" width="20" height="10" rx="2" />
-            <rect x="36" y="24" width="20" height="3" rx="1.5" class="soft" />
+          <template v-else-if="t === 'stats'">
+            <template v-for="n in 3" :key="n">
+              <rect :x="4 + (n - 1) * 20" y="11" width="16" height="9" rx="2" />
+              <rect :x="4 + (n - 1) * 20" y="24" width="16" height="3" rx="1.5" class="soft" />
+            </template>
+          </template>
+          <template v-else-if="t === 'values'">
+            <template v-for="n in 4" :key="n">
+              <circle :cx="n % 2 ? 8 : 38" :cy="n <= 2 ? 12 : 27" r="3" />
+              <rect :x="n % 2 ? 14 : 44" :y="n <= 2 ? 10 : 25" width="14" height="4" rx="2" class="soft" />
+            </template>
           </template>
           <template v-else-if="t === 'banner'">
             <rect x="4" y="4" width="56" height="32" rx="3" />
@@ -56,11 +62,13 @@ const tituloId = useId();
           <template v-else-if="t === 'gallery'">
             <rect v-for="n in 3" :key="n" :x="4 + (n - 1) * 20" y="10" width="16" height="20" rx="2" class="soft" />
           </template>
-          <template v-else-if="t === 'testimonial'">
-            <text x="6" y="22" class="quote">“</text>
-            <rect x="18" y="12" width="40" height="3" rx="1.5" class="soft" />
-            <rect x="18" y="18" width="32" height="3" rx="1.5" class="soft" />
-            <rect x="18" y="27" width="16" height="3" rx="1.5" />
+          <template v-else-if="t === 'testimonials'">
+            <template v-for="n in 2" :key="n">
+              <text :x="4 + (n - 1) * 30" y="18" class="quote">“</text>
+              <rect :x="6 + (n - 1) * 30" y="18" width="24" height="3" rx="1.5" class="soft" />
+              <rect :x="6 + (n - 1) * 30" y="24" width="18" height="3" rx="1.5" class="soft" />
+              <rect :x="6 + (n - 1) * 30" y="31" width="10" height="3" rx="1.5" />
+            </template>
           </template>
           <template v-else-if="t === 'logos'">
             <rect v-for="n in 4" :key="n" :x="4 + (n - 1) * 15" y="15" width="11" height="10" rx="2" class="soft" />
