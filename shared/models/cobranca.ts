@@ -413,3 +413,44 @@ export function impedimentosDeEmissao(d: {
  * mensagem sair em português, antes da rede.
  */
 export const VALOR_MINIMO_BOLETO = 5
+
+/**
+ * A competência (mês de OCUPAÇÃO, 'AAAA-MM') está fora da vigência do contrato?
+ *
+ * O sintoma que motivou: a primeira cobrança de um contrato que começa em
+ * 01/10/2026 vinha sugerida como "setembro/2026", porque a tela partia do mês
+ * corrente. O LOC-2026-001 chegou a ter um "Aluguel de setembro" cobrado de um
+ * inquilino que ainda não morava lá.
+ *
+ * Mês parcial conta como dentro: contrato que começa em 15/10 tem aluguel de
+ * outubro (proporcional ou não, é decisão da imobiliária no valor).
+ */
+export function competenciaForaDaVigencia(
+  competencia: string,
+  vigencia: { startedOn: string | null; endsOn: string | null },
+): 'antes' | 'depois' | null {
+  const mes = competencia.slice(0, 7)
+  if (vigencia.startedOn && mes < vigencia.startedOn.slice(0, 7)) return 'antes'
+  if (vigencia.endsOn && mes > vigencia.endsOn.slice(0, 7)) return 'depois'
+  return null
+}
+
+/**
+ * Primeira competência sugerida para gerar: o mês mais antigo, a partir do
+ * mês corrente OU do início do contrato (o que vier depois), que ainda não
+ * tem cobrança mensal ativa. Nulo quando a vigência acabou.
+ */
+export function proximaCompetenciaLivre(
+  ocupadas: ReadonlySet<string>,
+  vigencia: { startedOn: string | null; endsOn: string | null },
+  hoje = hojeEmSaoPaulo(),
+): string | null {
+  const inicio = vigencia.startedOn && vigencia.startedOn.slice(0, 7) > hoje.slice(0, 7) ? vigencia.startedOn : hoje
+  const [a, m] = inicio.split('-').map(Number) as [number, number]
+  for (let i = 0; i < 36; i++) {
+    const k = new Date(Date.UTC(a, m - 1 + i, 1)).toISOString().slice(0, 7)
+    if (competenciaForaDaVigencia(k, vigencia) === 'depois') return null
+    if (!ocupadas.has(k)) return k
+  }
+  return null
+}

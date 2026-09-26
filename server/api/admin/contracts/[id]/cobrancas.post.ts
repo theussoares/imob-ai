@@ -1,5 +1,5 @@
 import type { ChargeCreateInput } from '~~/shared/models/cobranca'
-import { competenciaParaData } from '~~/shared/models/cobranca'
+import { competenciaForaDaVigencia, competenciaParaData } from '~~/shared/models/cobranca'
 import { getContract } from '~~/server/repositories/contract.repository'
 import { createChargeDraft, getCharge } from '~~/server/repositories/cobranca.repository'
 
@@ -23,8 +23,21 @@ export default defineEventHandler(async (event) => {
   if (contrato.status !== 'ativo') {
     throw createError({ statusCode: 422, statusMessage: 'Contrato encerrado não gera cobrança nova.' })
   }
-  const aluguel = body.rentAmount ?? contrato.rentAmount
   const kind = body.kind ?? 'mensal'
+  // Aluguel é do mês de ocupação: antes do início o inquilino ainda não morava
+  // lá, depois do fim já saiu. Avulsa (multa de rescisão, reparo) pode cair
+  // depois do fim, e por isso fica de fora.
+  const fora = kind === 'mensal' ? competenciaForaDaVigencia(body.competence, contrato) : null
+  if (fora) {
+    throw createError({
+      statusCode: 422,
+      statusMessage:
+        fora === 'antes'
+          ? 'Este mês é anterior ao início do contrato: o inquilino ainda não morava no imóvel.'
+          : 'Este mês é posterior ao fim do contrato.',
+    })
+  }
+  const aluguel = body.rentAmount ?? contrato.rentAmount
   if (kind === 'mensal' && !aluguel) {
     throw createError({ statusCode: 422, statusMessage: 'Informe o valor do aluguel no contrato antes de gerar a cobrança.' })
   }

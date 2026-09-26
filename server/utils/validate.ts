@@ -22,6 +22,7 @@ import {
   MAX_INTEREST_MONTHLY_PERCENT,
 } from '~~/shared/models/lease'
 import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
+import { ROTULO_CHAVE_PIX, chavePixValida, type TipoChavePix } from '~~/shared/utils/pix'
 import { isValidWhatsapp } from '~~/shared/utils/phone'
 import { dentroDoBrasil } from '~~/shared/utils/address'
 import { isHexColor } from '~~/shared/utils/brand-color'
@@ -642,6 +643,9 @@ function assertRepasse(v: unknown) {
     }
     if (!String(r.pixKey ?? '').trim()) throw createError({ statusCode: 422, statusMessage: 'Repasse: informe a chave Pix.' })
     assertMaxLength(String(r.pixKey), 140, 'Chave Pix')
+    if (!chavePixValida(r.pixKeyType as TipoChavePix, String(r.pixKey))) {
+      throw createError({ statusCode: 422, statusMessage: `Repasse: a chave Pix não é um ${ROTULO_CHAVE_PIX[r.pixKeyType as TipoChavePix]} válido.` })
+    }
     return
   }
   if (r.kind === 'conta_bancaria') {

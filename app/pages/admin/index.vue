@@ -280,7 +280,11 @@ useHead({ title: "Dashboard · Painel" });
           <h2>Saúde do catálogo</h2>
 
           <p v-if="issues.attention === 0" class="health-ok">
-            <AppIcon name="check" /> Tudo certo — seu catálogo está completo.
+            <AppIcon name="check" />
+            <template v-if="stats.published === stats.total">Tudo certo — seu catálogo está completo.</template>
+            <!-- A checagem olha só os publicados. Com rascunho na conta, "catálogo
+                 completo" ao lado de "12 de 13 publicados" se contradizia. -->
+            <template v-else>Os imóveis publicados estão completos.</template>
           </p>
           <template v-else>
             <p class="health-warn">
@@ -454,7 +458,7 @@ useHead({ title: "Dashboard · Painel" });
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: var(--wa-dark);
+  color: var(--ok);
   font-weight: 600;
 }
 .agenda-list {
@@ -530,7 +534,7 @@ useHead({ title: "Dashboard · Painel" });
   gap: 6px;
 }
 .health-ok {
-  color: var(--wa-dark);
+  color: var(--ok);
   font-weight: 600;
   margin: 0 0 12px;
 }

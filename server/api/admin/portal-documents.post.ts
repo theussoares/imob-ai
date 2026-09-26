@@ -1,5 +1,9 @@
 import type { PortalDocumentInput } from '~~/shared/models/portal'
-import { createDocument } from '~~/server/repositories/portal-document.repository'
+import {
+  assertCaminhoDoTenant,
+  createDocument,
+  inspecionarArquivoEnviado,
+} from '~~/server/repositories/portal-document.repository'
 
 /**
  * Registra um documento já enviado ao bucket, como RASCUNHO.
@@ -14,5 +18,11 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<PortalDocumentInput>(event)
   assertPortalDocumentInput(body)
 
-  return createDocument(client, tenant.id, tenant.slug, body, user?.id ?? null)
+  // O caminho é conferido ANTES de abrir o arquivo: `inspecionar` apaga o que
+  // recusa, e não pode apagar nada fora da pasta desta imobiliária.
+  assertCaminhoDoTenant(body.storagePath, tenant.slug)
+  // O mime e o tamanho gravados são os do arquivo, não os que o navegador disse.
+  const real = await inspecionarArquivoEnviado(client, body.storagePath)
+
+  return createDocument(client, tenant.id, tenant.slug, { ...body, ...real }, user?.id ?? null)
 })

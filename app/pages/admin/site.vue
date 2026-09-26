@@ -717,7 +717,7 @@ useHead({ title: "Meu site · Painel" });
       <p
         v-if="saved"
         role="status"
-        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+        style="color: var(--ok); margin-top: 14px; font-weight: 600"
       >
         Salvo! <AppIcon name="check" />
       </p>

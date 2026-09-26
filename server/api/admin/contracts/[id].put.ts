@@ -1,5 +1,5 @@
 import type { ContractInput, ContractInternalInput } from '~~/shared/models/portal'
-import { updateContract, upsertContractInternal } from '~~/server/repositories/contract.repository'
+import { assertImovelLivreNoPeriodo, updateContract, upsertContractInternal } from '~~/server/repositories/contract.repository'
 import { getPropertyById } from '~~/server/repositories/property.repository'
 
 /** Atualiza um contrato, e os campos internos junto quando vierem. */
@@ -18,6 +18,12 @@ export default defineEventHandler(async (event) => {
   // `select('*')` volta 403 e o PUT vira 500.
   if (body.propertyId && !(await getPropertyById(serviceSupabase(), tenant.id, body.propertyId))) {
     throw createError({ statusCode: 422, statusMessage: 'Imóvel não encontrado.' })
+  }
+
+  // Reativar um contrato encerrado, trocar o imóvel ou esticar as datas também
+  // podem pôr dois contratos ativos no mesmo imóvel — não só criar.
+  if ((body.status ?? 'ativo') === 'ativo') {
+    await assertImovelLivreNoPeriodo(client, tenant.id, { ...body, excetoId: id })
   }
 
   const contrato = await updateContract(client, tenant.id, id, body)

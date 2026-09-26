@@ -113,7 +113,8 @@ describe('criarLocacao', () => {
     const pessoa = { id: 'pu1', tenant_id: 't1', user_id: null, name: 'Helena', email: null, doc: null, phone: null, active: true, access_confirmed_at: null, created_at: '', updated_at: '', last_recovery_at: null }
     const contrato = { id: 'c1', tenant_id: 't1', code: 'LOC-2026-001', property_id: null, address_label: 'Rua', status: 'ativo', started_on: '2026-10-01', ends_on: null, rent_amount: 2400, due_day: 10, adjustment_index: null, term_months: null, guarantee_type: null, source: 'manual', created_at: '', updated_at: '' }
     const { client, calls } = fakeSupabase({
-      portal_users: { data: pessoa, error: null },
+      // 1º: a conferência de CPF repetido (`assertDocumentoLivre`); 2º: o insert.
+      portal_users: [{ data: [], error: null }, { data: pessoa, error: null }],
       contracts: [{ data: [], error: null }, { data: contrato, error: null }, { data: null, error: null }],
       contract_internal: { data: null, error: { message: 'boom' } },
     })
@@ -128,7 +129,8 @@ describe('criarLocacao', () => {
     const pessoa = { id: 'pu1', tenant_id: 't1', user_id: null, name: 'Helena', email: 'h@x.com', doc: null, phone: null, active: true, access_confirmed_at: null, created_at: '', updated_at: '', last_recovery_at: null }
     const contrato = { id: 'c1', tenant_id: 't1', code: 'LOC-2026-001', property_id: null, address_label: 'Rua', status: 'ativo', started_on: '2026-10-01', ends_on: null, rent_amount: 2400, due_day: 10, adjustment_index: null, term_months: null, guarantee_type: null, source: 'manual', created_at: '', updated_at: '' }
     const { client, calls } = fakeSupabase({
-      portal_users: { data: pessoa, error: null },
+      // CPF repetido, insert, e as releituras de `addContractParty`.
+      portal_users: [{ data: [], error: null }, ...Array(4).fill({ data: pessoa, error: null })],
       contracts: [{ data: [], error: null }, { data: contrato, error: null }, { data: { id: 'c1' }, error: null }],
       contract_internal: { data: { contract_id: 'c1' }, error: null },
       contract_parties: { data: null, error: null },
@@ -153,7 +155,7 @@ describe('criarLocacao', () => {
     const pessoa = { id: 'pu1', tenant_id: 't1', user_id: null, name: 'Sérgio', email: null, doc: null, phone: null, active: true, access_confirmed_at: null, created_at: '', updated_at: '', last_recovery_at: null }
     const contrato = { id: 'c1', tenant_id: 't1', code: 'LOC-2026-001', property_id: null, address_label: 'Rua', status: 'ativo', started_on: '2026-10-01', ends_on: null, rent_amount: 2400, due_day: 10, adjustment_index: null, term_months: null, guarantee_type: null, source: 'manual', created_at: '', updated_at: '' }
     const membro = fakeSupabase({
-      portal_users: { data: pessoa, error: null },
+      portal_users: [{ data: [], error: null }, ...Array(5).fill({ data: pessoa, error: null })],
       contracts: [{ data: [], error: null }, { data: contrato, error: null }, { data: { id: 'c1' }, error: null }, { data: { id: 'c1' }, error: null }],
       contract_internal: { data: { contract_id: 'c1' }, error: null },
       contract_parties: { data: null, error: null },
@@ -164,5 +166,44 @@ describe('criarLocacao', () => {
     expect(membro.calls.some((c) => c.table === 'payout_destinations')).toBe(false)
     expect(hadEq(service.calls, 'payout_destinations', 'tenant_id')).toBe(true)
     expect(service.calls.some((c) => c.table === 'payout_destinations' && c.method === 'insert')).toBe(true)
+  })
+
+  test('imóvel com contrato ativo no mesmo período é recusado antes de criar qualquer pessoa', async () => {
+    // O LOC-2026-003 nasceu no NC-0267 com o LOC-2026-001 ativo no mesmo
+    // período: a tela dizia "já alugado" e deixava seguir. Dois contratos
+    // ativos no imóvel são duas cobranças e dois repasses do mesmo aluguel.
+    vi.stubGlobal('logWarn', () => {})
+    vi.stubGlobal('invalidateTenantCache', async () => {})
+    const imovel = { id: UUID, tenant_id: 't1', title: 'Casa', location: 'Rua', neighborhood: null }
+    const service = fakeSupabase({ properties: { data: imovel, error: null } })
+    vi.stubGlobal('serviceSupabase', () => service.client)
+    const { criarLocacao } = await import('~~/server/utils/locacao')
+    const ocupante = { id: 'c-velho', code: 'LOC-2026-001', property_id: UUID, status: 'ativo', started_on: '2026-01-01', ends_on: '2028-06-30' }
+    const membro = fakeSupabase({ contracts: { data: [ocupante], error: null } })
+    await expect(
+      criarLocacao(membro.client, tenant, { ...base, propertyId: UUID, termMonths: 30 } as never, 'u1'),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: expect.stringMatching(/LOC-2026-001/) })
+    expect(hadEq(membro.calls, 'contracts', 'tenant_id')).toBe(true)
+    expect(membro.calls.some((c) => c.method === 'insert')).toBe(false)
+  })
+
+  test('mesmo CPF já em outro cliente: o inquilino novo não vira um segundo cadastro', async () => {
+    const criarLocacao = await carregar()
+    const existente = { id: 'pu-antigo', name: 'Helena M.', doc: '529.982.247-25' }
+    const { client, calls } = fakeSupabase({ portal_users: { data: [existente], error: null } })
+    await expect(criarLocacao(client, tenant, base as never, 'u1')).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: expect.stringMatching(/Helena M\./),
+    })
+    expect(hadEq(calls, 'portal_users', 'tenant_id')).toBe(true)
+    expect(calls.some((c) => c.method === 'insert')).toBe(false)
+  })
+})
+
+describe('chave Pix', () => {
+  test('"123" não é chave CPF — o contrato aparecia "pronto para repasse" com ela', () => {
+    const comDono = { ...base, proprietario: { id: UUID } }
+    const pix = { kind: 'pix', pixKeyType: 'cpf', pixKey: '123', holderName: 'Sérgio', holderDoc: '52998224725' }
+    expect(() => assertLeaseCreateInput({ ...comDono, repasse: pix })).toThrow(/não é um CPF válido/)
   })
 })

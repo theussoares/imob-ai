@@ -86,7 +86,10 @@ export async function requirePortalUser(event: H3Event) {
   // ser conferida depois.
   const { data: portalUser } = await client
     .from('portal_users')
-    .select('id, name, active, access_confirmed_at')
+    // `*` e não a lista de colunas: `first_login_at` (0053) pode ainda não
+    // existir no banco quando este código sobe, e uma coluna ausente numa lista
+    // explícita derruba o select — e com ele o portal inteiro, em 403.
+    .select('*')
     .eq('tenant_id', tenant.id)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -133,6 +136,20 @@ export async function requirePortalUser(event: H3Event) {
         tenant: tenant.slug,
         reason: erroConfirmacao.message,
       })
+    }
+  }
+
+  // Primeira entrada: é o que a lista de Clientes mostra como "Acessa o
+  // portal". Mesma forma da confirmação acima — service role, uma vez só,
+  // falha só registrada.
+  if (!portalUser.first_login_at) {
+    const { error: erroPrimeiroAcesso } = await serviceSupabase()
+      .from('portal_users')
+      .update({ first_login_at: new Date().toISOString() })
+      .eq('id', portalUser.id)
+      .is('first_login_at', null)
+    if (erroPrimeiroAcesso) {
+      logWarn('portal.primeiro_acesso_falhou', { tenant: tenant.slug, reason: erroPrimeiroAcesso.message })
     }
   }
 

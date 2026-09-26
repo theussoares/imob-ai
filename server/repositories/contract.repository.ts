@@ -9,6 +9,7 @@ import type {
   ContractPartyRole,
 } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_ROLES } from '~~/shared/models/portal'
+import { contratoQueOcupa } from '~~/shared/models/lease'
 import {
   toContractForClientModel,
   toContractInternalModel,
@@ -103,6 +104,50 @@ export async function updateContract(
   if (error) throw error
   if (!data) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
   return toContractModel(data)
+}
+
+/**
+ * Recusa um segundo contrato ativo no mesmo imóvel e no mesmo período.
+ *
+ * Checagem na aplicação e não constraint de exclusão no banco (`btree_gist` +
+ * `daterange`): produção já tem pares sobrepostos criados antes desta guarda
+ * (LOC-2026-001 e 003), e a constraint não nasceria enquanto a imobiliária não
+ * decidir qual dos dois vale. O custo é a corrida entre duas abas criando ao
+ * mesmo tempo, que é rara num painel de poucos usuários.
+ *
+ * Lê só os contratos daquele imóvel; a regra de sobreposição mora em
+ * `contratoQueOcupa`, que a tela do assistente também usa para avisar antes.
+ */
+export async function assertImovelLivreNoPeriodo(
+  client: Client,
+  tenantId: string,
+  alvo: { propertyId?: string | null; startedOn?: string | null; endsOn?: string | null; excetoId?: string },
+): Promise<void> {
+  if (!alvo.propertyId) return
+  const { data, error } = await client
+    .from('contracts')
+    .select('id, code, property_id, status, started_on, ends_on')
+    .eq('tenant_id', tenantId)
+    .eq('property_id', alvo.propertyId)
+    .eq('status', 'ativo')
+  if (error) throw error
+  const ocupante = contratoQueOcupa(
+    (data ?? []).map((r) => ({
+      id: r.id,
+      code: r.code,
+      propertyId: r.property_id,
+      status: r.status,
+      startedOn: r.started_on,
+      endsOn: r.ends_on,
+    })),
+    alvo,
+  )
+  if (ocupante) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `Este imóvel já está alugado no contrato ${ocupante.code}, que está ativo nesse período. Encerre aquele contrato ou ajuste as datas antes de criar outro.`,
+    })
+  }
 }
 
 /**

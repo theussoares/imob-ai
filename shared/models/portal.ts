@@ -104,6 +104,12 @@ export interface PortalUser {
    * `convidarClientePortal`. Aqui só serve para a tela dizer o estado.
    */
   accessConfirmed: boolean
+  /**
+   * Já entrou na Área do Cliente (0053). NÃO é o mesmo que `accessConfirmed`:
+   * esse nasce verdadeiro quando a conta é criada pelo convite, antes mesmo de
+   * o e-mail sair — e a lista dizia "Acessa o portal" com o convite falhado.
+   */
+  hasLoggedIn: boolean
   createdAt: string
 }
 
