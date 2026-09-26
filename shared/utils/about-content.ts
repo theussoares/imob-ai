@@ -127,3 +127,22 @@ export function sanitizeAboutContent(value: unknown): AboutPageContent {
   }
   return { blocks }
 }
+
+/**
+ * A página tem o mínimo para ir ao ar: um texto ou um "texto + imagem" que
+ * sobreviva à sanitização.
+ *
+ * Existe porque o interruptor aceitava publicar com zero blocos, e aí o site
+ * mostrava o parágrafo genérico de fallback — exatamente a página rala que o 404
+ * de `quem-somos.vue` existe para não indexar. Número, logo ou galeria sozinhos
+ * não contam: nenhum deles diz quem é a imobiliária.
+ *
+ * Passa pelo sanitizador, e não olha os campos crus, para concordar com o que o
+ * site vai de fato renderizar: um bloco de texto só com espaços é descartado lá,
+ * e contá-lo aqui liberaria publicar uma página vazia.
+ */
+export function aboutTemConteudoMinimo(value: unknown): boolean {
+  return sanitizeAboutContent(value).blocks.some(
+    (b) => b.type === 'text' || (b.type === 'split' && !!(b.title || b.body)),
+  )
+}

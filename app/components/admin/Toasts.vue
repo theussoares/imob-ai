@@ -1,10 +1,17 @@
 <script setup lang="ts">
+import type { Toast } from "~/composables/useToast";
+
 const { items, dismiss } = useToast();
 
 const errors = computed(() => items.value.filter((t) => t.kind === "error"));
 const successes = computed(() =>
   items.value.filter((t) => t.kind === "success"),
 );
+
+function runAction(t: Toast) {
+  dismiss(t.id);
+  t.action?.run();
+}
 </script>
 
 <template>
@@ -30,6 +37,9 @@ const successes = computed(() =>
     <div class="stack" role="status" aria-live="polite">
       <div v-for="t in successes" :key="t.id" class="toast ok">
         <span>{{ t.message }}</span>
+        <button v-if="t.action" type="button" class="act" @click="runAction(t)">
+          {{ t.action.label }}
+        </button>
         <button
           type="button"
           class="x"
@@ -98,6 +108,22 @@ const successes = computed(() =>
 }
 .x:hover {
   opacity: 1;
+}
+.act {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* Com a ação ao lado, o × não precisa mais empurrar para a direita. */
+.act + .x {
+  margin-left: 0;
 }
 @keyframes toast-in {
   from {

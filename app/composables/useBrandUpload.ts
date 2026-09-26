@@ -12,18 +12,27 @@
  *   storage.objects que não temos — e falharia com erro de RLS;
  * - exige o slug do tenant: ele é a primeira pasta do path, e as policies de
  *   storage só autorizam a pasta do tenant do qual o usuário é membro.
+ *
+ * `onFile` aceita um destino por chamada. Uma tela com várias fotos (Quem
+ * somos) guardava "o destino do upload em andamento" numa variável só: enviar
+ * no bloco A e, antes de terminar, no bloco B gravava a foto de A em B e
+ * descartava a de B. O destino tem que viajar junto com o arquivo.
  */
 export function useBrandUpload(opts: {
   bucket: 'tenant-logos' | 'tenant-hero'
   prefix: string
   maxEdge: number
-  onDone: (publicUrl: string) => void
+  /** Destino padrão; quem tem vários destinos passa o seu em cada `onFile`. */
+  onDone?: (publicUrl: string) => void
 }) {
   const tenant = useTenant()
   const toast = useToast()
-  const uploading = ref(false)
+  // Contador, não booleano: com dois envios simultâneos, o primeiro a terminar
+  // apagaria o "Enviando..." do outro, que ainda está subindo.
+  const emAndamento = ref(0)
+  const uploading = computed(() => emAndamento.value > 0)
 
-  async function onFile(e: Event) {
+  async function onFile(e: Event, onDone = opts.onDone) {
     const input = e.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file) return
@@ -35,7 +44,7 @@ export function useBrandUpload(opts: {
       return
     }
 
-    uploading.value = true
+    emAndamento.value += 1
     try {
       const client = await getAdminSupabase()
       // Formato que o canvas não abre (SVG, HEIC): sobe como veio.
@@ -52,11 +61,11 @@ export function useBrandUpload(opts: {
       })
       if (error) throw error
 
-      opts.onDone(client.storage.from(opts.bucket).getPublicUrl(path).data.publicUrl)
+      onDone?.(client.storage.from(opts.bucket).getPublicUrl(path).data.publicUrl)
     } catch (err: unknown) {
       toast.error(friendlyErrorMessage(err, 'Não foi possível enviar a imagem. Tente novamente.'))
     } finally {
-      uploading.value = false
+      emAndamento.value -= 1
       input.value = ''
     }
   }

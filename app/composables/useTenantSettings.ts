@@ -51,6 +51,7 @@ export function useTenantSettings(fields: Field[]) {
     footerLinks: [],
     footerPages: {},
     aboutContent: EMPTY_ABOUT_CONTENT,
+    aboutEnabled: false,
   })
   const alternateNamesText = ref('')
 
@@ -97,9 +98,17 @@ export function useTenantSettings(fields: Field[]) {
       // Cópia rasa por chave, pelo mesmo motivo dos links: editar na tela não
       // pode sujar o tenant carregado antes de salvar.
       footerPages: Object.fromEntries(Object.entries(tenant.value.footerPages || {}).map(([k, v]) => [k, { ...v }])),
-      // Cópia: mesmo motivo dos links/páginas — editar blocos na tela não pode
-      // sujar o tenant carregado antes de salvar (nem entre blocos, que são objetos).
-      aboutContent: { blocks: (tenant.value.aboutContent?.blocks || []).map((b) => ({ ...b })) },
+      // Cópia PROFUNDA: galeria e logos guardam objetos dentro do bloco, e a
+      // cópia rasa por bloco deixava `img.alt` editado na tela escrever direto
+      // no tenant carregado. Com o original sujo junto, comparar os dois para
+      // saber se há alteração não salva sempre dava "nada mudou".
+      aboutContent: { blocks: structuredClone(toRaw(tenant.value.aboutContent?.blocks || [])) },
+      // Sem esta linha o interruptor de "Quem somos" nascia desmarcado mesmo
+      // com a página no ar: a tela dizia "não publicada" sobre uma página
+      // publicada. `aboutEnabled` do tenant já é o efetivo (recurso ×
+      // interruptor); a tela só existe para quem tem o recurso (middleware
+      // `quem-somos`).
+      aboutEnabled: tenant.value.aboutEnabled,
     })
     alternateNamesText.value = (tenant.value.alternateNames || []).join('\n')
   })

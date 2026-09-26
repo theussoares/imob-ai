@@ -4,6 +4,8 @@ export interface Toast {
   id: number;
   kind: ToastKind;
   message: string;
+  /** Botão dentro do aviso — hoje só o "Desfazer" de quem apaga sem confirmar. */
+  action?: { label: string; run: () => void };
 }
 
 /**
@@ -27,11 +29,12 @@ export function useToast() {
     items.value = items.value.filter((t) => t.id !== id);
   }
 
-  function push(kind: ToastKind, message: string, ttl: number | null) {
+  function push(kind: ToastKind, message: string, ttl: number | null, action?: Toast["action"]) {
     seq.value += 1;
     const id = seq.value;
-    items.value = [...items.value, { id, kind, message }];
+    items.value = [...items.value, { id, kind, message, action }];
     if (ttl !== null) setTimeout(() => dismiss(id), ttl);
+    return id;
   }
 
   return {
@@ -44,5 +47,16 @@ export function useToast() {
     error: (message: string) => push("error", message, null),
     /** Confirmação some sozinha: se perder, nada de ruim aconteceu. */
     success: (message: string) => push("success", message, 3500),
+    /**
+     * Ação já feita, com volta por alguns segundos. É a alternativa ao
+     * `confirm()` antes de apagar: o diálogo vira reflexo de "OK" e ninguém lê,
+     * enquanto o desfazer só cobra algo de quem errou. 6s e não 3,5s: a pessoa
+     * precisa ler, perceber o engano e alcançar o botão.
+     *
+     * Devolve o id para a tela dispensar o aviso ao sair — o desfazer de uma
+     * tela que já fechou mexeria num formulário que não existe mais.
+     */
+    undoable: (message: string, onUndo: () => void) =>
+      push("success", message, 6000, { label: "Desfazer", run: onUndo }),
   };
 }

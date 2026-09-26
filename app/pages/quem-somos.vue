@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AboutBlock, AboutStatBlock } from "~~/shared/models/about-page";
 import type { PublicBroker } from "~~/shared/models/broker";
+import { formatTenantAddress, hasStructuredAddress } from "~~/shared/utils/address";
 
 const tenant = useTenant();
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true });
@@ -70,6 +71,26 @@ const { data: teamBrokers } = await useAsyncData(
   { default: () => [] as PublicBroker[] },
 );
 
+/**
+ * Moldura fixa: cabeçalho e fechamento que a página mostra SEMPRE, em volta dos
+ * blocos livres do painel.
+ *
+ * Os blocos dependem do que cada imobiliária escreve, e o que faltava nas
+ * páginas reais era justamente o que ninguém lembra de montar: um `<h1>` (o
+ * primeiro "Título de seção" virava `h2`, e leitor de tela e buscador viam uma
+ * página sem título), o CRECI — primeiro sinal de legitimidade que o comprador
+ * procura — e um próximo passo no fim. O visitante chega aqui decidindo se
+ * confia; terminar a leitura sem botão nenhum desperdiça exatamente esse momento.
+ *
+ * Tudo sai do cadastro do tenant, e não de um bloco "hero" editável: o nome da
+ * empresa num segundo lugar desalinha do resto do site na primeira troca.
+ */
+const posicionamento = computed(() => tenant.value?.tagline || tenant.value?.heroSubtitle || "");
+const cidadeUf = computed(() => [tenant.value?.city, tenant.value?.state].filter(Boolean).join("/"));
+const endereco = computed(() =>
+  tenant.value && hasStructuredAddress(tenant.value) ? formatTenantAddress(tenant.value) : "",
+);
+
 function isInternalHref(href: string): boolean {
   return href.startsWith("/");
 }
@@ -131,6 +152,15 @@ useHead(() => ({
       <span aria-current="page">Quem somos</span>
     </nav>
 
+    <header class="qs-head">
+      <h1>{{ tenant?.name || "Quem somos" }}</h1>
+      <p v-if="posicionamento" class="qs-lede">{{ posicionamento }}</p>
+      <p v-if="cidadeUf || tenant?.creci" class="qs-meta">
+        <span v-if="cidadeUf"><AppIcon name="pin" /> {{ cidadeUf }}</span>
+        <span v-if="tenant?.creci">CRECI {{ tenant.creci }}</span>
+      </p>
+    </header>
+
     <template v-if="groups.length">
       <template v-for="(g, i) in groups" :key="i">
         <h2 v-if="g.kind === 'block' && g.block.type === 'heading'" class="qs-heading">
@@ -160,10 +190,11 @@ useHead(() => ({
         <section
           v-else-if="g.kind === 'block' && g.block.type === 'banner'"
           class="qs-banner"
+          :class="{ 'has-img': g.block.imageUrl }"
           :style="g.block.imageUrl ? { backgroundImage: `url(${supabaseRenderImage(g.block.imageUrl, { width: 1400, quality: 72 })})` } : undefined"
         >
           <div class="qs-banner-in">
-            <h2>{{ g.block.title }}</h2>
+            <h2 v-if="g.block.title">{{ g.block.title }}</h2>
             <NuxtLink v-if="g.block.ctaLabel && isInternalHref(g.block.ctaHref)" class="qs-banner-cta" :to="g.block.ctaHref">
               {{ g.block.ctaLabel }}
             </NuxtLink>
@@ -202,7 +233,7 @@ useHead(() => ({
         </ScrollCarousel>
 
         <blockquote v-else-if="g.kind === 'block' && g.block.type === 'testimonial'" class="qs-testimonial">
-          <p>“{{ g.block.quote }}”</p>
+          <p>{{ g.block.quote }}</p>
           <footer>
             {{ g.block.authorName }}<span v-if="g.block.authorRole"> · {{ g.block.authorRole }}</span>
           </footer>
@@ -240,20 +271,27 @@ useHead(() => ({
       </template>
     </template>
 
-    <!-- Página existe mas o painel ainda não tem blocos: nunca em branco. -->
-    <div v-else class="qs-empty">
-      <h1>{{ tenant?.name || "Sobre nós" }}</h1>
-      <p>
-        {{
-          tenant?.city
-            ? `Atuamos em ${tenant.city}${tenant.state ? "/" + tenant.state : ""} com atendimento próximo, do primeiro contato à assinatura.`
-            : "Estamos preparando esta página. Fale com a gente pelos canais abaixo."
-        }}
-      </p>
-      <a v-if="tenant?.whatsapp" class="qs-cta" :href="whatsappLink()" target="_blank" rel="noopener">
-        <AppIcon name="wa" /> Falar no WhatsApp
-      </a>
-    </div>
+    <!-- Publicada sem blocos válidos (o painel hoje não deixa ligar assim, mas
+         páginas publicadas antes da regra existem): nunca em branco. -->
+    <p v-else class="qs-text">
+      {{
+        cidadeUf
+          ? `Atuamos em ${cidadeUf} com atendimento próximo, do primeiro contato à assinatura.`
+          : "Estamos preparando esta página. Fale com a gente pelos canais abaixo."
+      }}
+    </p>
+
+    <section class="qs-close" aria-labelledby="qs-close-t">
+      <h2 id="qs-close-t">Vamos conversar?</h2>
+      <p v-if="endereco" class="qs-close-addr"><AppIcon name="pin" /> {{ endereco }}</p>
+      <div class="qs-close-ctas">
+        <a v-if="tenant?.whatsapp" class="btn-wa" :href="whatsappLink()" target="_blank" rel="noopener">
+          <AppIcon name="wa" /> Falar no WhatsApp
+        </a>
+        <NuxtLink to="/" class="btn-detail">Ver imóveis</NuxtLink>
+        <NuxtLink to="/quero-vender" class="btn-detail">Quero vender ou alugar</NuxtLink>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -326,44 +364,114 @@ useHead(() => ({
   font-size: var(--fs-label);
   color: var(--ink-soft);
 }
-.qs-empty {
+/* ---- moldura: cabeçalho ---- */
+.qs-head {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
+  gap: 10px;
 }
-.qs-empty h1 {
+.qs-head h1 {
   font-family: var(--font-display);
-  font-size: clamp(24px, 5vw, 34px);
+  font-size: clamp(26px, 5vw, 38px);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   margin: 0;
 }
-.qs-empty p {
+.qs-lede {
   margin: 0;
+  font-size: var(--fs-title-sm);
+  line-height: 1.5;
   color: var(--ink-soft);
-  font-size: var(--fs-body);
-  line-height: 1.6;
   max-width: 60ch;
 }
-.qs-cta {
+.qs-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+.qs-meta span {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: var(--wa);
-  color: #fff;
-  font-weight: 600;
-  padding: 11px 18px;
-  border-radius: var(--r-md);
-  text-decoration: none;
+  gap: 5px;
+}
+.qs-meta :deep(svg) {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- moldura: fechamento ---- */
+.qs-close {
+  margin-top: 12px;
+  padding-top: 30px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qs-close h2 {
+  font-family: var(--font-display);
+  font-size: clamp(20px, 3.5vw, 26px);
+  margin: 0;
+}
+.qs-close-addr {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: var(--fs-body);
+}
+.qs-close-addr :deep(svg) {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+}
+.qs-close-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+/* `.btn-wa`/`.btn-detail` são os botões do card de imóvel: reusados para herdar
+   o desenho de cada tema da vitrine. Lá eles dividem o card em partes iguais;
+   aqui cada um tem o tamanho do texto, e quebram linha juntos no celular. */
+.qs-close-ctas > * {
+  flex: 1 1 200px;
+  padding: 12px 18px;
 }
 
 /* ---- banner ---- */
 .qs-banner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   border-radius: var(--r-lg);
   background-color: var(--ink);
   background-size: cover;
   background-position: center;
   padding: 44px 28px;
   display: flex;
+  align-items: flex-end;
+}
+/* Com foto, o texto desce para o pé e deixa o alto da imagem aparecer. */
+.qs-banner.has-img {
+  padding-top: 180px;
+}
+/* Escurece só de baixo para cima, atrás do texto, e deixa o alto da foto como
+   a pessoa escolheu — o meio-termo entre overlay sólido (apaga a imagem) e só
+   sombra de texto (falha com foto clara). É um `::before`, e não uma segunda
+   camada em `background-image`, porque o `style` inline do bloco define
+   `background-image` e sobrescreveria a camada. */
+.qs-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.65), rgb(0 0 0 / 0.25) 55%, transparent 80%);
 }
 .qs-banner-in {
   max-width: 46ch;
@@ -371,9 +479,10 @@ useHead(() => ({
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
-  /* Sombra de texto em vez de overlay sólido: funciona com ou sem imagem de
-     fundo, e não escurece uma imagem que a pessoa escolheu a dedo. */
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55);
+  /* A sombra sozinha não garantia 4.5:1: título branco sobre céu, parede ou
+     fachada clara ficava ilegível. O contraste agora vem do gradiente em
+     `.qs-banner`; a sombra fica só como acabamento. */
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 .qs-banner h2 {
   margin: 0;
@@ -438,10 +547,22 @@ useHead(() => ({
 }
 
 /* ---- depoimento ---- */
+/* Sem a borda lateral colorida de antes: é assinatura de interface gerada, e
+   as aspas grandes na cor da marca marcam a citação sem ela. */
 .qs-testimonial {
   margin: 0;
-  border-left: 3px solid var(--brand);
-  padding: 4px 0 4px 20px;
+  position: relative;
+  padding: 26px 0 0;
+}
+.qs-testimonial::before {
+  content: "“";
+  position: absolute;
+  top: -8px;
+  left: -2px;
+  font-family: var(--font-display);
+  font-size: 64px;
+  line-height: 1;
+  color: var(--brand);
 }
 .qs-testimonial p {
   margin: 0;
