@@ -105,7 +105,11 @@ export default defineEventHandler(async (event) => {
   // Antes do aviso, para o e-mail ir também para o corretor que recebeu o
   // lead: é ele quem precisa ligar, e o aviso só para os donos do painel
   // deixaria a roleta dependendo de alguém repassar.
-  const corretor = await distribuirPelaRoleta(service, tenant, leadId)
+  //
+  // Só com o CRM (0054): a roleta é dele. Uma imobiliária que tivesse deixado
+  // `lead_distribution = 'roleta'` e perdido o recurso continuaria recebendo
+  // leads distribuídos sem ter a tela que mostra para quem foram.
+  const corretor = (await crmAtivo(tenant.id)) ? await distribuirPelaRoleta(service, tenant, leadId) : null
 
   // `await`, e não `event.waitUntil`: o preset `vercel` do Nitro 2.13 não
   // repassa o `waitUntil` para a plataforma (conferido no runtime do preset) —

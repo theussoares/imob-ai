@@ -18,6 +18,10 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<LeadCreateInput>(event)
   assertLeadCreateInput(body)
   const corretor = body.brokerId ? await corretorDoTenant(client, tenant.id, body.brokerId) : null
+  // Sem o CRM (0054) a anotação é a coluna `notes`, como antes da 0049; com
+  // ele, vira o primeiro registro da linha do tempo. Nunca as duas coisas.
+  const crm = await crmAtivo(tenant.id)
+  const notas = crm ? {} : { notes: body.notes?.trim().slice(0, 4000) || null }
 
   /**
    * O que o cadastro traz além do lead: a anotação vira o primeiro registro
@@ -28,7 +32,7 @@ export default defineEventHandler(async (event) => {
   async function completar(lead: Lead): Promise<Lead> {
     const eventos: NewLeadEvent[] = []
     const nota = body.notes?.trim()
-    if (nota) eventos.push({ kind: 'nota', body: nota.slice(0, 4000), meta: {} })
+    if (nota && crm) eventos.push({ kind: 'nota', body: nota.slice(0, 4000), meta: {} })
     if (corretor) eventos.push({ kind: 'atribuicao', body: `Atribuído a ${corretor.name}`, meta: { brokerId: corretor.id } })
     await registrarEventos(client, tenant, lead.id, eventos, user.id)
     if (body.nextContactAt) {
@@ -48,7 +52,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const clickId = body.whatsappClickId
-  if (clickId == null || clickId === '') return completar(await createManualLead(client, tenant.id, body))
+  if (clickId == null || clickId === '') return completar(await createManualLead(client, tenant.id, body, notas))
 
   if (!ehUuid(clickId)) throw createError({ statusCode: 422, statusMessage: 'Clique inválido.' })
   const click = await getClickForConversion(client, tenant.id, clickId)
@@ -56,7 +60,7 @@ export default defineEventHandler(async (event) => {
   // Dois atendentes abrindo o mesmo clique criariam o mesmo contato duas vezes.
   if (click.leadId) throw createError({ statusCode: 409, statusMessage: 'Este clique já virou contato.' })
 
-  const lead = await createManualLead(client, tenant.id, body, { propertyId: click.propertyId })
+  const lead = await createManualLead(client, tenant.id, body, { ...notas, propertyId: click.propertyId })
   let marcado: boolean
   try {
     marcado = await markClickConverted(client, tenant.id, clickId, lead.id)

@@ -180,10 +180,10 @@ export interface LeadCreateInput {
 /**
  * Edição de um lead no painel (mover no funil, trocar o responsável).
  *
- * Sem `notes` e sem `nextContactAt`, de propósito: anotação virou evento da
- * linha do tempo (append-only) e retorno virou tarefa. Aceitar os dois aqui
- * deixaria um caminho que sobrescreve o histórico e outro que o trigger de
- * tarefas desfaz no minuto seguinte.
+ * `notes` e `nextContactAt` existem só para a imobiliária SEM o CRM (0054),
+ * cuja ficha é a de antes da 0049. Com o CRM o servidor os recusa: anotação é
+ * evento da linha do tempo (append-only) e retorno é tarefa, e aceitar os dois
+ * deixaria um caminho que sobrescreve o histórico.
  */
 export interface LeadUpdateInput {
   name?: string | null
@@ -191,8 +191,12 @@ export interface LeadUpdateInput {
   stage?: LeadStage
   leadType?: LeadType
   brokerId?: string | null
-  /** Obrigatório quando `stage` vira 'perdido'. */
+  /** Obrigatório quando `stage` vira 'perdido' (com o CRM). */
   lostReason?: LeadLostReason | null
+  /** Só sem o CRM. */
+  notes?: string | null
+  /** Só sem o CRM: vira a tarefa de retorno (`reagendarRetorno`). */
+  nextContactAt?: string | null
 }
 
 /**

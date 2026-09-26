@@ -2,6 +2,7 @@ import type { LeadUpdateInput } from '~~/shared/models/lead'
 import { LEAD_LOST_REASON_LABELS, LEAD_STAGE_LABELS } from '~~/shared/models/lead'
 import { eventosDaMudanca } from '~~/shared/models/lead-activity'
 import { getLeadState, updateLead } from '~~/server/repositories/lead.repository'
+import { reagendarRetorno } from '~~/server/repositories/lead-activity.repository'
 import { corretorDoTenant, registrarEventos } from '~~/server/utils/lead-crm'
 
 /**
@@ -15,12 +16,20 @@ export default defineEventHandler(async (event) => {
   const { client, tenant, user } = await requireTenantMember(event)
   const id = idDeRota(getRouterParam(event, 'id'))
   const body = await readBody<LeadUpdateInput>(event)
-  assertLeadUpdateInput(body)
+  const crm = await crmAtivo(tenant.id)
+  assertLeadUpdateInput(body, { crm })
 
   const antes = await getLeadState(client, tenant.id, id)
   if (!antes) throw createError({ statusCode: 404, statusMessage: 'Contato não encontrado.' })
 
   const corretor = body.brokerId ? await corretorDoTenant(client, tenant.id, body.brokerId) : null
+
+  // Sem o CRM, a ficha ainda tem "Próximo retorno" (0054). Antes do update:
+  // `next_contact_at` é derivado das tarefas por trigger, e o lead que o update
+  // devolve já sai com a data nova.
+  if (!crm && body.nextContactAt !== undefined) {
+    await reagendarRetorno(client, tenant.id, id, body.nextContactAt ?? null, user.id)
+  }
 
   const lead = await updateLead(client, tenant.id, id, body, user.id)
   const eventos = eventosDaMudanca(

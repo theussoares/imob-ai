@@ -104,6 +104,37 @@ export async function createTask(
 }
 
 /**
+ * "Próximo retorno" da ficha SEM o CRM (0054): uma data só, como era antes da
+ * 0049 — mas gravada como tarefa, e não direto em `leads.next_contact_at`.
+ *
+ * Por quê: desde a 0049 aquela coluna é DERIVADA das tarefas por trigger. Uma
+ * escrita direta ficaria de pé só até a próxima mudança de tarefa do lead, e
+ * a imobiliária que ligasse o CRM depois encontraria na agenda um retorno
+ * velho, diferente do que a ficha mostrava.
+ *
+ * Trocar a data cancela os retornos em aberto e cria um; `null` só cancela.
+ * Visitas e outras tarefas ficam — elas não existem no modo sem CRM.
+ */
+export async function reagendarRetorno(
+  client: Client,
+  tenantId: string,
+  leadId: string,
+  dueAt: string | null,
+  userId: string | null,
+): Promise<void> {
+  const { error } = await client
+    .from('lead_tasks')
+    .update({ canceled_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId)
+    .eq('lead_id', leadId)
+    .eq('kind', 'retorno')
+    .is('done_at', null)
+    .is('canceled_at', null)
+  if (error) throw error
+  if (dueAt) await createTask(client, tenantId, { leadId, kind: 'retorno', title: 'Retornar contato', dueAt }, userId)
+}
+
+/**
  * Atualiza uma tarefa. Devolve também o estado ANTERIOR de conclusão, para o
  * endpoint gravar o evento "tarefa concluída" só na transição — concluir duas
  * vezes (dois cliques, duas abas) não pode virar dois registros no histórico.

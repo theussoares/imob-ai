@@ -237,7 +237,12 @@ export function assertLeadCreateInput(input: unknown): asserts input is LeadCrea
 }
 
 /** Valida a edição de um lead (mover no funil, trocar o responsável). */
-export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpdateInput {
+/**
+ * `crm`: a imobiliária tem o CRM (0054)? As duas regras abaixo que dependem
+ * dele são o contrato da tela de cada modo — sem CRM a ficha ainda edita
+ * anotação e retorno direto, e não existe "marcar como perdido" com motivo.
+ */
+export function assertLeadUpdateInput(input: unknown, { crm }: { crm: boolean }): asserts input is LeadUpdateInput {
   if (!input || typeof input !== 'object') {
     throw createError({ statusCode: 422, statusMessage: 'Dados inválidos.' })
   }
@@ -255,17 +260,21 @@ export function assertLeadUpdateInput(input: unknown): asserts input is LeadUpda
     throw createError({ statusCode: 422, statusMessage: 'Motivo de perda inválido.' })
   }
   // Perder sem dizer por quê é o que tornaria o relatório de perdas inútil.
-  if (l.stage === 'perdido' && !toLeadLostReason(l.lostReason)) {
+  if (crm && l.stage === 'perdido' && !toLeadLostReason(l.lostReason)) {
     throw createError({ statusCode: 422, statusMessage: 'Informe o motivo da perda.' })
   }
   // Anotação e retorno viraram linha do tempo e tarefa (0049). Recusar em vez
   // de ignorar: uma tela antiga que ainda mande estes campos acharia que
   // salvou, e a anotação sumiria calada.
-  if (l.notes !== undefined || l.nextContactAt !== undefined) {
+  if (crm && (l.notes !== undefined || l.nextContactAt !== undefined)) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Anotações e retornos agora ficam no histórico e na agenda do contato.',
     })
+  }
+  if (!crm) {
+    if (l.notes !== undefined && l.notes !== null) assertMaxLength(String(l.notes), 4000, 'Anotações')
+    assertOptionalDate(l.nextContactAt, 'Data de retorno')
   }
 }
 

@@ -365,7 +365,17 @@ const edit = reactive({
   phone: "",
   brokerId: "",
   leadType: "indefinido" as LeadType,
+  // Só sem o CRM (0054), onde a ficha é a de antes da 0049.
+  notes: "",
+  nextContactAt: "",
 });
+/**
+ * Com o CRM, a ficha tem linha do tempo, tarefas e perda com motivo. Sem ele
+ * (a imobiliária que não contratou — hoje, todas menos a da demonstração),
+ * continua com "Anotações" e "Próximo retorno", como estava em produção.
+ */
+const { crm: temCrm, carregar: carregarRecursos } = useAdminFeatures();
+onMounted(carregarRecursos);
 /**
  * Detalhes do contato numa gaveta lateral, e não dentro do card: o card do
  * funil tem 280px, e o histórico e a agenda (0049) espremidos ali ficavam
@@ -414,6 +424,8 @@ function openEditor(l: Lead) {
     edit.phone = l.phone || "";
     edit.brokerId = l.brokerId || "";
     edit.leadType = l.leadType;
+    edit.notes = l.notes || "";
+    edit.nextContactAt = dateToInput(l.nextContactAt);
   }
 }
 /** Sair da tela com o cadastro alterado e não salvo perdia a edição sem aviso. */
@@ -424,7 +436,9 @@ function editorDirty() {
     edit.name !== (l.name || "") ||
     edit.phone !== (l.phone || "") ||
     edit.brokerId !== (l.brokerId || "") ||
-    edit.leadType !== l.leadType
+    edit.leadType !== l.leadType ||
+    (!temCrm.value &&
+      (edit.notes !== (l.notes || "") || edit.nextContactAt !== dateToInput(l.nextContactAt)))
   );
 }
 
@@ -474,6 +488,9 @@ async function saveEditor(l: Lead) {
     phone: edit.phone.trim() || null,
     brokerId: edit.brokerId || null,
     leadType: edit.leadType,
+    ...(temCrm.value
+      ? {}
+      : { notes: edit.notes.trim() || null, nextContactAt: inputToIso(edit.nextContactAt) }),
   });
   // A gaveta fica aberta: salvar o cadastro não encerra o atendimento, e o
   // histórico e a agenda continuam logo abaixo.
@@ -604,6 +621,12 @@ function returnLabel(iso: string) {
 }
 // <input type="date"> -> timestamptz, ancorado ao meio-dia local pra não
 // pular de dia por causa de fuso ao converter para ISO.
+function dateToInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
 function inputToIso(day: string): string | null {
   if (!day) return null;
   const d = new Date(`${day}T12:00:00`);
@@ -679,6 +702,25 @@ useHead({ title: "Contatos · Painel" });
                 </select>
               </div>
             </div>
+            <template v-if="!temCrm">
+              <div>
+                <label class="admin-label" :for="`ed-notas-${l.id}`">Anotações (histórico do atendimento)</label>
+                <textarea
+                  :id="`ed-notas-${l.id}`"
+                  v-model="edit.notes"
+                  class="admin-textarea"
+                  rows="3"
+                  maxlength="4000"
+                  placeholder="O que foi conversado, objeções, imóveis mostrados..."
+                />
+              </div>
+              <div class="ed-row">
+                <div>
+                  <label class="admin-label" :for="`ed-retorno-${l.id}`">Próximo retorno</label>
+                  <input :id="`ed-retorno-${l.id}`" v-model="edit.nextContactAt" class="admin-input" type="date" />
+                </div>
+              </div>
+            </template>
             <div class="ed-actions">
               <button
                 class="admin-btn"
@@ -688,7 +730,7 @@ useHead({ title: "Contatos · Painel" });
                 Salvar
               </button>
               <button
-                v-if="l.stage !== 'perdido' && !losing"
+                v-if="temCrm && l.stage !== 'perdido' && !losing"
                 class="admin-btn ghost sm"
                 @click="losing = true"
               >
@@ -698,7 +740,7 @@ useHead({ title: "Contatos · Painel" });
                 Excluir
               </button>
             </div>
-            <form v-if="losing" class="lose" @submit.prevent="markLost(l)">
+            <form v-if="temCrm && losing" class="lose" @submit.prevent="markLost(l)">
               <label class="admin-label" :for="`ed-perda-${l.id}`">Por que perdemos este contato?</label>
               <div class="lose-row">
                 <select :id="`ed-perda-${l.id}`" v-model="lostReason" class="admin-input" required>
@@ -711,7 +753,7 @@ useHead({ title: "Contatos · Painel" });
               <small class="lose-hint">O motivo vira o relatório de perdas. Dá para reabrir depois, em "Perdidos".</small>
             </form>
 
-            <AdminLeadTimeline :lead="l" :brokers="brokers ?? []" @changed="scheduleRefresh" />
+            <AdminLeadTimeline v-if="temCrm" :lead="l" :brokers="brokers ?? []" @changed="scheduleRefresh" />
           </div>
     </DefineEditor>
 

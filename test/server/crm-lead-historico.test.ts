@@ -21,6 +21,9 @@ function stubHandlerGlobals(extra: Record<string, unknown>) {
   vi.stubGlobal('defineEventHandler', (fn: unknown) => fn)
   vi.stubGlobal('idDeRota', (v: string) => v)
   vi.stubGlobal('getRouterParam', () => 'l1')
+  // Estes testes cobrem o comportamento COM o CRM (0049); o modo sem ele tem
+  // os próprios testes. `extra` abaixo sobrescreve quando precisar.
+  vi.stubGlobal('crmAtivo', async () => true)
   for (const [k, v] of Object.entries(extra)) vi.stubGlobal(k, v)
 }
 
@@ -32,15 +35,26 @@ const leadRow = {
 }
 
 describe('validação', () => {
+  const comCrm = { crm: true }
+  const semCrm = { crm: false }
+
   test('perder sem motivo é recusado', () => {
-    expect(() => assertLeadUpdateInput({ stage: 'perdido' })).toThrow(/motivo/i)
-    expect(() => assertLeadUpdateInput({ stage: 'perdido', lostReason: 'inventado' })).toThrow()
-    expect(() => assertLeadUpdateInput({ stage: 'perdido', lostReason: 'preco' })).not.toThrow()
+    expect(() => assertLeadUpdateInput({ stage: 'perdido' }, comCrm)).toThrow(/motivo/i)
+    expect(() => assertLeadUpdateInput({ stage: 'perdido', lostReason: 'inventado' }, comCrm)).toThrow()
+    expect(() => assertLeadUpdateInput({ stage: 'perdido', lostReason: 'preco' }, comCrm)).not.toThrow()
   })
 
   test('tela antiga mandando `notes` recebe erro, não um "salvo" que perdeu a anotação', () => {
-    expect(() => assertLeadUpdateInput({ notes: 'liguei' })).toThrow(/histórico/)
-    expect(() => assertLeadUpdateInput({ nextContactAt: '2026-10-01' })).toThrow()
+    expect(() => assertLeadUpdateInput({ notes: 'liguei' }, comCrm)).toThrow(/histórico/)
+    expect(() => assertLeadUpdateInput({ nextContactAt: '2026-10-01' }, comCrm)).toThrow()
+  })
+
+  test('sem o CRM (0054), a ficha de antes continua valendo: anotação e retorno direto', () => {
+    // A imobiliária sem o recurso vê "Anotações" e "Próximo retorno" — se o
+    // servidor recusasse, toda ficha dela daria erro ao salvar.
+    expect(() => assertLeadUpdateInput({ notes: 'liguei', nextContactAt: '2026-10-01' }, semCrm)).not.toThrow()
+    expect(() => assertLeadUpdateInput({ nextContactAt: 'amanhã' }, semCrm)).toThrow()
+    expect(() => assertLeadUpdateInput({ notes: 'x'.repeat(4001) }, semCrm)).toThrow()
   })
 
   test('evento de sistema não pode ser postado pelo painel', () => {
@@ -66,12 +80,13 @@ describe('PUT /api/admin/leads/[id]', () => {
     vi.resetModules()
   })
 
-  async function rodar(results: Parameters<typeof fakeSupabase>[0], body: Record<string, unknown>) {
+  async function rodar(results: Parameters<typeof fakeSupabase>[0], body: Record<string, unknown>, crm = true) {
     const fake = fakeSupabase(results)
     stubHandlerGlobals({
       requireTenantMember: async () => ({ client: fake.client, tenant: { id: 't1', slug: 'olmi' }, user: { id: 'u1' } }),
       readBody: async () => body,
       assertLeadUpdateInput,
+      crmAtivo: async () => crm,
     })
     const handler = (await import('~~/server/api/admin/leads/[id].put')).default as (e: unknown) => Promise<unknown>
     return { run: () => handler({}), calls: fake.calls }
@@ -97,6 +112,37 @@ describe('PUT /api/admin/leads/[id]', () => {
     expect(update).toMatchObject({ stage: 'perdido', lost_reason: 'preco', updated_by: 'u1' })
     const ev = (calls.find((c) => c.table === 'lead_events' && c.method === 'insert')!.args[0] as Record<string, unknown>[])[0]!
     expect(ev).toMatchObject({ tenant_id: 't1', lead_id: 'l1', kind: 'etapa', created_by: 'u1' })
+  })
+
+  test('sem o CRM (0054): anotação na coluna, retorno como tarefa — nunca `next_contact_at` direto', async () => {
+    // `next_contact_at` é derivado das tarefas por trigger desde a 0049. Uma
+    // escrita direta sumiria na próxima mudança de tarefa, e quem ligasse o CRM
+    // depois acharia na agenda um retorno diferente do que a ficha mostrava.
+    const { run, calls } = await rodar(
+      {
+        leads: [{ data: { stage: 'contato', broker_id: null }, error: null }, { data: leadRow, error: null }],
+        lead_tasks: [{ data: null, error: null }, { data: { id: 't', due_at: '2026-10-01T15:00:00Z' }, error: null }],
+      },
+      { notes: ' liguei, sem resposta ', nextContactAt: '2026-10-01T15:00:00.000Z' },
+      false,
+    )
+    await run()
+    const update = calls.find((c) => c.table === 'leads' && c.method === 'update')!.args[0] as Record<string, unknown>
+    expect(update.notes).toBe('liguei, sem resposta')
+    expect(update).not.toHaveProperty('next_contact_at')
+    expect(hadEq(calls, 'lead_tasks', 'tenant_id')).toBe(true)
+    const tarefa = calls.find((c) => c.table === 'lead_tasks' && c.method === 'insert')!.args[0] as Record<string, unknown>
+    expect(tarefa).toMatchObject({ tenant_id: 't1', lead_id: 'l1', kind: 'retorno' })
+  })
+
+  test('sem o CRM, arquivar como perdido não exige motivo — a ficha antiga não pergunta', async () => {
+    const { run, calls } = await rodar(
+      { leads: [{ data: { stage: 'contato', broker_id: null }, error: null }, { data: leadRow, error: null }] },
+      { stage: 'perdido' },
+      false,
+    )
+    await run()
+    expect(calls.some((c) => c.table === 'leads' && c.method === 'update')).toBe(true)
   })
 
   test('lead de outro tenant (ou inexistente) é 404, sem update', async () => {
