@@ -12,7 +12,7 @@ import { LEAD_TASK_KINDS, LEAD_TASK_LABELS, agendaBucket } from "~~/shared/model
  * Tarefa além de 7 dias não aparece aqui — está no histórico do contato, e
  * mostrá-la agora só empurraria o que importa hoje para baixo.
  */
-definePageMeta({ layout: "admin", middleware: "admin" });
+definePageMeta({ layout: "admin", middleware: ["admin", "crm"] });
 useHead({ title: "Agenda · Painel" });
 
 const toast = useToast();

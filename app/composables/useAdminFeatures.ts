@@ -50,6 +50,7 @@ export function useAdminFeatures() {
     areaCliente: computed(() => estado.value?.areaCliente === true),
     quemSomos: computed(() => estado.value?.quemSomos === true),
     descricaoIa: computed(() => estado.value?.descricaoIa === true),
+    crm: computed(() => estado.value?.crm === true),
     carregar,
     carregado: computed(() => estado.value !== null),
   }
@@ -60,6 +61,7 @@ interface Recursos {
   areaCliente: boolean
   quemSomos: boolean
   descricaoIa: boolean
+  crm: boolean
 }
 
 /**
