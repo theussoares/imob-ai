@@ -7,6 +7,7 @@ import { getPropertyById } from '~~/server/repositories/property.repository'
 import { createClientRecord, getPortalUser } from '~~/server/repositories/portal-user.repository'
 import {
   addContractParty,
+  assertImovelLivreNoPeriodo,
   createContract,
   nextContractCode,
   upsertContractInternal,
@@ -66,6 +67,10 @@ export async function criarLocacao(
   const imovel = input.propertyId ? await getPropertyById(serviceSupabase(), tenant.id, input.propertyId) : null
   if (input.propertyId && !imovel) throw createError({ statusCode: 422, statusMessage: 'Imóvel não encontrado.' })
 
+  // Antes de criar qualquer pessoa: recusar aqui não deixa cadastro órfão.
+  const endsOn = input.termMonths ? fimDoPrazo(input.startedOn, input.termMonths) : null
+  await assertImovelLivreNoPeriodo(client, tenant.id, { propertyId: imovel?.id, startedOn: input.startedOn, endsOn })
+
   const inquilino = await resolverPessoa(client, tenant.id, input.inquilino)
   const proprietario = input.proprietario ? await resolverPessoa(client, tenant.id, input.proprietario) : null
   const fiador = input.fiador ? await resolverPessoa(client, tenant.id, input.fiador) : null
@@ -73,7 +78,6 @@ export async function criarLocacao(
   const addressLabel =
     input.addressLabel?.trim() ||
     (imovel ? [imovel.location || imovel.title, imovel.neighborhood].filter(Boolean).join(' · ') : null)
-  const endsOn = input.termMonths ? fimDoPrazo(input.startedOn, input.termMonths) : null
 
   const base = {
     propertyId: imovel?.id ?? null,

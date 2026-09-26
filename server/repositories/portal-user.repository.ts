@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { ContractPartyRole, PortalUser, PortalUserInput } from '~~/shared/models/portal'
 import { toPortalUserModel, toPortalUserRow } from '~~/server/mappers/portal-user.mapper'
+import { formatarDocumento } from '~~/shared/utils/cpf-cnpj'
+import { onlyDigits } from '~~/shared/utils/phone'
 
 type Client = SupabaseClient<Database>
 
@@ -77,6 +79,42 @@ export async function setPortalUserActive(
 }
 
 /**
+ * Recusa um CPF/CNPJ que já está em outro cliente desta imobiliária.
+ *
+ * O e-mail sempre teve índice único; o documento não, e deu para cadastrar a
+ * mesma pessoa duas vezes. Duplicado aqui não é só lista feia: o contrato fica
+ * num cadastro e o acesso ao portal no outro, e o boleto (que é pelo CPF no
+ * provedor) junta os dois como um cliente só.
+ *
+ * Na aplicação, e não índice único no banco, porque `doc` é gravado como
+ * digitado (com ou sem pontuação) — o índice teria de ser sobre uma expressão
+ * de dígitos — e porque produção já tem o par duplicado que motivou isto: o
+ * índice não nasceria até alguém juntar os dois cadastros.
+ */
+export async function assertDocumentoLivre(
+  client: Client,
+  tenantId: string,
+  doc: string | null | undefined,
+  excetoId?: string,
+): Promise<void> {
+  const digitos = onlyDigits(doc)
+  if (!digitos) return
+  const { data, error } = await client
+    .from('portal_users')
+    .select('id, name, doc')
+    .eq('tenant_id', tenantId)
+    .not('doc', 'is', null)
+  if (error) throw error
+  const outro = (data ?? []).find((c) => c.id !== excetoId && onlyDigits(c.doc) === digitos)
+  if (outro) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `O CPF/CNPJ ${formatarDocumento(digitos)} já está no cadastro de ${outro.name}. Use esse cadastro em vez de criar outro.`,
+    })
+  }
+}
+
+/**
  * Cadastro SEM acesso ao portal (0050): o fiador que nunca vai entrar, o
  * proprietário que só usa WhatsApp. `user_id` nulo — nenhuma regra de acesso
  * do portal casa com ele. Dar acesso depois é `convidarClientePortal`, que
@@ -87,6 +125,7 @@ export async function createClientRecord(
   tenantId: string,
   input: PortalUserInput,
 ): Promise<PortalUser> {
+  await assertDocumentoLivre(client, tenantId, input.doc)
   const { data, error } = await client
     .from('portal_users')
     .insert(toPortalUserRow(input, tenantId, null))
@@ -116,7 +155,10 @@ export async function updateClientRecord(
   const patch: Database['public']['Tables']['portal_users']['Update'] = {}
   if (input.name !== undefined) patch.name = String(input.name).trim()
   if (input.phone !== undefined) patch.phone = input.phone?.trim() || null
-  if (input.doc !== undefined) patch.doc = input.doc?.trim() || null
+  if (input.doc !== undefined) {
+    await assertDocumentoLivre(client, tenantId, input.doc, id)
+    patch.doc = input.doc?.trim() || null
+  }
   if (input.email !== undefined) {
     const email = input.email?.trim().toLowerCase() || null
     if (atual.userId && email !== atual.email) {

@@ -29,6 +29,10 @@
   --danger: #b91c1c;
   --danger-line: #fca5a5;
   --danger-ghost: #fef2f2;
+  /* Verde de "tudo certo" do painel. Fixo, e não derivado de --wa: aquela é a
+     cor do botão de WhatsApp, que o tenant customiza — com um tema vermelho,
+     "Tudo certo" saía em vermelho. Mesmo tom do toast de sucesso. */
+  --ok: #047857;
 
   --shadow: 0 1px 2px rgba(20, 22, 26, 0.06), 0 6px 20px rgba(20, 22, 26, 0.06);
   --shadow-lg: 0 20px 48px rgba(20, 22, 26, 0.18);

@@ -935,7 +935,7 @@ useHead({ title: "Quem somos · Painel" });
   font-weight: 700;
 }
 .ab-checklist li.ok .ab-check {
-  color: var(--wa-dark);
+  color: var(--ok);
 }
 
 .ab-empty {
@@ -1122,7 +1122,7 @@ useHead({ title: "Quem somos · Painel" });
   color: var(--ink-soft);
 }
 .ab-state.ok {
-  color: var(--wa-dark);
+  color: var(--ok);
   font-weight: 600;
 }
 .ab-fields {

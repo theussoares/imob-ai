@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import type { Toast } from "~/composables/useToast";
 
-const { items, dismiss } = useToast();
+const { items, dismiss, clearErrors } = useToast();
+
+// Erro de uma tela não segue a pessoa para a próxima: lá ele não diz respeito a
+// nada que ela esteja vendo.
+const route = useRoute();
+watch(() => route.path, clearErrors);
 
 const errors = computed(() => items.value.filter((t) => t.kind === "error"));
 const successes = computed(() =>

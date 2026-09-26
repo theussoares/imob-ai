@@ -30,6 +30,10 @@ export function useToast() {
   }
 
   function push(kind: ToastKind, message: string, ttl: number | null, action?: Toast["action"]) {
+    // O mesmo erro de novo não empilha outro card: clicar "Salvar" três vezes
+    // com o CPF errado deixava três avisos iguais para fechar um a um.
+    const repetido = items.value.find((t) => t.kind === kind && t.message === message && !action);
+    if (repetido && ttl === null) return repetido.id;
     seq.value += 1;
     const id = seq.value;
     items.value = [...items.value, { id, kind, message, action }];
@@ -37,9 +41,20 @@ export function useToast() {
     return id;
   }
 
+  /**
+   * Some com os erros que ficaram na tela. Erro não tem prazo (ver `error`),
+   * mas um erro já resolvido é pior que nenhum: "CPF inválido" continuava lá
+   * depois de a pessoa corrigir e salvar. Chamado pela tela quando a ação que
+   * falhou dá certo, e pelo layout a cada troca de página.
+   */
+  function clearErrors() {
+    items.value = items.value.filter((t) => t.kind !== "error");
+  }
+
   return {
     items,
     dismiss,
+    clearErrors,
     /**
      * Fica na tela até ser dispensado. Erro que some sozinho passa
      * despercebido, e a pessoa segue achando que salvou.

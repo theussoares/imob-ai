@@ -208,3 +208,46 @@ export interface LeaseCreateInput {
   /** Manda o convite da Área do Cliente a quem tiver e-mail e ainda não tiver acesso. */
   convidarPartes?: boolean
 }
+
+/** O que a checagem de sobreposição precisa de cada contrato. */
+export interface VigenciaDoContrato {
+  id: string
+  code: string
+  propertyId: string | null
+  status: 'ativo' | 'encerrado'
+  startedOn: string | null
+  endsOn: string | null
+}
+
+/**
+ * Contrato ATIVO do mesmo imóvel cuja vigência cruza a informada.
+ *
+ * Existe porque o assistente aceitou criar o LOC-2026-003 no NC-0267 com o
+ * LOC-2026-001 ativo no mesmo período: a tela só mostrava "já alugado" e o
+ * servidor não conferia nada. Dois contratos ativos no mesmo imóvel viram duas
+ * cobranças de aluguel e dois repasses ao mesmo proprietário.
+ *
+ * Por que não o `status = 'rented'` do imóvel: ele é vitrine (tira o imóvel da
+ * lista do site) e a imobiliária troca à mão — imóvel alugado fora do sistema
+ * existe, e contrato ativo com o imóvel ainda "Publicado" também.
+ *
+ * Datas faltando valem como aberto naquele lado: contrato sem fim ocupa o
+ * imóvel indefinidamente, que é o lado seguro de errar. Comparação de string
+ * funciona porque as datas são 'AAAA-MM-DD'.
+ */
+export function contratoQueOcupa(
+  contratos: readonly VigenciaDoContrato[],
+  alvo: { propertyId?: string | null; startedOn?: string | null; endsOn?: string | null; excetoId?: string },
+): VigenciaDoContrato | null {
+  if (!alvo.propertyId) return null
+  return (
+    contratos.find(
+      (c) =>
+        c.id !== alvo.excetoId &&
+        c.propertyId === alvo.propertyId &&
+        c.status === 'ativo' &&
+        (!alvo.endsOn || !c.startedOn || c.startedOn <= alvo.endsOn) &&
+        (!alvo.startedOn || !c.endsOn || c.endsOn >= alvo.startedOn),
+    ) ?? null
+  )
+}

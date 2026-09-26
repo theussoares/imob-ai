@@ -14,7 +14,9 @@ import {
   MANUAL_SETTLEMENT_METHODS,
   SETTLEMENT_METHOD_LABELS,
   aMaiorSeMarcarFeito,
+  competenciaForaDaVigencia,
   hojeEmSaoPaulo,
+  proximaCompetenciaLivre,
   repassesAMaior,
   somar,
   vencimentoPadrao,
@@ -34,6 +36,8 @@ const props = defineProps<{
   contractId: string
   rentAmount: number | null
   dueDay: number | null
+  startedOn: string | null
+  endsOn: string | null
   ativo: boolean
 }>()
 
@@ -85,17 +89,18 @@ const nova = reactive<{ competence: string; dueOn: string; rentAmount: number | 
   extras: [],
 })
 
-/** Próximo mês ainda sem cobrança mensal ativa, a partir do mês corrente. */
+/**
+ * Próximo mês ainda sem cobrança mensal ativa, a partir do mês corrente ou do
+ * início do contrato — o que vier depois. Sem o início na conta, contrato que
+ * começa em outubro sugeria "setembro" e cobrava um mês em que o inquilino
+ * ainda não morava lá.
+ */
 function proximaCompetencia(): string {
   const ocupadas = new Set(cobrancas.value.filter((c) => c.kind === 'mensal' && c.status !== 'cancelada').map((c) => c.competence.slice(0, 7)))
-  const [a, m] = hojeEmSaoPaulo().split('-').map(Number) as [number, number]
-  for (let i = 0; i < 24; i++) {
-    const d = new Date(Date.UTC(a, m - 1 + i, 1))
-    const k = d.toISOString().slice(0, 7)
-    if (!ocupadas.has(k)) return k
-  }
-  return hojeEmSaoPaulo().slice(0, 7)
+  return proximaCompetenciaLivre(ocupadas, vigencia.value) ?? hojeEmSaoPaulo().slice(0, 7)
 }
+const vigencia = computed(() => ({ startedOn: props.startedOn, endsOn: props.endsOn }))
+const competenciaFora = computed(() => (nova.competence ? competenciaForaDaVigencia(nova.competence, vigencia.value) : null))
 
 function abrirGerar() {
   nova.competence = proximaCompetencia()
@@ -123,6 +128,7 @@ async function salvarNova(emitirJunto: boolean) {
   if (!nova.rentAmount || nova.rentAmount <= 0) return toast.error('Informe o aluguel do mês.')
   if (nova.extras.some((x) => !x.amount || x.amount <= 0)) return toast.error('Preencha o valor de cada item (ou remova a linha).')
   if (nova.dueOn < hojeEmSaoPaulo()) return toast.error('O vencimento não pode estar no passado.')
+  if (competenciaFora.value) return toast.error(competenciaFora.value === 'antes' ? 'Este mês é anterior ao início do contrato.' : 'Este mês é posterior ao fim do contrato.')
   salvandoNova.value = true
   try {
     const c = await adminFetch<Charge>(`/api/admin/contracts/${props.contractId}/cobrancas`, {
@@ -319,8 +325,20 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
       <div class="cob-grade">
         <div>
           <label class="admin-label" for="cob-comp">Mês de referência</label>
-          <input id="cob-comp" v-model="nova.competence" class="admin-input" type="month" required />
-          <small class="hint-text">O mês em que o inquilino morou.</small>
+          <input
+            id="cob-comp"
+            v-model="nova.competence"
+            class="admin-input"
+            type="month"
+            :min="startedOn?.slice(0, 7)"
+            :max="endsOn?.slice(0, 7)"
+            :aria-invalid="!!competenciaFora"
+            required
+          />
+          <small v-if="competenciaFora" class="hint-text cob-fora" role="alert">
+            {{ competenciaFora === 'antes' ? 'Antes do início do contrato: o inquilino ainda não morava lá.' : 'Depois do fim do contrato.' }}
+          </small>
+          <small v-else class="hint-text">O mês em que o inquilino morou.</small>
         </div>
         <div>
           <label class="admin-label" for="cob-venc">Vencimento</label>
@@ -488,6 +506,9 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
 </template>
 
 <style scoped>
+.cob-fora {
+  color: var(--danger);
+}
 .cob-topo {
   display: flex;
   align-items: flex-start;

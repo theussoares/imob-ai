@@ -287,7 +287,7 @@ useHead({ title: "Configurações · Painel" });
       <p
         v-if="saved"
         role="status"
-        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+        style="color: var(--ok); margin-top: 14px; font-weight: 600"
       >
         Configurações salvas! <AppIcon name="check" />
       </p>
@@ -352,7 +352,7 @@ useHead({ title: "Configurações · Painel" });
       <p
         v-if="aiToneSaved"
         role="status"
-        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+        style="color: var(--ok); margin-top: 14px; font-weight: 600"
       >
         Tom salvo! <AppIcon name="check" />
       </p>

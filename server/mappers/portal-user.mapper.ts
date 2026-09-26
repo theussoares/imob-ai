@@ -15,6 +15,7 @@ export function toPortalUserModel(row: PortalUserRow): PortalUser {
     phone: row.phone,
     active: row.active,
     accessConfirmed: !!row.access_confirmed_at,
+    hasLoggedIn: !!row.first_login_at,
     createdAt: row.created_at,
   }
 }
