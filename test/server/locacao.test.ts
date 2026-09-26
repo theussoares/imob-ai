@@ -84,11 +84,20 @@ describe('criarLocacao', () => {
   const tenant = { id: 't1', slug: 'olmi', name: 'OLMI', email: null } as never
 
   test('imóvel de outra imobiliária é recusado antes de criar qualquer coisa', async () => {
-    const criarLocacao = await carregar()
-    const { client, calls } = fakeSupabase({ properties: { data: null, error: null } })
-    await expect(criarLocacao(client, tenant, { ...base, propertyId: UUID } as never, 'u1')).rejects.toMatchObject({ statusCode: 422 })
-    expect(hadEq(calls, 'properties', 'tenant_id')).toBe(true)
-    expect(calls.some((c) => c.method === 'insert')).toBe(false)
+    // O imóvel é lido pela service_role: a 0031 fechou as colunas internas de
+    // `properties` ao `authenticated`, e o `select('*')` pelo client do membro
+    // voltava 403 — todo contrato com imóvel vinculado dava 500. Sem RLS, o
+    // `tenant_id` no filtro é o que recusa o imóvel alheio.
+    vi.stubGlobal('logWarn', () => {})
+    vi.stubGlobal('invalidateTenantCache', async () => {})
+    const service = fakeSupabase({ properties: { data: null, error: null } })
+    vi.stubGlobal('serviceSupabase', () => service.client)
+    const { criarLocacao } = await import('~~/server/utils/locacao')
+    const membro = fakeSupabase({})
+    await expect(criarLocacao(membro.client, tenant, { ...base, propertyId: UUID } as never, 'u1')).rejects.toMatchObject({ statusCode: 422 })
+    expect(hadEq(service.calls, 'properties', 'tenant_id')).toBe(true)
+    expect(membro.calls.some((c) => c.table === 'properties')).toBe(false)
+    expect([...membro.calls, ...service.calls].some((c) => c.method === 'insert')).toBe(false)
   })
 
   test('pessoa da carteira de outra imobiliária também', async () => {
