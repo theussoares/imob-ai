@@ -270,8 +270,7 @@ useHead(() => ({
           Mostrando {{ lote.visiveis.length }} de {{ filtered.length }}
         </p>
       </div>
-
-      <div v-else class="empty">
+      <div v-else-if="lote.visiveis?.length === 0" class="empty">
         <AppIcon name="home" />
         <h3>Nenhum imóvel com esses filtros</h3>
         <p>Tente ampliar a faixa de valor ou remover algum filtro.</p>
