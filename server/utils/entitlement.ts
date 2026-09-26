@@ -7,7 +7,7 @@ import { recursoAtivo } from '~~/shared/utils/portal-access'
  * (`FooterPageFeature`): uma tradução no meio faria quem lê o código procurar
  * uma linha que não existe com aquele nome.
  */
-export type RecursoOpcional = 'portal' | 'about' | 'ai'
+export type RecursoOpcional = 'portal' | 'about' | 'ai' | 'crm' | 'cobranca'
 
 /**
  * Este recurso está valendo para esta imobiliária?
@@ -90,4 +90,37 @@ export function quemSomosAtiva(tenantId: string): Promise<boolean> {
  */
 export function descricaoIaAtiva(tenantId: string): Promise<boolean> {
   return recursoLigado(tenantId, 'ai')
+}
+
+/**
+ * O CRM (histórico do lead, agenda, roleta — 0049) está valendo para esta
+ * imobiliária? Sem ele, o painel fica como era antes da 0049: anotação e
+ * retorno direto na ficha do contato. Ver 0054.
+ */
+export function crmAtivo(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'crm')
+}
+
+/**
+ * A cobrança (boleto e Pix pelo Asaas, repasse ao proprietário — 0041/0051)
+ * está valendo para esta imobiliária? Recurso separado de `portal` porque há
+ * imobiliária usando a Área do Cliente em produção sem ter contratado cobrança.
+ * Ver 0055.
+ */
+export function cobrancaAtiva(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'cobranca')
+}
+
+/**
+ * Recusa a operação de cobrança de quem não tem o recurso. 404, como a rota que
+ * não existe: para esta imobiliária o recurso não existe.
+ *
+ * Diferente do resto dos recursos, esta checagem mora TAMBÉM no servidor: é
+ * dinheiro. Um membro que chamasse a API direto conectaria uma conta do Asaas
+ * ou geraria cobrança num recurso que a imobiliária não contratou.
+ */
+export async function exigirCobranca(tenantId: string): Promise<void> {
+  if (!(await cobrancaAtiva(tenantId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Cobrança não está ativa para esta imobiliária.' })
+  }
 }

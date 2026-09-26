@@ -3,6 +3,12 @@ import type { Database } from '~~/shared/types/database.types'
 import type { ContractPartyRole, PortalDocument, PortalDocumentInput } from '~~/shared/models/portal'
 import { visibleDocumentsFor } from '~~/shared/utils/portal-access'
 import {
+  FORMATOS_DE_DOCUMENTO,
+  TAMANHO_MAX_DOCUMENTO,
+  formatoPelaAssinatura,
+  type MimeDeDocumento,
+} from '~~/shared/utils/arquivo-documento'
+import {
   toPortalDocumentModel,
   toPortalDocumentRow,
   toPortalDocumentWithPath,
@@ -147,6 +153,44 @@ export function assertCaminhoDoTenant(storagePath: string, slug: string): void {
       statusMessage: 'Este arquivo não pertence a esta imobiliária.',
     })
   }
+}
+
+/**
+ * Abre o arquivo que o navegador acabou de subir e confere o que ele É.
+ *
+ * O upload vai direto ao Storage, então até aqui o servidor só sabia o que o
+ * navegador disse — e um `.exe` chegou a ser publicado para os clientes como
+ * `application/octet-stream`. O formato vem dos primeiros bytes
+ * (`formatoPelaAssinatura`), e o tamanho do arquivo real, não do payload.
+ *
+ * Recusado, o objeto é apagado do bucket: sem linha em `portal_documents`
+ * ninguém mais o alcançaria, e ele ficaria ocupando espaço para sempre.
+ *
+ * Com o client do MEMBRO: a policy `member read portal-docs` (0028) já dá a
+ * leitura da pasta do tenant, e o caminho foi conferido por
+ * `assertCaminhoDoTenant` antes de chegar aqui.
+ */
+export async function inspecionarArquivoEnviado(
+  client: Client,
+  storagePath: string,
+): Promise<{ mime: MimeDeDocumento; sizeBytes: number }> {
+  const bucket = client.storage.from('portal-docs')
+  const { data, error } = await bucket.download(storagePath)
+  if (error || !data) {
+    throw createError({ statusCode: 422, statusMessage: 'O arquivo não chegou ao servidor. Envie de novo.' })
+  }
+  const inicio = new Uint8Array(await data.slice(0, 16).arrayBuffer())
+  const mime = formatoPelaAssinatura(inicio)
+  const recusa = !mime
+    ? `Formato não aceito. Envie ${Object.values(FORMATOS_DE_DOCUMENTO).join(', ')}.`
+    : data.size > TAMANHO_MAX_DOCUMENTO
+      ? `Arquivo grande demais (máximo ${TAMANHO_MAX_DOCUMENTO / 1024 / 1024} MB).`
+      : null
+  if (recusa) {
+    await bucket.remove([storagePath])
+    throw createError({ statusCode: 422, statusMessage: recusa })
+  }
+  return { mime: mime!, sizeBytes: data.size }
 }
 
 /**

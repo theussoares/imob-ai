@@ -9,6 +9,7 @@ import type {
   ContractPartyRole,
 } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_ROLES } from '~~/shared/models/portal'
+import { contratoQueOcupa } from '~~/shared/models/lease'
 import {
   toContractForClientModel,
   toContractInternalModel,
@@ -103,6 +104,50 @@ export async function updateContract(
   if (error) throw error
   if (!data) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
   return toContractModel(data)
+}
+
+/**
+ * Recusa um segundo contrato ativo no mesmo imóvel e no mesmo período.
+ *
+ * Checagem na aplicação e não constraint de exclusão no banco (`btree_gist` +
+ * `daterange`): produção já tem pares sobrepostos criados antes desta guarda
+ * (LOC-2026-001 e 003), e a constraint não nasceria enquanto a imobiliária não
+ * decidir qual dos dois vale. O custo é a corrida entre duas abas criando ao
+ * mesmo tempo, que é rara num painel de poucos usuários.
+ *
+ * Lê só os contratos daquele imóvel; a regra de sobreposição mora em
+ * `contratoQueOcupa`, que a tela do assistente também usa para avisar antes.
+ */
+export async function assertImovelLivreNoPeriodo(
+  client: Client,
+  tenantId: string,
+  alvo: { propertyId?: string | null; startedOn?: string | null; endsOn?: string | null; excetoId?: string },
+): Promise<void> {
+  if (!alvo.propertyId) return
+  const { data, error } = await client
+    .from('contracts')
+    .select('id, code, property_id, status, started_on, ends_on')
+    .eq('tenant_id', tenantId)
+    .eq('property_id', alvo.propertyId)
+    .eq('status', 'ativo')
+  if (error) throw error
+  const ocupante = contratoQueOcupa(
+    (data ?? []).map((r) => ({
+      id: r.id,
+      code: r.code,
+      propertyId: r.property_id,
+      status: r.status,
+      startedOn: r.started_on,
+      endsOn: r.ends_on,
+    })),
+    alvo,
+  )
+  if (ocupante) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `Este imóvel já está alugado no contrato ${ocupante.code}, que está ativo nesse período. Encerre aquele contrato ou ajuste as datas antes de criar outro.`,
+    })
+  }
 }
 
 /**
@@ -233,8 +278,13 @@ export interface ParteDoContrato {
   role: ContractPartyRole
   /** Nome do cliente, para a tela do painel não precisar de uma segunda busca. */
   nome: string
-  email: string
+  email: string | null
   ativo: boolean
+  /** CPF/CNPJ — a ficha mostra a pendência "inquilino sem documento". */
+  doc: string | null
+  telefone: string | null
+  /** Tem conta no portal (0050: cliente pode existir sem acesso). */
+  temAcesso: boolean
 }
 
 /**
@@ -254,13 +304,15 @@ export async function listContractParties(
     // O embed é filtrado por tenant com `!inner`: `contract_parties` não tem
     // coluna de tenant própria, então sem isto um id de contrato de outra
     // imobiliária devolveria as partes dela.
-    .select('id, role, portal_user_id, portal_users!inner(name, email, active, tenant_id)')
+    .select('id, role, portal_user_id, portal_users!inner(name, email, active, doc, phone, user_id, tenant_id)')
     .eq('contract_id', contractId)
     .eq('portal_users.tenant_id', tenantId)
   if (error) throw error
 
   return (data ?? []).map((row) => {
-    const pu = (row as { portal_users: { name: string; email: string; active: boolean } }).portal_users
+    const pu = (row as unknown as {
+      portal_users: { name: string; email: string | null; active: boolean; doc: string | null; phone: string | null; user_id: string | null }
+    }).portal_users
     return {
       id: row.id,
       portalUserId: row.portal_user_id,
@@ -268,6 +320,9 @@ export async function listContractParties(
       nome: pu.name,
       email: pu.email,
       ativo: pu.active,
+      doc: pu.doc,
+      telefone: pu.phone,
+      temAcesso: !!pu.user_id,
     }
   })
 }
@@ -288,11 +343,20 @@ export async function addContractParty(
   role: ContractPartyRole,
 ): Promise<void> {
   const [{ data: contrato }, { data: cliente }] = await Promise.all([
-    client.from('contracts').select('id').eq('tenant_id', tenantId).eq('id', contractId).maybeSingle(),
+    client.from('contracts').select('id, guarantee_type').eq('tenant_id', tenantId).eq('id', contractId).maybeSingle(),
     client.from('portal_users').select('id').eq('tenant_id', tenantId).eq('id', portalUserId).maybeSingle(),
   ])
   if (!contrato || !cliente) {
     throw createError({ statusCode: 404, statusMessage: 'Contrato ou cliente não encontrado.' })
+  }
+  // Fiador É uma garantia (Lei 8.245, art. 37): vinculá-lo a um contrato que já
+  // tem caução ou seguro-fiança dá duas. Garantia ainda não informada aceita —
+  // é o contrato antigo sendo migrado, que ganha o tipo depois.
+  if (role === 'fiador' && contrato.guarantee_type && contrato.guarantee_type !== 'fiador') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'A garantia deste contrato não é "Fiador". Troque a garantia antes de vincular um fiador: a lei permite uma só (art. 37).',
+    })
   }
 
   const { error } = await client
@@ -306,6 +370,37 @@ export async function addContractParty(
 }
 
 /** Desfaz um vínculo. O contrato e o cliente continuam existindo. */
+/**
+ * Fiadores que sobram quando a garantia deixa de ser "Fiador".
+ *
+ * O sintoma: no LOC-2026-002 a garantia foi trocada de Fiador para Caução e o
+ * QA Fiador continuou vinculado — duas garantias num contrato, o que a própria
+ * tela diz que a lei proíbe (art. 37). Trocar o tipo não removia a pessoa.
+ *
+ * Sem `remover`, recusa e diz quem está no caminho; com, devolve as partes
+ * para o chamador remover DEPOIS de gravar a garantia nova — na ordem
+ * inversa, uma falha no update deixaria o contrato com a garantia antiga e
+ * sem o fiador dela. Nunca remove calado: tirar alguém do contrato corta o
+ * acesso dele aos documentos, e a tela pede confirmação antes.
+ */
+export async function fiadoresSobrando(
+  client: Client,
+  tenantId: string,
+  contractId: string,
+  novaGarantia: string | null | undefined,
+  remover: boolean,
+): Promise<ParteDoContrato[]> {
+  if (novaGarantia === undefined || novaGarantia === null || novaGarantia === 'fiador') return []
+  const fiadores = (await listContractParties(client, tenantId, contractId)).filter((p) => p.role === 'fiador')
+  if (fiadores.length && !remover) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `${fiadores.map((f) => f.nome).join(', ')} está vinculado como fiador. Com a garantia trocada, o fiador sai do contrato — a lei permite uma garantia só (art. 37).`,
+    })
+  }
+  return fiadores
+}
+
 export async function removeContractParty(
   client: Client,
   tenantId: string,
@@ -326,4 +421,25 @@ export async function removeContractParty(
     .eq('id', partyId)
     .eq('contract_id', contractId)
   if (error) throw error
+}
+
+/**
+ * Próximo código livre no formato LOC-AAAA-NNN. Sugestão, não sequência
+ * garantida: dois contratos criados no mesmo instante podem calcular o mesmo
+ * número, e o índice único (tenant_id, code) recusa o segundo — quem chama
+ * tenta de novo com o seguinte (ver `criarLocacao`).
+ */
+export async function nextContractCode(client: Client, tenantId: string, ano: number): Promise<string> {
+  const prefixo = `LOC-${ano}-`
+  const { data, error } = await client
+    .from('contracts')
+    .select('code')
+    .eq('tenant_id', tenantId)
+    .ilike('code', `${prefixo}%`)
+  if (error) throw error
+  const maior = (data ?? []).reduce((m, r) => {
+    const n = Number(r.code.slice(prefixo.length))
+    return Number.isInteger(n) && n > m ? n : m
+  }, 0)
+  return `${prefixo}${String(maior + 1).padStart(3, '0')}`
 }

@@ -64,6 +64,10 @@ function onDismiss() {
 
 <style scoped>
 .confirm {
+  /* O preflight do Tailwind zera a margem de tudo (`* { margin: 0 }`), e é o
+     `margin: auto` do navegador que centraliza o <dialog> modal. Sem isto ele
+     abria colado no canto superior esquerdo. */
+  margin: auto;
   padding: 0;
   border: none;
   border-radius: var(--r-md);

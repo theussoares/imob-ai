@@ -1,3 +1,4 @@
+import { portalUsersWithActiveDestination } from '~~/server/repositories/payout-destination.repository'
 import {
   getContract,
   getContractInternal,
@@ -23,6 +24,13 @@ export default defineEventHandler(async (event) => {
     getContractInternal(client, id),
     listContractParties(client, tenant.id, id),
   ])
+  // Só o SIM/NÃO de ter destino de repasse, para a pendência da ficha. O dado
+  // bancário em si não volta para a tela depois de gravado.
+  const comRepasse = await portalUsersWithActiveDestination(
+    client,
+    tenant.id,
+    partes.filter((p) => p.role === 'proprietario').map((p) => p.portalUserId),
+  )
 
-  return { contrato, internal, partes }
+  return { contrato, internal, partes, repasseInformado: partes.some((p) => comRepasse.has(p.portalUserId)) }
 })

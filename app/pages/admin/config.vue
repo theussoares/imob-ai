@@ -18,7 +18,7 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "portalEnabled",
   ]);
 
-const { areaCliente, descricaoIa, carregar } = useAdminFeatures();
+const { areaCliente, cobranca, descricaoIa, carregar } = useAdminFeatures();
 onMounted(carregar);
 
 /*
@@ -287,7 +287,7 @@ useHead({ title: "Configurações · Painel" });
       <p
         v-if="saved"
         role="status"
-        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+        style="color: var(--ok); margin-top: 14px; font-weight: 600"
       >
         Configurações salvas! <AppIcon name="check" />
       </p>
@@ -298,6 +298,13 @@ useHead({ title: "Configurações · Painel" });
         </button>
       </div>
     </form>
+
+    <!--
+      Cobrança é parte da locação: só aparece para quem tem contratos (a Área
+      do Cliente) E contratou a cobrança (0055) — há imobiliária com a Área do
+      Cliente em produção que não contratou.
+    -->
+    <AdminCobrancaConta v-if="areaCliente && cobranca" />
 
     <!--
       Fora do formulário de cima e com salvamento próprio, de propósito: ver o
@@ -346,7 +353,7 @@ useHead({ title: "Configurações · Painel" });
       <p
         v-if="aiToneSaved"
         role="status"
-        style="color: var(--wa-dark); margin-top: 14px; font-weight: 600"
+        style="color: var(--ok); margin-top: 14px; font-weight: 600"
       >
         Tom salvo! <AppIcon name="check" />
       </p>

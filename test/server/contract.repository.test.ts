@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { fakeSupabase } from '../helpers/fake-supabase'
 import {
+  addContractParty,
+  fiadoresSobrando,
   getContractForClient,
   listContracts,
   listContractsForClient,
@@ -165,3 +167,46 @@ describe('getContractForClient', () => {
     expect(await getContractForClient(client, TENANT, INQUILINO, 'ct-1')).toBeNull()
   })
 })
+
+describe('uma garantia só (Lei 8.245, art. 37)', () => {
+  // No LOC-2026-002 a garantia foi de Fiador para Caução e o fiador continuou
+  // vinculado: duas garantias, justamente o que a tela diz que a lei proíbe.
+  const fiador = { id: 'parte-1', role: 'fiador', portal_user_id: 'pu-qa', portal_users: { name: 'QA Fiador', email: null, active: true, doc: null, phone: null, user_id: null } }
+
+  test('trocar a garantia com fiador vinculado é recusado sem a confirmação, dizendo quem', async () => {
+    const { client } = fakeSupabase({ contract_parties: { data: [fiador], error: null } })
+    await expect(fiadoresSobrando(client, TENANT, 'c1', 'caucao', false)).rejects.toMatchObject({
+      statusCode: 409,
+      statusMessage: expect.stringMatching(/QA Fiador/),
+    })
+  })
+
+  test('com a confirmação, devolve o fiador para sair do contrato', async () => {
+    const { client } = fakeSupabase({ contract_parties: { data: [fiador], error: null } })
+    expect((await fiadoresSobrando(client, TENANT, 'c1', 'caucao', true)).map((p) => p.nome)).toEqual(['QA Fiador'])
+  })
+
+  test('garantia continuando "Fiador" (ou não enviada) não consulta nada', async () => {
+    const { client, calls } = fakeSupabase({})
+    expect(await fiadoresSobrando(client, TENANT, 'c1', 'fiador', false)).toEqual([])
+    expect(await fiadoresSobrando(client, TENANT, 'c1', undefined, false)).toEqual([])
+    expect(calls).toHaveLength(0)
+  })
+
+  test('vincular fiador a contrato com caução é recusado; sem garantia informada, aceito', async () => {
+    const comCaucao = fakeSupabase({
+      contracts: { data: { id: 'c1', guarantee_type: 'caucao' }, error: null },
+      portal_users: { data: { id: 'pu-qa' }, error: null },
+    })
+    await expect(addContractParty(comCaucao.client, TENANT, 'c1', 'pu-qa', 'fiador')).rejects.toMatchObject({ statusCode: 409 })
+    expect(comCaucao.calls.some((c) => c.table === 'contract_parties')).toBe(false)
+
+    const semGarantia = fakeSupabase({
+      contracts: { data: { id: 'c1', guarantee_type: null }, error: null },
+      portal_users: { data: { id: 'pu-qa' }, error: null },
+      contract_parties: { data: null, error: null },
+    })
+    await expect(addContractParty(semGarantia.client, TENANT, 'c1', 'pu-qa', 'fiador')).resolves.toBeUndefined()
+  })
+})
+

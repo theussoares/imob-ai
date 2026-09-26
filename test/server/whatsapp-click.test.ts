@@ -143,6 +143,9 @@ function stubHandlerGlobals(extra: Record<string, unknown>) {
   vi.stubGlobal('setResponseStatus', () => {})
   vi.stubGlobal('logWarn', () => {})
   vi.stubGlobal('logError', () => {})
+  // Estes testes cobrem o comportamento COM o CRM (0049); o modo sem ele tem
+  // os próprios testes. `extra` abaixo sobrescreve quando precisar.
+  vi.stubGlobal('crmAtivo', async () => true)
   for (const [k, v] of Object.entries(extra)) vi.stubGlobal(k, v)
 }
 
@@ -203,7 +206,7 @@ describe('POST /api/admin/leads a partir de um clique', () => {
   async function handlerCom(results: Parameters<typeof fakeSupabase>[0], body: Record<string, unknown>) {
     const fake = fakeSupabase(results)
     stubHandlerGlobals({
-      requireTenantMember: async () => ({ client: fake.client, tenant: { id: 't1', slug: 'olmi' } }),
+      requireTenantMember: async () => ({ client: fake.client, tenant: { id: 't1', slug: 'olmi' }, user: { id: 'u1' } }),
       readBody: async () => body,
       assertLeadCreateInput,
     })

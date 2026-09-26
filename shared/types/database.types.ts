@@ -62,10 +62,12 @@ export type Database = {
           creci: string | null
           email: string | null
           id: string
+          last_lead_at: string | null
           name: string
           phone: string | null
           photo_url: string | null
           public_visible: boolean
+          receives_leads: boolean
           tenant_id: string
           updated_at: string
         }
@@ -76,10 +78,12 @@ export type Database = {
           creci?: string | null
           email?: string | null
           id?: string
+          last_lead_at?: string | null
           name: string
           phone?: string | null
           photo_url?: string | null
           public_visible?: boolean
+          receives_leads?: boolean
           tenant_id: string
           updated_at?: string
         }
@@ -90,10 +94,12 @@ export type Database = {
           creci?: string | null
           email?: string | null
           id?: string
+          last_lead_at?: string | null
           name?: string
           phone?: string | null
           photo_url?: string | null
           public_visible?: boolean
+          receives_leads?: boolean
           tenant_id?: string
           updated_at?: string
         }
@@ -231,6 +237,7 @@ export type Database = {
       }
       contract_charges: {
         Row: {
+          bank_slip_url: string | null
           cancel_reason: string | null
           canceled_at: string | null
           canceled_by: string | null
@@ -238,13 +245,23 @@ export type Database = {
           contract_id: string
           created_at: string
           created_by: string | null
+          digitable_line: string | null
           due_on: string
+          external_id: string | null
+          fine_percent: number | null
           id: string
+          interest_monthly_percent: number | null
           issued_amount: number | null
+          issued_at: string | null
           kind: string
+          payment_url: string | null
+          pix_copy_paste: string | null
+          provider: string | null
+          provider_environment: string | null
           tenant_id: string
         }
         Insert: {
+          bank_slip_url?: string | null
           cancel_reason?: string | null
           canceled_at?: string | null
           canceled_by?: string | null
@@ -252,13 +269,23 @@ export type Database = {
           contract_id: string
           created_at?: string
           created_by?: string | null
+          digitable_line?: string | null
           due_on: string
+          external_id?: string | null
+          fine_percent?: number | null
           id?: string
+          interest_monthly_percent?: number | null
           issued_amount?: number | null
+          issued_at?: string | null
           kind?: string
+          payment_url?: string | null
+          pix_copy_paste?: string | null
+          provider?: string | null
+          provider_environment?: string | null
           tenant_id: string
         }
         Update: {
+          bank_slip_url?: string | null
           cancel_reason?: string | null
           canceled_at?: string | null
           canceled_by?: string | null
@@ -266,10 +293,19 @@ export type Database = {
           contract_id?: string
           created_at?: string
           created_by?: string | null
+          digitable_line?: string | null
           due_on?: string
+          external_id?: string | null
+          fine_percent?: number | null
           id?: string
+          interest_monthly_percent?: number | null
           issued_amount?: number | null
+          issued_at?: string | null
           kind?: string
+          payment_url?: string | null
+          pix_copy_paste?: string | null
+          provider?: string | null
+          provider_environment?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -294,21 +330,42 @@ export type Database = {
           admin_fee_percent: number | null
           contract_id: string
           external_id: string | null
+          fine_percent: number | null
+          fire_insurance_payer: string | null
+          guarantee_amount: number | null
+          guarantee_details: string | null
+          interest_monthly_percent: number | null
           notes: string | null
+          payout_business_days: number | null
+          rent_fee_percent: number | null
           updated_at: string
         }
         Insert: {
           admin_fee_percent?: number | null
           contract_id: string
           external_id?: string | null
+          fine_percent?: number | null
+          fire_insurance_payer?: string | null
+          guarantee_amount?: number | null
+          guarantee_details?: string | null
+          interest_monthly_percent?: number | null
           notes?: string | null
+          payout_business_days?: number | null
+          rent_fee_percent?: number | null
           updated_at?: string
         }
         Update: {
           admin_fee_percent?: number | null
           contract_id?: string
           external_id?: string | null
+          fine_percent?: number | null
+          fire_insurance_payer?: string | null
+          guarantee_amount?: number | null
+          guarantee_details?: string | null
+          interest_monthly_percent?: number | null
           notes?: string | null
+          payout_business_days?: number | null
+          rent_fee_percent?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -368,6 +425,7 @@ export type Database = {
           created_at: string
           due_day: number | null
           ends_on: string | null
+          guarantee_type: string | null
           id: string
           property_id: string | null
           rent_amount: number | null
@@ -375,6 +433,7 @@ export type Database = {
           started_on: string | null
           status: Database["public"]["Enums"]["contract_status"]
           tenant_id: string
+          term_months: number | null
           updated_at: string
         }
         Insert: {
@@ -384,6 +443,7 @@ export type Database = {
           created_at?: string
           due_day?: number | null
           ends_on?: string | null
+          guarantee_type?: string | null
           id?: string
           property_id?: string | null
           rent_amount?: number | null
@@ -391,6 +451,7 @@ export type Database = {
           started_on?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           tenant_id: string
+          term_months?: number | null
           updated_at?: string
         }
         Update: {
@@ -400,6 +461,7 @@ export type Database = {
           created_at?: string
           due_day?: number | null
           ends_on?: string | null
+          guarantee_type?: string | null
           id?: string
           property_id?: string | null
           rent_amount?: number | null
@@ -407,6 +469,7 @@ export type Database = {
           started_on?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           tenant_id?: string
+          term_months?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -426,6 +489,137 @@ export type Database = {
           },
         ]
       }
+      lead_events: {
+        Row: {
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          lead_id: string
+          meta: Json
+          occurred_at: string
+          tenant_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          lead_id: string
+          meta?: Json
+          occurred_at?: string
+          tenant_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          lead_id?: string
+          meta?: Json
+          occurred_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_events_lead_id_tenant_id_fkey"
+            columns: ["lead_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tasks: {
+        Row: {
+          broker_id: string | null
+          canceled_at: string | null
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          done_by: string | null
+          due_at: string
+          id: string
+          kind: string
+          lead_id: string | null
+          property_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          broker_id?: string | null
+          canceled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          due_at: string
+          id?: string
+          kind: string
+          lead_id?: string | null
+          property_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          broker_id?: string | null
+          canceled_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          due_at?: string
+          id?: string
+          kind?: string
+          lead_id?: string | null
+          property_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tasks_broker_id_tenant_id_fkey"
+            columns: ["broker_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_lead_id_tenant_id_fkey"
+            columns: ["lead_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_property_id_tenant_id_fkey"
+            columns: ["property_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "lead_tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           broker_id: string | null
@@ -433,6 +627,7 @@ export type Database = {
           id: string
           ip_hash: string | null
           lead_type: string
+          lost_reason: string | null
           message: string | null
           name: string | null
           next_contact_at: string | null
@@ -451,6 +646,7 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           lead_type?: string
+          lost_reason?: string | null
           message?: string | null
           name?: string | null
           next_contact_at?: string | null
@@ -469,6 +665,7 @@ export type Database = {
           id?: string
           ip_hash?: string | null
           lead_type?: string
+          lost_reason?: string | null
           message?: string | null
           name?: string | null
           next_contact_at?: string | null
@@ -571,6 +768,92 @@ export type Database = {
           },
           {
             foreignKeyName: "owner_payouts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_customers: {
+        Row: {
+          created_at: string
+          environment: string
+          external_id: string
+          id: string
+          portal_user_id: string
+          provider: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          environment: string
+          external_id: string
+          id?: string
+          portal_user_id: string
+          provider: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          external_id?: string
+          id?: string
+          portal_user_id?: string
+          provider?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_customers_portal_user_id_tenant_id_fkey"
+            columns: ["portal_user_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "portal_users"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payment_customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          external_id: string | null
+          id: string
+          outcome: string | null
+          provider: string
+          received_at: string
+          tenant_id: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          external_id?: string | null
+          id?: string
+          outcome?: string | null
+          provider: string
+          received_at?: string
+          tenant_id: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          external_id?: string | null
+          id?: string
+          outcome?: string | null
+          provider?: string
+          received_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_webhook_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -845,42 +1128,45 @@ export type Database = {
           active: boolean
           created_at: string
           doc: string | null
-          email: string
+          email: string | null
+          first_login_at: string | null
           id: string
           last_recovery_at: string | null
           name: string
           phone: string | null
           tenant_id: string
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
-          email: string
+          email?: string | null
+          first_login_at?: string | null
           id?: string
           last_recovery_at?: string | null
           name: string
           phone?: string | null
           tenant_id: string
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           access_confirmed_at?: string | null
           active?: boolean
           created_at?: string
           doc?: string | null
-          email?: string
+          email?: string | null
+          first_login_at?: string | null
           id?: string
           last_recovery_at?: string | null
           name?: string
           phone?: string | null
           tenant_id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1173,6 +1459,59 @@ export type Database = {
           },
         ]
       }
+      tenant_payment_accounts: {
+        Row: {
+          account_name: string | null
+          api_key_ciphertext: string | null
+          api_key_last4: string | null
+          connected_at: string
+          connected_by: string | null
+          environment: string
+          external_webhook_id: string | null
+          provider: string
+          tenant_id: string
+          updated_at: string
+          webhook_id: string
+          webhook_secret_hash: string | null
+        }
+        Insert: {
+          account_name?: string | null
+          api_key_ciphertext?: string | null
+          api_key_last4?: string | null
+          connected_at?: string
+          connected_by?: string | null
+          environment: string
+          external_webhook_id?: string | null
+          provider: string
+          tenant_id: string
+          updated_at?: string
+          webhook_id?: string
+          webhook_secret_hash?: string | null
+        }
+        Update: {
+          account_name?: string | null
+          api_key_ciphertext?: string | null
+          api_key_last4?: string | null
+          connected_at?: string
+          connected_by?: string | null
+          environment?: string
+          external_webhook_id?: string | null
+          provider?: string
+          tenant_id?: string
+          updated_at?: string
+          webhook_id?: string
+          webhook_secret_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_payment_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           about_content: Json
@@ -1195,22 +1534,23 @@ export type Database = {
           footer_links: Json
           footer_pages: Json
           footer_text: string | null
+          header_style: string
           hero_cta_href: string | null
           hero_cta_label: string | null
           hero_image: string | null
           hero_image_position: string
-          header_style: string
-          site_theme: string
           hero_subtitle: string | null
           hero_title: string | null
           id: string
           instagram: string | null
           latitude: number | null
+          lead_distribution: string
           logo_url: string | null
           longitude: number | null
           name: string
           phone: string | null
           portal_enabled: boolean
+          site_theme: string
           slug: string
           state: string | null
           tagline: string | null
@@ -1241,22 +1581,23 @@ export type Database = {
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
+          header_style?: string
           hero_cta_href?: string | null
           hero_cta_label?: string | null
           hero_image?: string | null
           hero_image_position?: string
-          header_style?: string
-          site_theme?: string
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           instagram?: string | null
           latitude?: number | null
+          lead_distribution?: string
           logo_url?: string | null
           longitude?: number | null
           name: string
           phone?: string | null
           portal_enabled?: boolean
+          site_theme?: string
           slug: string
           state?: string | null
           tagline?: string | null
@@ -1287,22 +1628,23 @@ export type Database = {
           footer_links?: Json
           footer_pages?: Json
           footer_text?: string | null
+          header_style?: string
           hero_cta_href?: string | null
           hero_cta_label?: string | null
           hero_image?: string | null
           hero_image_position?: string
-          header_style?: string
-          site_theme?: string
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           instagram?: string | null
           latitude?: number | null
+          lead_distribution?: string
           logo_url?: string | null
           longitude?: number | null
           name?: string
           phone?: string | null
           portal_enabled?: boolean
+          site_theme?: string
           slug?: string
           state?: string | null
           tagline?: string | null
@@ -1384,6 +1726,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      proximo_corretor_da_roleta: {
+        Args: { p_tenant_id: string }
+        Returns: string | null
+      }
       is_member_of_slug: { Args: { folder: string }; Returns: boolean }
       is_portal_user: { Args: { t_id: string }; Returns: boolean }
       is_tenant_member: { Args: { t_id: string }; Returns: boolean }

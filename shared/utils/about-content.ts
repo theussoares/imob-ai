@@ -1,4 +1,12 @@
-import type { AboutBlock, AboutGalleryImage, AboutLogoItem, AboutPageContent } from '~~/shared/models/about-page'
+import type {
+  AboutBlock,
+  AboutGalleryImage,
+  AboutLogoItem,
+  AboutPageContent,
+  AboutStatItem,
+  AboutTestimonialItem,
+  AboutValueItem,
+} from '~~/shared/models/about-page'
 import { ABOUT_BLOCK_TYPES } from '~~/shared/models/about-page'
 
 /** Página é editada por vez, não é feed: teto generoso evita rolagem infinita no painel. */
@@ -7,6 +15,15 @@ export const ABOUT_BLOCKS_MAX = 30
 /** Cada carrossel (galeria/logos) tem teto próprio, menor: são itens dentro de UM bloco. */
 export const GALLERY_IMAGES_MAX = 12
 export const LOGOS_MAX = 10
+
+/**
+ * Tetos dos blocos com itens. Números: 4 cabem numa faixa sem quebrar no
+ * desktop — o quinto já é enchimento. Compromissos: acima de 4, ninguém lê.
+ * Depoimentos: 6 fecham duas fileiras de 3 na grade.
+ */
+export const STATS_MAX = 4
+export const VALUES_MAX = 4
+export const TESTIMONIALS_MAX = 6
 
 const HEADING_MAX = 80
 const TEXT_MAX = 4000
@@ -18,6 +35,8 @@ const CTA_LABEL_MAX = 40
 const TESTIMONIAL_QUOTE_MAX = 600
 const TESTIMONIAL_NAME_MAX = 80
 const TESTIMONIAL_ROLE_MAX = 80
+const VALUE_TITLE_MAX = 60
+const VALUE_BODY_MAX = 240
 
 function str(v: unknown, max: number): string {
   return String(v ?? '').trim().slice(0, max)
@@ -41,6 +60,41 @@ function sanitizeImageItems(value: unknown, max: number): { url: string; alt: st
     if (out.length === max) break
   }
   return out
+}
+
+/**
+ * Itens de um bloco com lista: normaliza cada um e descarta o incompleto, em
+ * vez de publicar um número sem legenda ou um depoimento sem autor.
+ */
+function sanitizeItems<T>(value: unknown, max: number, item: (r: Record<string, unknown>) => T | null): T[] {
+  if (!Array.isArray(value)) return []
+  const out: T[] = []
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue
+    const it = item(raw as Record<string, unknown>)
+    if (!it) continue
+    out.push(it)
+    if (out.length === max) break
+  }
+  return out
+}
+
+function statItem(r: Record<string, unknown>): AboutStatItem | null {
+  const value = str(r.value, STAT_VALUE_MAX)
+  const label = str(r.label, STAT_LABEL_MAX)
+  return value && label ? { value, label } : null
+}
+
+function testimonialItem(r: Record<string, unknown>): AboutTestimonialItem | null {
+  const quote = str(r.quote, TESTIMONIAL_QUOTE_MAX)
+  const authorName = str(r.authorName, TESTIMONIAL_NAME_MAX)
+  if (!quote || !authorName) return null
+  return { quote, authorName, authorRole: str(r.authorRole, TESTIMONIAL_ROLE_MAX) }
+}
+
+function valueItem(r: Record<string, unknown>): AboutValueItem | null {
+  const title = str(r.title, VALUE_TITLE_MAX)
+  return title ? { title, body: str(r.body, VALUE_BODY_MAX) } : null
 }
 
 /**
@@ -70,9 +124,20 @@ function sanitizeBlock(value: unknown): AboutBlock | null {
       return url ? { type: 'image', url, alt: str(b.alt, IMAGE_ALT_MAX), caption: str(b.caption, IMAGE_CAPTION_MAX) } : null
     }
     case 'stat': {
-      const value = str(b.value, STAT_VALUE_MAX)
-      const label = str(b.label, STAT_LABEL_MAX)
-      return value && label ? { type: 'stat', value, label } : null
+      const it = statItem(b)
+      return it ? { type: 'stat', ...it } : null
+    }
+    case 'stats': {
+      const items = sanitizeItems(b.items, STATS_MAX, statItem)
+      return items.length ? { type: 'stats', items } : null
+    }
+    case 'values': {
+      const items = sanitizeItems(b.items, VALUES_MAX, valueItem)
+      return items.length ? { type: 'values', title: str(b.title, HEADING_MAX), items } : null
+    }
+    case 'testimonials': {
+      const items = sanitizeItems(b.items, TESTIMONIALS_MAX, testimonialItem)
+      return items.length ? { type: 'testimonials', items } : null
     }
     case 'banner': {
       const title = str(b.title, HEADING_MAX)
@@ -98,10 +163,8 @@ function sanitizeBlock(value: unknown): AboutBlock | null {
       return images.length ? { type: 'gallery', images: images as AboutGalleryImage[] } : null
     }
     case 'testimonial': {
-      const quote = str(b.quote, TESTIMONIAL_QUOTE_MAX)
-      const authorName = str(b.authorName, TESTIMONIAL_NAME_MAX)
-      if (!quote || !authorName) return null
-      return { type: 'testimonial', quote, authorName, authorRole: str(b.authorRole, TESTIMONIAL_ROLE_MAX) }
+      const it = testimonialItem(b)
+      return it ? { type: 'testimonial', ...it } : null
     }
     case 'logos': {
       const items = sanitizeImageItems(b.items, LOGOS_MAX)
@@ -126,4 +189,23 @@ export function sanitizeAboutContent(value: unknown): AboutPageContent {
     if (blocks.length === ABOUT_BLOCKS_MAX) break
   }
   return { blocks }
+}
+
+/**
+ * A página tem o mínimo para ir ao ar: um texto ou um "texto + imagem" que
+ * sobreviva à sanitização.
+ *
+ * Existe porque o interruptor aceitava publicar com zero blocos, e aí o site
+ * mostrava o parágrafo genérico de fallback — exatamente a página rala que o 404
+ * de `quem-somos.vue` existe para não indexar. Número, logo ou galeria sozinhos
+ * não contam: nenhum deles diz quem é a imobiliária.
+ *
+ * Passa pelo sanitizador, e não olha os campos crus, para concordar com o que o
+ * site vai de fato renderizar: um bloco de texto só com espaços é descartado lá,
+ * e contá-lo aqui liberaria publicar uma página vazia.
+ */
+export function aboutTemConteudoMinimo(value: unknown): boolean {
+  return sanitizeAboutContent(value).blocks.some(
+    (b) => b.type === 'text' || (b.type === 'split' && !!(b.title || b.body)),
+  )
 }
