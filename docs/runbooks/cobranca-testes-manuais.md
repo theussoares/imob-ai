@@ -84,7 +84,10 @@ o painel do sandbox (`sandbox.asaas.com`).
 | # | Faça | Tem de acontecer |
 |---|---|---|
 | 6.1 | No Asaas, estorne um pagamento recebido (se o sandbox permitir para o meio usado) | Aqui a cobrança volta para em aberto ou vencida, com uma linha negativa por liquidação |
-| 6.2 | Olhe o repasse daquela cobrança | ⚠️ **Hoje ele continua pendente.** Nenhum código cancela o repasse no estorno. Registre o que viu: é lacuna conhecida, e o repasse precisa ser cancelado à mão até existir a regra |
+| 6.2 | Estorne uma cobrança cujo repasse ainda está **pendente** | O repasse vira **Cancelado**, e o botão "Marcar como feito" some dele |
+| 6.3 | Estorne uma cobrança cujo repasse já foi **marcado como feito** | O repasse fica "**Feito · estornado**", e a seção de repasses mostra em vermelho quanto foi transferido a mais, pedindo a devolução ou o desconto no próximo repasse |
+| 6.4 | Depois do 6.3, registre um novo pagamento dessa cobrança por baixa manual. Não dá para emitir outro boleto: a cobrança segue ligada ao estornado. Se o Asaas recusar a baixa de um pagamento estornado, anote a mensagem: o cenário fica coberto só pelo teste automático (`aMaiorSeMarcarFeito`) | Nasce um repasse pendente novo, com o aviso "Já repassado antes do estorno: não transfira de novo". Ao clicar em "Marcar como feito", o diálogo é vermelho ("O proprietário já recebeu por <mês>") e mostra o valor que sairia a mais |
+| 6.5 | No Asaas, reenvie o evento de estorno (histórico do webhook, se o painel permitir) | Nada muda: nenhuma linha negativa nova, e o repasse continua como estava |
 
 ## 7. Área do Cliente (portal)
 
@@ -115,5 +118,5 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<seu-domínio>/api/webh
 - [ ] O cliente conecta com a chave de produção (`$aact_prod_`) escolhendo "Produção".
 - [ ] Emita um boleto de R$ 5,00 para um CPF da equipe, pague por Pix de
       verdade e confira a baixa automática e o repasse.
-- [ ] Estorne esse pagamento pelo Asaas e confira o item 6.
+- [ ] Estorne esse pagamento pelo Asaas e confira os itens 6.1 e 6.2.
 - [ ] "Simular pagamento" **não** aparece para cobrança de produção.
