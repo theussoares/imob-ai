@@ -1,4 +1,4 @@
-import { areaClienteAtiva, crmAtivo, quemSomosAtiva, descricaoIaAtiva } from '~~/server/utils/entitlement'
+import { areaClienteAtiva, cobrancaAtiva, crmAtivo, quemSomosAtiva, descricaoIaAtiva } from '~~/server/utils/entitlement'
 
 /**
  * Quais recursos opcionais estão ligados para ESTA imobiliária.
@@ -19,12 +19,13 @@ export default defineEventHandler(async (event) => {
   // Em paralelo, e numa resposta só: o middleware de rota espera esta chamada
   // antes de decidir o redirect, e uma requisição por recurso multiplicaria a
   // espera na primeira navegação do painel.
-  const [areaCliente, quemSomos, descricaoIa, crm] = await Promise.all([
+  const [areaCliente, quemSomos, descricaoIa, crm, cobranca] = await Promise.all([
     areaClienteAtiva(tenant.id),
     quemSomosAtiva(tenant.id),
     descricaoIaAtiva(tenant.id),
     crmAtivo(tenant.id),
+    cobrancaAtiva(tenant.id),
   ])
 
-  return { areaCliente, quemSomos, descricaoIa, crm }
+  return { areaCliente, quemSomos, descricaoIa, crm, cobranca }
 })

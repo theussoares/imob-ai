@@ -494,6 +494,14 @@ const recebeProprietario = computed(() =>
 const idsNoContrato = computed(() => partes.value.filter((p) => p.role === novaParte.role).map((p) => p.portalUserId))
 
 useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contrato · Painel')) })
+
+/**
+ * Cobrança é recurso próprio (0055): há imobiliária com a Área do Cliente em
+ * produção que não contratou cobrança. Sem ele, a ficha fica sem Cobranças,
+ * sem destino do repasse e sem a lista "Falta para cobrar e repassar".
+ */
+const { cobranca: temCobranca, carregar: carregarRecursos } = useAdminFeatures()
+onMounted(carregarRecursos)
 </script>
 
 <template>
@@ -523,7 +531,7 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
 
       <!-- Encerrado não gera cobrança nem repasse: "falta para cobrar" ali é
            uma lista de tarefas que ninguém deve fazer. -->
-      <section v-if="form.status === 'ativo' && pendencias.length" class="pendencias" aria-labelledby="pend-t">
+      <section v-if="temCobranca && form.status === 'ativo' && pendencias.length" class="pendencias" aria-labelledby="pend-t">
         <h2 id="pend-t"><AppIcon name="alert" /> Falta para cobrar e repassar</h2>
         <ul>
           <li v-for="p in pendencias" :key="p.codigo">
@@ -532,10 +540,10 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
           </li>
         </ul>
       </section>
-      <p v-else-if="form.status === 'ativo'" class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
+      <p v-else-if="temCobranca && form.status === 'ativo'" class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
 
       <!-- Cobranças: o que se faz todo mês, por isso logo abaixo das pendências. -->
-      <AdminContratoCobrancas :contract-id="contrato.id" :rent-amount="contrato.rentAmount" :due-day="contrato.dueDay" :started-on="contrato.startedOn" :ends-on="contrato.endsOn" :ativo="form.status === 'ativo'" />
+      <AdminContratoCobrancas v-if="temCobranca" :contract-id="contrato.id" :rent-amount="contrato.rentAmount" :due-day="contrato.dueDay" :started-on="contrato.startedOn" :ends-on="contrato.endsOn" :ativo="form.status === 'ativo'" />
 
       <!-- Pessoas -->
       <section class="admin-card secao">
@@ -673,7 +681,7 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
           </div>
         </div>
 
-        <div class="repasse">
+        <div v-if="temCobranca" class="repasse">
           <template v-if="!dono">
             <p class="dica">Vincule o proprietário em Pessoas para informar o destino do repasse.</p>
           </template>

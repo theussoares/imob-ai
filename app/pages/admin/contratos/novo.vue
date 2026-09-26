@@ -36,6 +36,10 @@ import { EXEMPLO_CHAVE_PIX, ROTULO_CHAVE_PIX, chavePixValida } from '~~/shared/u
  * Base legal e de mercado de cada padrão: spec 2026-09-25, seção 4B.
  */
 definePageMeta({ layout: 'admin', middleware: ['admin', 'area-cliente'] })
+// Destino do repasse só com a cobrança (0055); as taxas continuam — são termos
+// do contrato, e não dinheiro movido pelo sistema.
+const { cobranca: temCobranca, carregar: carregarRecursos } = useAdminFeatures()
+onMounted(carregarRecursos)
 useHead({ title: 'Novo contrato · Painel' })
 
 const toast = useToast()
@@ -236,7 +240,7 @@ function errosDaEtapa(n: number): string[] {
       e.push(`Caução até ${MAX_CAUCAO_ALUGUEIS} aluguéis (${brl(maxCaucao.value)}), pela Lei 8.245, art. 38.`)
     if (f.guaranteeType === 'fiador' && !f.fiador) e.push('Escolha ou cadastre o fiador, ou troque a garantia.')
   }
-  if (n === 3 && f.proprietario && f.repasseTipo !== 'depois') {
+  if (n === 3 && temCobranca.value && f.proprietario && f.repasseTipo !== 'depois') {
     if (!f.holderName.trim()) e.push('Repasse: informe o titular.')
     if (!tipoDeDocumento(f.holderDoc)) e.push('Repasse: CPF/CNPJ do titular inválido.')
     if (f.repasseTipo === 'pix' && !f.pixKey.trim()) e.push('Repasse: informe a chave Pix.')
@@ -281,7 +285,7 @@ function irPara(n: number) {
 // ---- Criar ----
 const criando = ref(false)
 function repasse(): PayoutDestinationInput | null {
-  if (!f.proprietario || f.repasseTipo === 'depois') return null
+  if (!temCobranca.value || !f.proprietario || f.repasseTipo === 'depois') return null
   const titular = { holderName: f.holderName.trim(), holderDoc: f.holderDoc.replace(/\D/g, '') }
   return f.repasseTipo === 'pix'
     ? { kind: 'pix', pixKeyType: f.pixKeyType, pixKey: f.pixKey.trim(), ...titular }
@@ -535,7 +539,7 @@ useUnsavedGuard(() => !criando.value && (!!f.inquilino || !!f.propertyId || !!f.
             </div>
           </div>
 
-          <fieldset v-if="f.proprietario" class="bloco">
+          <fieldset v-if="temCobranca && f.proprietario" class="bloco">
             <legend class="admin-label">Para onde vai o repasse de {{ nomeDe(f.proprietario) }}</legend>
             <div class="chips" role="radiogroup" aria-label="Forma do repasse">
               <button type="button" role="radio" :aria-checked="f.repasseTipo === 'pix'" :class="{ on: f.repasseTipo === 'pix' }" @click="f.repasseTipo = 'pix'">Pix</button>
@@ -592,7 +596,7 @@ useUnsavedGuard(() => !criando.value && (!!f.inquilino || !!f.propertyId || !!f.
             </div>
             <p class="ajuda">Pode ser a conta do cônjuge ou do espólio: por isso titular e documento são editáveis.</p>
           </fieldset>
-          <p v-else class="ajuda">Sem proprietário no contrato, não há para quem repassar. Dá para vincular depois na ficha.</p>
+          <p v-else-if="temCobranca" class="ajuda">Sem proprietário no contrato, não há para quem repassar. Dá para vincular depois na ficha.</p>
 
           <label v-if="f.propertyId" class="opcao">
             <input v-model="f.marcarImovelAlugado" type="checkbox" />

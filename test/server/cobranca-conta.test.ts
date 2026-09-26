@@ -43,6 +43,9 @@ async function montar(opts: { role?: string; body?: unknown; anterior?: unknown;
   }))
   vi.stubGlobal('readBody', async () => opts.body ?? { provider: 'asaas', environment: 'sandbox', apiKey: `  ${CHAVE}  ` })
   vi.stubGlobal('assertPaymentAccountInput', assertPaymentAccountInput)
+  // Imobiliária COM o recurso de cobrança (0055); o caso sem ele é testado em
+  // `cobranca-por-tenant.test.ts`.
+  vi.stubGlobal('exigirCobranca', async () => {})
   vi.stubGlobal('cifrar', cifrar)
   vi.stubGlobal('novoSegredoDeWebhook', () => SEGREDO)
   vi.stubGlobal('hashDeSegredo', hash)
