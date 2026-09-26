@@ -106,6 +106,10 @@ async function remove(b: Broker) {
 }
 
 // ---- Roleta de leads (0049) ----
+// Só com o CRM (0054): sem ele o servidor nem gira a roleta (`leads.post.ts`),
+// e a configuração seria um botão que não faz nada.
+const { crm: temCrm, carregar: carregarRecursos } = useAdminFeatures()
+onMounted(carregarRecursos)
 const { data: crm, refresh: refreshCrm } = useLazyAsyncData(
   'admin:crm-settings',
   () => adminFetch<{ leadDistribution: 'manual' | 'roleta' }>('/api/admin/crm-settings'),
@@ -183,7 +187,7 @@ useHead({ title: 'Corretores · Painel' })
       Cadastre os corretores da equipe. Depois você poderá vincular quem captou cada imóvel.
     </p>
 
-    <section class="admin-card roleta" aria-labelledby="roleta-t">
+    <section v-if="temCrm" class="admin-card roleta" aria-labelledby="roleta-t">
       <header class="roleta-head">
         <AppIcon name="roleta" class="roleta-ico" />
         <div>

@@ -7,7 +7,7 @@ import { recursoAtivo } from '~~/shared/utils/portal-access'
  * (`FooterPageFeature`): uma tradução no meio faria quem lê o código procurar
  * uma linha que não existe com aquele nome.
  */
-export type RecursoOpcional = 'portal' | 'about' | 'ai'
+export type RecursoOpcional = 'portal' | 'about' | 'ai' | 'crm'
 
 /**
  * Este recurso está valendo para esta imobiliária?
@@ -90,4 +90,13 @@ export function quemSomosAtiva(tenantId: string): Promise<boolean> {
  */
 export function descricaoIaAtiva(tenantId: string): Promise<boolean> {
   return recursoLigado(tenantId, 'ai')
+}
+
+/**
+ * O CRM (histórico do lead, agenda, roleta — 0049) está valendo para esta
+ * imobiliária? Sem ele, o painel fica como era antes da 0049: anotação e
+ * retorno direto na ficha do contato. Ver 0054.
+ */
+export function crmAtivo(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'crm')
 }

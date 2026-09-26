@@ -85,7 +85,7 @@ export async function createManualLead(
   client: Client,
   tenantId: string,
   input: LeadCreateInput,
-  derivado: { propertyId?: string | null } = {},
+  derivado: { propertyId?: string | null; notes?: string | null } = {},
 ): Promise<Lead> {
   const { data, error } = await client
     .from('leads')
@@ -96,8 +96,9 @@ export async function createManualLead(
       phone: input.phone ?? null,
       message: input.message ?? null,
       stage: input.stage ?? 'novo',
-      // `notes` e `nextContactAt` do cadastro viram evento e tarefa no
-      // endpoint (0049) — gravar aqui duplicaria a anotação em dois lugares.
+      // Com o CRM, a anotação do cadastro vira evento no endpoint (0049), e
+      // gravar aqui a duplicaria. Sem ele (0054), a anotação É esta coluna.
+      notes: derivado.notes ?? null,
       broker_id: input.brokerId ?? null,
       source: toLeadSource(input.source ?? 'manual'),
       lead_type: input.leadType ?? 'indefinido',
@@ -139,6 +140,8 @@ export async function updateLead(
   if (input.phone !== undefined) patch.phone = input.phone
   if (input.leadType !== undefined) patch.lead_type = input.leadType
   if (input.brokerId !== undefined) patch.broker_id = input.brokerId
+  // Só chega aqui sem o CRM (0054): com ele, `assertLeadUpdateInput` recusa.
+  if (input.notes !== undefined) patch.notes = input.notes?.trim() || null
   if (input.stage !== undefined) {
     patch.stage = input.stage
     // O motivo pertence à perda: o lead que volta ao funil não carrega um
