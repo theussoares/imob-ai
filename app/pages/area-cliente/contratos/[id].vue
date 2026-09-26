@@ -2,6 +2,8 @@
 import type { ContractForClient, PortalDocCategory, PortalDocument } from '~~/shared/models/portal'
 import { CONTRACT_PARTY_LABELS, PORTAL_DOC_CATEGORIES, PORTAL_DOC_LABELS } from '~~/shared/models/portal'
 import { classificarFalha, MENSAGEM_DE_FALHA } from '~~/shared/utils/session-error'
+import type { ChargeForClient } from '~~/shared/models/cobranca'
+import { CHARGE_STATUS_LABELS } from '~~/shared/models/cobranca'
 
 definePageMeta({ layout: 'portal', middleware: 'portal' })
 
@@ -14,6 +16,8 @@ const carregando = ref(true)
 const erro = ref('')
 const baixando = ref<string | null>(null)
 const erroDownload = ref('')
+const boletos = ref<ChargeForClient[]>([])
+const copiado = ref('')
 
 onMounted(async () => {
   try {
@@ -25,6 +29,14 @@ onMounted(async () => {
     ])
     contrato.value = c
     documentos.value = docs
+    // Boletos só para o inquilino, e fora do Promise.all de propósito: uma
+    // falha aqui não pode esconder os documentos, que existiam antes da
+    // cobrança e continuam sendo o principal desta página.
+    if (c.roles.includes('inquilino')) {
+      portalFetch<ChargeForClient[]>(`/api/portal/contratos/${id.value}/cobrancas`)
+        .then((b) => (boletos.value = b))
+        .catch(() => {})
+    }
   } catch (e: unknown) {
     // Diferencia sessão caída, falha de rede e 404: "não foi possível carregar"
     // serve para tudo e não diz o que fazer.
@@ -97,6 +109,26 @@ function dinheiro(v: number | null): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+/** Em aberto primeiro (o que o inquilino veio fazer aqui), depois o histórico. */
+const boletosEmAberto = computed(() =>
+  boletos.value.filter((b) => b.status === 'emitida' || b.status === 'vencida' || b.status === 'parcial').sort((a, b) => a.dueOn.localeCompare(b.dueOn)),
+)
+const boletosPassados = computed(() => boletos.value.filter((b) => b.status === 'paga' || b.status === 'cancelada'))
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+function mesDe(competencia: string) {
+  const [a, m] = competencia.split('-')
+  return `${MESES[Number(m) - 1]} de ${a}`
+}
+async function copiar(texto: string, id: string) {
+  try {
+    await navigator.clipboard.writeText(texto)
+    copiado.value = id
+    setTimeout(() => (copiado.value = ''), 2500)
+  } catch {
+    copiado.value = ''
+  }
+}
+
 const papeis = computed(() =>
   (contrato.value?.roles ?? []).map((r) => CONTRACT_PARTY_LABELS[r]).join(' e '),
 )
@@ -126,6 +158,46 @@ useHead({
         <div><span>Aluguel</span><b>{{ dinheiro(contrato.rentAmount) }}</b></div>
         <div><span>Vencimento</span><b>{{ contrato.dueDay ? `dia ${contrato.dueDay}` : '—' }}</b></div>
       </section>
+
+      <template v-if="boletos.length">
+        <h2 class="tit2">Boletos do aluguel</h2>
+        <ul class="boletos">
+          <li v-for="b in boletosEmAberto" :key="b.id" class="boleto" :class="b.status">
+            <div class="b-topo">
+              <div class="doc-info">
+                <b>Aluguel de {{ mesDe(b.competence) }}</b>
+                <small>vence {{ data(b.dueOn) }}</small>
+              </div>
+              <div class="b-valor">
+                <b>{{ dinheiro(b.amount) }}</b>
+                <span class="b-st">{{ CHARGE_STATUS_LABELS[b.status] }}</span>
+              </div>
+            </div>
+            <p v-if="b.status === 'vencida'" class="b-aviso">Pagando depois do vencimento, o boleto soma a multa e os juros do contrato.</p>
+            <div class="b-acoes">
+              <button v-if="b.pixCopyPaste" type="button" class="btn-baixar" @click="copiar(b.pixCopyPaste, `pix-${b.id}`)">
+                {{ copiado === `pix-${b.id}` ? 'Pix copiado!' : 'Copiar Pix' }}
+              </button>
+              <button v-if="b.digitableLine" type="button" class="btn-sec" @click="copiar(b.digitableLine, `lin-${b.id}`)">
+                {{ copiado === `lin-${b.id}` ? 'Código copiado!' : 'Copiar código de barras' }}
+              </button>
+              <a v-if="b.paymentUrl" :href="b.paymentUrl" target="_blank" rel="noopener" class="btn-sec">Ver boleto</a>
+            </div>
+          </li>
+          <li v-for="b in boletosPassados" :key="b.id" class="boleto passado">
+            <div class="b-topo">
+              <div class="doc-info">
+                <b>Aluguel de {{ mesDe(b.competence) }}</b>
+                <small>venceu {{ data(b.dueOn) }}</small>
+              </div>
+              <div class="b-valor">
+                <b>{{ dinheiro(b.amount) }}</b>
+                <span class="b-st" :class="b.status">{{ CHARGE_STATUS_LABELS[b.status] }}</span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </template>
 
       <h2 class="tit2">Documentos</h2>
 
@@ -275,5 +347,84 @@ useHead({
 .btn-baixar:disabled {
   opacity: 0.6;
   cursor: default;
+}
+.boletos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.boleto {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--r-md);
+  padding: 14px;
+}
+.boleto.vencida {
+  border-color: #fca5a5;
+}
+.boleto.passado {
+  padding: 10px 14px;
+}
+.b-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.b-valor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.b-st {
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1e40af;
+}
+.vencida .b-st {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.b-st.paga {
+  background: #dcfce7;
+  color: #166534;
+}
+.b-st.cancelada {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+.b-aviso {
+  margin: 10px 0 0;
+  font-size: var(--fs-caption);
+  color: #991b1b;
+}
+.b-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.b-acoes .btn-baixar,
+.btn-sec {
+  min-height: 44px;
+}
+.btn-sec {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
 }
 </style>

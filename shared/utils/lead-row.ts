@@ -1,5 +1,5 @@
 import type { Lead, LeadStage } from '~~/shared/models/lead'
-import { toLeadSource, toLeadType } from '~~/shared/models/lead'
+import { toLeadLostReason, toLeadSource, toLeadType } from '~~/shared/models/lead'
 
 /** Linha crua de `leads` como o Realtime entrega: snake_case, sem embeds. */
 type RawLeadRow = Record<string, unknown>
@@ -42,6 +42,7 @@ export function leadFromRealtimeRow(row: RawLeadRow, existing?: Lead, expectedTe
     notes: nullable(row.notes),
     nextContactAt: nullable(row.next_contact_at),
     brokerId: nullable(row.broker_id),
+    lostReason: toLeadLostReason(row.lost_reason),
     createdAt: str(row.created_at),
     updatedAt: str(row.updated_at),
     updatedBy: nullable(row.updated_by),

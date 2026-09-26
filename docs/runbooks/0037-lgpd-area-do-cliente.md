@@ -27,6 +27,10 @@ final lê é dela, não nossa — o que fornecemos é a estrutura e este mapa.
 | bucket `portal-docs` | **o documento em si** | todas as partes |
 | `portal_document_access` | quem baixou o quê, quando, de que IP | cliente final |
 | `contract_internal` | anotação, taxa de administração, id no ERP | imobiliária |
+| `payout_destinations` | chave Pix ou conta bancária do proprietário, com titular e documento | proprietário |
+| `contract_charges`, `charge_settlements` | boletos do aluguel, pagamentos recebidos, linha digitável e Pix | inquilino |
+| `payment_customers` | id do inquilino no provedor de cobrança | inquilino |
+| **Asaas** (fora do nosso banco, 0051) | nome, CPF/CNPJ, e-mail e telefone do inquilino, e cada boleto emitido. Conta **da imobiliária** no Asaas, não da plataforma; processamento no Brasil. Base: execução do contrato de locação (art. 7º, V). Só existe quando a imobiliária conecta a cobrança em Configurações → Cobrança | inquilino |
 
 O dado mais sensível não está em tabela: está **dentro dos PDFs**. O contrato de
 locação real que modelou esta feature traz CPF de três pessoas, endereço

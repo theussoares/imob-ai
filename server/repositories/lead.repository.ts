@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
-import type { Lead, LeadCreateInput, LeadSource, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
+import type { Lead, LeadCreateInput, LeadSource, LeadStage, LeadType, LeadUpdateInput } from '~~/shared/models/lead'
 import { toLeadModel } from '~~/server/mappers/lead.mapper'
 import { toLeadSource } from '~~/shared/models/lead'
 
@@ -36,8 +36,9 @@ export interface CreateLeadArgs {
   leadType: LeadType
 }
 
-export async function createLead(client: Client, args: CreateLeadArgs): Promise<void> {
-  const { error } = await client.from('leads').insert({
+/** Devolve o id: a roleta e o histórico precisam dele logo em seguida. */
+export async function createLead(client: Client, args: CreateLeadArgs): Promise<string> {
+  const { data, error } = await client.from('leads').insert({
     tenant_id: args.tenantId,
     property_id: args.propertyId,
     name: args.name,
@@ -46,8 +47,30 @@ export async function createLead(client: Client, args: CreateLeadArgs): Promise<
     message: args.message,
     source: args.source,
     lead_type: args.leadType,
-  })
+  }).select('id').single()
   if (error) throw error
+  return data.id
+}
+
+/**
+ * Entrega o lead ao corretor que a roleta escolheu. Só a service_role chama
+ * (é o POST público do lead), então o `tenant_id` no filtro é a única trava —
+ * não há RLS aqui.
+ */
+export async function assignLeadBroker(service: Client, tenantId: string, leadId: string, brokerId: string): Promise<void> {
+  const { error } = await service.from('leads').update({ broker_id: brokerId }).eq('tenant_id', tenantId).eq('id', leadId)
+  if (error) throw error
+}
+
+/**
+ * Próximo corretor da roleta, ou null (tenant sem roleta, ou ninguém nela).
+ * A escolha e a marcação acontecem num único update no banco — ver a função
+ * `proximo_corretor_da_roleta` na 0049.
+ */
+export async function nextRoletaBroker(service: Client, tenantId: string): Promise<string | null> {
+  const { data, error } = await service.rpc('proximo_corretor_da_roleta', { p_tenant_id: tenantId })
+  if (error) throw error
+  return (data as string | null) ?? null
 }
 
 /**
@@ -73,8 +96,8 @@ export async function createManualLead(
       phone: input.phone ?? null,
       message: input.message ?? null,
       stage: input.stage ?? 'novo',
-      notes: input.notes ?? null,
-      next_contact_at: input.nextContactAt ?? null,
+      // `notes` e `nextContactAt` do cadastro viram evento e tarefa no
+      // endpoint (0049) — gravar aqui duplicaria a anotação em dois lugares.
       broker_id: input.brokerId ?? null,
       source: toLeadSource(input.source ?? 'manual'),
       lead_type: input.leadType ?? 'indefinido',
@@ -86,7 +109,23 @@ export async function createManualLead(
   return toLeadModel(rest, properties ?? null)
 }
 
-/** Atualiza um lead (mover no funil, anotar, agendar retorno). Só os campos enviados. */
+/** Estado de um lead antes da edição — o que `eventosDaMudanca` compara. */
+export async function getLeadState(
+  client: Client,
+  tenantId: string,
+  id: string,
+): Promise<{ stage: LeadStage; brokerId: string | null } | null> {
+  const { data, error } = await client
+    .from('leads')
+    .select('stage, broker_id')
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { stage: data.stage as LeadStage, brokerId: data.broker_id } : null
+}
+
+/** Atualiza um lead (mover no funil, trocar o responsável). Só os campos enviados. */
 export async function updateLead(
   client: Client,
   tenantId: string,
@@ -98,11 +137,14 @@ export async function updateLead(
   const patch: LeadUpdateRow = { updated_by: updatedBy ?? null }
   if (input.name !== undefined) patch.name = input.name
   if (input.phone !== undefined) patch.phone = input.phone
-  if (input.stage !== undefined) patch.stage = input.stage
   if (input.leadType !== undefined) patch.lead_type = input.leadType
-  if (input.notes !== undefined) patch.notes = input.notes
-  if (input.nextContactAt !== undefined) patch.next_contact_at = input.nextContactAt
   if (input.brokerId !== undefined) patch.broker_id = input.brokerId
+  if (input.stage !== undefined) {
+    patch.stage = input.stage
+    // O motivo pertence à perda: o lead que volta ao funil não carrega um
+    // "perdido por preço" que deixou de ser verdade.
+    patch.lost_reason = input.stage === 'perdido' ? (input.lostReason ?? null) : null
+  }
 
   const { data, error } = await client
     .from('leads')
