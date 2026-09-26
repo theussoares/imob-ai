@@ -31,11 +31,29 @@ export interface AboutImageBlock {
   caption: string
 }
 
-/** Um número em destaque, tipo "20 anos de mercado" ou "500+ imóveis vendidos". */
+/**
+ * Um número em destaque, UM por bloco — formato antigo.
+ *
+ * Continua lido (há páginas salvas assim) e renderizado igual a `stats`, porque
+ * a página agrupa números consecutivos numa faixa só. Não é mais oferecido na
+ * paleta: três números eram três blocos, três pares de setas, e o agrupamento
+ * implícito confundia quem editava. Ver `AboutStatsBlock`.
+ */
 export interface AboutStatBlock {
   type: 'stat'
   value: string
   label: string
+}
+
+export interface AboutStatItem {
+  value: string
+  label: string
+}
+
+/** Faixa de números — "18 anos · 1.200 famílias · 3 cidades" — num bloco só. */
+export interface AboutStatsBlock {
+  type: 'stats'
+  items: AboutStatItem[]
 }
 
 /** Faixa de largura total com imagem de fundo, título e um botão opcional. */
@@ -68,12 +86,44 @@ export interface AboutGalleryBlock {
   images: AboutGalleryImage[]
 }
 
-/** Depoimento de cliente — prova social. */
+/** Depoimento de cliente, UM por bloco — formato antigo; ver `AboutStatBlock`. */
 export interface AboutTestimonialBlock {
   type: 'testimonial'
   quote: string
   authorName: string
   authorRole: string
+}
+
+export interface AboutTestimonialItem {
+  quote: string
+  authorName: string
+  /** O que dá credibilidade: o que a pessoa fez, onde e quando. */
+  authorRole: string
+}
+
+/** Grade de depoimentos de clientes — prova social. */
+export interface AboutTestimonialsBlock {
+  type: 'testimonials'
+  items: AboutTestimonialItem[]
+}
+
+export interface AboutValueItem {
+  title: string
+  body: string
+}
+
+/**
+ * "Como trabalhamos": compromissos concretos, com título curto e uma frase.
+ *
+ * Existe para substituir o parágrafo de "missão, visão e valores" que ninguém
+ * lê por algo que o cliente consegue conferir — "Visita no mesmo dia",
+ * "Contrato revisado por advogado".
+ */
+export interface AboutValuesBlock {
+  type: 'values'
+  /** Vazio cai no padrão ("Como trabalhamos") na renderização. */
+  title: string
+  items: AboutValueItem[]
 }
 
 export interface AboutLogoItem {
@@ -99,29 +149,42 @@ export type AboutBlock =
   | AboutTextBlock
   | AboutImageBlock
   | AboutStatBlock
+  | AboutStatsBlock
   | AboutBannerBlock
   | AboutSplitBlock
   | AboutGalleryBlock
   | AboutTestimonialBlock
+  | AboutTestimonialsBlock
+  | AboutValuesBlock
   | AboutLogosBlock
   | AboutTeamBlock
 
 export type AboutBlockType = AboutBlock['type']
 
+// A ordem aqui é a da paleta do painel: do que toda página precisa (texto,
+// história, números) para o acabamento (selos). Os dois tipos antigos ficam no
+// fim, fora da paleta — ver `ABOUT_BLOCK_TYPES_OFERECIDOS`.
 export const ABOUT_BLOCK_TYPE_LABELS: Record<AboutBlockType, string> = {
   heading: 'Título de seção',
   text: 'Texto',
-  image: 'Imagem',
-  stat: 'Número em destaque',
-  banner: 'Banner (imagem de fundo + chamada)',
   split: 'Texto + imagem lado a lado',
+  stats: 'Números em destaque',
+  values: 'Como trabalhamos',
+  team: 'Equipe de corretores',
+  testimonials: 'Depoimentos',
+  image: 'Imagem',
+  banner: 'Banner (imagem de fundo + chamada)',
   gallery: 'Galeria de imagens',
-  testimonial: 'Depoimento',
   logos: 'Logos/selos de parceiros',
-  team: 'Carrossel de corretores',
+  stat: 'Número em destaque (formato antigo)',
+  testimonial: 'Depoimento (formato antigo)',
 }
 
 export const ABOUT_BLOCK_TYPES = Object.keys(ABOUT_BLOCK_TYPE_LABELS) as AboutBlockType[]
+
+/** Tipos lidos mas não mais criados: a paleta oferece `stats` e `testimonials`. */
+export const ABOUT_BLOCK_TYPES_LEGADOS: readonly AboutBlockType[] = ['stat', 'testimonial']
+export const ABOUT_BLOCK_TYPES_OFERECIDOS = ABOUT_BLOCK_TYPES.filter((t) => !ABOUT_BLOCK_TYPES_LEGADOS.includes(t))
 
 /** Bloco em branco de um tipo, pronto para entrar na lista e ser preenchido. */
 export function emptyAboutBlock(type: AboutBlockType): AboutBlock {
@@ -134,6 +197,14 @@ export function emptyAboutBlock(type: AboutBlockType): AboutBlock {
       return { type: 'image', url: '', alt: '', caption: '' }
     case 'stat':
       return { type: 'stat', value: '', label: '' }
+    // Com itens: já nascem com as linhas que a pessoa provavelmente vai
+    // preencher, para ela ver a forma do bloco sem ter de clicar "+ item" antes.
+    case 'stats':
+      return { type: 'stats', items: [0, 1, 2].map(() => ({ value: '', label: '' })) }
+    case 'testimonials':
+      return { type: 'testimonials', items: [{ quote: '', authorName: '', authorRole: '' }] }
+    case 'values':
+      return { type: 'values', title: '', items: [0, 1, 2].map(() => ({ title: '', body: '' })) }
     case 'banner':
       return { type: 'banner', title: '', imageUrl: '', ctaLabel: '', ctaHref: '' }
     case 'split':
@@ -167,6 +238,9 @@ export const ABOUT_BLOCK_TYPE_PURPOSE: Record<AboutBlockType, string> = {
   text: 'Parágrafo corrido: a história, como vocês trabalham.',
   image: 'Uma foto grande, com legenda opcional.',
   stat: 'Um número concreto — "18 anos", "1.200 famílias".',
+  stats: 'Até 4 números concretos numa faixa — "18 anos", "1.200 famílias".',
+  values: 'Até 4 compromissos que o cliente consegue conferir.',
+  testimonials: 'Até 6 falas de clientes, com o que cada um fez.',
   banner: 'Faixa com foto de fundo, frase de impacto e botão.',
   split: 'Texto ao lado de uma foto real — ideal para a história.',
   gallery: 'Carrossel de fotos do escritório e da equipe.',
@@ -194,27 +268,24 @@ export interface AboutTemplateBlock {
  * cliques no botão inseririam os MESMOS blocos duas vezes, editados juntos.
  */
 export function recommendedAboutBlocks(): AboutTemplateBlock[] {
-  const numero = 'Números em destaque: há quanto tempo vocês atuam, quantas famílias atenderam, em quantas cidades. Número concreto convence mais que adjetivo.'
-  const depoimento = 'Depoimento com contexto: no complemento, diga o que o cliente fez (comprou, vendeu, alugou), o bairro e o ano.'
   return [
-    { block: emptyAboutBlock('stat'), hint: numero },
-    { block: emptyAboutBlock('stat'), hint: numero },
-    { block: emptyAboutBlock('stat'), hint: numero },
+    {
+      block: emptyAboutBlock('stats'),
+      hint: 'Números em destaque: há quanto tempo vocês atuam, quantas famílias atenderam, em quantas cidades. Número concreto convence mais que adjetivo.',
+    },
     {
       block: emptyAboutBlock('split'),
       hint: 'Nossa história: por que a imobiliária começou e para quem ela existe. Use uma foto real do fundador ou da sede, não de banco de imagem.',
     },
     {
-      block: emptyAboutBlock('heading'),
-      hint: 'Título da seção "Como trabalhamos" (ou outro nome que combine com vocês).',
-    },
-    {
-      block: emptyAboutBlock('text'),
+      block: emptyAboutBlock('values'),
       hint: 'Como trabalhamos: 3 ou 4 compromissos que o cliente consegue conferir — "Visita no mesmo dia", "Contrato revisado por advogado". Evite "missão, visão e valores".',
     },
     { block: emptyAboutBlock('team'), hint: 'A equipe entra sozinha, a partir da tela Corretores.' },
-    { block: emptyAboutBlock('testimonial'), hint: depoimento },
-    { block: emptyAboutBlock('testimonial'), hint: depoimento },
+    {
+      block: emptyAboutBlock('testimonials'),
+      hint: 'Depoimentos com contexto: no complemento, diga o que o cliente fez (comprou, vendeu, alugou), o bairro e o ano.',
+    },
     { block: emptyAboutBlock('logos'), hint: 'Selos, certificações e portais onde vocês anunciam.' },
   ]
 }

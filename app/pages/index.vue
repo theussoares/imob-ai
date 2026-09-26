@@ -14,7 +14,7 @@ import {
   allCategories,
 } from "~~/shared/utils/category";
 import { qualifyingNeighborhoods } from "~~/shared/utils/neighborhood";
-import { hasStructuredAddress, tenantCoordinates } from "~~/shared/utils/address";
+import { realEstateAgentJsonLd } from "~~/shared/utils/tenant-jsonld";
 import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 import {
   CATALOG_QUERY_KEYS,
@@ -172,54 +172,14 @@ useHead(() => ({
   link: [{ rel: "canonical", href: requestUrl.origin + "/" }],
 }));
 
-const sameAs = computed(
-  () => [tenant.value?.instagram].filter(Boolean) as string[],
+const orgJsonLd = computed(() =>
+  tenant.value
+    ? { "@context": "https://schema.org", ...realEstateAgentJsonLd(tenant.value, requestUrl.origin) }
+    : null,
 );
 
-const orgJsonLd = computed(() => ({
-  "@context": "https://schema.org",
-  "@type": "RealEstateAgent",
-  "@id": requestUrl.origin,
-  name: tenant.value?.name,
-  alternateName: tenant.value?.alternateNames?.length
-    ? tenant.value.alternateNames
-    : undefined,
-  description: tenant.value?.heroSubtitle,
-  telephone: tenant.value?.phone || undefined,
-  email: tenant.value?.email || undefined,
-  areaServed: tenant.value?.city || undefined,
-  url: requestUrl.origin,
-  logo: tenant.value?.logoUrl || undefined,
-  image: tenant.value?.logoUrl || undefined,
-  sameAs: sameAs.value.length ? sameAs.value : undefined,
-  address: tenant.value?.city
-    ? {
-        "@type": "PostalAddress",
-        // Rua/número só entram quando a imobiliária preencheu o endereço
-        // estruturado (Meu site → Localização) — cidade/UF sempre existiram e
-        // continuam sozinhos servindo quem não configurou nada além disso.
-        ...(tenant.value && hasStructuredAddress(tenant.value)
-          ? {
-              streetAddress: [tenant.value.addressStreet, tenant.value.addressNumber].filter(Boolean).join(', '),
-              postalCode: tenant.value.addressZip || undefined,
-            }
-          : {}),
-        addressLocality: tenant.value?.city,
-        addressRegion: tenant.value?.state || undefined,
-        addressCountry: "BR",
-      }
-    : undefined,
-  geo: tenant.value && tenantCoordinates(tenant.value)
-    ? {
-        "@type": "GeoCoordinates",
-        latitude: tenant.value.latitude,
-        longitude: tenant.value.longitude,
-      }
-    : undefined,
-}));
-
 useHead(() => ({
-  script: platformRoot.value
+  script: platformRoot.value || !orgJsonLd.value
     ? []
     : [
         {

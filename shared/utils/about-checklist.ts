@@ -41,7 +41,7 @@ function imagensDoBloco(b: AboutBlock): { url: string; alt: string }[] {
  */
 export function aboutChecklist(content: unknown, corretoresPublicos: number | null): AboutChecklistItem[] {
   const blocks = sanitizeAboutContent(content).blocks
-  const tem = (t: AboutBlock['type']) => blocks.some((b) => b.type === t)
+  const tem = (...tipos: AboutBlock['type'][]) => blocks.some((b) => tipos.includes(b.type))
 
   const historia = blocks.some((b) => b.type === 'text' || (b.type === 'split' && !!b.body))
   const temEquipe = tem('team')
@@ -56,8 +56,8 @@ export function aboutChecklist(content: unknown, corretoresPublicos: number | nu
     },
     {
       key: 'numeros',
-      ok: tem('stat'),
-      label: tem('stat') ? 'Tem números em destaque' : 'Sem números em destaque (anos, famílias atendidas)',
+      ok: tem('stat', 'stats'),
+      label: tem('stat', 'stats') ? 'Tem números em destaque' : 'Sem números em destaque (anos, famílias atendidas)',
     },
     {
       key: 'equipe',
@@ -70,8 +70,8 @@ export function aboutChecklist(content: unknown, corretoresPublicos: number | nu
     },
     {
       key: 'depoimento',
-      ok: tem('testimonial'),
-      label: tem('testimonial') ? 'Tem depoimento de cliente' : 'Sem depoimento de cliente',
+      ok: tem('testimonial', 'testimonials'),
+      label: tem('testimonial', 'testimonials') ? 'Tem depoimento de cliente' : 'Sem depoimento de cliente',
     },
     {
       key: 'descricoes',

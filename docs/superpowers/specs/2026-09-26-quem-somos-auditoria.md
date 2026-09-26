@@ -4,6 +4,10 @@ Data: 2026-09-26 · Alvo: `app/pages/quem-somos.vue` (site) e
 `app/pages/admin/quem-somos.vue` (painel), com `shared/models/about-page.ts` e
 `shared/utils/about-content.ts`.
 
+**Status:** as três fases estão implementadas, em PRs empilhados — #101 (fase 1)
+→ #102 (fase 2) → #104 (fase 3). Os desvios do que está escrito abaixo estão em
+"Plano em fases".
+
 ## Motivo
 
 "Quem somos" é a página que o visitante abre quando **já gostou de um imóvel e
@@ -304,16 +308,51 @@ ninguém lê, trocando por compromissos verificáveis ("Visita no mesmo dia",
 
 ## Plano em fases
 
-**Fase 1 — correções (pequena, sem mudança de modelo).** P0-1, P0-2, P1-1 a
-P1-6, P2-4, P2-7, P2-9. Página ganha moldura fixa (cabeçalho + fechamento).
+**Fase 1 — correções (pequena, sem mudança de modelo).** ✅ Feita — #101.
+P0-1, P0-2, P1-1 a P1-6, P2-4, P2-7, P2-9. Página ganha moldura fixa
+(cabeçalho + fechamento).
 
-**Fase 2 — editor.** Modelo recomendado, blocos recolhíveis, paleta visual,
-"+" entre blocos, aviso de equipe vazia, checklist, barra de salvar fixa.
+- O fechamento não tem **horário**: o tenant não tem esse campo, e criar um
+  seria mudança de modelo, fora desta fase.
+- P2-7 (mínimo para publicar) é regra do painel. `PUT /api/admin/tenant` não
+  recusa publicar sem o mínimo.
+- Achados no caminho, corrigidos junto:
+  - `useTenantSettings` não carregava `aboutEnabled`, e o interruptor aparecia
+    desmarcado com a página no ar;
+  - a cópia rasa dos blocos deixava editar a galeria sujar o tenant carregado,
+    o que anularia o aviso de alterações não salvas.
 
-**Fase 3 — página.** Layout de duas larguras e ritmo por seção, faixa de
-números, grade de depoimentos e de equipe, bloco `values`, blocos com itens,
-imagens com dimensões/`srcset`, lightbox, JSON-LD completo, preview lado a
-lado.
+**Fase 2 — editor.** ✅ Feita — #102. Modelo recomendado, blocos recolhíveis,
+paleta visual, "+" entre blocos, aviso de equipe vazia, checklist, barra de
+salvar fixa.
+
+- A dica de cada bloco do modelo vive só no painel e nunca é salva. Um teste
+  garante que nada do modelo chega ao site sem a pessoa escrever.
+- P2-10 (imagem sem descrição) virou item do checklist, não aviso dentro do
+  bloco.
+
+**Fase 3 — página.** ✅ Feita — #104. Layout de duas larguras e ritmo por
+seção, faixa de números, grade de depoimentos e de equipe, bloco `values`,
+blocos com itens, imagens com dimensões/`srcset`, lightbox, JSON-LD completo,
+preview lado a lado.
+
+- **Imagens:** a API de transformação só faz `contain`, então a proporção é
+  fixada no CSS (imagem 3:2, texto + imagem 4:3, corretor 4:5) com
+  `object-fit: cover`. Foto fora da proporção tem a borda recortada na tela; o
+  arquivo não muda.
+- **Lightbox:** não é a tela cheia de `PropertyGallery` reaproveitada inteira,
+  que é amarrada ao carrossel do imóvel. O comportamento que precisa ser igual
+  (foco, Tab preso, Esc, trava de scroll) saiu para `useModalDialog`, usado
+  pelas duas galerias; a tela é `ImageLightbox.vue`.
+- **JSON-LD:** o `RealEstateAgent` da home virou `realEstateAgentJsonLd`,
+  compartilhado. A home também passou a ter o CRECI em `identifier`.
+- **Equipe:** a grade (até 8 corretores) vira faixa rolável no celular pelo
+  CSS, em vez de trocar para o carrossel.
+- **Blocos legados:** `stat` e `testimonial` saíram da paleta, mas continuam
+  lidos e renderizados iguais, via `groupAboutBlocks`.
+
+**Não feitos, por decisão:** P3-3 (WhatsApp por corretor, ver "Fora do escopo")
+e P3-4 (logos cinza no celular, só registrado).
 
 Nenhuma fase exige migration: o conteúdo é JSONB, validado em
 `shared/utils/about-content.ts`. Nenhuma toca a política de privacidade — os

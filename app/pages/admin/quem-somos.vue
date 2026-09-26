@@ -3,7 +3,17 @@ import { ABOUT_BLOCK_TYPE_LABELS, emptyAboutBlock, recommendedAboutBlocks } from
 import type { AboutBlock, AboutBlockType } from "~~/shared/models/about-page";
 import type { Broker } from "~~/shared/models/broker";
 import { aboutChecklist } from "~~/shared/utils/about-checklist";
-import { ABOUT_BLOCKS_MAX, aboutTemConteudoMinimo, GALLERY_IMAGES_MAX, LOGOS_MAX } from "~~/shared/utils/about-content";
+import type { PublicBroker } from "~~/shared/models/broker";
+import {
+  ABOUT_BLOCKS_MAX,
+  aboutTemConteudoMinimo,
+  GALLERY_IMAGES_MAX,
+  LOGOS_MAX,
+  sanitizeAboutContent,
+  STATS_MAX,
+  TESTIMONIALS_MAX,
+  VALUES_MAX,
+} from "~~/shared/utils/about-content";
 definePageMeta({ layout: "admin", middleware: ['admin', 'quem-somos'] });
 
 // Tela própria (em vez de mais uma seção em "Meu site"): a edição aqui é por
@@ -157,14 +167,15 @@ function removeGalleryImage(i: number, j: number) {
   if (b?.type !== "gallery") return;
   b.images = b.images.filter((_, n) => n !== j);
 }
-function addLogo(i: number) {
-  const b = blocks.value[i];
-  if (b?.type !== "logos" || b.items.length >= LOGOS_MAX) return;
-  b.items = [...b.items, { url: "", alt: "" }];
+/**
+ * Itens de logos, números, depoimentos e compromissos: todos guardam a lista em
+ * `items`, então um par de funções serve os quatro. O teto vem de quem chama —
+ * é o mesmo que o sanitizador aplica, para o botão travar onde o site cortaria.
+ */
+function adicionarItem<T>(b: { items: T[] }, novo: T, max: number) {
+  if (b.items.length < max) b.items = [...b.items, novo];
 }
-function removeLogo(i: number, j: number) {
-  const b = blocks.value[i];
-  if (b?.type !== "logos") return;
+function removerItem(b: { items: unknown[] }, j: number) {
   b.items = b.items.filter((_, n) => n !== j);
 }
 
@@ -224,6 +235,27 @@ const corretoresPublicos = computed(() =>
 );
 const checklist = computed(() => aboutChecklist(form.aboutContent, corretoresPublicos.value));
 
+// ---- Pré-visualização ----
+//
+// O MESMO componente do site (AboutBlocks), alimentado pelo rascunho passado
+// pelo sanitizador — ou seja, exatamente o que salvar publicaria: bloco vazio
+// não aparece, número sem legenda some. Antes, conferir exigia salvar e abrir o
+// site em outra aba, e quem estava com a página no ar publicava para testar.
+const previa = computed(() => sanitizeAboutContent(form.aboutContent).blocks);
+const corretoresNaPrevia = computed<PublicBroker[]>(() =>
+  (corretores.value ?? [])
+    .filter((c) => c.active && c.publicVisible)
+    .map((c) => ({ id: c.id, name: c.name, photoUrl: c.photoUrl, bio: c.bio, creci: c.creci })),
+);
+// Lado a lado só em tela larga; abaixo disso a prévia fica sob o formulário,
+// recolhida, para não dobrar o comprimento da tela no celular.
+const telaLarga = useMediaQuery("(min-width: 1280px)");
+const previaAberta = ref(false);
+/** Link na prévia não navega: sairia do painel no meio da edição. */
+function semNavegar(e: MouseEvent) {
+  if ((e.target as HTMLElement | null)?.closest("a")) e.preventDefault();
+}
+
 // ---- Rótulos e nomes acessíveis ----
 //
 // Rótulo sem `for` não nomeia o campo: o leitor de tela anunciava "campo de
@@ -261,6 +293,14 @@ function blockLabel(b: AboutBlock): string {
       return `${b.items.length} logo${b.items.length === 1 ? "" : "s"}`;
     case "team":
       return b.title || "Nossa equipe";
+    case "stats":
+      return b.items.map((it) => it.value).filter(Boolean).join(" · ") || "(sem números)";
+    case "values":
+      return `${b.title || "Como trabalhamos"} · ${b.items.length} ${b.items.length === 1 ? "item" : "itens"}`;
+    case "testimonials": {
+      const nomes = b.items.map((it) => it.authorName).filter(Boolean);
+      return nomes.length ? nomes.join(", ") : `${b.items.length} depoimento${b.items.length === 1 ? "" : "s"}`;
+    }
   }
 }
 
@@ -279,6 +319,7 @@ useHead({ title: "Quem somos · Painel" });
       <a href="/quem-somos" target="_blank" rel="noopener">Ver a página ↗</a>
     </p>
 
+    <div class="ab-layout">
     <form class="admin-card" @submit.prevent="save">
 <!--
         O interruptor fica AQUI e não em "Configurações": publicar é a última
@@ -450,6 +491,111 @@ useHead({ title: "Quem somos · Painel" });
           </div>
         </div>
 
+        <div v-else-if="b.type === 'stats'" class="ab-fields">
+          <p class="hint-text">Até {{ STATS_MAX }} números. Número sem legenda não aparece no site.</p>
+          <div v-for="(it, j) in b.items" :key="j" class="ab-item">
+            <div class="form-grid">
+              <div>
+                <label class="admin-label" :for="fid(i, `stat-${j}-v`)">Número {{ j + 1 }}</label>
+                <input :id="fid(i, `stat-${j}-v`)" v-model="it.value" class="admin-input" placeholder="Ex.: 18 anos" />
+              </div>
+              <div>
+                <label class="admin-label" :for="fid(i, `stat-${j}-l`)">Legenda</label>
+                <input :id="fid(i, `stat-${j}-l`)" v-model="it.label" class="admin-input" placeholder="Ex.: de mercado" />
+              </div>
+            </div>
+            <button type="button" class="admin-btn danger-ghost sm" :aria-label="`Remover número ${j + 1}`" @click="removerItem(b, j)">
+              Remover
+            </button>
+          </div>
+          <button
+            type="button"
+            class="admin-btn ghost sm ab-add-item"
+            :disabled="b.items.length >= STATS_MAX"
+            @click="adicionarItem(b, { value: '', label: '' }, STATS_MAX)"
+          >
+            + Adicionar número
+          </button>
+        </div>
+
+        <div v-else-if="b.type === 'values'" class="ab-fields">
+          <label class="admin-label" :for="fid(i, 'values-title')">Título da seção (opcional)</label>
+          <input :id="fid(i, 'values-title')" v-model="b.title" class="admin-input" placeholder="Como trabalhamos" />
+          <p class="hint-text">
+            Até {{ VALUES_MAX }} compromissos que o cliente consegue conferir. Título curto, uma frase de explicação.
+          </p>
+          <div v-for="(it, j) in b.items" :key="j" class="ab-item">
+            <div>
+              <label class="admin-label" :for="fid(i, `value-${j}-t`)">Compromisso {{ j + 1 }}</label>
+              <input :id="fid(i, `value-${j}-t`)" v-model="it.title" class="admin-input" placeholder="Ex.: Visita no mesmo dia" />
+              <label class="admin-label mt" :for="fid(i, `value-${j}-b`)">Explicação (opcional)</label>
+              <textarea
+                :id="fid(i, `value-${j}-b`)"
+                v-model="it.body"
+                class="admin-textarea"
+                rows="2"
+                placeholder="Ex.: Pediu até as 14h, visita o imóvel no mesmo dia."
+              />
+            </div>
+            <button type="button" class="admin-btn danger-ghost sm" :aria-label="`Remover compromisso ${j + 1}`" @click="removerItem(b, j)">
+              Remover
+            </button>
+          </div>
+          <button
+            type="button"
+            class="admin-btn ghost sm ab-add-item"
+            :disabled="b.items.length >= VALUES_MAX"
+            @click="adicionarItem(b, { title: '', body: '' }, VALUES_MAX)"
+          >
+            + Adicionar compromisso
+          </button>
+        </div>
+
+        <div v-else-if="b.type === 'testimonials'" class="ab-fields">
+          <p class="hint-text">
+            Até {{ TESTIMONIALS_MAX }} depoimentos. No complemento, diga o que o cliente fez, onde e quando — é o que
+            faz o depoimento parecer de gente real.
+          </p>
+          <div v-for="(it, j) in b.items" :key="j" class="ab-item">
+            <div>
+              <label class="admin-label" :for="fid(i, `dep-${j}-q`)">Depoimento {{ j + 1 }}</label>
+              <textarea
+                :id="fid(i, `dep-${j}-q`)"
+                v-model="it.quote"
+                class="admin-textarea"
+                rows="3"
+                placeholder="O que o cliente disse..."
+              />
+              <div class="form-grid mt">
+                <div>
+                  <label class="admin-label" :for="fid(i, `dep-${j}-n`)">Nome do cliente</label>
+                  <input :id="fid(i, `dep-${j}-n`)" v-model="it.authorName" class="admin-input" />
+                </div>
+                <div>
+                  <label class="admin-label" :for="fid(i, `dep-${j}-r`)">Complemento</label>
+                  <input
+                    :id="fid(i, `dep-${j}-r`)"
+                    v-model="it.authorRole"
+                    class="admin-input"
+                    placeholder="Ex.: comprou um apartamento no Centro em 2025"
+                  />
+                </div>
+              </div>
+            </div>
+            <button type="button" class="admin-btn danger-ghost sm" :aria-label="`Remover depoimento ${j + 1}`" @click="removerItem(b, j)">
+              Remover
+            </button>
+          </div>
+          <button
+            type="button"
+            class="admin-btn ghost sm ab-add-item"
+            :disabled="b.items.length >= TESTIMONIALS_MAX"
+            @click="adicionarItem(b, { quote: '', authorName: '', authorRole: '' }, TESTIMONIALS_MAX)"
+          >
+            + Adicionar depoimento
+          </button>
+        </div>
+
         <div v-else-if="b.type === 'banner'" class="ab-fields">
           <label class="admin-label" :for="fid(i, 'title')">Título</label>
           <input
@@ -616,7 +762,7 @@ useHead({ title: "Quem somos · Painel" });
               type="button"
               class="admin-btn danger-ghost sm"
               :aria-label="`Remover logo ${j + 1}`"
-              @click="removeLogo(i, j)"
+              @click="removerItem(b, j)"
             >
               Remover
             </button>
@@ -625,7 +771,7 @@ useHead({ title: "Quem somos · Painel" });
             type="button"
             class="admin-btn ghost sm ab-add-item"
             :disabled="b.items.length >= LOGOS_MAX"
-            @click="addLogo(i)"
+            @click="adicionarItem(b, { url: '', alt: '' }, LOGOS_MAX)"
           >
             + Adicionar logo
           </button>
@@ -680,6 +826,33 @@ useHead({ title: "Quem somos · Painel" });
         </span>
       </div>
     </form>
+
+    <aside class="ab-previa" aria-labelledby="ab-previa-t">
+      <div class="ab-previa-head">
+        <h2 id="ab-previa-t">Pré-visualização</h2>
+        <button
+          v-if="!telaLarga"
+          type="button"
+          class="admin-btn ghost sm"
+          :aria-expanded="previaAberta"
+          aria-controls="ab-previa-corpo"
+          @click="previaAberta = !previaAberta"
+        >
+          {{ previaAberta ? "Esconder" : "Mostrar" }}
+        </button>
+      </div>
+      <div v-if="telaLarga || previaAberta" id="ab-previa-corpo">
+        <p class="hint-text">
+          Como o site mostra os blocos, antes de salvar. Bloco vazio não aparece. O título com o
+          nome, o CRECI e o contato do fim entram sozinhos na página.
+        </p>
+        <div class="ab-previa-pagina" @click.capture="semNavegar">
+          <AboutBlocks v-if="previa.length" :blocks="previa" :brokers="corretoresNaPrevia" />
+          <p v-else class="hint-text">Nada para mostrar ainda.</p>
+        </div>
+      </div>
+    </aside>
+    </div>
   </div>
 </template>
 
@@ -907,6 +1080,17 @@ useHead({ title: "Quem somos · Painel" });
   align-items: center;
   margin-top: 6px;
 }
+.ab-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ab-item .admin-btn {
+  margin-top: 24px;
+}
 .ab-add-item {
   align-self: flex-start;
   margin-top: 8px;
@@ -1035,6 +1219,58 @@ useHead({ title: "Quem somos · Painel" });
 @media (max-width: 640px) {
   .ab-gallery-item {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---- pré-visualização ---- */
+.ab-layout {
+  display: grid;
+  gap: 20px;
+  align-items: start;
+}
+.ab-previa {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  padding: 16px;
+}
+.ab-previa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ab-previa-head h2 {
+  margin: 0;
+  font-size: var(--fs-title-sm);
+}
+.ab-previa-pagina {
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line-2);
+}
+@media (min-width: 1280px) {
+  .ab-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  /* A prévia acompanha a rolagem do formulário: editar o décimo bloco e ter de
+     rolar a outra coluna até ele desfaz o "lado a lado". */
+  .ab-previa {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+</style>
+
+<style>
+/* Global, e não scoped: o limite de 1000px é do layout do painel. Esta é a
+   única tela que precisa de duas colunas largas — formulário e prévia —, e só
+   em tela grande. */
+@media (min-width: 1280px) {
+  .admin-main:has(.ab-layout) {
+    max-width: 1480px;
   }
 }
 </style>
