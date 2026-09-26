@@ -13,6 +13,7 @@ import {
   CHARGE_STATUS_LABELS,
   MANUAL_SETTLEMENT_METHODS,
   SETTLEMENT_METHOD_LABELS,
+  aMaiorSeMarcarFeito,
   hojeEmSaoPaulo,
   repassesAMaior,
   somar,
@@ -254,11 +255,22 @@ async function copiar(texto: string, oque: string) {
 }
 
 async function repassePago(p: OwnerPayout) {
-  const ok = await askConfirm({
-    title: `Marcar o repasse de ${mesExtenso(p.competence)} como feito?`,
-    description: `Confirme que ${brl(p.net)} já foi transferido ao proprietário.`,
-    confirmLabel: 'Marcar como feito',
-  })
+  const aMaior = aMaiorSeMarcarFeito(cobrancas.value, repasses.value, p.id)
+  const ok = await askConfirm(
+    aMaior > 0
+      ? {
+          title: `O proprietário já recebeu por ${mesExtenso(p.competence)}`,
+          description: `Um repasse desta competência foi feito antes de o pagamento ser estornado. Se transferir ${brl(p.net)} agora, ${brl(aMaior)} terão saído a mais. Só marque como feito se descontou esse valor.`,
+          confirmLabel: 'Marcar mesmo assim',
+          cancelLabel: 'Não transferir',
+          danger: true,
+        }
+      : {
+          title: `Marcar o repasse de ${mesExtenso(p.competence)} como feito?`,
+          description: `Confirme que ${brl(p.net)} já foi transferido ao proprietário.`,
+          confirmLabel: 'Marcar como feito',
+        },
+  )
   if (!ok) return
   try {
     await adminFetch(`/api/admin/repasses/${p.id}/pago`, { method: 'POST' })
@@ -454,6 +466,9 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
             <small>
               {{ brl(p.gross) }} recebido<template v-if="p.adminFee"> − {{ brl(p.adminFee) }} de taxa</template>
             </small>
+            <small v-if="p.status === 'pendente' && aMaiorSeMarcarFeito(cobrancas, repasses, p.id) > 0" class="cob-rep-ja">
+              Já repassado antes do estorno: não transfira de novo
+            </small>
           </span>
           <span class="cob-valor">{{ brl(p.net) }}</span>
           <span v-if="estornadoDepois(p)" class="cob-st alerta">Feito · estornado</span>
@@ -504,6 +519,10 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
 .cob-aviso.teste {
   background: #fef3c7;
   color: #92400e;
+}
+.cob-mes .cob-rep-ja {
+  color: #991b1b;
+  font-weight: 600;
 }
 .cob-aviso.alerta,
 .cob-st.alerta {
