@@ -13,8 +13,10 @@ export default defineEventHandler(async (event) => {
 
   assertCaucaoDentroDoLimite(body.guaranteeType, body.internal?.guaranteeAmount, body.rentAmount)
   // `contracts.property_id` tem FK simples: sem esta leitura com o tenant no
-  // filtro, o banco aceitaria o imóvel de outra imobiliária.
-  if (body.propertyId && !(await getPropertyById(client, tenant.id, body.propertyId))) {
+  // filtro, o banco aceitaria o imóvel de outra imobiliária. Service_role pelo
+  // mesmo motivo de `properties/[id].get.ts` (0031): com o client do membro o
+  // `select('*')` volta 403 e o PUT vira 500.
+  if (body.propertyId && !(await getPropertyById(serviceSupabase(), tenant.id, body.propertyId))) {
     throw createError({ statusCode: 422, statusMessage: 'Imóvel não encontrado.' })
   }
 
