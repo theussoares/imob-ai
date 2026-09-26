@@ -22,6 +22,9 @@ export default defineEventHandler(async (event): Promise<ChargeForClient[]> => {
   const contrato = await getContractForClient(client, tenant.id, portalUserId, id)
   if (!contrato) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })
   if (!contrato.roles.includes('inquilino')) return []
+  // Sem o recurso (0055), a Área do Cliente fica como antes da cobrança: sem a
+  // seção de boletos. Lista vazia, e não erro, porque a tela só esconde.
+  if (!(await cobrancaAtiva(tenant.id))) return []
 
   return listChargesForTenantAsClient(serviceSupabase(), tenant.id, contrato.id)
 })
