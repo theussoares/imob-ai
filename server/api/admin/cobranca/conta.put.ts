@@ -19,6 +19,7 @@ import { ErroDoProvedor } from '~~/server/services/payments/provider'
  */
 export default defineEventHandler(async (event) => {
   const { tenant, user, membership } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   if (membership.role !== 'owner') {
     throw createError({ statusCode: 403, statusMessage: 'Só o responsável pela conta da imobiliária pode conectar a cobrança.' })
   }

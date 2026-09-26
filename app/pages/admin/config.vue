@@ -18,7 +18,7 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "portalEnabled",
   ]);
 
-const { areaCliente, descricaoIa, carregar } = useAdminFeatures();
+const { areaCliente, cobranca, descricaoIa, carregar } = useAdminFeatures();
 onMounted(carregar);
 
 /*
@@ -301,9 +301,10 @@ useHead({ title: "Configurações · Painel" });
 
     <!--
       Cobrança é parte da locação: só aparece para quem tem contratos (a Área
-      do Cliente), pelo mesmo motivo do menu lateral.
+      do Cliente) E contratou a cobrança (0055) — há imobiliária com a Área do
+      Cliente em produção que não contratou.
     -->
-    <AdminCobrancaConta v-if="areaCliente" />
+    <AdminCobrancaConta v-if="areaCliente && cobranca" />
 
     <!--
       Fora do formulário de cima e com salvamento próprio, de propósito: ver o

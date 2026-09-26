@@ -11,6 +11,7 @@ import { replacePayoutDestination } from '~~/server/repositories/payout-destinat
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant, user } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   const id = idDeRota(getRouterParam(event, 'id'))
   const body = await readBody<PayoutDestinationInput>(event)
   // A mesma validação do destino usada no assistente.

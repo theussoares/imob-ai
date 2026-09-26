@@ -14,6 +14,7 @@ import { createChargeDraft, getCharge } from '~~/server/repositories/cobranca.re
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant, user } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   const id = idDeRota(getRouterParam(event, 'id'))
   const body = await readBody<ChargeCreateInput>(event)
   assertChargeCreateInput(body)

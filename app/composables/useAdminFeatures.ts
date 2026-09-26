@@ -51,6 +51,7 @@ export function useAdminFeatures() {
     quemSomos: computed(() => estado.value?.quemSomos === true),
     descricaoIa: computed(() => estado.value?.descricaoIa === true),
     crm: computed(() => estado.value?.crm === true),
+    cobranca: computed(() => estado.value?.cobranca === true),
     carregar,
     carregado: computed(() => estado.value !== null),
   }
@@ -62,6 +63,7 @@ interface Recursos {
   quemSomos: boolean
   descricaoIa: boolean
   crm: boolean
+  cobranca: boolean
 }
 
 /**
