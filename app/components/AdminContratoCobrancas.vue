@@ -14,6 +14,7 @@ import {
   MANUAL_SETTLEMENT_METHODS,
   SETTLEMENT_METHOD_LABELS,
   hojeEmSaoPaulo,
+  repassesAMaior,
   somar,
   vencimentoPadrao,
 } from '~~/shared/models/cobranca'
@@ -277,6 +278,8 @@ const pagamentoResumo = (c: Charge) => {
 }
 const aReceber = computed(() => somar(cobrancas.value.filter((c) => emAberto(c.status)).map((c) => c.total - c.settledTotal)))
 const repassesPendentes = computed(() => repasses.value.filter((p) => p.status === 'pendente'))
+const aRecuperar = computed(() => repassesAMaior(cobrancas.value, repasses.value))
+const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.value.some((a) => a.chargeId === p.sourceChargeId)
 </script>
 
 <template>
@@ -437,6 +440,13 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 
     <template v-if="repasses.length">
       <h3 class="section-t cob-rep-t">Repasses ao proprietário</h3>
+      <!-- Fica enquanto o recebido não cobrir o que foi repassado: não há
+           botão de "resolvido" porque não há onde registrar a devolução. -->
+      <p v-for="a in aRecuperar" :key="a.chargeId" class="cob-aviso alerta" role="alert">
+        O pagamento de <b>{{ mesExtenso(a.competence) }}</b> foi estornado depois do repasse:
+        <b>{{ brl(a.valor) }}</b> foram transferidos a mais ao proprietário. Peça a devolução ou desconte no
+        próximo repasse.
+      </p>
       <ul class="cob-rep">
         <li v-for="p in repasses" :key="p.id">
           <span class="cob-mes">
@@ -446,7 +456,8 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
             </small>
           </span>
           <span class="cob-valor">{{ brl(p.net) }}</span>
-          <span v-if="p.status === 'pago'" class="cob-st ok">Feito</span>
+          <span v-if="estornadoDepois(p)" class="cob-st alerta">Feito · estornado</span>
+          <span v-else-if="p.status === 'pago'" class="cob-st ok">Feito</span>
           <span v-else-if="p.status === 'cancelado'" class="cob-st">Cancelado</span>
           <span v-else class="cob-rep-acao">
             <small>até {{ dataBR(p.scheduledFor) }}</small>
@@ -493,6 +504,11 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 .cob-aviso.teste {
   background: #fef3c7;
   color: #92400e;
+}
+.cob-aviso.alerta,
+.cob-st.alerta {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .cob-nova {
   display: grid;

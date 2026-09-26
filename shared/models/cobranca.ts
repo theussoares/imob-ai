@@ -333,6 +333,43 @@ export function calcularRepasse(itens: Pick<ChargeItem, 'kind' | 'amount'>[], re
   return { bruto, taxaAdm, liquido: arred(bruto - taxaAdm) }
 }
 
+export interface RepasseAMaior {
+  chargeId: string
+  competence: string
+  /** Líquido transferido a mais ao proprietário, a recuperar. */
+  valor: number
+}
+
+/**
+ * Repasses JÁ FEITOS que ficaram maiores que o dinheiro que sobrou da
+ * cobrança, porque o pagamento do inquilino foi estornado depois.
+ *
+ * O servidor cancela o repasse PENDENTE no estorno; o que já saiu da conta da
+ * imobiliária não se desfaz por código (a transferência foi manual, B3.8), e
+ * sem este aviso só aparecia no log. Derivado da comparação, e não gravado
+ * como alerta no estorno: continua certo quando o inquilino paga de novo
+ * (sobe o recebido, e o novo repasse ainda não saiu) e não depende de o
+ * webhook ter chegado.
+ *
+ * A comparação é no bruto (o que o inquilino pagou) e o valor volta ao
+ * líquido pela proporção dos próprios repasses — a taxa de administração não
+ * chega à tela, e o que o proprietário recebeu a mais é o líquido.
+ */
+export function repassesAMaior(
+  cobrancas: Pick<Charge, 'id' | 'competence' | 'settledTotal'>[],
+  repasses: Pick<OwnerPayout, 'status' | 'gross' | 'net' | 'sourceChargeId'>[],
+): RepasseAMaior[] {
+  const r: RepasseAMaior[] = []
+  for (const c of cobrancas) {
+    const feitos = repasses.filter((p) => p.status === 'pago' && p.sourceChargeId === c.id)
+    const bruto = somar(feitos.map((p) => p.gross))
+    const excesso = arred(bruto - Math.max(0, c.settledTotal))
+    if (excesso <= 0 || bruto <= 0) continue
+    r.push({ chargeId: c.id, competence: c.competence, valor: arred((excesso * somar(feitos.map((p) => p.net))) / bruto) })
+  }
+  return r
+}
+
 /** O que falta para emitir — reusa a mesma linguagem das pendências do contrato. */
 export function impedimentosDeEmissao(d: {
   status: ChargeStatus

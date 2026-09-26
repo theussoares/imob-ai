@@ -6,6 +6,7 @@ import {
   feriadosBancarios,
   hojeEmSaoPaulo,
   impedimentosDeEmissao,
+  repassesAMaior,
   somar,
   somarDiasUteis,
   vencimentoPadrao,
@@ -118,5 +119,36 @@ describe('o que impede emitir', () => {
     // 01h UTC de 11/10 ainda é 10/10 em São Paulo: um vencimento no dia 10
     // não pode virar "vencida" às 22h do próprio dia.
     expect(hojeEmSaoPaulo(new Date('2026-10-11T01:00:00Z'))).toBe('2026-10-10')
+  })
+})
+
+describe('repasse feito a mais (estorno depois do repasse)', () => {
+  // O repasse pendente o servidor cancela; o que já saiu da conta da
+  // imobiliária só aparece se a tela souber calcular.
+  const cob = (settledTotal: number) => ({ id: 'ch1', competence: '2026-09-01', settledTotal })
+  const feito = { status: 'pago' as const, gross: 2500, net: 2300, sourceChargeId: 'ch1' }
+
+  test('estorno total depois do repasse feito: a recuperar é o LÍQUIDO transferido', () => {
+    expect(repassesAMaior([cob(0)], [feito])).toEqual([{ chargeId: 'ch1', competence: '2026-09-01', valor: 2300 }])
+  })
+
+  test('repasse pendente ou cancelado não conta: nada saiu da conta', () => {
+    expect(repassesAMaior([cob(0)], [{ ...feito, status: 'pendente' }, { ...feito, status: 'cancelado' }])).toEqual([])
+  })
+
+  test('sem estorno, nenhum aviso', () => {
+    expect(repassesAMaior([cob(2500)], [feito])).toEqual([])
+  })
+
+  test('pago de novo e repassado de novo: o proprietário recebeu duas vezes por um pagamento', () => {
+    expect(repassesAMaior([cob(2500)], [feito, { ...feito }])).toEqual([expect.objectContaining({ valor: 2300 })])
+  })
+
+  test('estorno parcial: a recuperar é a parte proporcional do líquido', () => {
+    expect(repassesAMaior([cob(1500)], [feito])[0]!.valor).toBe(920)
+  })
+
+  test('repasse de outra cobrança não se mistura', () => {
+    expect(repassesAMaior([cob(0), { id: 'ch2', competence: '2026-10-01', settledTotal: 2500 }], [{ ...feito, sourceChargeId: 'ch2' }])).toEqual([])
   })
 })
