@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createHash } from 'node:crypto'
-import { criarAsaas, eventoDoAsaas, telefoneParaAsaas } from '~~/server/services/payments/asaas'
+import { criarAsaas, eventoDaConsulta, eventoDoAsaas, telefoneParaAsaas } from '~~/server/services/payments/asaas'
 import { ErroDoProvedor } from '~~/server/services/payments/provider'
 import { mesmoSegredo } from '~~/server/utils/segredo'
 import { fakeSupabase, hadEq } from '../helpers/fake-supabase'
@@ -444,3 +444,31 @@ describe('estorno → repasse', () => {
     expect(await chave([pago, devolvido, { ...pago, id: 's3', settled_on: '2026-10-22' }])).toBe('cobranca:ch1:apos-estorno-1')
   })
 })
+
+describe('eventoDaConsulta', () => {
+  // O webhook não chega ao localhost (e o Asaas pode pausar a fila em
+  // produção): a cobrança paga lá ficava "Em aberto" aqui. A consulta traz o
+  // estado pelo MESMO caminho do webhook, e só isso a torna segura.
+  test('pago lá vira evento "pago", com o id da cobrança lá (a chave da idempotência)', () => {
+    const e = eventoDaConsulta({ id: 'pay_1', status: 'RECEIVED', value: 1300, paymentDate: '2026-09-26', billingType: 'BOLETO' })!
+    expect(e.tipo).toBe('pago')
+    expect(e.externalId).toBe('pay_1')
+    expect(e.valor).toBe(1300)
+    expect(e.data).toBe('2026-09-26')
+  })
+
+  test('o id do evento é sintético e não colide com um evento real do webhook', () => {
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'CONFIRMED', value: 10 })!.eventId).toBe('consulta:pay_1:CONFIRMED')
+  })
+
+  test('removida e estornada lá também voltam', () => {
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'PENDING', deleted: true })!.tipo).toBe('cancelado')
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'REFUNDED', value: 10 })!.tipo).toBe('estornado')
+  })
+
+  test('em aberto ou vencida não é evento: nada a aplicar', () => {
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'PENDING' })).toBeNull()
+    expect(eventoDaConsulta({ id: 'pay_1', status: 'OVERDUE' })).toBeNull()
+  })
+})
+

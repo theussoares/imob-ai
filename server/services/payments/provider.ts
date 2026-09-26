@@ -83,4 +83,13 @@ export interface PaymentProvider {
    * pelo MESMO caminho do webhook.
    */
   simularPagamento(externalId: string, valor: number): Promise<EventoDePagamento | null>
+  /**
+   * O estado da cobrança LÁ, no formato de evento, para passar pelo mesmo
+   * caminho do webhook. Nulo quando não há nada a aplicar (em aberto, vencida).
+   *
+   * Existe porque o webhook pode não chegar: em localhost ele nunca chega, e em
+   * produção o provedor pode ter pausado a fila. Sem consulta, a cobrança paga
+   * lá ficava "Em aberto" aqui para sempre.
+   */
+  consultar(externalId: string): Promise<EventoDePagamento | null>
 }

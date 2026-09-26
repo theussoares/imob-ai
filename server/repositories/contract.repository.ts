@@ -343,11 +343,20 @@ export async function addContractParty(
   role: ContractPartyRole,
 ): Promise<void> {
   const [{ data: contrato }, { data: cliente }] = await Promise.all([
-    client.from('contracts').select('id').eq('tenant_id', tenantId).eq('id', contractId).maybeSingle(),
+    client.from('contracts').select('id, guarantee_type').eq('tenant_id', tenantId).eq('id', contractId).maybeSingle(),
     client.from('portal_users').select('id').eq('tenant_id', tenantId).eq('id', portalUserId).maybeSingle(),
   ])
   if (!contrato || !cliente) {
     throw createError({ statusCode: 404, statusMessage: 'Contrato ou cliente não encontrado.' })
+  }
+  // Fiador É uma garantia (Lei 8.245, art. 37): vinculá-lo a um contrato que já
+  // tem caução ou seguro-fiança dá duas. Garantia ainda não informada aceita —
+  // é o contrato antigo sendo migrado, que ganha o tipo depois.
+  if (role === 'fiador' && contrato.guarantee_type && contrato.guarantee_type !== 'fiador') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'A garantia deste contrato não é "Fiador". Troque a garantia antes de vincular um fiador: a lei permite uma só (art. 37).',
+    })
   }
 
   const { error } = await client
@@ -361,6 +370,37 @@ export async function addContractParty(
 }
 
 /** Desfaz um vínculo. O contrato e o cliente continuam existindo. */
+/**
+ * Fiadores que sobram quando a garantia deixa de ser "Fiador".
+ *
+ * O sintoma: no LOC-2026-002 a garantia foi trocada de Fiador para Caução e o
+ * QA Fiador continuou vinculado — duas garantias num contrato, o que a própria
+ * tela diz que a lei proíbe (art. 37). Trocar o tipo não removia a pessoa.
+ *
+ * Sem `remover`, recusa e diz quem está no caminho; com, devolve as partes
+ * para o chamador remover DEPOIS de gravar a garantia nova — na ordem
+ * inversa, uma falha no update deixaria o contrato com a garantia antiga e
+ * sem o fiador dela. Nunca remove calado: tirar alguém do contrato corta o
+ * acesso dele aos documentos, e a tela pede confirmação antes.
+ */
+export async function fiadoresSobrando(
+  client: Client,
+  tenantId: string,
+  contractId: string,
+  novaGarantia: string | null | undefined,
+  remover: boolean,
+): Promise<ParteDoContrato[]> {
+  if (novaGarantia === undefined || novaGarantia === null || novaGarantia === 'fiador') return []
+  const fiadores = (await listContractParties(client, tenantId, contractId)).filter((p) => p.role === 'fiador')
+  if (fiadores.length && !remover) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: `${fiadores.map((f) => f.nome).join(', ')} está vinculado como fiador. Com a garantia trocada, o fiador sai do contrato — a lei permite uma garantia só (art. 37).`,
+    })
+  }
+  return fiadores
+}
+
 export async function removeContractParty(
   client: Client,
   tenantId: string,

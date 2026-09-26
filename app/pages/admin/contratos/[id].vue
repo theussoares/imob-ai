@@ -191,9 +191,22 @@ async function salvar() {
     erroSalvar.value = `Caução até ${MAX_CAUCAO_ALUGUEIS} aluguéis (Lei 8.245, art. 38).`
     return
   }
+  // Trocar a garantia com fiador vinculado tira o fiador do contrato (uma
+  // garantia só, art. 37). É a pessoa perdendo acesso aos documentos: pergunta.
+  const fiadores = form.guaranteeType && form.guaranteeType !== 'fiador' ? partes.value.filter((p) => p.role === 'fiador') : []
+  if (fiadores.length) {
+    const nomes = fiadores.map((p) => p.nome).join(', ')
+    const ok = await askConfirm({
+      title: `Remover ${nomes} do contrato?`,
+      description: `A garantia passa a ser ${GUARANTEE_LABELS[form.guaranteeType!]}, e a lei permite uma só (art. 37). ${nomes} deixa de ser fiador e perde o acesso aos documentos deste contrato. O cadastro continua.`,
+      confirmLabel: 'Trocar e remover o fiador',
+      danger: true,
+    })
+    if (!ok) return
+  }
   salvando.value = true
   try {
-    const body: ContractInput & { internal: ContractInternalInput } = {
+    const body: ContractInput & { internal: ContractInternalInput; removerFiador: boolean } = {
       code: form.code,
       addressLabel: form.addressLabel || null,
       propertyId: form.propertyId,
@@ -205,6 +218,7 @@ async function salvar() {
       adjustmentIndex: form.adjustmentIndex || null,
       termMonths: form.termMonths,
       guaranteeType: form.guaranteeType,
+      removerFiador: fiadores.length > 0,
       internal: {
         ...internal,
         guaranteeAmount: form.guaranteeType === 'caucao' ? internal.guaranteeAmount : null,
@@ -215,8 +229,11 @@ async function salvar() {
     }
     const c = await adminFetch<Contract>(`/api/admin/contracts/${id.value}`, { method: 'PUT', body })
     contrato.value = c
+    if (fiadores.length) {
+      partes.value = partes.value.filter((p) => p.role !== 'fiador')
+    }
     salvo.value = retrato()
-    toast.success('Contrato salvo.')
+    toast.success(fiadores.length ? 'Contrato salvo. O fiador saiu do contrato.' : 'Contrato salvo.')
   } catch (e: unknown) {
     erroSalvar.value = (e as { data?: { statusMessage?: string } })?.data?.statusMessage || 'Não foi possível salvar.'
   } finally {
@@ -504,7 +521,9 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
         </button>
       </header>
 
-      <section v-if="pendencias.length" class="pendencias" aria-labelledby="pend-t">
+      <!-- Encerrado não gera cobrança nem repasse: "falta para cobrar" ali é
+           uma lista de tarefas que ninguém deve fazer. -->
+      <section v-if="form.status === 'ativo' && pendencias.length" class="pendencias" aria-labelledby="pend-t">
         <h2 id="pend-t"><AppIcon name="alert" /> Falta para cobrar e repassar</h2>
         <ul>
           <li v-for="p in pendencias" :key="p.codigo">
@@ -513,7 +532,7 @@ useHead({ title: computed(() => (form.code ? `${form.code} · Contrato` : 'Contr
           </li>
         </ul>
       </section>
-      <p v-else class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
+      <p v-else-if="form.status === 'ativo'" class="tudo-certo"><AppIcon name="check" /> Contrato completo: pronto para cobrança e repasse.</p>
 
       <!-- Cobranças: o que se faz todo mês, por isso logo abaixo das pendências. -->
       <AdminContratoCobrancas :contract-id="contrato.id" :rent-amount="contrato.rentAmount" :due-day="contrato.dueDay" :started-on="contrato.startedOn" :ends-on="contrato.endsOn" :ativo="form.status === 'ativo'" />

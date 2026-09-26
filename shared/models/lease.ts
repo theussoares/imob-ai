@@ -133,8 +133,17 @@ export interface DadosParaPendencias {
 export function pendenciasDoContrato(d: DadosParaPendencias): Pendencia[] {
   const p: Pendencia[] = []
   if (!d.inquilinos.length) p.push({ codigo: 'sem_inquilino', texto: 'Sem inquilino vinculado.', bloqueiaCobranca: true })
-  else if (d.inquilinos.some((i) => !i.doc)) {
+  else if (d.inquilinos.every((i) => !i.doc)) {
     p.push({ codigo: 'inquilino_sem_documento', texto: 'Inquilino sem CPF/CNPJ: o boleto exige.', bloqueiaCobranca: true })
+  } else if (d.inquilinos.some((i) => !i.doc)) {
+    // O boleto sai no nome de UM inquilino (`pagadorDoContrato`), e basta o
+    // documento dele. Este aviso dizia "impede o boleto" com um segundo
+    // inquilino sem CPF, e o boleto era emitido normalmente — a tela mentia.
+    p.push({
+      codigo: 'inquilino_sem_documento',
+      texto: 'Um dos inquilinos está sem CPF/CNPJ. O boleto sai no nome de quem tem.',
+      bloqueiaCobranca: false,
+    })
   }
   if (!d.rentAmount || !d.dueDay) {
     p.push({ codigo: 'sem_vencimento', texto: 'Falta o valor do aluguel ou o dia do vencimento.', bloqueiaCobranca: true })
@@ -152,6 +161,19 @@ export function pendenciasDoContrato(d: DadosParaPendencias): Pendencia[] {
   }
   if (!d.guaranteeType) p.push({ codigo: 'sem_garantia', texto: 'Garantia não informada.', bloqueiaCobranca: false })
   return p
+}
+
+/**
+ * Em nome de quem o boleto sai: o primeiro inquilino COM documento, porque o
+ * boleto registrado exige CPF/CNPJ do pagador. Sem nenhum com documento, o
+ * primeiro — e a emissão recusa com a mesma mensagem da pendência.
+ *
+ * Uma função só para a pendência da ficha e para a emissão: eram duas regras
+ * (a ficha olhava "algum sem CPF", a emissão olhava "o primeiro"), e elas
+ * discordavam justamente no caso de dois inquilinos.
+ */
+export function pagadorDoContrato<T extends { doc: string | null }>(inquilinos: readonly T[]): T | null {
+  return inquilinos.find((i) => !!i.doc) ?? inquilinos[0] ?? null
 }
 
 /** Pessoa do contrato: uma que já existe, ou uma nova criada no mesmo passo. */

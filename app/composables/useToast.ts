@@ -19,6 +19,8 @@ export interface Toast {
  * possível excluir" só precisa ser lido. Modal cobraria um clique a mais para
  * dispensar. Quando há decisão a tomar, o certo é [[useConfirm]].
  */
+const MAX_POR_TIPO = 2;
+
 export function useToast() {
   const items = useState<Toast[]>("admin-toasts", () => []);
   // Contador em useState (e não em variável de módulo) para não ser
@@ -36,7 +38,12 @@ export function useToast() {
     if (repetido && ttl === null) return repetido.id;
     seq.value += 1;
     const id = seq.value;
-    items.value = [...items.value, { id, kind, message, action }];
+    // No máximo MAX_POR_TIPO de cada tipo: os mais antigos saem. No teste de
+    // 26/09 os avisos se acumularam até cobrir os botões de gerar e salvar
+    // cobrança — uma pilha de erros velhos esconde justamente o novo.
+    const doTipo = items.value.filter((t) => t.kind === kind);
+    const sobra = new Set(doTipo.slice(0, Math.max(0, doTipo.length - MAX_POR_TIPO + 1)).map((t) => t.id));
+    items.value = [...items.value.filter((t) => !sobra.has(t.id)), { id, kind, message, action }];
     if (ttl !== null) setTimeout(() => dismiss(id), ttl);
     return id;
   }
