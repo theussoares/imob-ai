@@ -493,6 +493,8 @@ export async function createPayoutForCharge(
     bruto: number
     taxaAdm: number
     adminFeePercent: number | null
+    /** Quantos estornos a cobrança já teve; 0 no caso comum. Ver `gerarRepasseSeQuitada`. */
+    estornos: number
   },
 ): Promise<'ok' | 'duplicado'> {
   const { data, error } = await service
@@ -503,7 +505,7 @@ export async function createPayoutForCharge(
       competence: d.competence,
       destination_id: d.destinationId,
       scheduled_for: d.scheduledFor,
-      idempotency_key: `cobranca:${d.chargeId}`,
+      idempotency_key: d.estornos ? `cobranca:${d.chargeId}:apos-estorno-${d.estornos}` : `cobranca:${d.chargeId}`,
     })
     .select('id')
     .single()
@@ -537,6 +539,50 @@ export async function markPayoutPaid(service: Client, tenantId: string, payoutId
   const { data, error } = await service
     .from('owner_payouts')
     .update({ paid_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId)
+    .eq('id', payoutId)
+    .is('paid_at', null)
+    .is('canceled_at', null)
+    .select('id')
+  if (error) erro(error)
+  return (data ?? []).length > 0
+}
+
+/**
+ * Repasses ainda de pé (não cancelados) que saíram desta cobrança. Pelo item,
+ * e não pela chave de idempotência: a chave muda depois de um estorno, o
+ * `source_charge_id` não.
+ */
+export async function listActivePayoutsForCharge(
+  service: Client,
+  tenantId: string,
+  chargeId: string,
+): Promise<{ id: string; paidAt: string | null }[]> {
+  const { data, error } = await service
+    .from('owner_payouts')
+    .select('id, paid_at, payout_items!inner(source_charge_id)')
+    .eq('tenant_id', tenantId)
+    .eq('payout_items.source_charge_id', chargeId)
+    .is('canceled_at', null)
+  if (error) erro(error)
+  return ((data ?? []) as { id: string; paid_at: string | null }[]).map((r) => ({ id: r.id, paidAt: r.paid_at }))
+}
+
+/**
+ * Cancela um repasse que ainda não saiu. `false` quando ele já foi pago (ou
+ * cancelado) — inclusive se alguém clicou "Marcar como pago" entre a leitura e
+ * este update: o `is('paid_at', null)` é a trava.
+ */
+export async function cancelPendingPayout(
+  service: Client,
+  tenantId: string,
+  payoutId: string,
+  reason: string,
+  userId: string | null,
+): Promise<boolean> {
+  const { data, error } = await service
+    .from('owner_payouts')
+    .update({ canceled_at: new Date().toISOString(), canceled_by: userId, cancel_reason: reason })
     .eq('tenant_id', tenantId)
     .eq('id', payoutId)
     .is('paid_at', null)
