@@ -333,6 +333,66 @@ export function calcularRepasse(itens: Pick<ChargeItem, 'kind' | 'amount'>[], re
   return { bruto, taxaAdm, liquido: arred(bruto - taxaAdm) }
 }
 
+export interface RepasseAMaior {
+  chargeId: string
+  competence: string
+  /** Líquido transferido a mais ao proprietário, a recuperar. */
+  valor: number
+}
+
+/**
+ * Repasses JÁ FEITOS que ficaram maiores que o dinheiro que sobrou da
+ * cobrança, porque o pagamento do inquilino foi estornado depois.
+ *
+ * O servidor cancela o repasse PENDENTE no estorno; o que já saiu da conta da
+ * imobiliária não se desfaz por código (a transferência foi manual, B3.8), e
+ * sem este aviso só aparecia no log. Derivado da comparação, e não gravado
+ * como alerta no estorno: continua certo quando o inquilino paga de novo
+ * (sobe o recebido, e o novo repasse ainda não saiu) e não depende de o
+ * webhook ter chegado.
+ *
+ * A comparação é no bruto (o que o inquilino pagou) e o valor volta ao
+ * líquido pela proporção dos próprios repasses — a taxa de administração não
+ * chega à tela, e o que o proprietário recebeu a mais é o líquido.
+ */
+export function repassesAMaior(
+  cobrancas: Pick<Charge, 'id' | 'competence' | 'settledTotal'>[],
+  repasses: Pick<OwnerPayout, 'status' | 'gross' | 'net' | 'sourceChargeId'>[],
+): RepasseAMaior[] {
+  const r: RepasseAMaior[] = []
+  for (const c of cobrancas) {
+    const feitos = repasses.filter((p) => p.status === 'pago' && p.sourceChargeId === c.id)
+    const bruto = somar(feitos.map((p) => p.gross))
+    const excesso = arred(bruto - Math.max(0, c.settledTotal))
+    if (excesso <= 0 || bruto <= 0) continue
+    r.push({ chargeId: c.id, competence: c.competence, valor: arred((excesso * somar(feitos.map((p) => p.net))) / bruto) })
+  }
+  return r
+}
+
+/**
+ * Quanto a MAIS o proprietário terá recebido se este repasse for marcado como
+ * feito — 0 no caso comum.
+ *
+ * O caso que isto pega: pagamento estornado depois do repasse feito, e o
+ * inquilino paga de novo. O servidor cria outro repasse (a chave pós-estorno
+ * existe para isso), e ele parece um repasse normal; mas o proprietário já
+ * recebeu por aquela competência. O aviso de `repassesAMaior` só aparecia
+ * DEPOIS do segundo "Marcar como feito", quando a transferência já tinha saído.
+ */
+export function aMaiorSeMarcarFeito(
+  cobrancas: Pick<Charge, 'id' | 'competence' | 'settledTotal'>[],
+  repasses: (Pick<OwnerPayout, 'status' | 'gross' | 'net' | 'sourceChargeId'> & { id: string })[],
+  payoutId: string,
+): number {
+  const alvo = repasses.find((p) => p.id === payoutId)
+  if (!alvo || alvo.status !== 'pendente' || !alvo.sourceChargeId) return 0
+  const daCobranca = (lista: RepasseAMaior[]) => lista.find((a) => a.chargeId === alvo.sourceChargeId)?.valor ?? 0
+  const antes = daCobranca(repassesAMaior(cobrancas, repasses))
+  const depois = daCobranca(repassesAMaior(cobrancas, repasses.map((p) => (p.id === payoutId ? { ...p, status: 'pago' as const } : p))))
+  return arred(Math.max(0, depois - antes))
+}
+
 /** O que falta para emitir — reusa a mesma linguagem das pendências do contrato. */
 export function impedimentosDeEmissao(d: {
   status: ChargeStatus

@@ -13,7 +13,9 @@ import {
   CHARGE_STATUS_LABELS,
   MANUAL_SETTLEMENT_METHODS,
   SETTLEMENT_METHOD_LABELS,
+  aMaiorSeMarcarFeito,
   hojeEmSaoPaulo,
+  repassesAMaior,
   somar,
   vencimentoPadrao,
 } from '~~/shared/models/cobranca'
@@ -253,11 +255,22 @@ async function copiar(texto: string, oque: string) {
 }
 
 async function repassePago(p: OwnerPayout) {
-  const ok = await askConfirm({
-    title: `Marcar o repasse de ${mesExtenso(p.competence)} como feito?`,
-    description: `Confirme que ${brl(p.net)} já foi transferido ao proprietário.`,
-    confirmLabel: 'Marcar como feito',
-  })
+  const aMaior = aMaiorSeMarcarFeito(cobrancas.value, repasses.value, p.id)
+  const ok = await askConfirm(
+    aMaior > 0
+      ? {
+          title: `O proprietário já recebeu por ${mesExtenso(p.competence)}`,
+          description: `Um repasse desta competência foi feito antes de o pagamento ser estornado. Se transferir ${brl(p.net)} agora, ${brl(aMaior)} terão saído a mais. Só marque como feito se descontou esse valor.`,
+          confirmLabel: 'Marcar mesmo assim',
+          cancelLabel: 'Não transferir',
+          danger: true,
+        }
+      : {
+          title: `Marcar o repasse de ${mesExtenso(p.competence)} como feito?`,
+          description: `Confirme que ${brl(p.net)} já foi transferido ao proprietário.`,
+          confirmLabel: 'Marcar como feito',
+        },
+  )
   if (!ok) return
   try {
     await adminFetch(`/api/admin/repasses/${p.id}/pago`, { method: 'POST' })
@@ -277,6 +290,8 @@ const pagamentoResumo = (c: Charge) => {
 }
 const aReceber = computed(() => somar(cobrancas.value.filter((c) => emAberto(c.status)).map((c) => c.total - c.settledTotal)))
 const repassesPendentes = computed(() => repasses.value.filter((p) => p.status === 'pendente'))
+const aRecuperar = computed(() => repassesAMaior(cobrancas.value, repasses.value))
+const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.value.some((a) => a.chargeId === p.sourceChargeId)
 </script>
 
 <template>
@@ -437,6 +452,13 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 
     <template v-if="repasses.length">
       <h3 class="section-t cob-rep-t">Repasses ao proprietário</h3>
+      <!-- Fica enquanto o recebido não cobrir o que foi repassado: não há
+           botão de "resolvido" porque não há onde registrar a devolução. -->
+      <p v-for="a in aRecuperar" :key="a.chargeId" class="cob-aviso alerta" role="alert">
+        O pagamento de <b>{{ mesExtenso(a.competence) }}</b> foi estornado depois do repasse:
+        <b>{{ brl(a.valor) }}</b> foram transferidos a mais ao proprietário. Peça a devolução ou desconte no
+        próximo repasse.
+      </p>
       <ul class="cob-rep">
         <li v-for="p in repasses" :key="p.id">
           <span class="cob-mes">
@@ -444,9 +466,13 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
             <small>
               {{ brl(p.gross) }} recebido<template v-if="p.adminFee"> − {{ brl(p.adminFee) }} de taxa</template>
             </small>
+            <small v-if="p.status === 'pendente' && aMaiorSeMarcarFeito(cobrancas, repasses, p.id) > 0" class="cob-rep-ja">
+              Já repassado antes do estorno: não transfira de novo
+            </small>
           </span>
           <span class="cob-valor">{{ brl(p.net) }}</span>
-          <span v-if="p.status === 'pago'" class="cob-st ok">Feito</span>
+          <span v-if="estornadoDepois(p)" class="cob-st alerta">Feito · estornado</span>
+          <span v-else-if="p.status === 'pago'" class="cob-st ok">Feito</span>
           <span v-else-if="p.status === 'cancelado'" class="cob-st">Cancelado</span>
           <span v-else class="cob-rep-acao">
             <small>até {{ dataBR(p.scheduledFor) }}</small>
@@ -493,6 +519,15 @@ const repassesPendentes = computed(() => repasses.value.filter((p) => p.status =
 .cob-aviso.teste {
   background: #fef3c7;
   color: #92400e;
+}
+.cob-mes .cob-rep-ja {
+  color: #991b1b;
+  font-weight: 600;
+}
+.cob-aviso.alerta,
+.cob-st.alerta {
+  background: #fee2e2;
+  color: #991b1b;
 }
 .cob-nova {
   display: grid;
