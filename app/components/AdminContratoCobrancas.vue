@@ -50,17 +50,27 @@ const conta = ref<PaymentAccountView | null>(null)
 const carregando = ref(true)
 const erroCarga = ref('')
 
+/**
+ * Só a leitura MAIS NOVA escreve na tela. A lista é recarregada de vários
+ * lugares ao mesmo tempo (depois de emitir, e pelas releituras de 3s e 8s do
+ * "Simular pagamento"), e sem esta guarda uma resposta antiga que chegasse por
+ * último punha a lista de antes de volta. É a explicação mais provável para
+ * "o boleto novo só apareceu depois de recarregar a página" (teste de 26/09).
+ */
+let leitura = 0
 async function carregar() {
   erroCarga.value = ''
+  const minha = ++leitura
   try {
     const r = await adminFetch<{ cobrancas: Charge[]; repasses: OwnerPayout[]; conta: PaymentAccountView | null }>(
       `/api/admin/contracts/${props.contractId}/cobrancas`,
     )
+    if (minha !== leitura) return
     cobrancas.value = r.cobrancas
     repasses.value = r.repasses
     conta.value = r.conta
   } catch {
-    erroCarga.value = 'Não foi possível carregar as cobranças.'
+    if (minha === leitura) erroCarga.value = 'Não foi possível carregar as cobranças.'
   } finally {
     carregando.value = false
   }
@@ -127,6 +137,7 @@ const totalNova = computed(() => somar([nova.rentAmount ?? 0, ...nova.extras.map
 async function salvarNova(emitirJunto: boolean) {
   if (!nova.rentAmount || nova.rentAmount <= 0) return toast.error('Informe o aluguel do mês.')
   if (nova.extras.some((x) => !x.amount || x.amount <= 0)) return toast.error('Preencha o valor de cada item (ou remova a linha).')
+  if (totalNova.value <= 0) return toast.error('O desconto não pode ser maior que o aluguel e os outros itens: o total ficaria zerado ou negativo.')
   if (nova.dueOn < hojeEmSaoPaulo()) return toast.error('O vencimento não pode estar no passado.')
   if (competenciaFora.value) return toast.error(competenciaFora.value === 'antes' ? 'Este mês é anterior ao início do contrato.' : 'Este mês é posterior ao fim do contrato.')
   salvandoNova.value = true
@@ -195,6 +206,14 @@ async function cancelar(c: Charge) {
 }
 
 async function apagar(c: Charge) {
+  // Mesma regra dos documentos e do cancelamento: apagar pede confirmação.
+  const ok = await askConfirm({
+    title: `Apagar o rascunho de ${mesExtenso(c.competence)}?`,
+    description: `A cobrança de ${brl(c.total)} ainda não foi emitida; apagar tira ela do contrato. Não dá para desfazer.`,
+    confirmLabel: 'Apagar rascunho',
+    danger: true,
+  })
+  if (!ok) return
   ocupado.value = c.id
   try {
     await adminFetch(`/api/admin/cobrancas/${c.id}`, { method: 'DELETE' })
@@ -212,16 +231,30 @@ async function simular(c: Charge) {
   try {
     const r = await adminFetch<{ aguardandoWebhook: boolean }>(`/api/admin/cobrancas/${c.id}/simular-pagamento`, { method: 'POST' })
     if (r.aguardandoWebhook) {
-      toast.success('Pagamento confirmado no sandbox do Asaas. A baixa chega pelo webhook em instantes.')
-      // O webhook costuma chegar em segundos; duas releituras cobrem o caso
-      // comum sem deixar a tela consultando para sempre.
-      setTimeout(carregar, 3000)
-      setTimeout(carregar, 8000)
+      toast.success('Pagamento confirmado no sandbox do Asaas. A baixa chega em instantes.')
+      // Consulta o Asaas em vez de só esperar o webhook: em localhost ele
+      // nunca chega, e a cobrança ficava "Em aberto" com o pagamento feito lá.
+      // Se o webhook chegar antes, a consulta vira no-op (mesma idempotência).
+      setTimeout(() => sincronizar(c, true), 3000)
     } else {
       toast.success('Pagamento simulado. Veja o repasse gerado abaixo.')
     }
   } catch (e) {
     toast.error(msg(e, 'Não foi possível simular o pagamento.'))
+  } finally {
+    ocupado.value = null
+    await carregar()
+  }
+}
+
+/** `silencioso`: a releitura automática não avisa "nada novo" — só o clique. */
+async function sincronizar(c: Charge, silencioso = false) {
+  ocupado.value = c.id
+  try {
+    const r = await adminFetch<{ mudou: boolean; mensagem: string }>(`/api/admin/cobrancas/${c.id}/sincronizar`, { method: 'POST' })
+    if (r.mudou || !silencioso) toast.success(r.mensagem)
+  } catch (e) {
+    if (!silencioso) toast.error(msg(e, 'Não foi possível consultar o Asaas.'))
   } finally {
     ocupado.value = null
     await carregar()
@@ -244,6 +277,9 @@ async function registrarBaixa(c: Charge) {
     toast.success('Pagamento registrado.')
     baixando.value = null
   } catch (e) {
+    // 409 com a cobrança já atualizada pelo provedor (ver `baixarManualmente`):
+    // não há mais baixa a fazer, e o formulário aberto só confundiria.
+    if ((e as { statusCode?: number })?.statusCode === 409) baixando.value = null
     toast.error(msg(e, 'Não foi possível registrar o pagamento.'))
   } finally {
     ocupado.value = null
@@ -365,7 +401,7 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
       <button type="button" class="link-btn cob-add" @click="addExtra"><AppIcon name="plus" /> Condomínio, IPTU, seguro ou desconto</button>
 
       <div class="cob-rodape">
-        <p class="cob-total">Total <b>{{ brl(totalNova) }}</b></p>
+        <p class="cob-total" :class="{ 'cob-fora': totalNova <= 0 }">Total <b>{{ brl(totalNova) }}</b></p>
         <div class="cob-acoes">
           <button v-if="conta" type="button" class="admin-btn sm" :disabled="salvandoNova" @click="salvarNova(true)">
             {{ salvandoNova ? 'Emitindo…' : 'Gerar e emitir boleto' }}
@@ -457,6 +493,9 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
                 Simular pagamento do inquilino
               </button>
               <button type="button" class="admin-btn ghost sm" @click="abrirBaixa(c)">Recebi por fora</button>
+              <button v-if="c.externalId && c.provider !== 'simulado'" type="button" class="admin-btn ghost sm" :disabled="ocupado === c.id" @click="sincronizar(c)">
+                Consultar no Asaas
+              </button>
               <button v-if="c.status !== 'parcial'" type="button" class="admin-btn danger-ghost sm" :disabled="ocupado === c.id" @click="cancelar(c)">Cancelar</button>
             </template>
             <template v-else-if="c.status === 'emitindo'">

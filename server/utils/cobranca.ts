@@ -10,7 +10,7 @@ import {
   somar,
   somarDiasUteis,
 } from '~~/shared/models/cobranca'
-import { LEASE_DEFAULTS } from '~~/shared/models/lease'
+import { LEASE_DEFAULTS, pagadorDoContrato } from '~~/shared/models/lease'
 import type { Tenant } from '~~/shared/models/tenant'
 import type { PaymentAccountRow } from '~~/server/mappers/cobranca.mapper'
 import { getContract, getContractInternal, listContractParties } from '~~/server/repositories/contract.repository'
@@ -97,7 +97,7 @@ export async function emitirCobranca(client: Client, tenant: Tenant, chargeId: s
     listContractParties(client, tenant.id, contrato.id),
     getPaymentAccount(service, tenant.id),
   ])
-  const inquilino = partes.find((p) => p.role === 'inquilino')
+  const inquilino = pagadorDoContrato(partes.filter((p) => p.role === 'inquilino'))
 
   const impedimentos = impedimentosDeEmissao({
     status: charge.status,
@@ -267,6 +267,12 @@ export async function baixarManualmente(
       try {
         await provedorDaConta(conta).baixarPorFora(charge.externalId, input.amount, input.settledOn)
       } catch (e) {
+        // O provedor recusa a baixa de um boleto que lá já foi pago ou
+        // removido ("cobrança não está pendente") — e o motivo mais comum é o
+        // webhook não ter chegado. Antes de mostrar o erro cru, pergunta ao
+        // provedor o que aconteceu e traz para cá.
+        const r = e instanceof ErroDoProvedor && !e.credencialInvalida ? await sincronizarComProvedor(service, tenant.id, charge.id).catch(() => null) : null
+        if (r?.mudou) throw createError({ statusCode: 409, statusMessage: r.mensagem })
         comoErroHttp(e)
       }
     } else {
@@ -300,6 +306,52 @@ export async function baixarManualmente(
   })
   await gerarRepasseSeQuitada(service, tenant.id, charge.id)
   return (await getCharge(service, tenant.id, charge.id))!
+}
+
+/**
+ * Traz para cá o estado que a cobrança tem no provedor, pelo MESMO caminho do
+ * webhook (`processarEventoDePagamento`).
+ *
+ * O sintoma do teste de 26/09: "Simular pagamento" funcionava no Asaas, o
+ * webhook não chegava ao localhost, e a cobrança ficava "Em aberto" aqui.
+ * "Recebi por fora" então mostrava o erro cru do Asaas ("cobrança não está
+ * pendente"). Em produção o mesmo acontece quando o Asaas pausa a fila do
+ * webhook depois de falhas seguidas.
+ *
+ * Só lê do provedor; quem escreve é o processamento do evento, com a mesma
+ * idempotência do webhook — se ele chegar depois, vira no-op.
+ */
+export async function sincronizarComProvedor(
+  service: Client,
+  tenantId: string,
+  chargeId: string,
+): Promise<{ mudou: boolean; mensagem: string }> {
+  const charge = await getCharge(service, tenantId, chargeId)
+  if (!charge) throw createError({ statusCode: 404, statusMessage: 'Cobrança não encontrada.' })
+  if (!charge.provider || !charge.externalId) {
+    return { mudou: false, mensagem: 'Esta cobrança não foi emitida no provedor.' }
+  }
+  const conta = await getPaymentAccount(service, tenantId)
+  if (!conta || conta.provider !== charge.provider || conta.environment !== charge.providerEnvironment) {
+    throw createError({ statusCode: 409, statusMessage: 'O boleto foi emitido por outra conta de cobrança. Confira no painel do provedor.' })
+  }
+  let evento: EventoDePagamento | null
+  try {
+    evento = await provedorDaConta(conta).consultar(charge.externalId)
+  } catch (e) {
+    comoErroHttp(e)
+  }
+  if (!evento) return { mudou: false, mensagem: 'Nada novo no provedor: a cobrança continua em aberto lá também.' }
+  const resultado = await processarEventoDePagamento(service, tenantId, conta.provider as PaymentProviderName, evento)
+  const MENSAGENS: Record<string, string> = {
+    liquidada: `O provedor já registrava o pagamento (${evento.data.split('-').reverse().join('/')}). A cobrança foi atualizada aqui.`,
+    paga_apos_cancelamento: 'O provedor registra pagamento numa cobrança cancelada aqui. O pagamento foi registrado; confira com o inquilino.',
+    cancelada: 'A cobrança foi removida no provedor. Ela foi cancelada aqui também.',
+    estornada: 'O pagamento foi estornado no provedor. A cobrança foi atualizada aqui.',
+    estornada_repasse_ja_pago: 'O pagamento foi estornado no provedor, e o repasse ao proprietário já tinha sido feito. Acerte com o proprietário.',
+  }
+  const mensagem = MENSAGENS[resultado]
+  return mensagem ? { mudou: true, mensagem } : { mudou: false, mensagem: 'A cobrança já estava em dia com o provedor.' }
 }
 
 /**

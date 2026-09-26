@@ -62,8 +62,10 @@ function runAction(t: Toast) {
 .toasts {
   position: fixed;
   right: 16px;
-  /* Acima da barra inferior do celular — sem isto o toast nascia atrás dela. */
-  bottom: calc(16px + var(--admin-bottom-nav, 0px) + env(safe-area-inset-bottom));
+  /* No TOPO. Embaixo eles cobriam a barra "Salvar alterações" da ficha do
+     contrato, fixa no rodapé (e, no celular, disputavam o espaço com a
+     navegação inferior): o aviso de erro tampava o botão que o resolveria. */
+  top: calc(16px + env(safe-area-inset-top));
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -102,9 +104,19 @@ function runAction(t: Toast) {
 }
 .x {
   margin-left: auto;
+  /* Área de toque de 32px: o × tinha ~12px de largura, e o "às vezes o X não
+     fecha" do teste de 26/09 era o clique caindo ao lado dele. A margem
+     negativa devolve o espaço para o card não crescer. */
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -6px -6px -6px auto;
   border: none;
+  border-radius: var(--r-sm);
   background: none;
-  padding: 0 2px;
+  padding: 0;
   font-size: var(--fs-title-sm);
   line-height: 1;
   color: inherit;
@@ -133,7 +145,7 @@ function runAction(t: Toast) {
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,5 @@
 import type { ChargeCreateInput } from '~~/shared/models/cobranca'
-import { competenciaForaDaVigencia, competenciaParaData } from '~~/shared/models/cobranca'
+import { competenciaForaDaVigencia, competenciaParaData, somar } from '~~/shared/models/cobranca'
 import { getContract } from '~~/server/repositories/contract.repository'
 import { createChargeDraft, getCharge } from '~~/server/repositories/cobranca.repository'
 
@@ -47,6 +47,17 @@ export default defineEventHandler(async (event) => {
     ...(body.extras ?? []).map((x) => ({ kind: x.kind, description: x.description?.trim() || null, amount: x.amount })),
   ]
   if (!items.length) throw createError({ statusCode: 422, statusMessage: 'Lance ao menos um item.' })
+  // A emissão já recusava total ≤ 0, mas o rascunho era salvo: um desconto de
+  // R$ 2.000 num aluguel de R$ 1.300 virou rascunho de −R$ 700, que ninguém
+  // consegue emitir nem receber. Recusar aqui diz o problema enquanto a pessoa
+  // ainda está com o formulário aberto.
+  const total = somar(items.map((x) => x.amount))
+  if (total <= 0) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: `O total ficaria em ${total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}. O desconto não pode ser maior que o aluguel e os outros itens.`,
+    })
+  }
 
   const chargeId = await createChargeDraft(
     serviceSupabase(),

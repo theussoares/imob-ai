@@ -186,6 +186,11 @@ export function criarAsaas(op: OpcoesAsaas): PaymentProvider {
       })
     },
 
+    async consultar(externalId) {
+      const p = await chamar<Record<string, unknown>>('GET', `/payments/${encodeURIComponent(externalId)}`)
+      return eventoDaConsulta(p)
+    },
+
     async simularPagamento(externalId) {
       if (op.ambiente !== 'sandbox') {
         throw new ErroDoProvedor('Simular pagamento só existe no sandbox.')
@@ -243,4 +248,26 @@ export function eventoDoAsaas(corpo: unknown): EventoDePagamento | null {
     metodo: p.status === 'RECEIVED_IN_CASH' ? 'dinheiro' : metodo(p.billingType),
     emDinheiro: p.status === 'RECEIVED_IN_CASH',
   }
+}
+
+/**
+ * Status de `GET /payments/{id}` → o evento que o webhook teria mandado.
+ *
+ * O `eventId` é sintético (`consulta:<id>:<status>`): o diário de webhooks não
+ * pode confundi-lo com um evento real. Não há risco de pagar duas vezes se o
+ * webhook chegar depois — a liquidação é idempotente por
+ * `asaas:pago:<id da cobrança>`, a mesma chave dos dois caminhos.
+ */
+export function eventoDaConsulta(p: Record<string, unknown>): EventoDePagamento | null {
+  if (typeof p.id !== 'string') return null
+  const status = String(p.status ?? '')
+  const evento = p.deleted === true
+    ? 'PAYMENT_DELETED'
+    : ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(status)
+      ? 'PAYMENT_RECEIVED'
+      : status === 'REFUNDED'
+        ? 'PAYMENT_REFUNDED'
+        : null
+  if (!evento) return null
+  return eventoDoAsaas({ id: `consulta:${p.id}:${p.deleted === true ? 'DELETED' : status}`, event: evento, payment: p })
 }
