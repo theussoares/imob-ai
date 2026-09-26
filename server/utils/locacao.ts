@@ -59,7 +59,11 @@ export async function criarLocacao(
 ): Promise<ResultadoLocacao> {
   // `contracts.property_id` tem FK simples: sem esta leitura com o tenant no
   // filtro, um id de imóvel de outra imobiliária seria aceito pelo banco.
-  const imovel = input.propertyId ? await getPropertyById(client, tenant.id, input.propertyId) : null
+  // Service_role porque a 0031 fechou as colunas internas de `properties` ao
+  // `authenticated` e o repositório lê `select('*')` (e usa `location` para o
+  // endereço): com o client do membro o PostgREST devolvia 403 e o assistente
+  // inteiro caía em 500. O tenant no filtro é a proteção.
+  const imovel = input.propertyId ? await getPropertyById(serviceSupabase(), tenant.id, input.propertyId) : null
   if (input.propertyId && !imovel) throw createError({ statusCode: 422, statusMessage: 'Imóvel não encontrado.' })
 
   const inquilino = await resolverPessoa(client, tenant.id, input.inquilino)
