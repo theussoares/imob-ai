@@ -121,11 +121,6 @@ useHead(() => ({
         você.
       </li>
       <li>
-        <b>Seus boletos:</b> se você aluga e {{ nome }} emite a cobrança pelo
-        sistema, os boletos e Pix do aluguel, com vencimento, valor e se já
-        foram pagos.
-      </li>
-      <li>
         <b>Registro dos seus acessos:</b> cada vez que um documento é baixado,
         guardamos quem baixou, quando e de qual endereço de internet.
       </li>
@@ -133,8 +128,8 @@ useHead(() => ({
 
     <h3>Para que usamos</h3>
     <p>
-      Para dar a você acesso aos documentos da sua locação, cobrar e registrar
-      o pagamento do aluguel, e manter registro de quem acessou o quê.
+      Para dar a você acesso aos documentos da sua locação, e para manter
+      registro de quem acessou o quê.
     </p>
 
     <h3>Quem mais vê os seus documentos</h3>
@@ -193,17 +188,6 @@ useHead(() => ({
         estatísticas de visita, nos Estados Unidos.
       </li>
       <li><b>Resend:</b> envio de e-mails, nos Estados Unidos.</li>
-      <!--
-        Asaas (0051): só quando a imobiliária conecta a cobrança. A conta é
-        DELA no Asaas; recebe nome, CPF/CNPJ, e-mail e telefone do inquilino
-        para emitir o boleto registrado, que exige o documento. Ver
-        docs/runbooks/0037-lgpd-area-do-cliente.md.
-      -->
-      <li>
-        <b>Asaas:</b> emissão de boletos e Pix do aluguel, no Brasil. Recebe o
-        nome, o CPF ou CNPJ, o e-mail e o telefone de quem paga o aluguel,
-        quando {{ nome }} cobra pelo sistema.
-      </li>
     </ul>
     <!--
       Transferência internacional (LGPD art. 33): as funções rodam em `gru1`

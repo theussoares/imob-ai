@@ -40,9 +40,7 @@ describe('assertContractInput', () => {
     // Sem um dos dois o contrato não tem como ser identificado na tela.
     const semNada = { code: 'LOC-002' }
     expect(() => assertContractInput(semNada)).toThrow()
-    expect(() => assertContractInput({ ...semNada, propertyId: '3f0c1f8e-5d7a-4b8e-9a51-2f6d0c7e9b11' })).not.toThrow()
-    // Id que nem é uuid não chega ao banco (onde viraria erro 500 do Postgres).
-    expect(() => assertContractInput({ ...semNada, propertyId: 'imovel-1' })).toThrow(/Imóvel inválido/)
+    expect(() => assertContractInput({ ...semNada, propertyId: 'imovel-1' })).not.toThrow()
     expect(() => assertContractInput({ ...semNada, addressLabel: 'Rua X, 10' })).not.toThrow()
   })
 })

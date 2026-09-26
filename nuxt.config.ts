@@ -190,15 +190,6 @@ export default defineNuxtConfig({
     // prefixo, que o Nuxt lê no BUILD: marcar na Vercel não basta, precisa
     // redeploy, e isso custou uma tarde em 17/09. Com o prefixo, marcar já vale.
     anthropicApiKey: '',
-    // Chave-mestra que cifra a chave de API do Asaas de cada imobiliária
-    // (AES-256-GCM, `server/utils/cofre.ts`). Qualquer texto com 32+
-    // caracteres (`openssl rand -base64 32`). Sem default, como a da IA: o
-    // nome é NUXT_PAYMENTS_ENCRYPTION_KEY.
-    //
-    // ⚠️ Trocar esta chave torna ilegíveis as chaves já gravadas: as
-    // imobiliárias precisam reconectar a conta. Guarde-a como se guarda a
-    // service_role.
-    paymentsEncryptionKey: '',
     // Trocar de modelo é variável de ambiente, não deploy de código.
     aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {

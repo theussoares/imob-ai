@@ -52,9 +52,6 @@ export default defineNitroPlugin(() => {
     MAIL_API_KEY: segredoDeRuntime(config.mailApiKey, 'MAIL_API_KEY'),
     MAIL_FROM: segredoDeRuntime(config.mailFrom, 'MAIL_FROM'),
     RATE_LIMIT_IP_SALT: segredoDeRuntime(config.rateLimitIpSalt, 'RATE_LIMIT_IP_SALT'),
-    // Sem ela nenhuma imobiliária conecta o Asaas (a chave de API é cifrada
-    // com ela) — e as que já conectaram param de emitir.
-    PAYMENTS_ENCRYPTION_KEY: segredoDeRuntime(config.paymentsEncryptionKey, 'PAYMENTS_ENCRYPTION_KEY'),
   })
 
   if (!faltando.length) return

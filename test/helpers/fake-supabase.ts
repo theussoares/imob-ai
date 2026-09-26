@@ -48,7 +48,7 @@ export function fakeSupabase(
     // `assertSubmitRateLimit` (rate-limit) encadeiam ambos `.eq(...).gte(...)`
     // — sem o método a cadeia quebra em runtime com "gte is not a function",
     // só visível ao escrever o primeiro teste que exercita esse caminho.
-    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'gte', 'lt', 'lte', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'or', 'maybeSingle', 'single']
+    const methods = ['select', 'update', 'upsert', 'insert', 'delete', 'eq', 'gte', 'lt', 'not', 'in', 'ilike', 'order', 'limit', 'is', 'or', 'maybeSingle', 'single']
     for (const m of methods) {
       chain[m] = (...args: unknown[]) => {
         calls.push({ table, method: m, args })

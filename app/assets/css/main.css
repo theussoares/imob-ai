@@ -1714,64 +1714,6 @@ a.btn-detail:hover {
   opacity: 0.55;
   cursor: not-allowed;
 }
-/*
- * Título de seção dentro de card do painel, e o texto de ajuda.
- *
- * `admin-h2`, `section-t` (sem estilo próprio na página) e `hint-text` eram
- * usados em várias telas sem definição global: o título colava no primeiro
- * rótulo ("Cadastrar e convidar" em cima de "Nome") e o texto de ajuda saía
- * no tamanho do corpo em uma tela e pequeno na outra. As páginas que definem
- * o seu próprio `.section-t` escopado continuam mandando.
- */
-.admin-h2,
-.section-t {
-  font-family: var(--font-display);
-  font-size: var(--fs-body);
-  font-weight: 700;
-  margin: 0 0 14px;
-}
-.admin-h2:has(+ p),
-.section-t:has(+ p) {
-  margin-bottom: 4px;
-}
-.admin-h2 + p {
-  margin: 0 0 14px;
-  color: var(--ink-soft);
-  font-size: var(--fs-label);
-  line-height: 1.5;
-  max-width: 75ch;
-}
-.hint-text {
-  font-size: var(--fs-caption);
-  color: var(--ink-soft);
-  margin: 6px 0 0;
-  line-height: 1.5;
-}
-
-/* Variante compacta e botão-link: nasceram escopados em /admin/leads e
-   passaram a ser usados pela agenda e pela linha do tempo do contato. */
-.admin-btn.sm {
-  padding: 7px 11px;
-  font-size: var(--fs-caption);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.admin-btn.sm svg {
-  width: 14px;
-  height: 14px;
-}
-.link-btn {
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: var(--brand);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
 .admin-table {
   width: 100%;
   border-collapse: collapse;

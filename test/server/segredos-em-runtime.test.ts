@@ -34,8 +34,6 @@ const SEGREDOS = [
   'useRuntimeConfig().rateLimitIpSalt',
   'useRuntimeConfig().cronSecret',
   'useRuntimeConfig().supabaseServiceKey',
-  'config.paymentsEncryptionKey',
-  'useRuntimeConfig().paymentsEncryptionKey',
 ]
 
 /**
