@@ -105,6 +105,69 @@ async function remove(b: Broker) {
   }
 }
 
+// ---- Roleta de leads (0049) ----
+const { data: crm, refresh: refreshCrm } = useLazyAsyncData(
+  'admin:crm-settings',
+  () => adminFetch<{ leadDistribution: 'manual' | 'roleta' }>('/api/admin/crm-settings'),
+  { server: false, default: () => ({ leadDistribution: 'manual' as const }) },
+)
+const salvandoModo = ref(false)
+async function setModo(modo: 'manual' | 'roleta') {
+  if (crm.value?.leadDistribution === modo) return
+  salvandoModo.value = true
+  try {
+    crm.value = await adminFetch('/api/admin/crm-settings', { method: 'PUT', body: { leadDistribution: modo } })
+    toast.success(modo === 'roleta' ? 'Roleta ligada.' : 'Distribuição manual.')
+  } catch {
+    await refreshCrm()
+    toast.error('Não foi possível mudar a distribuição.')
+  } finally {
+    salvandoModo.value = false
+  }
+}
+
+const ativos = computed(() => (brokers.value ?? []).filter((b) => b.active))
+const naRoleta = computed(() => ativos.value.filter((b) => b.receivesLeads))
+/**
+ * Quem recebe o próximo: a mesma regra da função no banco — quem recebeu há
+ * mais tempo (ou nunca) primeiro. É só a previsão da tela; quem decide é o
+ * banco, na hora em que o lead chega.
+ */
+const proximo = computed(() =>
+  [...naRoleta.value].sort((a, b) => {
+    if (!a.lastLeadAt !== !b.lastLeadAt) return a.lastLeadAt ? 1 : -1
+    return (a.lastLeadAt ?? '').localeCompare(b.lastLeadAt ?? '')
+  })[0] ?? null,
+)
+const togglando = ref<string | null>(null)
+async function toggleRoleta(b: Broker) {
+  togglando.value = b.id
+  try {
+    const body: BrokerInput = {
+      name: b.name,
+      phone: b.phone,
+      email: b.email,
+      creci: b.creci,
+      active: b.active,
+      photoUrl: b.photoUrl,
+      bio: b.bio,
+      publicVisible: b.publicVisible,
+      receivesLeads: !b.receivesLeads,
+    }
+    await adminFetch(`/api/admin/brokers/${b.id}`, { method: 'PUT', body })
+    await refresh()
+  } catch {
+    toast.error('Não foi possível atualizar a roleta.')
+  } finally {
+    togglando.value = null
+  }
+}
+function ultimoLead(iso: string | null) {
+  if (!iso) return 'ainda não recebeu'
+  return 'último em ' + new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) +
+    ' às ' + new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
 function waLink(b: Broker) {
   const d = (b.phone || '').replace(/\D/g, '')
   return d ? `https://wa.me/${d}` : ''
@@ -119,6 +182,72 @@ useHead({ title: 'Corretores · Painel' })
     <p style="color: var(--ink-soft); margin-bottom: 16px">
       Cadastre os corretores da equipe. Depois você poderá vincular quem captou cada imóvel.
     </p>
+
+    <section class="admin-card roleta" aria-labelledby="roleta-t">
+      <header class="roleta-head">
+        <AppIcon name="roleta" class="roleta-ico" />
+        <div>
+          <h2 id="roleta-t" class="section-t">Distribuição dos contatos do site</h2>
+          <p class="hint-text">Quem atende o contato que chega pelo formulário.</p>
+        </div>
+      </header>
+
+      <div class="modos" role="radiogroup" aria-labelledby="roleta-t">
+        <button
+          type="button"
+          role="radio"
+          class="modo"
+          :aria-checked="crm?.leadDistribution === 'manual'"
+          :disabled="salvandoModo"
+          @click="setModo('manual')"
+        >
+          <strong>Manual</strong>
+          <span>O contato chega sem responsável e alguém do painel escolhe o corretor.</span>
+        </button>
+        <button
+          type="button"
+          role="radio"
+          class="modo"
+          :aria-checked="crm?.leadDistribution === 'roleta'"
+          :disabled="salvandoModo"
+          @click="setModo('roleta')"
+        >
+          <strong>Roleta</strong>
+          <span>Cada contato novo vai para o próximo corretor da fila, em rodízio. Ele recebe o aviso por e-mail.</span>
+        </button>
+      </div>
+
+      <template v-if="crm?.leadDistribution === 'roleta'">
+        <p v-if="!naRoleta.length" class="roleta-alerta" role="status">
+          <AppIcon name="alert" /> Ninguém está na roleta ainda: os contatos continuam chegando sem responsável.
+          Marque abaixo quem participa.
+        </p>
+        <p v-else-if="proximo" class="roleta-proximo">
+          Próximo da vez: <strong>{{ proximo.name }}</strong>
+        </p>
+        <ul v-if="ativos.length" class="fila">
+          <li v-for="b in ativos" :key="b.id" class="fila-item">
+            <label class="switch">
+              <input
+                type="checkbox"
+                role="switch"
+                :checked="b.receivesLeads"
+                :disabled="togglando === b.id"
+                @change="toggleRoleta(b)"
+              />
+              <span class="switch-ui" aria-hidden="true" />
+              <span class="fila-nome">{{ b.name }}</span>
+            </label>
+            <span class="fila-meta">
+              <template v-if="b.receivesLeads">{{ ultimoLead(b.lastLeadAt) }}</template>
+              <template v-else>fora da roleta</template>
+              <template v-if="b.receivesLeads && !b.email"> · sem e-mail, não recebe o aviso</template>
+            </span>
+          </li>
+        </ul>
+        <p v-else class="hint-text">Cadastre um corretor ativo abaixo para usar a roleta.</p>
+      </template>
+    </section>
 
     <div ref="formEl" class="admin-card" style="margin-bottom: 18px">
       <h3 class="section-t">{{ editingId ? 'Editar corretor' : 'Novo corretor' }}</h3>
@@ -231,6 +360,168 @@ useHead({ title: 'Corretores · Painel' })
 </template>
 
 <style scoped>
+/* Roleta */
+.roleta {
+  margin-bottom: 18px;
+}
+.roleta-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.roleta-head .section-t {
+  margin: 0 0 2px;
+}
+.roleta-head .hint-text {
+  margin: 0;
+}
+.roleta-ico {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  color: var(--brand);
+}
+.modos {
+  display: grid;
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .modos {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.modo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
+}
+.modo span {
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+.modo:hover {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--line-2));
+}
+.modo[aria-checked='true'] {
+  border-color: var(--brand);
+  background: var(--brand-ghost);
+}
+.modo[aria-checked='true'] strong {
+  color: var(--brand);
+}
+.modo:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.roleta-alerta {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: #fffbeb;
+  color: #7a5200;
+  font-size: var(--fs-label);
+}
+.roleta-alerta :deep(svg) {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+.roleta-proximo {
+  margin: 14px 0 0;
+  font-size: var(--fs-ui);
+}
+.fila {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.fila-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.fila-meta {
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--fs-ui);
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.switch-ui {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-2);
+  transition: background-color 0.15s ease-out;
+}
+.switch-ui::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20, 22, 26, 0.25);
+  transition: transform 0.15s ease-out;
+}
+.switch input:checked + .switch-ui {
+  background: var(--brand);
+}
+.switch input:checked + .switch-ui::after {
+  transform: translateX(16px);
+}
+.switch input:focus-visible + .switch-ui {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.switch input:disabled + .switch-ui {
+  opacity: 0.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch-ui,
+  .switch-ui::after,
+  .modo {
+    transition: none;
+  }
+}
+
 .section-t {
   font-family: var(--font-display);
   font-size: var(--fs-body);

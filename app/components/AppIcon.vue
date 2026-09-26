@@ -17,6 +17,7 @@ const icons: Record<string, string> = {
   mail: 'tabler:mail',
   'chevron-left': 'tabler:chevron-left',
   'chevron-right': 'tabler:chevron-right',
+  'chevron-down': 'tabler:chevron-down',
   expand: 'tabler:arrows-maximize',
   instagram: 'tabler:brand-instagram',
   world: 'tabler:world',
@@ -48,6 +49,15 @@ const icons: Record<string, string> = {
   refresh: 'tabler:refresh',
   external: 'tabler:external-link',
   spark: 'tabler:sparkles',
+  // CRM (0049): agenda, roleta e a linha do tempo do contato.
+  calendar: 'tabler:calendar-event',
+  roleta: 'tabler:arrows-shuffle',
+  plus: 'tabler:plus',
+  call: 'tabler:phone-call',
+  etapa: 'tabler:arrow-right-circle',
+  atribuicao: 'tabler:user-share',
+  inbox: 'tabler:inbox',
+  lost: 'tabler:circle-x',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

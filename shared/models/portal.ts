@@ -1,3 +1,5 @@
+import type { FireInsurancePayer, GuaranteeType } from '~~/shared/models/lease'
+
 /**
  * Modelos da Área do Cliente.
  *
@@ -83,13 +85,25 @@ export const PORTAL_DOC_HINTS: Record<PortalDocCategory, string> = {
 export interface PortalUser {
   id: string
   tenantId: string
-  userId: string
+  /**
+   * Conta no Auth. Nulo = cliente SEM acesso ao portal: cadastro da
+   * imobiliária (o fiador que nunca vai entrar, o dono que só usa WhatsApp).
+   * Ver 0050.
+   */
+  userId: string | null
   name: string
-  email: string
+  /** Opcional para quem não tem acesso; obrigatório para quem tem. */
+  email: string | null
   /** CPF/CNPJ. Uso interno da imobiliária — nunca vai para a resposta do portal. */
   doc: string | null
   phone: string | null
   active: boolean
+  /**
+   * A pessoa já entrou no portal por este vínculo (ou a conta nasceu do nosso
+   * convite). Decide se "Reenviar convite" gera link de senha — ver a nota em
+   * `convidarClientePortal`. Aqui só serve para a tela dizer o estado.
+   */
+  accessConfirmed: boolean
   createdAt: string
 }
 
@@ -109,6 +123,10 @@ export interface Contract {
   dueDay: number | null
   /** Índice do reajuste anual (igpm, ipca, incc…). */
   adjustmentIndex: string | null
+  /** Prazo combinado em meses (o término fica em `endsOn`). */
+  termMonths: number | null
+  /** UMA garantia (Lei 8.245, art. 37). Nulo = não informada ainda. */
+  guaranteeType: GuaranteeType | null
   source: 'manual' | 'erp'
   createdAt: string
 }
@@ -128,6 +146,17 @@ export interface ContractInternal {
   adminFeePercent: number | null
   /** Id do contrato no ERP, quando a integração existir. */
   externalId: string | null
+  /** Caução em dinheiro (até 3 aluguéis) ou valor da garantia. */
+  guaranteeAmount: number | null
+  /** Seguradora, apólice, validade. */
+  guaranteeDetails: string | null
+  fireInsurancePayer: FireInsurancePayer | null
+  finePercent: number | null
+  interestMonthlyPercent: number | null
+  /** Taxa de locação, em % do primeiro aluguel. */
+  rentFeePercent: number | null
+  /** Repasse ao proprietário, em dias úteis após o pagamento. */
+  payoutBusinessDays: number | null
 }
 
 /**
@@ -179,6 +208,8 @@ export interface ContractInput {
   rentAmount?: number | null
   dueDay?: number | null
   adjustmentIndex?: string | null
+  termMonths?: number | null
+  guaranteeType?: GuaranteeType | null
 }
 
 /** Campos internos, editados na mesma tela mas gravados em outra tabela. */
@@ -186,14 +217,28 @@ export interface ContractInternalInput {
   notes?: string | null
   adminFeePercent?: number | null
   externalId?: string | null
+  guaranteeAmount?: number | null
+  guaranteeDetails?: string | null
+  fireInsurancePayer?: FireInsurancePayer | null
+  finePercent?: number | null
+  interestMonthlyPercent?: number | null
+  rentFeePercent?: number | null
+  payoutBusinessDays?: number | null
 }
 
-/** Cadastro de um cliente no portal (dispara o convite por e-mail). */
+/**
+ * Cadastro de um cliente pelo painel.
+ *
+ * `convidar` separa CADASTRAR de DAR ACESSO: sem ele (ou falso) a pessoa
+ * existe só para a imobiliária. Com ele, o e-mail vira obrigatório e o convite
+ * da Área do Cliente sai pelo caminho de sempre.
+ */
 export interface PortalUserInput {
   name: string
-  email: string
+  email?: string | null
   doc?: string | null
   phone?: string | null
+  convidar?: boolean
 }
 
 

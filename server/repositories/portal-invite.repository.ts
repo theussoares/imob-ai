@@ -210,7 +210,12 @@ export async function convidarClientePortal(
   redirectTo: string,
   urlPortal: string,
 ): Promise<ResultadoConvite> {
-  const email = input.email.trim().toLowerCase()
+  const email = (input.email ?? '').trim().toLowerCase()
+  // Cadastro sem e-mail existe (0050), mas acesso sem e-mail não: é por ele
+  // que o convite e a recuperação de senha chegam.
+  if (!email) {
+    throw createError({ statusCode: 422, statusMessage: 'Informe o e-mail do cliente para dar acesso.' })
+  }
 
   // Já é cliente DESTE tenant? Então é reenvio — o índice único
   // (tenant_id, lower(email)) recusaria um insert novo com 23505.
@@ -229,7 +234,11 @@ export async function convidarClientePortal(
   //
   // A mensagem não diz que a conta é administrativa — quem cadastra não precisa
   // descobrir, pelo erro, que aquele endereço é de equipe em algum lugar.
-  if (!existente && (await ehMembroDePainel(service, acesso.userId))) {
+  //
+  // Vale também para o cadastro que existia SEM acesso (0050): ligar a conta a
+  // ele agora é um vínculo novo, com os mesmos riscos de um cadastro novo.
+  const vinculoNovo = !existente || !existente.user_id
+  if (vinculoNovo && (await ehMembroDePainel(service, acesso.userId))) {
     logWarn('portal.cadastro_recusado', { tenant: tenantId, motivo: 'conta_de_equipe' })
     throw createError({
       statusCode: 409,
@@ -239,7 +248,30 @@ export async function convidarClientePortal(
   }
 
   let cliente: PortalUser
-  if (existente) {
+  if (existente && !existente.user_id) {
+    // Cliente cadastrado sem acesso ganhando acesso agora. Mesma regra do
+    // cadastro novo para o vínculo nascer confirmado: só se a conta nasceu
+    // aqui. O filtro `is('user_id', null)` é a trava contra duas abas dando
+    // acesso ao mesmo tempo com e-mails trocados.
+    const { data: ligado, error } = await service
+      .from('portal_users')
+      .update({
+        user_id: acesso.userId,
+        access_confirmed_at: acesso.preexistente ? null : new Date().toISOString(),
+      })
+      .eq('tenant_id', tenantId)
+      .eq('id', existente.id)
+      .is('user_id', null)
+      .select('*')
+      .maybeSingle()
+    if ((error as { code?: string } | null)?.code === '23505') {
+      // A conta já está ligada a OUTRO cadastro desta imobiliária.
+      throw createError({ statusCode: 409, statusMessage: `${email} já está em outro cadastro desta imobiliária.` })
+    }
+    if (error) throw error
+    if (!ligado) throw createError({ statusCode: 409, statusMessage: 'Este cliente acabou de ganhar acesso em outra aba.' })
+    cliente = toPortalUserModel(ligado)
+  } else if (existente) {
     cliente = toPortalUserModel(existente)
   } else {
     const { data: criado, error } = await service
@@ -330,8 +362,8 @@ export async function convidarClientePortal(
 
   return {
     cliente,
-    jaEraCliente: !!existente,
-    contaPreexistente: acesso.preexistente && !existente,
+    jaEraCliente: !vinculoNovo,
+    contaPreexistente: acesso.preexistente && vinculoNovo,
     semToken,
     emailEnviado,
     motivoFalha,

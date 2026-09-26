@@ -44,7 +44,7 @@ useHead({ title: 'Entrar · Painel' })
         <span class="mark"><AppIcon name="home" /></span>
         <span><b>{{ tenant?.name || 'Painel' }}</b><small>Área administrativa</small></span>
       </div>
-      <h1 style="font-size: 22px; margin: 6px 0 14px">Entrar no painel</h1>
+      <h1 style="font-size: 22px; margin: 22px 0 16px">Entrar no painel</h1>
 
       <label class="admin-label" for="email">E-mail</label>
       <input id="email" v-model="email" class="admin-input" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required />
@@ -72,9 +72,14 @@ useHead({ title: 'Entrar · Painel' })
 
 <style scoped>
 .login-wrap {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
+  /* Flex em coluna, e não grid com `place-items`: o grid dividia a altura em
+     duas linhas (cartão e "instalar") e o cartão ficava no alto da tela, não
+     no meio. `dvh` para a barra de endereço do celular não empurrar nada. */
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 24px 18px;
   background: var(--surface);
 }
