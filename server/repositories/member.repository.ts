@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
+import { linkDeAcesso } from '~~/server/utils/auth-link'
 
 type Client = SupabaseClient<Database>
 
@@ -13,6 +14,8 @@ export interface MemberView {
   role: string
   /** Convidado, mas ainda não confirmou o e-mail / definiu a senha. */
   pending: boolean
+  /** É quem está vendo a lista. Preenchido pelo endpoint, que sabe quem pediu. */
+  voce?: boolean
   createdAt: string
 }
 
@@ -75,7 +78,7 @@ export async function inviteMember(
     userId = found
   } else {
     userId = data.user.id
-    inviteLink = data.properties?.action_link ?? null
+    inviteLink = linkDeAcesso(redirectTo, data.properties)
   }
 
   const { data: existing } = await service
@@ -100,16 +103,26 @@ export async function inviteMember(
  *
  * `memberId` vem da URL, então o filtro por tenant não é otimização: sem ele,
  * quem descobrisse um id alheio removeria o acesso de outro cliente.
+ *
+ * Só o `owner` remove, e o `owner` nunca é removido pelo painel. Antes não se
+ * olhava papel nenhum: um `admin` convidado para cuidar do site tirava o dono
+ * da imobiliária do próprio sistema — e com ele a única pessoa que conecta a
+ * conta do Asaas (teste de 27/09, BUG-SEG-04). Trocar o dono é pedido ao
+ * suporte, não um clique.
  */
 export async function removeMember(
   service: Client,
   tenantId: string,
   memberId: string,
-  callerUserId: string,
+  caller: { userId: string; role: string },
 ): Promise<void> {
+  if (caller.role !== 'owner') {
+    throw createError({ statusCode: 403, statusMessage: 'Só o responsável pela imobiliária gerencia os acessos.' })
+  }
+
   const { data: member } = await service
     .from('tenant_members')
-    .select('id, user_id')
+    .select('id, user_id, role')
     .eq('tenant_id', tenantId)
     .eq('id', memberId)
     .maybeSingle()
@@ -118,11 +131,15 @@ export async function removeMember(
     throw createError({ statusCode: 404, statusMessage: 'Membro não encontrado.' })
   }
 
-  if (member.user_id === callerUserId) {
+  if (member.user_id === caller.userId) {
     throw createError({
       statusCode: 400,
       statusMessage: 'Você não pode remover o seu próprio acesso.',
     })
+  }
+
+  if (member.role === 'owner') {
+    throw createError({ statusCode: 409, statusMessage: 'O acesso do responsável pela imobiliária não pode ser removido.' })
   }
 
   const { data: all } = await service.from('tenant_members').select('id').eq('tenant_id', tenantId)

@@ -88,7 +88,7 @@ export async function listRecentWhatsappClicks(
 ): Promise<WhatsappClick[]> {
   const { data, error } = await client
     .from('whatsapp_clicks')
-    .select('id, created_at, destination, origin, lead_id, properties(id, code, title, purpose), brokers(id, name)')
+    .select('id, created_at, destination, origin, lead_id, dismissed_at, properties(id, code, title, purpose), brokers(id, name)')
     .eq('tenant_id', tenantId)
     .gte('created_at', desde)
     .order('created_at', { ascending: false })
@@ -142,6 +142,24 @@ export async function markClickConverted(
     .eq('tenant_id', tenantId)
     .eq('id', clickId)
     .is('lead_id', null)
+    .select('id')
+  if (error) throw error
+  return (data?.length ?? 0) > 0
+}
+
+/**
+ * Dispensa o clique sem virar contato (MELHORIA 11, 0057). Só se ainda estiver
+ * pendente: convertido não se dispensa, e dispensar de novo não muda quem fez.
+ * `false` = já não estava pendente.
+ */
+export async function dismissClick(client: Client, tenantId: string, clickId: string, userId: string): Promise<boolean> {
+  const { data, error } = await client
+    .from('whatsapp_clicks')
+    .update({ dismissed_at: new Date().toISOString(), dismissed_by: userId })
+    .eq('tenant_id', tenantId)
+    .eq('id', clickId)
+    .is('lead_id', null)
+    .is('dismissed_at', null)
     .select('id')
   if (error) throw error
   return (data?.length ?? 0) > 0

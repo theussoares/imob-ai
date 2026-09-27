@@ -323,3 +323,27 @@ describe('migration 0046', () => {
     expect(sql).toMatch(/l\.tenant_id\s*=\s*whatsapp_clicks\.tenant_id/)
   })
 })
+
+// MELHORIA 11 (27/09): clique que não deu em conversa, ou cuja pessoa já foi
+// cadastrada à mão, ficava "sem contato" para sempre.
+describe('dispensar clique', () => {
+  test('só o pendente desta imobiliária, e grava quem dispensou', async () => {
+    const { dismissClick } = await import('~~/server/repositories/whatsapp-click.repository')
+    const { client, calls } = fakeSupabase({ whatsapp_clicks: { data: [{ id: 'c1' }], error: null } })
+    expect(await dismissClick(client, 't1', 'c1', 'u1')).toBe(true)
+    expect(hadEq(calls, 'whatsapp_clicks', 'tenant_id')).toBe(true)
+    // Convertido não se dispensa; dispensado de novo não troca o autor.
+    expect(calls.some((c) => c.method === 'is' && c.args[0] === 'lead_id')).toBe(true)
+    expect(calls.some((c) => c.method === 'is' && c.args[0] === 'dismissed_at')).toBe(true)
+    const patch = calls.find((c) => c.method === 'update')!.args[0] as Record<string, unknown>
+    expect(patch.dismissed_by).toBe('u1')
+    // Marca, não apaga: o clique continua contando.
+    expect(calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
+  test('já convertido ou já dispensado: false', async () => {
+    const { dismissClick } = await import('~~/server/repositories/whatsapp-click.repository')
+    const { client } = fakeSupabase({ whatsapp_clicks: { data: [], error: null } })
+    expect(await dismissClick(client, 't1', 'c1', 'u1')).toBe(false)
+  })
+})

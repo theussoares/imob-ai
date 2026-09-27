@@ -2,6 +2,7 @@ import { emailRecuperacaoSenha } from '~~/server/utils/email-templates'
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 import { enviarEmail } from '~~/server/utils/mailer'
 import { portalOrigin, urlDefinirSenha } from '~~/server/utils/portal-origin'
+import { linkDeAcesso } from '~~/server/utils/auth-link'
 
 /** Intervalo mínimo entre dois e-mails de redefinição para a MESMA conta. */
 const INTERVALO_MS = 5 * 60 * 1000
@@ -42,7 +43,7 @@ export default defineEventHandler(async (event) => {
   // nada — e quem pediu não fica sabendo da diferença.
   const { data: portalUser } = await service
     .from('portal_users')
-    .select('id, name, active, last_recovery_at')
+    .select('id, name, active')
     .eq('tenant_id', tenant.id)
     .eq('email', email)
     .maybeSingle()
@@ -62,8 +63,20 @@ export default defineEventHandler(async (event) => {
   // o incômodo: é a cota diária de envio, que no plano de entrada são 100
   // e-mails e, uma vez esgotada, derruba convite e recuperação de TODOS os
   // tenants.
-  const ultimo = portalUser.last_recovery_at
-  if (ultimo && Date.now() - new Date(ultimo).getTime() < INTERVALO_MS) {
+  //
+  // A trava é um UPDATE condicional, feito antes de gerar o link: "ler,
+  // comparar e gravar" deixava pedidos simultâneos passarem todos, porque
+  // liam o mesmo valor antigo (revisão de segurança de 27/09). Marcar antes
+  // também mantém a regra antiga — uma falha de envio não abre a torneira.
+  const limite = new Date(Date.now() - INTERVALO_MS).toISOString()
+  const { data: reservado } = await service
+    .from('portal_users')
+    .update({ last_recovery_at: new Date().toISOString() })
+    .eq('tenant_id', tenant.id)
+    .eq('id', portalUser.id)
+    .or(`last_recovery_at.is.null,last_recovery_at.lt.${limite}`)
+    .select('id')
+  if (!reservado?.length) {
     logWarn('portal.recuperacao_em_intervalo', { tenant: tenant.slug })
     return resposta
   }
@@ -73,25 +86,18 @@ export default defineEventHandler(async (event) => {
   // servidor de quem forjou — que receberia o token ao primeiro clique.
   const origem = await portalOrigin(service, tenant)
 
+  const destino = urlDefinirSenha(origem)
   const { data, error } = await service.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: urlDefinirSenha(origem) },
+    options: { redirectTo: destino },
   })
 
-  const link = data?.properties?.action_link
+  const link = linkDeAcesso(destino, data?.properties)
   if (error || !link) {
     logError('portal.recuperacao_link_falhou', { tenant: tenant.slug, reason: error?.message })
     return resposta
   }
-
-  // Marca ANTES de enviar. Se marcasse depois, uma falha de envio deixaria a
-  // conta sem intervalo e um abusador manteria a torneira aberta justamente no
-  // momento em que o provedor está recusando — que é quando a cota importa.
-  await service
-    .from('portal_users')
-    .update({ last_recovery_at: new Date().toISOString() })
-    .eq('id', portalUser.id)
 
   const corpo = emailRecuperacaoSenha({ nomeImobiliaria: tenant.name, link })
 

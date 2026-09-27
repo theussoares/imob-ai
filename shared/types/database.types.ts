@@ -1431,6 +1431,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          last_recovery_at: string | null
           role: Database["public"]["Enums"]["member_role"]
           tenant_id: string
           user_id: string
@@ -1438,6 +1439,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          last_recovery_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           tenant_id: string
           user_id: string
@@ -1445,6 +1447,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          last_recovery_at?: string | null
           role?: Database["public"]["Enums"]["member_role"]
           tenant_id?: string
           user_id?: string
@@ -1661,6 +1664,8 @@ export type Database = {
           broker_id: string | null
           created_at: string
           destination: string
+          dismissed_at: string | null
+          dismissed_by: string | null
           id: string
           ip_hash: string | null
           lead_id: string | null
@@ -1672,6 +1677,8 @@ export type Database = {
           broker_id?: string | null
           created_at?: string
           destination: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
           id?: string
           ip_hash?: string | null
           lead_id?: string | null
@@ -1683,6 +1690,8 @@ export type Database = {
           broker_id?: string | null
           created_at?: string
           destination?: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
           id?: string
           ip_hash?: string | null
           lead_id?: string | null

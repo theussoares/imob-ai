@@ -227,3 +227,23 @@ describe('PII fora do log do mailer', () => {
     expect(eventos[0]?.assunto).toBe('lead.novo')
   })
 })
+
+// Achado no teste de 27/09: o link "abrir no painel" do aviso apontava para
+// `painel.apresentacao.usemoradi.com.br`, que o certificado wildcard não cobre —
+// erro de certificado para toda imobiliária sem domínio próprio.
+describe('endereço do painel nos e-mails', () => {
+  test('com domínio próprio: painel.<domínio>', async () => {
+    const { origemDoPainel } = await import('~~/server/utils/portal-origin')
+    expect(origemDoPainel('olmiimoveis.com.br', 'olmi', 'usemoradi.com.br')).toBe('https://painel.olmiimoveis.com.br')
+  })
+
+  test('sem domínio próprio: o subdomínio da plataforma, nunca painel.<slug>.<plataforma>', async () => {
+    const { origemDoPainel } = await import('~~/server/utils/portal-origin')
+    expect(origemDoPainel(null, 'apresentacao', 'usemoradi.com.br')).toBe('https://apresentacao.usemoradi.com.br')
+  })
+
+  test('sem domínio e sem plataforma configurada: não inventa endereço', async () => {
+    const { origemDoPainel } = await import('~~/server/utils/portal-origin')
+    expect(origemDoPainel(null, 'x', '')).toBeNull()
+  })
+})

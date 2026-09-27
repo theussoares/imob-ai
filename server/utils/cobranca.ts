@@ -36,7 +36,7 @@ import {
 } from '~~/server/repositories/cobranca.repository'
 import { criarAsaas } from '~~/server/services/payments/asaas'
 import { criarSimulado } from '~~/server/services/payments/simulado'
-import type { CobrancaEmitida, EventoDePagamento, PaymentProvider } from '~~/server/services/payments/provider'
+import type { CobrancaEmitida, EventoDePagamento, PaymentProvider, ResultadoDaConsulta, SituacaoNoProvedor } from '~~/server/services/payments/provider'
 import { ErroDoProvedor } from '~~/server/services/payments/provider'
 
 type Client = SupabaseClient<Database>
@@ -62,6 +62,20 @@ export function provedorDaConta(conta: PaymentAccountRow): PaymentProvider {
 }
 
 /** Erro do provedor vira 502 com a mensagem dele (em português); o resto sobe como está. */
+/**
+ * Por que a conta atual não pode mexer neste boleto. "Emitido por outra conta"
+ * confundia quando a conta estava só DESCONECTADA — ela não é outra, só não
+ * está ligada (teste de 27/09, MELHORIA 13).
+ *
+ * Limite conhecido: a comparação é por provedor e ambiente. Trocar para OUTRA
+ * conta Asaas no mesmo ambiente não é detectado aqui — o Asaas devolve "não
+ * encontrado" e o erro aparece na chamada.
+ */
+function contaQueNaoEmitiu(conta: PaymentAccountRow | null, oQueFazer: string): string {
+  if (!conta) return `A conta de cobrança está desconectada. Reconecte em Configurações → Cobrança, ou ${oQueFazer.charAt(0).toLowerCase()}${oQueFazer.slice(1)}`
+  return `O boleto foi emitido por outra conta de cobrança (outro provedor ou ambiente). ${oQueFazer}`
+}
+
 function comoErroHttp(e: unknown): never {
   if (e instanceof ErroDoProvedor) {
     throw createError({ statusCode: e.credencialInvalida ? 409 : 502, statusMessage: e.message })
@@ -198,7 +212,11 @@ export async function cancelarCobranca(
   if (charge.status === 'paga' || charge.status === 'parcial') {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Esta cobrança já recebeu pagamento. Registre um estorno em vez de cancelar.',
+      // O painel não registra estorno: ele vem do provedor. Mandar "registrar
+      // um estorno" deixava a pessoa procurando um botão que não existe.
+      statusMessage: charge.externalId
+        ? `Esta cobrança já recebeu pagamento e não pode ser cancelada. Para devolver, estorne ${charge.provider === 'asaas' ? 'no painel do Asaas' : 'no provedor'}: a cobrança e o repasse se ajustam sozinhos aqui.`
+        : 'Esta cobrança já recebeu pagamento e não pode ser cancelada. O acerto do valor recebido é feito direto com o inquilino.',
     })
   }
   if (charge.status === 'emitindo') {
@@ -211,10 +229,7 @@ export async function cancelarCobranca(
   if (charge.provider && charge.externalId) {
     const conta = await getPaymentAccount(service, tenant.id)
     if (!conta || conta.provider !== charge.provider || conta.environment !== charge.providerEnvironment) {
-      throw createError({
-        statusCode: 409,
-        statusMessage: 'O boleto foi emitido por outra conta de cobrança. Cancele-o no painel do provedor e tente de novo.',
-      })
+      throw createError({ statusCode: 409, statusMessage: contaQueNaoEmitiu(conta, 'Cancele-o no painel do provedor e tente de novo.') })
     }
     try {
       await provedorDaConta(conta).cancelar(charge.externalId)
@@ -276,10 +291,7 @@ export async function baixarManualmente(
         comoErroHttp(e)
       }
     } else {
-      throw createError({
-        statusCode: 409,
-        statusMessage: 'O boleto foi emitido por outra conta de cobrança. Dê a baixa no painel do provedor.',
-      })
+      throw createError({ statusCode: 409, statusMessage: contaQueNaoEmitiu(conta, 'Dê a baixa no painel do provedor.') })
     }
   }
 
@@ -333,15 +345,16 @@ export async function sincronizarComProvedor(
   }
   const conta = await getPaymentAccount(service, tenantId)
   if (!conta || conta.provider !== charge.provider || conta.environment !== charge.providerEnvironment) {
-    throw createError({ statusCode: 409, statusMessage: 'O boleto foi emitido por outra conta de cobrança. Confira no painel do provedor.' })
+    throw createError({ statusCode: 409, statusMessage: contaQueNaoEmitiu(conta, 'Confira no painel do provedor.') })
   }
-  let evento: EventoDePagamento | null
+  let consulta: ResultadoDaConsulta
   try {
-    evento = await provedorDaConta(conta).consultar(charge.externalId)
+    consulta = await provedorDaConta(conta).consultar(charge.externalId)
   } catch (e) {
     comoErroHttp(e)
   }
-  if (!evento) return { mudou: false, mensagem: 'Nada novo no provedor: a cobrança continua em aberto lá também.' }
+  const { evento, situacao } = consulta
+  if (!evento) return { mudou: false, mensagem: mensagemSemEvento(situacao, charge) }
   const resultado = await processarEventoDePagamento(service, tenantId, conta.provider as PaymentProviderName, evento)
   const MENSAGENS: Record<string, string> = {
     liquidada: `O provedor já registrava o pagamento (${evento.data.split('-').reverse().join('/')}). A cobrança foi atualizada aqui.`,
@@ -516,4 +529,36 @@ async function aplicarEvento(service: Client, tenantId: string, provider: Paymen
     return n ? 'estornada' : 'estorno_ja_registrado'
   }
   return 'ignorado'
+}
+
+const SITUACAO: Record<SituacaoNoProvedor['status'], string> = {
+  em_aberto: 'em aberto',
+  vencida: 'vencida',
+  paga: 'paga',
+  estornada: 'estornada',
+  removida: 'removida',
+  outra: '',
+}
+const dataBr = (iso: string) => iso.split('-').reverse().join('/')
+
+/**
+ * O que dizer quando a consulta não traz nada a aplicar: o que foi VISTO lá, e
+ * o que diverge daqui. Antes a frase era fixa — "continua em aberto lá também"
+ * — e mentia quando o Asaas dizia Vencida (BUG-FUN-06).
+ *
+ * Vencimento ou valor diferentes são avisados, não corrigidos: alguém alterou
+ * direto no provedor, e decidir qual dos dois vale é da imobiliária — o portal
+ * do inquilino mostra o daqui.
+ */
+export function mensagemSemEvento(situacao: SituacaoNoProvedor, charge: Pick<Charge, 'dueOn' | 'issuedAmount'>): string {
+  if (situacao.bruto === 'SIMULADO') return 'A conta de demonstração não guarda estado: nada a consultar.'
+  const estado = SITUACAO[situacao.status] || `com a situação "${situacao.bruto}"`
+  const partes = [`Nada a atualizar aqui. No provedor, a cobrança está ${estado}.`]
+  if (situacao.vencimento && situacao.vencimento !== charge.dueOn) {
+    partes.push(`Atenção: o vencimento lá é ${dataBr(situacao.vencimento)} e aqui é ${dataBr(charge.dueOn)} — alguém alterou no provedor. O inquilino vê o daqui; confira antes de falar com ele.`)
+  }
+  if (situacao.valor != null && charge.issuedAmount != null && Math.abs(situacao.valor - charge.issuedAmount) > 0.004) {
+    partes.push(`O valor lá também difere do daqui (${situacao.valor.toFixed(2).replace('.', ',')} × ${charge.issuedAmount.toFixed(2).replace('.', ',')}).`)
+  }
+  return partes.join(' ')
 }

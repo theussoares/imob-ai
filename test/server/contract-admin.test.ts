@@ -139,3 +139,42 @@ describe('assertContractInternalInput', () => {
     expect(() => assertContractInternalInput({ adminFeePercent: null })).not.toThrow()
   })
 })
+
+// BUG-FUN-01 (teste de 27/09): apagar multa ou juros no assistente derrubava a
+// criação do contrato com 500. O `<input v-model.number>` apagado manda `""`, o
+// validador deixava passar e o Postgres recusava ("invalid input syntax for
+// type numeric"). Justo o caso que a spec 4B manda aceitar como pendência.
+describe('campo numérico apagado na tela', () => {
+  test('vira null na linha do banco, e não "" que o Postgres recusa', async () => {
+    const { toContractInternalRow, toContractRow } = await import('~~/server/mappers/contract.mapper')
+    const interno = toContractInternalRow(
+      {
+        adminFeePercent: '' as unknown as number,
+        finePercent: '' as unknown as number,
+        interestMonthlyPercent: ' ' as unknown as number,
+        rentFeePercent: '' as unknown as number,
+        payoutBusinessDays: '' as unknown as number,
+        guaranteeAmount: '' as unknown as number,
+      },
+      'contrato-1',
+    )
+    expect(interno).toMatchObject({
+      admin_fee_percent: null,
+      fine_percent: null,
+      interest_monthly_percent: null,
+      rent_fee_percent: null,
+      payout_business_days: null,
+      guarantee_amount: null,
+    })
+    expect(toContractRow({ ...ENTRADA, termMonths: '' as unknown as number }, TENANT)).toMatchObject({ term_months: null })
+  })
+
+  test('campo que não veio continua de fora, para a edição não zerar o que outra tela gravou', async () => {
+    const { toContractInternalRow } = await import('~~/server/mappers/contract.mapper')
+    expect(toContractInternalRow({ finePercent: 2 }, 'contrato-1')).not.toHaveProperty('interest_monthly_percent')
+  })
+
+  test('o validador aceita o campo apagado', () => {
+    expect(() => assertContractInternalInput({ finePercent: '', interestMonthlyPercent: '', payoutBusinessDays: '', guaranteeAmount: '' })).not.toThrow()
+  })
+})

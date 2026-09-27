@@ -152,8 +152,15 @@ export type AgendaBucket = 'atrasadas' | 'hoje' | 'proximas' | 'depois'
 /**
  * Em que coluna da agenda a tarefa cai.
  *
- * "Hoje" é o dia de São Paulo, não o do servidor (UTC): às 22h de Brasília já
- * é amanhã em UTC, e a visita das 23h sumiria de "Hoje" justo na noite anterior.
+ * "Hoje" é o dia de quem está olhando, não o do servidor (UTC): às 22h de
+ * Brasília já é amanhã em UTC, e a visita das 23h sumiria de "Hoje" justo na
+ * noite anterior.
+ *
+ * A tela passa o fuso do navegador. O padrão fixo em São Paulo quebrava os
+ * clientes de Três Lagoas (MS, uma hora atrás): a visita das 23h de lá é 00h
+ * do dia seguinte em SP e caía fora de "Hoje", enquanto a tela rotulava a
+ * seção com a data de hoje pelo relógio do navegador (teste de 27/09,
+ * BUG-FUN-02). Bucket e rótulo precisam do MESMO fuso.
  */
 export function agendaBucket(dueAt: string, agora: Date, timeZone = 'America/Sao_Paulo'): AgendaBucket {
   const due = new Date(dueAt)

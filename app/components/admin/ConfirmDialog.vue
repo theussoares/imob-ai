@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { request, settle } = useConfirm();
+const { request, texto, settle } = useConfirm();
 const dialog = ref<HTMLDialogElement | null>(null);
 
 // `showModal()` (e não o atributo `open`) é o que ativa focus trap, Esc e
@@ -38,6 +38,16 @@ function onDismiss() {
     <div v-if="request" class="box">
       <h2 class="t">{{ request.title }}</h2>
       <p v-if="request.description" class="d">{{ request.description }}</p>
+      <label v-if="request.input" class="campo">
+        <span>{{ request.input.label }}</span>
+        <textarea
+          v-model="texto"
+          class="admin-input"
+          rows="2"
+          :placeholder="request.input.placeholder"
+          :maxlength="request.input.maxLength"
+        />
+      </label>
       <div class="actions">
         <!-- autofocus no Cancelar, não no confirmar: com o foco na ação
              destrutiva, um Enter distraído apagaria o registro. -->
@@ -75,6 +85,17 @@ function onDismiss() {
   color: inherit;
   box-shadow: var(--shadow-lg);
   max-width: min(420px, calc(100vw - 32px));
+}
+.campo {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  font-size: var(--fs-label);
+  font-weight: 600;
+}
+.campo textarea {
+  font-weight: 400;
+  resize: vertical;
 }
 .confirm::backdrop {
   background: rgba(20, 22, 26, 0.45);

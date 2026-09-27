@@ -129,7 +129,10 @@ function fecharDepois() {
           <input :id="`${uid}-fone`" class="admin-input" type="tel" :value="phoneDisplay" placeholder="+55 (67) 99123-4567" @input="onPhoneInput" />
         </div>
         <div>
-          <label class="admin-label" :for="`${uid}-doc`">CPF/CNPJ{{ documentoImportante ? ' *' : '' }}</label>
+          <!-- Sem asterisco: o campo não é obrigatório (vira pendência, spec 4B), e o
+               "*" fazia parecer que era (teste de 27/09, MELHORIA 14). O que ele
+               é, de fato, é necessário para o boleto — então é isso que se diz. -->
+          <label class="admin-label" :for="`${uid}-doc`">CPF/CNPJ<span v-if="documentoImportante" class="doc-nota"> · necessário para emitir boleto</span></label>
           <input :id="`${uid}-doc`" v-model="nova.doc" class="admin-input" inputmode="numeric" @blur="nova.doc = formatarDocumento(nova.doc)" />
         </div>
         <div class="pp-span">
@@ -180,6 +183,10 @@ function fecharDepois() {
 </template>
 
 <style scoped>
+.doc-nota {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
 .pp {
   position: relative;
 }

@@ -157,6 +157,11 @@ describe('os dois caminhos de envio usam a fonte única', () => {
     expect(f).toContain('remetenteDoTenant')
   })
 
+  test('o convite e a recuperação do painel também (MELHORIAS 01 e 03)', () => {
+    expect(fonte('server', 'api', 'admin', 'members.post.ts')).toContain('remetenteDoTenant')
+    expect(fonte('server', 'api', 'painel', 'recuperar-senha.post.ts')).toContain('remetenteDoTenant')
+  })
+
   test('o caminho de envio não lê config.mailFrom por fora do fallback', () => {
     // A regra que some num refactor sem deixar erro: o código continua
     // enviando, só que do domínio errado — e o sintoma aparece semanas depois,
@@ -165,6 +170,8 @@ describe('os dois caminhos de envio usam a fonte única', () => {
       ['server', 'api', 'admin', 'portal-users.post.ts'],
       ['server', 'api', 'portal', 'recuperar-senha.post.ts'],
       ['server', 'repositories', 'portal-invite.repository.ts'],
+      ['server', 'api', 'admin', 'members.post.ts'],
+      ['server', 'api', 'painel', 'recuperar-senha.post.ts'],
     ]) {
       expect(fonte(...p), p.join('/')).not.toContain('mailFrom')
     }

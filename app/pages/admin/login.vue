@@ -1,18 +1,21 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const { user, init, signIn } = useAdminAuth()
+const { user, init, signIn, signOut } = useAdminAuth()
 const tenant = useTenant()
 const route = useRoute()
 
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-const error = ref(
-  route.query.erro === 'sem-acesso'
-    ? 'Sua conta não tem acesso a esta imobiliária. Entre com o usuário desta imobiliária.'
-    : '',
-)
+const SEM_ACESSO = 'Esta conta não tem acesso ao painel desta imobiliária — o acesso pode ter sido removido. Fale com o responsável pela imobiliária.'
+const error = ref(route.query.erro === 'sem-acesso' ? SEM_ACESSO : '')
+// A mesma tela recebe `?erro=sem-acesso` depois de já montada (o middleware
+// redireciona para cá): sem o watch, o aviso não aparecia — o usuário removido
+// tentava entrar e nada acontecia (teste de 27/09, MELHORIA 10).
+watch(() => route.query.erro, (e) => {
+  if (e === 'sem-acesso') error.value = SEM_ACESSO
+})
 
 onMounted(async () => {
   if (user.value === null) await init()
@@ -24,6 +27,13 @@ async function login() {
   error.value = ''
   try {
     await signIn(email.value.trim(), password.value)
+    // Senha certa, mas sem vínculo com esta imobiliária: dizer aqui, em vez de
+    // deixar o middleware devolver à mesma tela em silêncio.
+    if (tenant.value && !(await isMemberOfTenant(tenant.value.id))) {
+      await signOut()
+      error.value = SEM_ACESSO
+      return
+    }
     await navigateTo('/admin')
   } catch {
     error.value = 'E-mail ou senha inválidos.'
@@ -59,6 +69,8 @@ useHead({ title: 'Entrar · Painel' })
       <button class="admin-btn" type="submit" style="margin-top: 16px; width: 100%" :disabled="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}
       </button>
+
+      <NuxtLink to="/admin/recuperar-senha" class="esqueci">Esqueci minha senha</NuxtLink>
     </form>
 
     <!-- Aqui, e não só na sidebar: esta é a tela em que a pessoa cai ao digitar
@@ -86,6 +98,13 @@ useHead({ title: 'Entrar · Painel' })
 .login-card {
   width: 100%;
   max-width: 380px;
+}
+.esqueci {
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
 }
 /* Segunda linha do grid, abaixo do cartão. Discreto de propósito: entrar é o
    que a pessoa veio fazer; instalar é oferta. */

@@ -51,6 +51,15 @@ describe('agendaBucket', () => {
     expect(agendaBucket('2026-09-25T12:00:00Z', noiteEmSP)).toBe('atrasadas')
   })
 
+  test('em Mato Grosso do Sul, a visita das 23h de hoje continua em "Hoje"', () => {
+    // BUG-FUN-02: 27/09 às 20h em Campo Grande (UTC-4) = 28/09 00h em UTC.
+    const noiteEmMS = new Date('2026-09-28T00:00:00Z')
+    // 23h de Campo Grande = 03h UTC do dia 28 = 00h de SP do dia 28.
+    expect(agendaBucket('2026-09-28T03:00:00Z', noiteEmMS, 'America/Campo_Grande')).toBe('hoje')
+    // Com o fuso de SP fixo, a mesma visita ia para os próximos dias.
+    expect(agendaBucket('2026-09-28T03:00:00Z', noiteEmMS, 'America/Sao_Paulo')).toBe('proximas')
+  })
+
   test('além de sete dias vai para "depois"', () => {
     expect(agendaBucket('2026-10-10T15:00:00Z', noiteEmSP)).toBe('depois')
   })

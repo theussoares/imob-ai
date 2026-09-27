@@ -4,7 +4,7 @@ import { toWhatsappClickOrigin } from '~~/shared/models/whatsapp-click'
 
 type ClickRow = Pick<
   Database['public']['Tables']['whatsapp_clicks']['Row'],
-  'id' | 'created_at' | 'destination' | 'origin' | 'lead_id'
+  'id' | 'created_at' | 'destination' | 'origin' | 'lead_id' | 'dismissed_at'
 >
 
 /** Imóvel e corretor embutidos na query do painel. */
@@ -26,5 +26,6 @@ export function toWhatsappClickModel(row: ClickRow, embeds: ClickEmbeds): Whatsa
       : null,
     broker: embeds.brokers ? { id: embeds.brokers.id, name: embeds.brokers.name } : null,
     leadId: row.lead_id,
+    dismissedAt: row.dismissed_at,
   }
 }

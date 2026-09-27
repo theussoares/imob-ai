@@ -53,4 +53,6 @@ export interface WhatsappClick {
   broker: { id: string; name: string } | null
   /** Lead criado a partir deste clique no painel. */
   leadId: string | null
+  /** Dispensado pela equipe sem virar contato (0057). */
+  dismissedAt: string | null
 }

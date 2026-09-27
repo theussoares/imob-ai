@@ -6,6 +6,11 @@ export interface ConfirmRequest {
   cancelLabel?: string;
   /** Ação destrutiva: botão vermelho. */
   danger?: boolean;
+  /**
+   * Campo de texto opcional no diálogo (ex.: motivo do cancelamento). Use com
+   * `askConfirmComTexto`, que devolve o que foi digitado.
+   */
+  input?: { label: string; placeholder?: string; maxLength?: number };
 }
 
 /**
@@ -32,11 +37,13 @@ let pending: ((ok: boolean) => void) | null = null;
  */
 export function useConfirm() {
   const request = useState<ConfirmRequest | null>("admin-confirm", () => null);
+  const texto = useState<string>("admin-confirm-texto", () => "");
 
   function askConfirm(req: ConfirmRequest): Promise<boolean> {
     // Um pedido por vez: se outro estiver aberto, ele é cancelado em vez de
     // ficar com a promise pendurada para sempre.
     settle(false);
+    texto.value = "";
     request.value = req;
     return new Promise<boolean>((resolve) => {
       pending = resolve;
@@ -51,5 +58,14 @@ export function useConfirm() {
     resolve?.(ok);
   }
 
-  return { request, askConfirm, settle };
+  /**
+   * Como `askConfirm`, com o campo `input`: devolve o texto digitado (pode ser
+   * vazio) ao confirmar, ou `null` ao desistir.
+   */
+  async function askConfirmComTexto(req: ConfirmRequest & { input: NonNullable<ConfirmRequest["input"]> }): Promise<string | null> {
+    const ok = await askConfirm(req);
+    return ok ? texto.value.trim() : null;
+  }
+
+  return { request, texto, askConfirm, askConfirmComTexto, settle };
 }

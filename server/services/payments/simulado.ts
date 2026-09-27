@@ -44,7 +44,8 @@ export function criarSimulado(ambiente: PaymentEnvironment = 'sandbox'): Payment
     // No simulado o pagamento é processado na hora (sem webhook): não há
     // estado lá que não esteja aqui.
     async consultar() {
-      return null
+      // O simulado não guarda estado: não há o que ler.
+      return { evento: null, situacao: { status: 'outra' as const, bruto: 'SIMULADO', vencimento: null, valor: null } }
     },
     async simularPagamento(externalId, valor) {
       return {

@@ -6,9 +6,14 @@
  * telas tratam os dois, e não o que "deveria" estar ligado.
  */
 export type Credencial =
+  | { tipo: 'token_hash'; tokenHash: string; otp: TipoDeLink }
   | { tipo: 'code'; code: string }
   | { tipo: 'tokens'; accessToken: string; refreshToken: string }
   | null
+
+/** Os tipos de link que geramos (`server/utils/auth-link.ts`). */
+export type TipoDeLink = 'invite' | 'recovery' | 'magiclink'
+const TIPOS_DE_LINK: readonly string[] = ['invite', 'recovery', 'magiclink']
 
 /**
  * Lê a credencial da URL em que a pessoa caiu.
@@ -36,6 +41,14 @@ export function credencialDaUrl(href: string): Credencial {
   // O código vence os tokens quando os dois vêm juntos. É a ordem que as duas
   // telas já tinham, e ela não pode passar a depender de qual arquivo alguém
   // editou por último.
+  // `token_hash` é o link que NÃO se gasta sozinho (ver auth-link.ts): a tela
+  // só o verifica quando a pessoa clica. Tipo fora da lista é link adulterado.
+  const tokenHash = url.searchParams.get('token_hash')
+  const tipoDoLink = url.searchParams.get('type') ?? ''
+  if (tokenHash && TIPOS_DE_LINK.includes(tipoDoLink)) {
+    return { tipo: 'token_hash', tokenHash, otp: tipoDoLink as TipoDeLink }
+  }
+
   const code = url.searchParams.get('code')
   if (code) return { tipo: 'code', code }
 
@@ -68,4 +81,18 @@ export function validarNovaSenha(senha: string, confirmacao: string): string | n
   }
   if (senha !== confirmacao) return 'As duas senhas não são iguais.'
   return null
+}
+
+/**
+ * O Supabase devolve o motivo da recusa no fragmento quando o link antigo
+ * (`action_link`) falha: `#error_code=otp_expired&error_description=…`.
+ * Links mandados antes da troca para `token_hash` ainda chegam assim.
+ */
+export function linkRecusadoNaUrl(href: string): boolean {
+  try {
+    const hash = new URLSearchParams(new URL(href).hash.replace(/^#/, ''))
+    return !!(hash.get('error_code') || hash.get('error'))
+  } catch {
+    return false
+  }
 }

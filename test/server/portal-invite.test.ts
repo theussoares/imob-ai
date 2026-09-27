@@ -275,6 +275,27 @@ describe('caso 2 — reenvio para cliente confirmado', () => {
     expect(levouToken()).toBe(true)
   })
 
+  // MELHORIA 15 (27/09): quem já entrou tem senha. O link de redefinição o
+  // obrigava a trocar, e a mesma senha era recusada pelo Supabase.
+  test('quem JÁ ENTROU recebe "entre com a sua senha", sem token', async () => {
+    const { client, authCalls } = fakeSupabaseWithAuth({
+      results: {
+        portal_users: {
+          data: linha({ access_confirmed_at: '2026-09-10T10:00:00.000Z', first_login_at: '2026-09-11T10:00:00.000Z' }),
+          error: null,
+        },
+      },
+      users: [{ id: 'u-1', email: 'giane@exemplo.com' }],
+    })
+
+    const r = await convidar(client)
+
+    expect(r.jaEraCliente).toBe(true)
+    expect(r.semToken).toBe(true)
+    expect(gerou(authCalls, 'recovery')).toBe(false)
+    expect(levouToken()).toBe(false)
+  })
+
   test('a confirmação é o ÚNICO campo que separa os dois destinos', async () => {
     // Mesmo cadastro, mesma conta, mesma chamada: só a coluna muda.
     for (const [confirmado, esperaToken] of [

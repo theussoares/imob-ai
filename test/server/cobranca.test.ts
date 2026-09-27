@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createHash } from 'node:crypto'
-import { criarAsaas, eventoDaConsulta, eventoDoAsaas, telefoneParaAsaas } from '~~/server/services/payments/asaas'
+import { criarAsaas, eventoDaConsulta, eventoDoAsaas, situacaoDaConsulta, telefoneParaAsaas } from '~~/server/services/payments/asaas'
 import { ErroDoProvedor } from '~~/server/services/payments/provider'
 import { mesmoSegredo } from '~~/server/utils/segredo'
 import { fakeSupabase, hadEq } from '../helpers/fake-supabase'
@@ -472,3 +472,33 @@ describe('eventoDaConsulta', () => {
   })
 })
 
+
+// BUG-FUN-06 (27/09): com o "Forçar vencimento" do sandbox, o Asaas mostrava
+// Vencida e o "Consultar" respondia "continua em aberto lá também" — sem ter
+// lido o status. A frase agora diz o que foi visto e o que diverge.
+describe('o que a consulta viu no provedor', () => {
+  test('traduz o status e lê vencimento e valor de lá', () => {
+    expect(situacaoDaConsulta({ id: 'p', status: 'OVERDUE', dueDate: '2026-10-05', value: 1300 })).toEqual({
+      status: 'vencida', bruto: 'OVERDUE', vencimento: '2026-10-05', valor: 1300,
+    })
+    expect(situacaoDaConsulta({ id: 'p', status: 'PENDING' }).status).toBe('em_aberto')
+    expect(situacaoDaConsulta({ id: 'p', status: 'AWAITING_RISK_ANALYSIS' }).status).toBe('outra')
+  })
+
+  test('a frase diz a situação real, nunca "em aberto" fixo', async () => {
+    const { mensagemSemEvento } = await import('~~/server/utils/cobranca')
+    const cobranca = { dueOn: '2026-10-05', issuedAmount: 1300 }
+    const vencida = mensagemSemEvento({ status: 'vencida', bruto: 'OVERDUE', vencimento: '2026-10-05', valor: 1300 }, cobranca)
+    expect(vencida).toContain('está vencida')
+    expect(vencida).not.toContain('em aberto')
+    expect(mensagemSemEvento({ status: 'outra', bruto: 'AWAITING_RISK_ANALYSIS', vencimento: null, valor: null }, cobranca)).toContain('AWAITING_RISK_ANALYSIS')
+  })
+
+  test('vencimento ou valor alterados direto no provedor são avisados', async () => {
+    const { mensagemSemEvento } = await import('~~/server/utils/cobranca')
+    const m = mensagemSemEvento({ status: 'vencida', bruto: 'OVERDUE', vencimento: '2026-09-20', valor: 1500 }, { dueOn: '2027-01-10', issuedAmount: 1300 })
+    expect(m).toContain('20/09/2026')
+    expect(m).toContain('10/01/2027')
+    expect(m).toContain('1500,00')
+  })
+})

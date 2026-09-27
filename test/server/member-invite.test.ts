@@ -87,12 +87,30 @@ describe('inviteMember', () => {
 })
 
 describe('removeMember', () => {
+  const DONO = { userId: 'eu', role: 'owner' }
+
+  // BUG-SEG-04 (27/09): o admin removia o owner, que ficava trancado fora e
+  // levava junto a única pessoa que conecta a conta do Asaas.
+  test('admin não remove ninguém', async () => {
+    const { client, calls } = fakeSupabaseWithAuth({ results: {} })
+    await expect(removeMember(client, TENANT, 'm-dono', { userId: 'eu', role: 'admin' })).rejects.toMatchObject({ statusCode: 403 })
+    expect(calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
+  test('o owner nunca é removido pelo painel', async () => {
+    const { client, calls } = fakeSupabaseWithAuth({
+      results: { tenant_members: [{ data: { id: 'm2', user_id: 'outro', role: 'owner' }, error: null }] },
+    })
+    await expect(removeMember(client, TENANT, 'm2', DONO)).rejects.toMatchObject({ statusCode: 409 })
+    expect(calls.some((c) => c.method === 'delete')).toBe(false)
+  })
+
   test('recusa remover a si mesmo', async () => {
     const { client } = fakeSupabaseWithAuth({
       results: { tenant_members: [{ data: { id: 'm1', user_id: 'eu' }, error: null }] },
     })
 
-    await expect(removeMember(client, TENANT, 'm1', 'eu')).rejects.toMatchObject({
+    await expect(removeMember(client, TENANT, 'm1', DONO)).rejects.toMatchObject({
       statusCode: 400,
     })
   })
@@ -109,7 +127,7 @@ describe('removeMember', () => {
       },
     })
 
-    await expect(removeMember(client, TENANT, 'm1', 'eu')).rejects.toMatchObject({
+    await expect(removeMember(client, TENANT, 'm1', DONO)).rejects.toMatchObject({
       statusCode: 409,
     })
   })
@@ -125,7 +143,7 @@ describe('removeMember', () => {
       },
     })
 
-    await removeMember(client, TENANT, 'm2', 'eu')
+    await removeMember(client, TENANT, 'm2', DONO)
 
     expect(calls.some((c) => c.table === 'tenant_members' && c.method === 'delete')).toBe(true)
   })
@@ -137,7 +155,7 @@ describe('removeMember', () => {
       results: { tenant_members: [{ data: null, error: null }] },
     })
 
-    await expect(removeMember(client, TENANT, 'm-de-outro', 'eu')).rejects.toMatchObject({
+    await expect(removeMember(client, TENANT, 'm-de-outro', DONO)).rejects.toMatchObject({
       statusCode: 404,
     })
   })
