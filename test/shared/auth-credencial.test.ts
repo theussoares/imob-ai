@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { credencialDaUrl, validarNovaSenha } from '~~/shared/utils/auth-credencial'
+import { credencialDaUrl, linkRecusadoNaUrl, validarNovaSenha } from '~~/shared/utils/auth-credencial'
+import { linkDeAcesso } from '~~/server/utils/auth-link'
 
 /**
  * Como o token do convite chega na tela de definir senha.
@@ -15,6 +16,34 @@ import { credencialDaUrl, validarNovaSenha } from '~~/shared/utils/auth-credenci
  * No portal ela é um cliente final, que não tem a quem recorrer além do
  * WhatsApp da imobiliária.
  */
+
+// BUG-FUN-03 (27/09): o convite colado no WhatsApp chegava morto. A prévia do
+// link abria o `/auth/v1/verify` do Supabase, que é de uso único e se gasta no
+// GET. O link agora aponta para a nossa página com `token_hash`, e a tela só
+// verifica quando a pessoa clica.
+describe('link que a prévia não gasta', () => {
+  const props = { hashed_token: 'h4sh', verification_type: 'invite', action_link: 'https://supabase/auth/v1/verify?token=x' }
+
+  test('aponta para a nossa tela, não para o /verify do Supabase', () => {
+    const link = linkDeAcesso('https://aurora.usemoradi.com.br/admin/definir-senha', props)!
+    expect(link.startsWith('https://aurora.usemoradi.com.br/admin/definir-senha?')).toBe(true)
+    expect(link).not.toContain('/auth/v1/verify')
+    expect(credencialDaUrl(link)).toEqual({ tipo: 'token_hash', tokenHash: 'h4sh', otp: 'invite' })
+  })
+
+  test('sem hashed_token cai no link antigo em vez de não mandar nada', () => {
+    expect(linkDeAcesso('https://x.com.br/a', { action_link: 'https://antigo' })).toBe('https://antigo')
+  })
+
+  test('tipo fora da lista não vira credencial', () => {
+    expect(credencialDaUrl('https://x.com.br/a?token_hash=h&type=email_change')).toBeNull()
+  })
+
+  test('link antigo recusado pelo Supabase é reconhecido pelo fragmento', () => {
+    expect(linkRecusadoNaUrl('https://x.com.br/a#error=access_denied&error_code=otp_expired')).toBe(true)
+    expect(linkRecusadoNaUrl('https://x.com.br/a')).toBe(false)
+  })
+})
 
 describe('credencialDaUrl', () => {
   test('PKCE: o código vem na query', () => {

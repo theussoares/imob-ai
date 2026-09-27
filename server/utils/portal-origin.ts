@@ -1,5 +1,6 @@
 import type { Tenant } from '~~/shared/models/tenant'
 import { getPrimaryDomain } from '~~/server/repositories/tenant.repository'
+import { ADMIN_HOST_PREFIX } from '~~/shared/utils/admin-host'
 
 /**
  * A origem pública do portal deste tenant — o endereço para onde os links de
@@ -47,4 +48,27 @@ export function urlDefinirSenha(origem: string): string {
 /** Endereço do login do portal, para o aviso sem token. */
 export function urlLoginPortal(origem: string): string {
   return `${origem}/area-cliente/login`
+}
+
+/**
+ * Endereço do painel deste tenant, para links que saem por e-mail.
+ *
+ * `painel.<domínio>` só existe para quem tem domínio próprio: o certificado
+ * wildcard da plataforma cobre `*.usemoradi.com.br`, não
+ * `painel.<slug>.usemoradi.com.br`. O aviso de lead montava
+ * `painel.apresentacao.usemoradi.com.br` e o link dava erro de certificado
+ * (achado no teste de 27/09). Sem domínio próprio, o painel mora no
+ * subdomínio da plataforma mesmo, em `/admin`.
+ */
+export function origemDoPainel(dominioProprio: string | null, slug: string, plataforma: string): string | null {
+  if (dominioProprio) return `https://${ADMIN_HOST_PREFIX}${dominioProprio}`
+  if (plataforma) return `https://${slug}.${plataforma.toLowerCase()}`
+  return null
+}
+
+export async function painelOrigin(client: ReturnType<typeof serviceSupabase>, tenant: Tenant): Promise<string> {
+  const origem = origemDoPainel(await getPrimaryDomain(client, tenant.id), tenant.slug, useRuntimeConfig().platformDomain || '')
+  if (origem) return origem
+  logError('painel.origem_indefinida', { tenant: tenant.slug })
+  throw createError({ statusCode: 500, statusMessage: 'Endereço público da imobiliária não configurado.' })
 }

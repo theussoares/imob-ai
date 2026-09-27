@@ -2,6 +2,7 @@ import { emailRecuperacaoSenha } from '~~/server/utils/email-templates'
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 import { enviarEmail } from '~~/server/utils/mailer'
 import { portalOrigin, urlDefinirSenha } from '~~/server/utils/portal-origin'
+import { linkDeAcesso } from '~~/server/utils/auth-link'
 
 /** Intervalo mínimo entre dois e-mails de redefinição para a MESMA conta. */
 const INTERVALO_MS = 5 * 60 * 1000
@@ -73,13 +74,14 @@ export default defineEventHandler(async (event) => {
   // servidor de quem forjou — que receberia o token ao primeiro clique.
   const origem = await portalOrigin(service, tenant)
 
+  const destino = urlDefinirSenha(origem)
   const { data, error } = await service.auth.admin.generateLink({
     type: 'recovery',
     email,
-    options: { redirectTo: urlDefinirSenha(origem) },
+    options: { redirectTo: destino },
   })
 
-  const link = data?.properties?.action_link
+  const link = linkDeAcesso(destino, data?.properties)
   if (error || !link) {
     logError('portal.recuperacao_link_falhou', { tenant: tenant.slug, reason: error?.message })
     return resposta

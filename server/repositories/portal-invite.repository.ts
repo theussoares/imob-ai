@@ -9,6 +9,7 @@ import {
   type CorpoEmail,
 } from '~~/server/utils/email-templates'
 import { enviarEmail, type Remetente } from '~~/server/utils/mailer'
+import { linkDeAcesso } from '~~/server/utils/auth-link'
 
 type Client = SupabaseClient<Database>
 
@@ -119,7 +120,7 @@ async function obterAcesso(service: Client, email: string, redirectTo: string): 
   if (!error && data?.user?.id) {
     return {
       userId: data.user.id,
-      linkConvite: data.properties?.action_link ?? null,
+      linkConvite: linkDeAcesso(redirectTo, data.properties),
       preexistente: false,
     }
   }
@@ -151,7 +152,7 @@ async function linkDeRedefinicao(
     email,
     options: { redirectTo },
   })
-  return data?.properties?.action_link ?? null
+  return linkDeAcesso(redirectTo, data?.properties)
 }
 
 /**

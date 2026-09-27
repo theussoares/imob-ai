@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
+import { linkDeAcesso } from '~~/server/utils/auth-link'
 
 type Client = SupabaseClient<Database>
 
@@ -77,7 +78,7 @@ export async function inviteMember(
     userId = found
   } else {
     userId = data.user.id
-    inviteLink = data.properties?.action_link ?? null
+    inviteLink = linkDeAcesso(redirectTo, data.properties)
   }
 
   const { data: existing } = await service

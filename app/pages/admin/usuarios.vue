@@ -26,7 +26,7 @@ const error = ref("");
  * convite é credencial temporária; guardar seria criar uma senha em texto puro
  * com outro nome.
  */
-const lastInvite = ref<{ email: string; link: string } | null>(null);
+const lastInvite = ref<{ email: string; link: string; enviado: boolean } | null>(null);
 const copied = ref(false);
 
 async function invite() {
@@ -43,6 +43,7 @@ async function invite() {
       alreadyRegistered: boolean;
       alreadyMember: boolean;
       email: string;
+      emailEnviado: boolean;
     }>("/api/admin/members", { method: "POST", body: { email: email.value } });
 
     if (r.alreadyMember) {
@@ -53,8 +54,11 @@ async function invite() {
         `${r.email} já tinha conta e foi adicionado. É só entrar pelo login normal, com a senha de sempre.`,
       );
     } else if (r.inviteLink) {
-      lastInvite.value = { email: r.email, link: r.inviteLink };
+      // O e-mail é o caminho principal; o link na tela é o plano B para
+      // quando ele cair no spam ou não sair.
+      lastInvite.value = { email: r.email, link: r.inviteLink, enviado: r.emailEnviado };
       copied.value = false;
+      if (r.emailEnviado) toast.success(`Convite enviado por e-mail para ${r.email}.`);
     }
     email.value = "";
     await refresh();
@@ -128,15 +132,19 @@ useHead({ title: "Usuários · Painel" });
           @keydown.enter.prevent="invite"
         />
         <button class="admin-btn" :disabled="inviting" @click="invite">
-          {{ inviting ? "Gerando..." : "Gerar convite" }}
+          {{ inviting ? "Enviando..." : "Enviar convite" }}
         </button>
       </div>
       <p v-if="error" class="err">{{ error }}</p>
 
       <div v-if="lastInvite" class="link-box">
-        <p class="link-t">
-          Convite de <strong>{{ lastInvite.email }}</strong> — mande este link
-          para a pessoa:
+        <p v-if="lastInvite.enviado" class="link-t">
+          Enviamos o convite para <strong>{{ lastInvite.email }}</strong>. Se
+          não chegar (confira o spam), mande este link para a pessoa:
+        </p>
+        <p v-else class="link-t">
+          O e-mail do convite para <strong>{{ lastInvite.email }}</strong> não
+          saiu. Mande este link para a pessoa:
         </p>
         <div class="link-row">
           <code class="link">{{ lastInvite.link }}</code>
@@ -145,9 +153,9 @@ useHead({ title: "Usuários · Painel" });
           </button>
         </div>
         <p class="link-warn">
-          Este link aparece uma única vez e dá acesso ao painel — mande só para
-          a pessoa certa. Saindo desta tela ele não volta; se perder, é só gerar
-          outro.
+          Este link dá acesso ao painel — mande só para a pessoa certa. Pode ir
+          pelo WhatsApp: a prévia do link não gasta o convite. Saindo desta tela
+          ele não volta; se perder, a pessoa usa "Esqueci minha senha" no login.
         </p>
       </div>
     </div>

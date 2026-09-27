@@ -99,6 +99,12 @@ export function fakeSupabaseWithAuth(opts: {
   link?: string
   /** Link devolvido por `generateLink({type:'recovery'})`. */
   linkRecovery?: string
+  /**
+   * Com isto, `generateLink` devolve também `hashed_token` — o formato do
+   * GoTrue que o link novo usa (`server/utils/auth-link.ts`). Sem ele, só o
+   * `action_link` antigo, como os testes anteriores esperam.
+   */
+  hashedToken?: string
 }) {
   const { client, calls } = fakeSupabase(opts.results ?? {})
   const users = opts.users ?? []
@@ -128,7 +134,10 @@ export function fakeSupabaseWithAuth(opts: {
             ? {
                 data: {
                   user: existing,
-                  properties: { action_link: opts.linkRecovery ?? 'https://exemplo/recovery' },
+                  properties: {
+                    action_link: opts.linkRecovery ?? 'https://exemplo/recovery',
+                    ...(opts.hashedToken ? { hashed_token: opts.hashedToken, verification_type: 'recovery' } : {}),
+                  },
                 },
                 error: null,
               }
@@ -141,7 +150,13 @@ export function fakeSupabaseWithAuth(opts: {
         const user: FakeAuthUser = { id: 'novo-user', email: params.email, email_confirmed_at: null }
         users.push(user)
         return {
-          data: { user, properties: { action_link: opts.link ?? 'https://exemplo/convite' } },
+          data: {
+            user,
+            properties: {
+              action_link: opts.link ?? 'https://exemplo/convite',
+              ...(opts.hashedToken ? { hashed_token: opts.hashedToken, verification_type: 'invite' } : {}),
+            },
+          },
           error: null,
         }
       },

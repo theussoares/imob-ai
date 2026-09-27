@@ -59,6 +59,8 @@ useHead({ title: 'Entrar · Painel' })
       <button class="admin-btn" type="submit" style="margin-top: 16px; width: 100%" :disabled="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}
       </button>
+
+      <NuxtLink to="/admin/recuperar-senha" class="esqueci">Esqueci minha senha</NuxtLink>
     </form>
 
     <!-- Aqui, e não só na sidebar: esta é a tela em que a pessoa cai ao digitar
@@ -86,6 +88,13 @@ useHead({ title: 'Entrar · Painel' })
 .login-card {
   width: 100%;
   max-width: 380px;
+}
+.esqueci {
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
 }
 /* Segunda linha do grid, abaixo do cartão. Discreto de propósito: entrar é o
    que a pessoa veio fazer; instalar é oferta. */
