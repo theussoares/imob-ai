@@ -54,10 +54,13 @@ let tick: ReturnType<typeof setInterval> | null = null;
 onMounted(() => (tick = setInterval(() => (agora.value = new Date()), 60000)));
 onBeforeUnmount(() => tick && clearInterval(tick));
 
+// O mesmo fuso que `toLocaleDateString` usa para rotular os dias abaixo.
+const fusoDoNavegador = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 const grupos = computed(() => {
   const g = { atrasadas: [] as LeadTask[], hoje: [] as LeadTask[], proximas: [] as LeadTask[] };
   for (const t of tasks.value ?? []) {
-    const b = agendaBucket(t.dueAt, agora.value);
+    const b = agendaBucket(t.dueAt, agora.value, fusoDoNavegador);
     if (b !== "depois") g[b].push(t);
   }
   return g;
