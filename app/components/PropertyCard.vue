@@ -4,6 +4,7 @@ import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 import { temQuartos } from '~~/shared/models/property'
 import { propertyPath } from '~~/shared/utils/property-url'
 import { formatArea, formatPropertyCode } from '~~/shared/utils/property-specs'
+import { cardQualifier, CARD_QUALIFIER_LABELS, QUALIFIER_CLASS } from '~~/shared/utils/property-badges'
 
 // `lcpCandidate` só atravessa daqui para o carrossel — ver o porquê lá.
 const props = withDefaults(
@@ -45,6 +46,7 @@ const titulo = computed(() => [tipoLabel.value, medida.value].filter(Boolean).jo
 const codigo = computed(() => formatPropertyCode(props.property.code))
 
 const isRent = computed(() => props.property.purpose === 'aluguel')
+const qualifier = computed(() => cardQualifier(props.property))
 const detailPath = computed(() => propertyPath(props.property))
 </script>
 
@@ -60,7 +62,9 @@ const detailPath = computed(() => propertyPath(props.property))
       />
       <div class="badges">
         <span class="badge" :class="{ rent: isRent }">{{ isRent ? 'Aluguel' : 'Venda' }}</span>
-        <span v-if="property.highStandard" class="badge high">Alto padrão</span>
+        <span v-if="qualifier" class="badge" :class="QUALIFIER_CLASS[qualifier]">{{
+          CARD_QUALIFIER_LABELS[qualifier]
+        }}</span>
       </div>
     </div>
 

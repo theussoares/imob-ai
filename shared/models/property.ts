@@ -86,6 +86,16 @@ export interface PropertyCard {
   area: number
   highStandard: boolean
   featured: boolean
+  /**
+   * Captação com contrato de exclusividade. Opcional enquanto a coluna não
+   * existe: por ora só o mock (`/mock/destaques`) preenche.
+   */
+  exclusive?: boolean
+  /**
+   * Para o selo "Novo" (ver `isNovo`). Opcional enquanto o select do catálogo
+   * não traz `created_at`; por ora só o mock preenche.
+   */
+  createdAt?: string
   brokerPhone?: string | null
   /**
    * Até 5 fotos (capa sempre em [0]) para o carrossel do card — ver
