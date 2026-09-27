@@ -9,6 +9,8 @@ import type { PaymentAccountView, PaymentEnvironment, PaymentProviderName } from
  * inteira de novo, em vez de mostrar a atual num campo editável.
  */
 const conta = ref<PaymentAccountView | null>(null)
+/** Último evento do provedor desde a conexão (MELHORIA 02). */
+const ultimoAviso = ref<string | null>(null)
 const carregando = ref(true)
 const erroCarga = ref('')
 const editando = ref(false)
@@ -25,7 +27,9 @@ async function carregar() {
   carregando.value = true
   erroCarga.value = ''
   try {
-    conta.value = (await adminFetch<{ conta: PaymentAccountView | null }>('/api/admin/cobranca/conta')).conta
+    const r = await adminFetch<{ conta: PaymentAccountView | null; ultimoAviso: string | null }>('/api/admin/cobranca/conta')
+    conta.value = r.conta
+    ultimoAviso.value = r.ultimoAviso
     editando.value = !conta.value
   } catch {
     erroCarga.value = 'Não foi possível carregar a conta de cobrança.'
@@ -57,6 +61,7 @@ async function conectar() {
       },
     })
     conta.value = r.conta
+    ultimoAviso.value = null
     apiKey.value = ''
     editando.value = false
     ok.value = provider.value === 'asaas' ? 'Conta conectada. Os pagamentos passam a baixar sozinhos.' : 'Modo de demonstração ligado.'
@@ -119,6 +124,13 @@ const dataConexao = computed(() =>
           <b>{{ conta.provider === 'simulado' ? 'Simulado' : 'Asaas' }}{{ conta.accountName && conta.provider !== 'simulado' ? `: ${conta.accountName}` : '' }}</b>
           <small v-if="conta.apiKeyLast4">Chave terminando em ••••{{ conta.apiKeyLast4 }}, conectada em {{ dataConexao }}</small>
           <small v-else>Boletos de mentira, para apresentar o fluxo. Nada é cobrado de ninguém.</small>
+          <small v-if="conta.provider !== 'simulado' && ultimoAviso" class="cc-aviso ok">
+            Último aviso de pagamento do Asaas: {{ new Date(ultimoAviso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }}
+          </small>
+          <small v-else-if="conta.provider !== 'simulado'" class="cc-aviso">
+            Nenhum aviso do Asaas desde a conexão. É normal se nenhum boleto foi pago ainda; se um pagamento
+            não baixou sozinho, use "Consultar no Asaas" na cobrança e reconecte a conta aqui.
+          </small>
         </div>
         <div class="cc-acoes">
           <button type="button" class="admin-btn ghost sm" @click="trocar">Trocar conta</button>
@@ -209,6 +221,12 @@ const dataConexao = computed(() =>
 </template>
 
 <style scoped>
+.cc-aviso {
+  color: #92400e;
+}
+.cc-aviso.ok {
+  color: var(--ink-soft);
+}
 .cc {
   margin-top: 18px;
 }
