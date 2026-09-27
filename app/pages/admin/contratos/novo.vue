@@ -299,6 +299,11 @@ function repasse(): PayoutDestinationInput | null {
         ...titular,
       }
 }
+/** Campo numérico apagado chega como "" pelo `v-model.number`; o servidor
+ * também normaliza (BUG-FUN-01), mas o resumo e o corpo ficam honestos aqui. */
+function numOuNulo(v: unknown): number | null {
+  return v === null || v === undefined || (typeof v === "string" && v.trim() === "") ? null : Number(v);
+}
 async function criar() {
   for (let i = 0; i < ETAPAS.length; i++) {
     const e = errosDaEtapa(i)
@@ -320,17 +325,17 @@ async function criar() {
       rentAmount: Number(f.rentAmount),
       dueDay: Number(f.dueDay),
       startedOn: f.startedOn,
-      termMonths: f.termMonths,
+      termMonths: numOuNulo(f.termMonths),
       adjustmentIndex: f.adjustmentIndex || null,
-      finePercent: f.finePercent,
-      interestMonthlyPercent: f.interestMonthlyPercent,
+      finePercent: numOuNulo(f.finePercent),
+      interestMonthlyPercent: numOuNulo(f.interestMonthlyPercent),
       guaranteeType: f.guaranteeType,
-      guaranteeAmount: f.guaranteeType === 'caucao' ? f.guaranteeAmount : null,
+      guaranteeAmount: f.guaranteeType === 'caucao' ? numOuNulo(f.guaranteeAmount) : null,
       guaranteeDetails: f.guaranteeDetails.trim() || null,
       fireInsurancePayer: f.fireInsurancePayer,
-      adminFeePercent: f.adminFeePercent,
-      rentFeePercent: f.rentFeePercent,
-      payoutBusinessDays: f.payoutBusinessDays,
+      adminFeePercent: numOuNulo(f.adminFeePercent),
+      rentFeePercent: numOuNulo(f.rentFeePercent),
+      payoutBusinessDays: numOuNulo(f.payoutBusinessDays),
       repasse: repasse(),
       convidarPartes: f.convidarPartes && temEmail.value,
     }

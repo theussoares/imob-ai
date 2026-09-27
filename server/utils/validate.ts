@@ -681,7 +681,7 @@ export function assertLeaseCreateInput(input: unknown): asserts input is LeaseCr
   const l = input as Record<string, unknown>
 
   if (!(Number(l.rentAmount) > 0)) throw createError({ statusCode: 422, statusMessage: 'Informe o valor do aluguel.' })
-  if (l.dueDay == null) throw createError({ statusCode: 422, statusMessage: 'Informe o dia do vencimento.' })
+  if (l.dueDay == null || l.dueDay === '') throw createError({ statusCode: 422, statusMessage: 'Informe o dia do vencimento.' })
   if (!l.startedOn || !/^\d{4}-\d{2}-\d{2}$/.test(String(l.startedOn))) {
     throw createError({ statusCode: 422, statusMessage: 'Informe a data de início.' })
   }
