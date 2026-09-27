@@ -12,6 +12,7 @@
  * login prometeria um cadastro que o produto não tem.
  */
 import { COTA_MENSAL_DESCRICAO } from "~~/shared/models/ai-generation";
+import { PRECOS, type PrazoPlano } from "~~/app/utils/moradi-roteiro";
 
 const config = useRuntimeConfig();
 const builtByName = config.public.builtByName || "MA Tech";
@@ -110,16 +111,17 @@ const passos = [
 
 /**
  * Preço em constante e não em tabela: só a landing mostra, e muda raramente.
- * Ver a tabela de decisões da spec. `null` é "sob consulta" — o seletor de
+ * Ver a tabela de decisões da spec. A constante mora em `moradi-roteiro.ts`
+ * porque o chat também cita os valores. `null` é "sob consulta" — o seletor de
  * prazo não mexe nesse plano.
  */
-type Prazo = 12 | 6;
+type Prazo = PrazoPlano;
 const prazo = ref<Prazo>(12);
 const planos = [
   {
     nome: "Corretor",
     para: "Para quem vende por conta própria",
-    preco: { 12: 149, 6: 189 } as Record<Prazo, number> | null,
+    preco: PRECOS.corretor as Record<Prazo, number> | null,
     itens: [
       "Site com catálogo e busca",
       "Página própria por imóvel, pronta para o Google",
@@ -134,7 +136,7 @@ const planos = [
   {
     nome: "Imobiliária",
     para: "Para quem tem equipe, locação e carteira",
-    preco: { 12: 400, 6: 450 } as Record<Prazo, number> | null,
+    preco: PRECOS.imobiliaria as Record<Prazo, number> | null,
     itens: [
       "Tudo do Corretor",
       `Descrição por IA, até ${COTA_MENSAL_DESCRICAO} por mês`,
@@ -181,7 +183,7 @@ const faq = [
   },
   {
     q: "Como funciona o contrato?",
-    a: "Depois do teste, você escolhe 6 ou 12 meses. No de 12, a mensalidade é menor: R$ 149 no Corretor e R$ 400 no Imobiliária.",
+    a: `Depois do teste, você escolhe 6 ou 12 meses. No de 12, a mensalidade é menor: R$ ${PRECOS.corretor[12]} no Corretor e R$ ${PRECOS.imobiliaria[12]} no Imobiliária.`,
   },
   {
     q: "E se eu não renovar?",
@@ -273,7 +275,7 @@ useSeoMeta({
               <a class="btn outline" :href="demoUrl" target="_blank" rel="noopener">Ver um site no ar</a>
             </div>
             <div class="micro">
-              <span><svg aria-hidden="true"><use href="#lp-i-tick" /></svg>A partir de R$ 149/mês</span>
+              <span><svg aria-hidden="true"><use href="#lp-i-tick" /></svg>A partir de R$ {{ PRECOS.corretor[12] }}/mês</span>
               <span><svg aria-hidden="true"><use href="#lp-i-tick" /></svg>Domínio no seu nome</span>
               <span><svg aria-hidden="true"><use href="#lp-i-tick" /></svg>3 dias de teste grátis</span>
             </div>
@@ -561,6 +563,8 @@ useSeoMeta({
         </div>
       </footer>
     </div>
+
+    <MoradiChat :wa="wa" :demo-url="demoUrl" />
   </div>
 </template>
 
