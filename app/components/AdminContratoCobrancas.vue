@@ -42,7 +42,7 @@ const props = defineProps<{
 }>()
 
 const toast = useToast()
-const { askConfirm } = useConfirm()
+const { askConfirm, askConfirmComTexto } = useConfirm()
 
 const cobrancas = ref<Charge[]>([])
 const repasses = ref<OwnerPayout[]>([])
@@ -184,18 +184,21 @@ async function emitir(c: Charge) {
 }
 
 async function cancelar(c: Charge) {
-  const ok = await askConfirm({
+  // MELHORIA 12: o motivo fica na cobrança (a exclusão pelo Asaas já gravava
+  // "Removida no painel do provedor"; o cancelamento daqui não gravava nada).
+  const motivo = await askConfirmComTexto({
     title: `Cancelar a cobrança de ${mesExtenso(c.competence)}?`,
     description: c.externalId
       ? 'O boleto é cancelado no Asaas e deixa de poder ser pago. Não dá para desfazer; se precisar, gere outra cobrança.'
       : 'A cobrança sai do contrato. Não dá para desfazer.',
+    input: { label: 'Motivo (opcional)', placeholder: 'Ex.: valor errado, inquilino pagou direto', maxLength: 300 },
     confirmLabel: 'Cancelar cobrança',
     danger: true,
   })
-  if (!ok) return
+  if (motivo === null) return
   ocupado.value = c.id
   try {
-    await adminFetch(`/api/admin/cobrancas/${c.id}/cancelar`, { method: 'POST', body: {} })
+    await adminFetch(`/api/admin/cobrancas/${c.id}/cancelar`, { method: 'POST', body: { reason: motivo || null } })
     toast.success('Cobrança cancelada.')
   } catch (e) {
     toast.error(msg(e, 'Não foi possível cancelar.'))
@@ -443,6 +446,12 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
             Depois do vencimento: multa de {{ c.finePercent ?? 0 }}% e juros de {{ c.interestMonthlyPercent ?? 0 }}% ao mês, calculados no boleto.
           </p>
           <p v-if="c.cancelReason" class="hint-text">Motivo do cancelamento: {{ c.cancelReason }}</p>
+          <!-- MELHORIA 12: cobrança paga não se cancela; dizer qual é o caminho
+               em vez de só não oferecer o botão. -->
+          <p v-if="c.status === 'paga' && c.externalId && c.provider !== 'simulado'" class="hint-text">
+            Para devolver este pagamento, estorne no painel do Asaas. A cobrança volta a ficar em aberto aqui
+            e o repasse pendente é cancelado sozinho.
+          </p>
 
           <div v-if="emAberto(c.status) && (c.digitableLine || c.pixCopyPaste || c.paymentUrl)" class="cob-pagar">
             <div v-if="c.digitableLine">

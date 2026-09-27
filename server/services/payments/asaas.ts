@@ -6,6 +6,7 @@ import type {
   EventoDePagamento,
   Pagador,
   PaymentProvider,
+  SituacaoNoProvedor,
   TipoDeEvento,
 } from './provider'
 import { ErroDoProvedor } from './provider'
@@ -188,7 +189,7 @@ export function criarAsaas(op: OpcoesAsaas): PaymentProvider {
 
     async consultar(externalId) {
       const p = await chamar<Record<string, unknown>>('GET', `/payments/${encodeURIComponent(externalId)}`)
-      return eventoDaConsulta(p)
+      return { evento: eventoDaConsulta(p), situacao: situacaoDaConsulta(p) }
     },
 
     async simularPagamento(externalId) {
@@ -270,4 +271,29 @@ export function eventoDaConsulta(p: Record<string, unknown>): EventoDePagamento 
         : null
   if (!evento) return null
   return eventoDoAsaas({ id: `consulta:${p.id}:${p.deleted === true ? 'DELETED' : status}`, event: evento, payment: p })
+}
+
+/**
+ * O que `GET /payments/{id}` diz, traduzido para a tela. Função pura, como
+ * `eventoDaConsulta`: o status do Asaas não sai deste arquivo.
+ */
+export function situacaoDaConsulta(p: Record<string, unknown>): SituacaoNoProvedor {
+  const bruto = String(p.status ?? '')
+  const status: SituacaoNoProvedor['status'] = p.deleted === true
+    ? 'removida'
+    : bruto === 'PENDING'
+      ? 'em_aberto'
+      : bruto === 'OVERDUE'
+        ? 'vencida'
+        : ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(bruto)
+          ? 'paga'
+          : bruto === 'REFUNDED'
+            ? 'estornada'
+            : 'outra'
+  return {
+    status,
+    bruto,
+    vencimento: typeof p.dueDate === 'string' ? p.dueDate.slice(0, 10) : null,
+    valor: typeof p.value === 'number' ? arred(p.value) : null,
+  }
 }

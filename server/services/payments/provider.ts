@@ -65,6 +65,29 @@ export class ErroDoProvedor extends Error {
   }
 }
 
+/**
+ * O que a consulta VIU no provedor, além do evento a aplicar.
+ *
+ * Existe para a tela dizer a verdade. Antes, sem evento, "Consultar no Asaas"
+ * respondia "a cobrança continua em aberto lá também" — sem ter lido o status.
+ * Com o "Forçar vencimento" do sandbox, o Asaas mostrava Vencida e o painel
+ * afirmava o contrário (teste de 27/09, BUG-FUN-06).
+ */
+export interface SituacaoNoProvedor {
+  status: 'em_aberto' | 'vencida' | 'paga' | 'estornada' | 'removida' | 'outra'
+  /** Status cru do provedor, para a frase quando não há tradução. */
+  bruto: string
+  /** Vencimento LÁ (AAAA-MM-DD): pode ter sido alterado direto no provedor. */
+  vencimento: string | null
+  /** Valor LÁ. */
+  valor: number | null
+}
+
+export interface ResultadoDaConsulta {
+  evento: EventoDePagamento | null
+  situacao: SituacaoNoProvedor
+}
+
 export interface PaymentProvider {
   readonly nome: PaymentProviderName
   readonly ambiente: PaymentEnvironment
@@ -84,12 +107,12 @@ export interface PaymentProvider {
    */
   simularPagamento(externalId: string, valor: number): Promise<EventoDePagamento | null>
   /**
-   * O estado da cobrança LÁ, no formato de evento, para passar pelo mesmo
-   * caminho do webhook. Nulo quando não há nada a aplicar (em aberto, vencida).
+   * O estado da cobrança LÁ: o evento a aplicar, no formato do webhook (nulo
+   * quando não há nada a aplicar — em aberto, vencida), e o que foi visto.
    *
    * Existe porque o webhook pode não chegar: em localhost ele nunca chega, e em
    * produção o provedor pode ter pausado a fila. Sem consulta, a cobrança paga
    * lá ficava "Em aberto" aqui para sempre.
    */
-  consultar(externalId: string): Promise<EventoDePagamento | null>
+  consultar(externalId: string): Promise<ResultadoDaConsulta>
 }
