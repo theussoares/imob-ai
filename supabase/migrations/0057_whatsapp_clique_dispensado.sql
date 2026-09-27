@@ -13,15 +13,18 @@
 -- dado novo sobre a pessoa que clicou, então a política de privacidade não
 -- muda.
 --
--- Escrita pelo membro: a policy `whatsapp_clicks_member_update` (0046) já
--- restringe à própria imobiliária; o grant por coluna abre só as duas novas,
--- mantendo `revoke update` do resto.
+-- SEM grant ao `authenticated`: quem grava é o servidor, pela service role,
+-- com o tenant da sessão no where. Abrir as colunas ao membro (primeira versão
+-- desta migration) deixava qualquer membro, pela anon key e o próprio JWT,
+-- gravar `dismissed_by` com o id de um colega ou "desdispensar" um clique — o
+-- registro de quem dispensou deixava de valer (achado da revisão de
+-- segurança). `revoke update` da 0046 continua valendo para o resto.
 
 alter table public.whatsapp_clicks
   add column if not exists dismissed_at timestamptz,
   add column if not exists dismissed_by uuid references auth.users(id) on delete set null;
 
-grant update (dismissed_at, dismissed_by) on public.whatsapp_clicks to authenticated;
+revoke update (dismissed_at, dismissed_by) on public.whatsapp_clicks from authenticated;
 
 comment on column public.whatsapp_clicks.dismissed_at is
   'Quando alguém da equipe dispensou o clique sem virar contato (0057). Nulo = pendente ou convertido.';

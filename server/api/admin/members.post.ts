@@ -2,6 +2,7 @@ import { inviteMember } from '~~/server/repositories/member.repository'
 import { emailConvitePainel } from '~~/server/utils/email-templates'
 import { remetenteDoTenant } from '~~/server/utils/mail-sender'
 import { enviarEmail } from '~~/server/utils/mailer'
+import { painelOrigin } from '~~/server/utils/portal-origin'
 
 /**
  * Convida um e-mail para o painel.
@@ -19,10 +20,11 @@ export default defineEventHandler(async (event) => {
   const { tenant } = await requireTenantMember(event)
   const body = await readBody<{ email?: string }>(event)
 
-  // O link tem que voltar para o mesmo host de onde partiu — cada cliente usa
-  // o próprio domínio de painel.
-  const origin = getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin
-  const redirectTo = `${origin}/admin/definir-senha`
+  // Do BANCO, não do header: desde que o link aponta direto para a nossa tela
+  // (`linkDeAcesso`), a allowlist de Redirect URLs do Supabase não o filtra
+  // mais. Com `X-Forwarded-Host`, o convite podia sair apontando para um host
+  // forjado (revisão de segurança de 27/09).
+  const redirectTo = `${await painelOrigin(serviceSupabase(), tenant)}/admin/definir-senha`
 
   const result = await inviteMember(serviceSupabase(), tenant.id, body?.email || '', redirectTo)
 

@@ -23,7 +23,7 @@ const INTERVALO_MS = 5 * 60 * 1000
  *   imobiliária, ou de cliente do portal, não recebe nada — senão este
  *   endpoint forçaria reset de conta alheia com o remetente de uma imobiliária;
  * - resposta SEMPRE a mesma, para não virar verificador de quem é da equipe;
- * - intervalo por vínculo (0056), gravado ANTES de enviar;
+ * - intervalo por vínculo (0056), reservado por update condicional ANTES de enviar;
  * - origem do link sai do BANCO, nunca do header (ver `portalOrigin`).
  */
 export default defineEventHandler(async (event) => {
@@ -58,13 +58,33 @@ export default defineEventHandler(async (event) => {
     return resposta
   }
 
-  const ultimo = membro.last_recovery_at
-  if (ultimo && Date.now() - new Date(ultimo).getTime() < INTERVALO_MS) {
+  // A trava é um UPDATE condicional, não "ler, comparar e gravar": 30 pedidos
+  // simultâneos leriam o mesmo `last_recovery_at` antigo e passariam todos,
+  // queimando a cota de envio que é de todos os tenants (achado da revisão de
+  // segurança). Aqui o banco decide quem leva; quem não leva, não envia.
+  const limite = new Date(Date.now() - INTERVALO_MS).toISOString()
+  const { data: reservado } = await service
+    .from('tenant_members')
+    .update({ last_recovery_at: new Date().toISOString() })
+    .eq('tenant_id', tenant.id)
+    .eq('id', membro.id)
+    .or(`last_recovery_at.is.null,last_recovery_at.lt.${limite}`)
+    .select('id')
+  if (!reservado?.length) {
     logWarn('painel.recuperacao_em_intervalo', { tenant: tenant.slug })
     return resposta
   }
 
-  const destino = `${await painelOrigin(service, tenant)}/admin/definir-senha`
+  // Dentro do try: um 500 só para e-mail de membro (origem sem configuração)
+  // diria quem é da equipe. O tempo de resposta ainda difere — o mesmo canal
+  // que o `/api/portal/recuperar-senha` tem; a trava acima limita quanto dá
+  // para sondar.
+  let destino: string
+  try {
+    destino = `${await painelOrigin(service, tenant)}/admin/definir-senha`
+  } catch {
+    return resposta
+  }
   const { data, error: erroLink } = await service.auth.admin.generateLink({
     type: 'recovery',
     email,
@@ -75,8 +95,6 @@ export default defineEventHandler(async (event) => {
     logError('painel.recuperacao_link_falhou', { tenant: tenant.slug, reason: erroLink?.message })
     return resposta
   }
-
-  await service.from('tenant_members').update({ last_recovery_at: new Date().toISOString() }).eq('id', membro.id)
 
   try {
     await enviarEmail({

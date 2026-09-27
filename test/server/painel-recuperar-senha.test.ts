@@ -16,14 +16,16 @@ import { fakeSupabaseWithAuth } from '../helpers/fake-supabase'
 
 const TENANT = { id: 't1', slug: 'aurora', name: 'Aurora Imóveis', email: 'contato@aurora.com.br' }
 
-async function montar(opts: { email: string; membros: { id: string; user_id: string; last_recovery_at: string | null }[] }) {
+async function montar(opts: { email: string; membros: { id: string; user_id: string; last_recovery_at: string | null }[]; reservado?: boolean }) {
   vi.resetModules()
   const enviarEmail = vi.fn(async () => ({ enviado: true, provedor: 'teste' }))
   vi.doMock('~~/server/utils/mailer', () => ({ enviarEmail }))
   vi.doMock('~~/server/utils/mail-sender', () => ({ remetenteDoTenant: async () => 'avisos@moradi.app' }))
   vi.doMock('~~/server/utils/portal-origin', () => ({ painelOrigin: async () => 'https://painel.aurora.com.br' }))
   const fake = fakeSupabaseWithAuth({
-    results: { tenant_members: [{ data: opts.membros, error: null }, { data: null, error: null }] },
+    // 2ª leitura de tenant_members = o update condicional da trava: devolve a
+    // linha quando este pedido reservou, nada quando outro levou.
+    results: { tenant_members: [{ data: opts.membros, error: null }, { data: opts.reservado === false ? [] : [{ id: 'm1' }], error: null }] },
     users: [
       { id: 'u-dono', email: 'dono@aurora.com.br', email_confirmed_at: '2026-09-01' },
       { id: 'u-outra', email: 'alguem@outra.com.br', email_confirmed_at: '2026-09-01' },
@@ -70,8 +72,8 @@ describe('POST /api/painel/recuperar-senha', () => {
     expect(m.fake.authCalls.some((c) => c.method === 'generateLink')).toBe(false)
   })
 
-  test('dentro do intervalo: não manda outro', async () => {
-    const m = await montar({ email: 'dono@aurora.com.br', membros: [{ ...MEMBRO, last_recovery_at: new Date().toISOString() }] })
+  test('dentro do intervalo (o banco não reservou): não manda outro', async () => {
+    const m = await montar({ email: 'dono@aurora.com.br', membros: [{ ...MEMBRO, last_recovery_at: new Date().toISOString() }], reservado: false })
     expect(await m.run()).toEqual({ ok: true })
     expect(m.enviarEmail).not.toHaveBeenCalled()
   })
@@ -80,5 +82,17 @@ describe('POST /api/painel/recuperar-senha', () => {
     const m = await montar({ email: 'nao-e-email', membros: [MEMBRO] })
     expect(await m.run()).toEqual({ ok: true })
     expect(m.fake.calls).toHaveLength(0)
+  })
+})
+
+// Achado da revisão de segurança: "ler, comparar e gravar" deixava 30 pedidos
+// simultâneos passarem todos pela trava. A reserva é um update condicional.
+describe('trava de reenvio atômica', () => {
+  test('a reserva é um update condicional, e sem linha reservada nada sai', async () => {
+    const m = await montar({ email: 'dono@aurora.com.br', membros: [MEMBRO], reservado: false })
+    // O update não devolve linha: outro pedido levou a reserva.
+    await m.run()
+    expect(m.fake.calls.some((c) => c.table === 'tenant_members' && c.method === 'or')).toBe(true)
+    expect(m.enviarEmail).not.toHaveBeenCalled()
   })
 })
