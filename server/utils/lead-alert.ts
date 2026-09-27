@@ -8,8 +8,7 @@ import {
 import { enviarEmail } from '~~/server/utils/mailer'
 import { destinatariosDoAviso, listarLeadsParados } from '~~/server/repositories/lead-alert.repository'
 import { getTenantById } from '~~/server/repositories/tenant.repository'
-import { portalOrigin } from '~~/server/utils/portal-origin'
-import { ADMIN_HOST_PREFIX } from '~~/shared/utils/admin-host'
+import { painelOrigin } from '~~/server/utils/portal-origin'
 
 /**
  * Avisos de lead para a imobiliária.
@@ -30,7 +29,7 @@ const REMETENTE = { nome: 'Moradi', endereco: '', replyTo: null }
 /**
  * Endereço do quadro de leads no painel desta imobiliária, ou `null`.
  *
- * A origem sai do banco por `portalOrigin`, pela mesma razão de lá: o host da
+ * A origem sai do banco por `painelOrigin`, pela mesma razão do portal: o host da
  * requisição é dado do cliente, e este link vai para a caixa de entrada de quem
  * tem acesso ao painel. Um `X-Forwarded-Host` forjado no POST público do lead
  * faria o aviso apontar para uma tela de login falsa.
@@ -40,8 +39,7 @@ const REMETENTE = { nome: 'Moradi', endereco: '', replyTo: null }
  */
 async function urlQuadroDeLeads(tenant: Tenant): Promise<string | null> {
   try {
-    const origem = await portalOrigin(serviceSupabase(), tenant)
-    return origem.replace('https://', `https://${ADMIN_HOST_PREFIX}`) + '/admin/leads'
+    return (await painelOrigin(serviceSupabase(), tenant)) + '/admin/leads'
   } catch {
     return null
   }

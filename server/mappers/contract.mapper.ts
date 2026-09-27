@@ -91,6 +91,23 @@ function seVeio<K extends string, V>(chave: K, valor: V | undefined): Partial<Re
   return valor === undefined ? {} : ({ [chave]: valor } as Record<K, V>)
 }
 
+/**
+ * Campo numérico do formulário → valor da coluna. `undefined` continua
+ * `undefined` (não veio, `seVeio` pula).
+ *
+ * `<input v-model.number>` apagado entrega `""`, não `null`: o `.number` só
+ * converte o que parece número. Era esse `""` que chegava ao Postgres e
+ * derrubava a criação do contrato com 500 ("invalid input syntax for type
+ * numeric", teste de 27/09, BUG-FUN-01) — justo no caso que a spec 4B manda
+ * aceitar, o de multa e juros em branco virando pendência. Normalizar aqui, e
+ * não em cada tela, porque o mapper é a única porta para essas colunas.
+ */
+function numeroOuNulo(v: unknown): number | null | undefined {
+  if (v === undefined) return undefined
+  if (v === null || (typeof v === 'string' && v.trim() === '')) return null
+  return Number(v)
+}
+
 export function toContractRow(input: ContractInput, tenantId: string): ContractInsert {
   return {
     tenant_id: tenantId,
@@ -100,10 +117,10 @@ export function toContractRow(input: ContractInput, tenantId: string): ContractI
     status: input.status ?? 'ativo',
     started_on: input.startedOn ?? null,
     ends_on: input.endsOn ?? null,
-    rent_amount: input.rentAmount ?? null,
-    due_day: input.dueDay ?? null,
+    rent_amount: numeroOuNulo(input.rentAmount) ?? null,
+    due_day: numeroOuNulo(input.dueDay) ?? null,
     adjustment_index: input.adjustmentIndex?.trim() || null,
-    ...seVeio('term_months', input.termMonths),
+    ...seVeio('term_months', numeroOuNulo(input.termMonths)),
     ...seVeio('guarantee_type', input.guaranteeType),
   }
 }
@@ -115,14 +132,14 @@ export function toContractInternalRow(
   return {
     contract_id: contractId,
     notes: input.notes?.trim() || null,
-    admin_fee_percent: input.adminFeePercent ?? null,
+    admin_fee_percent: numeroOuNulo(input.adminFeePercent) ?? null,
     external_id: input.externalId?.trim() || null,
-    ...seVeio('guarantee_amount', input.guaranteeAmount),
+    ...seVeio('guarantee_amount', numeroOuNulo(input.guaranteeAmount)),
     ...seVeio('guarantee_details', input.guaranteeDetails === undefined ? undefined : input.guaranteeDetails?.trim() || null),
     ...seVeio('fire_insurance_payer', input.fireInsurancePayer),
-    ...seVeio('fine_percent', input.finePercent),
-    ...seVeio('interest_monthly_percent', input.interestMonthlyPercent),
-    ...seVeio('rent_fee_percent', input.rentFeePercent),
-    ...seVeio('payout_business_days', input.payoutBusinessDays),
+    ...seVeio('fine_percent', numeroOuNulo(input.finePercent)),
+    ...seVeio('interest_monthly_percent', numeroOuNulo(input.interestMonthlyPercent)),
+    ...seVeio('rent_fee_percent', numeroOuNulo(input.rentFeePercent)),
+    ...seVeio('payout_business_days', numeroOuNulo(input.payoutBusinessDays)),
   }
 }

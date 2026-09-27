@@ -121,7 +121,7 @@ describe('cancelarCobranca', () => {
     const { cancelarCobranca } = await carregar(service)
     for (const s of [[liquidacao()], [liquidacao({ amount: 1000 })]]) {
       const membro = fakeSupabase({ contract_charges: { data: chargeRow({ charge_settlements: s }), error: null } })
-      await expect(cancelarCobranca(membro.client, tenant, 'ch1', null, 'u1')).rejects.toMatchObject({ statusCode: 422, statusMessage: expect.stringMatching(/estorno/) })
+      await expect(cancelarCobranca(membro.client, tenant, 'ch1', null, 'u1')).rejects.toMatchObject({ statusCode: 422, statusMessage: expect.stringMatching(/estorne/) })
     }
     expect(p.cancelar).not.toHaveBeenCalled()
     expect(service.calls).toHaveLength(0)

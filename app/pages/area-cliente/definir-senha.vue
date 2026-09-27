@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { credencialDaUrl, validarNovaSenha } from '~~/shared/utils/auth-credencial'
+import { credencialDaUrl, linkRecusadoNaUrl, validarNovaSenha, type TipoDeLink } from '~~/shared/utils/auth-credencial'
 
 /**
  * Destino do link de convite do cliente.
@@ -17,12 +17,47 @@ const tenant = useTenant()
 
 const password = ref('')
 const confirmPassword = ref('')
-const state = ref<'verificando' | 'pronto' | 'salvando' | 'invalido'>('verificando')
+const state = ref<'verificando' | 'confirmar' | 'confirmando' | 'pronto' | 'salvando' | 'invalido'>('verificando')
 const error = ref('')
+
+const pendente = ref<{ tokenHash: string; otp: TipoDeLink } | null>(null)
+
+async function continuar() {
+  if (!pendente.value) return
+  state.value = 'confirmando'
+  try {
+    const client = await getPortalSupabase()
+    const { error: e } = await client.auth.verifyOtp({
+      token_hash: pendente.value.tokenHash,
+      type: pendente.value.otp,
+    })
+    if (e) throw e
+    history.replaceState(null, '', window.location.pathname)
+    state.value = 'pronto'
+  } catch {
+    state.value = 'invalido'
+  }
+}
 
 onMounted(async () => {
   const client = await getPortalSupabase()
   const credencial = credencialDaUrl(window.location.href)
+
+  // Link antigo (`action_link`) que o Supabase já recusou: o motivo vem no
+  // fragmento, e a sessão que houver no navegador é de outra pessoa ou velha.
+  if (!credencial && linkRecusadoNaUrl(window.location.href)) {
+    state.value = 'invalido'
+    return
+  }
+
+  // O link novo NÃO é verificado ao abrir: a prévia do WhatsApp e o antivírus
+  // do e-mail também "abrem" — e gastariam o convite (BUG-FUN-03). Só o clique
+  // em "Continuar" gasta o token.
+  if (credencial?.tipo === 'token_hash') {
+    pendente.value = { tokenHash: credencial.tokenHash, otp: credencial.otp }
+    state.value = 'confirmar'
+    return
+  }
 
   try {
     if (credencial?.tipo === 'code') {
@@ -99,16 +134,30 @@ useHead({
 
       <p v-if="state === 'verificando'" class="muted">Verificando o convite…</p>
 
+      <!-- MELHORIA 04: o porquê e o próximo passo, em vez de só "não é válido".
+           O Supabase não distingue "já usado" de "vencido"; a frase cobre os
+           dois sem chutar. -->
       <div v-else-if="state === 'invalido'">
         <p class="muted">
-          Este link de convite não é mais válido — ele pode ter expirado ou já
-          ter sido usado.
+          Este link já foi usado ou passou do prazo. Por segurança, cada link
+          vale uma vez só e por pouco tempo.
         </p>
         <p class="muted">
-          Peça um novo convite à imobiliária, ou entre com a senha que você já
-          definiu.
+          Se você já definiu sua senha, é só entrar. Se não lembra, peça um link
+          novo — ele chega no seu e-mail em instantes.
         </p>
         <NuxtLink to="/area-cliente/login" class="link">Ir para o login</NuxtLink>
+        <NuxtLink to="/area-cliente/recuperar-senha" class="link">Pedir um link novo</NuxtLink>
+      </div>
+
+      <div v-else-if="state === 'confirmar' || state === 'confirmando'">
+        <p class="muted">
+          Continue para escolher a senha do seu acesso
+          <template v-if="tenant?.name">à {{ tenant.name }}</template>.
+        </p>
+        <button class="btn" type="button" :disabled="state === 'confirmando'" @click="continuar">
+          {{ state === 'confirmando' ? 'Conferindo o link…' : 'Continuar' }}
+        </button>
       </div>
 
       <template v-else>
@@ -218,5 +267,8 @@ h1 {
   margin-top: 8px;
   font-size: var(--fs-label);
   color: #4b5563;
+}
+.link + .link {
+  margin-left: 14px;
 }
 </style>

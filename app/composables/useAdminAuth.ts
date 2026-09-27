@@ -108,7 +108,7 @@ export function useAdminAuth() {
 
 /** $fetch para os endpoints /api/admin/* com o token do usuário no header. */
 export async function adminFetch<T>(url: string, opts: Record<string, unknown> = {}): Promise<T> {
-  const { accessToken } = useAdminAuth()
+  const { accessToken, signOut } = useAdminAuth()
   const token = await accessToken()
   const headers = { ...((opts.headers as Record<string, string>) || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
@@ -122,6 +122,12 @@ export async function adminFetch<T>(url: string, opts: Record<string, unknown> =
       // próprio erro na tela onde está. O aviso global explica a causa; o erro
       // local diz o que não aconteceu.
       if (isSessionExpiredError(e)) useSessionExpired().flag()
+      // 403 de `requireTenantMember`: o acesso foi removido com a sessão aberta.
+      // Relogar não resolve; sai e explica no login (MELHORIA 10).
+      else if ((e as { statusCode?: number })?.statusCode === 403 && /não tem acesso a esta imobiliária/.test(String((e as { data?: { statusMessage?: string } })?.data?.statusMessage ?? ''))) {
+        await signOut()
+        await navigateTo('/admin/login?erro=sem-acesso')
+      }
       throw e
     }
   }

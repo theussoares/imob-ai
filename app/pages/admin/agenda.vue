@@ -54,10 +54,13 @@ let tick: ReturnType<typeof setInterval> | null = null;
 onMounted(() => (tick = setInterval(() => (agora.value = new Date()), 60000)));
 onBeforeUnmount(() => tick && clearInterval(tick));
 
+// O mesmo fuso que `toLocaleDateString` usa para rotular os dias abaixo.
+const fusoDoNavegador = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 const grupos = computed(() => {
   const g = { atrasadas: [] as LeadTask[], hoje: [] as LeadTask[], proximas: [] as LeadTask[] };
   for (const t of tasks.value ?? []) {
-    const b = agendaBucket(t.dueAt, agora.value);
+    const b = agendaBucket(t.dueAt, agora.value, fusoDoNavegador);
     if (b !== "depois") g[b].push(t);
   }
   return g;
@@ -106,7 +109,53 @@ async function atualizar(t: LeadTask, body: Record<string, unknown>, ok: string)
     mexendo.value = null;
   }
 }
-const concluir = (t: LeadTask) => atualizar(t, { done: true }, `${LEAD_TASK_LABELS[t.kind]} concluída.`);
+/**
+ * Concluir com volta (MELHORIA 08). A Anna tocou na visita e ela sumiu: o
+ * título era `<label>` do checkbox, e um toque concluía. O título deixou de
+ * ser rótulo, e concluir agora espera 6 s antes de gravar — durante eles,
+ * "Desfazer" devolve a tarefa sem nada ter ido ao servidor. Gravar e desfazer
+ * depois deixaria no histórico do contato um "concluída" que não aconteceu
+ * (a linha do tempo não apaga evento).
+ */
+const saindo = new Map<string, ReturnType<typeof setTimeout>>();
+function concluir(t: LeadTask) {
+  tasks.value = (tasks.value ?? []).filter((x) => x.id !== t.id);
+  const gravar = async () => {
+    saindo.delete(t.id);
+    try {
+      await adminFetch(`/api/admin/tasks/${t.id}`, { method: "PUT", body: { done: true } });
+      refreshFeitas();
+    } catch {
+      // Não gravou: a tarefa volta para a lista, para ninguém achar que foi feita.
+      tasks.value = [...(tasks.value ?? []), t].sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+      toast.error("Não foi possível concluir a tarefa.");
+    }
+  };
+  saindo.set(t.id, setTimeout(gravar, 6000));
+  toast.undoable(`${LEAD_TASK_LABELS[t.kind]} marcada como feita.`, () => {
+    clearTimeout(saindo.get(t.id));
+    saindo.delete(t.id);
+    tasks.value = [...(tasks.value ?? []), t].sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  });
+}
+// Saindo da tela com conclusão pendente: grava agora, em vez de perder o clique.
+onBeforeUnmount(() => {
+  for (const [id, timer] of saindo) {
+    clearTimeout(timer);
+    adminFetch(`/api/admin/tasks/${id}`, { method: "PUT", body: { done: true } }).catch(() => {});
+  }
+  saindo.clear();
+});
+
+// ---- Feitas nos últimos 7 dias (MELHORIA 09) ----
+const { data: feitas, refresh: refreshFeitas } = useLazyAsyncData(
+  () => `admin:agenda:feitas:${corretor.value}`,
+  () =>
+    adminFetch<LeadTask[]>("/api/admin/tasks", {
+      query: { doneSince: new Date(Date.now() - 7 * 86400000).toISOString(), brokerId: corretor.value || undefined },
+    }),
+  { server: false, default: () => [] as LeadTask[], watch: [corretor] },
+);
 const cancelar = (t: LeadTask) => atualizar(t, { canceled: true }, "Tarefa cancelada.");
 /** Adiar um dia, mesma hora: o gesto mais comum de quem não conseguiu falar hoje. */
 function adiar(t: LeadTask) {
@@ -204,8 +253,9 @@ const total = computed(() => grupos.value.atrasadas.length + grupos.value.hoje.l
       </div>
       <div class="nova-grid">
         <label class="span-2">
-          <span class="admin-label">O quê</span>
-          <input id="nt-titulo" v-model="nova.title" class="admin-input" maxlength="200" required placeholder="Ex.: Visita ao apartamento do Centro" />
+          <!-- "O quê" sozinho não dizia o que escrever (MELHORIA 07). -->
+          <span class="admin-label">Descrição da tarefa</span>
+          <input id="nt-titulo" v-model="nova.title" class="admin-input" maxlength="200" required placeholder="Ex.: Mostrar o apto 302 do Ed. Aurora" />
         </label>
         <label>
           <span class="admin-label">Contato</span>
@@ -295,6 +345,17 @@ const total = computed(() => grupos.value.atrasadas.length + grupos.value.hoje.l
       </section>
     </template>
 
+    <details v-if="feitas?.length" class="admin-card feitas">
+      <summary>Feitas nos últimos 7 dias ({{ feitas.length }})</summary>
+      <ul class="feitas-lista">
+        <li v-for="t in feitas" :key="t.id">
+          <span class="feitas-quando">{{ fmtDiaCurto.format(new Date(t.doneAt!)) }}</span>
+          <span>{{ LEAD_TASK_LABELS[t.kind] }}: {{ t.title }}</span>
+          <NuxtLink v-if="t.leadId" :to="`/admin/leads?lead=${t.leadId}`" class="quem">{{ t.lead?.name || "Contato" }}</NuxtLink>
+        </li>
+      </ul>
+    </details>
+
     <DefineLinha v-slot="{ t, mostrarDia }">
       <div class="linha" :class="{ busy: mexendo === t.id }">
         <input
@@ -314,7 +375,8 @@ const total = computed(() => grupos.value.atrasadas.length + grupos.value.hoje.l
           <span class="sr-only">{{ LEAD_TASK_LABELS[t.kind] }}</span>
         </span>
         <div class="corpo">
-          <label :for="`ag-${t.id}`" class="titulo">{{ t.title }}</label>
+          <!-- Não é <label>: tocar no título concluía a tarefa (MELHORIA 08). -->
+          <span class="titulo">{{ t.title }}</span>
           <p v-if="t.leadId || t.property || brokerName(t.brokerId)" class="meta">
             <NuxtLink v-if="t.leadId" :to="`/admin/leads?lead=${t.leadId}`" class="quem">{{ t.lead?.name || "Contato" }}</NuxtLink>
             <span v-for="(parte, i) in [t.property?.code, brokerName(t.brokerId)].filter(Boolean)" :key="i"
@@ -348,6 +410,31 @@ const total = computed(() => grupos.value.atrasadas.length + grupos.value.hoje.l
 </template>
 
 <style scoped>
+.feitas {
+  margin-top: 18px;
+}
+.feitas summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.feitas-lista {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: var(--fs-label);
+}
+.feitas-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+.feitas-quando {
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+}
 .page-head {
   display: flex;
   align-items: flex-start;

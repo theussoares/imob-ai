@@ -369,3 +369,71 @@ export function emailLeadsParados(d: DadosLeadsParados): CorpoEmail {
 
   return { assunto: `${d.nomeImobiliaria} · ${titulo}`, html, texto }
 }
+
+interface DadosAcessoPainel {
+  nomeImobiliaria: string
+  link: string
+}
+
+/**
+ * Convite de usuário do painel (MELHORIA 01).
+ *
+ * Antes o painel só mostrava o link na tela, "uma vez", para quem convidou
+ * mandar por WhatsApp. Duas coisas davam errado: o link morria na prévia do
+ * WhatsApp (BUG-FUN-03) e, perdido o link, não havia como reenviar. Pelo
+ * e-mail o convite chega direto a quem foi convidado, com o nome da
+ * imobiliária no assunto — é o que a pessoa reconhece.
+ */
+export function emailConvitePainel(d: DadosAcessoPainel): CorpoEmail {
+  const imob = esc(d.nomeImobiliaria)
+  const html = moldura(
+    [
+      `<p style="margin:0 0 14px">Você foi convidado para o painel da <b>${imob}</b>,`,
+      ' onde a equipe cuida dos imóveis, dos contatos e dos contratos.</p>',
+      '<p style="margin:0">Para entrar, crie sua senha:</p>',
+      botao(d.link, 'Criar minha senha'),
+      '<p style="margin:0;color:#6b7280;font-size:13px">',
+      'O link vale uma vez só e por pouco tempo. Se o botão não funcionar, copie e cole este endereço no navegador:<br>',
+      `<span style="word-break:break-all">${esc(d.link)}</span></p>`,
+    ].join(''),
+    `Você recebeu este e-mail porque alguém da ${imob} te convidou. Se não esperava por isso, ignore — sem a senha, ninguém entra.`,
+  )
+  const texto = [
+    `Você foi convidado para o painel da ${d.nomeImobiliaria}.`,
+    '',
+    'Crie sua senha neste endereço (vale uma vez só e por pouco tempo):',
+    d.link,
+    '',
+    `Se não esperava por este convite, ignore — sem a senha, ninguém entra.`,
+  ].join('\n')
+  return { assunto: `${d.nomeImobiliaria} · convite para o painel`, html, texto }
+}
+
+/**
+ * "Esqueci minha senha" do painel (MELHORIA 03). Mesma regra do e-mail do
+ * portal: diz o que fazer se a pessoa NÃO pediu, para ninguém concluir que foi
+ * invadido e ligar desesperado.
+ */
+export function emailRecuperacaoSenhaPainel(d: DadosAcessoPainel): CorpoEmail {
+  const imob = esc(d.nomeImobiliaria)
+  const html = moldura(
+    [
+      `<p style="margin:0 0 14px">Recebemos um pedido para redefinir a sua senha do painel da <b>${imob}</b>.</p>`,
+      '<p style="margin:0">Para criar uma nova senha:</p>',
+      botao(d.link, 'Criar nova senha'),
+      '<p style="margin:0;color:#6b7280;font-size:13px">',
+      'O link vale uma vez só e por pouco tempo. Se o botão não funcionar, copie e cole este endereço no navegador:<br>',
+      `<span style="word-break:break-all">${esc(d.link)}</span></p>`,
+    ].join(''),
+    'Se você não pediu isso, ignore este e-mail — sua senha atual continua valendo.',
+  )
+  const texto = [
+    `Recebemos um pedido para redefinir a sua senha do painel da ${d.nomeImobiliaria}.`,
+    '',
+    'Crie uma nova senha neste endereço (vale uma vez só e por pouco tempo):',
+    d.link,
+    '',
+    'Se você não pediu isso, ignore este e-mail — sua senha atual continua valendo.',
+  ].join('\n')
+  return { assunto: `${d.nomeImobiliaria} · redefinir sua senha do painel`, html, texto }
+}

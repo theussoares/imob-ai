@@ -236,8 +236,9 @@ function autor(e: LeadEvent) {
         </div>
         <div class="tl-grid">
           <label class="span-2">
-            <span class="admin-label">O quê</span>
-            <input v-model="nova.title" class="admin-input" maxlength="200" required />
+            <!-- "O quê" sozinho não dizia o que escrever (MELHORIA 07). -->
+            <span class="admin-label">Descrição da tarefa</span>
+            <input v-model="nova.title" class="admin-input" maxlength="200" required placeholder="Ex.: Mostrar o apto 302 do Ed. Aurora" />
           </label>
           <label>
             <span class="admin-label">Dia</span>

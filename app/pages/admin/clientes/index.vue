@@ -86,6 +86,10 @@ interface RespostaConvite {
 }
 function avisarConvite(r: RespostaConvite, nome: string) {
   if (!r.emailEnviado) toast.error(`${nome} está cadastrado, mas o convite NÃO saiu. ${FALHA_DE_ENVIO[r.motivoFalha ?? 'provedor']}`)
+  else if (r.semToken && r.jaEraCliente)
+    // MELHORIA 15: quem já entrou recebe "entre com a sua senha", não link de
+    // troca. Dizer evita a ligação "o link não veio".
+    toast.success(`Reenviamos o acesso de ${nome}. Como já entrou antes, o e-mail pede para usar a senha de sempre (ou "Esqueci minha senha").`)
   else if (r.semToken)
     // Não é falha: o e-mail já tinha conta na plataforma, então o aviso vai sem
     // link de senha. Dizer evita a ligação "meu cliente não recebeu o link".
