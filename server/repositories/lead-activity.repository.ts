@@ -66,6 +66,12 @@ export interface TaskFilter {
   openOnly?: boolean
   /** Até esta data (inclusive) — a agenda não precisa do ano inteiro. */
   until?: string
+  /**
+   * Só as CONCLUÍDAS a partir desta data, mais recentes primeiro. É o
+   * histórico de visitas feitas da Agenda (MELHORIA 09): concluir tirava a
+   * tarefa da tela para sempre, e a Anna sentiu falta de ver o que já passou.
+   */
+  doneSince?: string
 }
 
 export async function listTasks(client: Client, tenantId: string, filter: TaskFilter = {}): Promise<LeadTask[]> {
@@ -74,7 +80,10 @@ export async function listTasks(client: Client, tenantId: string, filter: TaskFi
   if (filter.brokerId) q = q.eq('broker_id', filter.brokerId)
   if (filter.openOnly) q = q.is('done_at', null).is('canceled_at', null)
   if (filter.until) q = q.lte('due_at', filter.until)
-  const { data, error } = await q.order('due_at', { ascending: true }).limit(500)
+  if (filter.doneSince) q = q.gte('done_at', filter.doneSince).is('canceled_at', null)
+  const { data, error } = await (filter.doneSince
+    ? q.order('done_at', { ascending: false }).limit(100)
+    : q.order('due_at', { ascending: true }).limit(500))
   if (error) throw error
   return ((data ?? []) as unknown as (TaskRow & TaskEmbeds)[]).map(toLeadTaskModel)
 }
