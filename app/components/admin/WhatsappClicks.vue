@@ -11,6 +11,9 @@ import { WHATSAPP_CLICK_ORIGIN_LABELS } from "~~/shared/models/whatsapp-click";
  * o quadro só o que de fato virou conversa.
  */
 const emit = defineEmits<{ converter: [click: WhatsappClick] }>();
+/** Contatos para "Já é contato" (MELHORIA 11). O quadro já os tem carregados. */
+const props = defineProps<{ contatos?: { id: string; name: string | null }[] }>();
+const toast = useToast();
 
 const { data, pending, error, refresh } = useLazyAsyncData(
   "admin:whatsapp-clicks",
@@ -19,8 +22,52 @@ const { data, pending, error, refresh } = useLazyAsyncData(
 );
 defineExpose({ refresh });
 
-const clicks = computed(() => data.value ?? []);
+// Dispensado some da lista: o que sobra é o que tem algo a fazer, e o que já
+// virou contato (MELHORIA 11).
+const clicks = computed(() => (data.value ?? []).filter((c) => !c.dismissedAt && !saindo.value.has(c.id)));
 const pendentes = computed(() => clicks.value.filter((c) => !c.leadId).length);
+
+/**
+ * Dispensar com volta: some na hora e só grava depois de 6 s, como concluir
+ * tarefa na Agenda. Não há "desdispensar" no servidor, e um toque errado não
+ * pode apagar o rastro do clique.
+ */
+const saindo = ref(new Set<string>());
+function dispensar(c: WhatsappClick) {
+  saindo.value = new Set([...saindo.value, c.id]);
+  const timer = setTimeout(async () => {
+    try {
+      await adminFetch(`/api/admin/whatsapp-clicks/${c.id}/dispensar`, { method: "POST" });
+      await refresh();
+    } catch (e: unknown) {
+      toast.error((e as { data?: { statusMessage?: string } })?.data?.statusMessage || "Não foi possível dispensar o clique.");
+    } finally {
+      const s = new Set(saindo.value);
+      s.delete(c.id);
+      saindo.value = s;
+    }
+  }, 6000);
+  toast.undoable("Clique dispensado.", () => {
+    clearTimeout(timer);
+    const s = new Set(saindo.value);
+    s.delete(c.id);
+    saindo.value = s;
+  });
+}
+
+// "Já é contato": liga o clique a quem já foi cadastrado à mão, sem duplicar.
+const vinculando = ref<string | null>(null);
+async function vincular(c: WhatsappClick, leadId: string) {
+  if (!leadId) return;
+  try {
+    await adminFetch(`/api/admin/whatsapp-clicks/${c.id}/vincular`, { method: "POST", body: { leadId } });
+    vinculando.value = null;
+    toast.success("Clique ligado ao contato.");
+    await refresh();
+  } catch (e: unknown) {
+    toast.error((e as { data?: { statusMessage?: string } })?.data?.statusMessage || "Não foi possível ligar ao contato.");
+  }
+}
 
 // Aberta quando há clique sem conversão: é quando existe algo a fazer. Com
 // tudo convertido, fica fechada e não empurra o quadro para baixo.
@@ -70,7 +117,9 @@ function destino(c: WhatsappClick) {
     <div v-if="aberta" id="wa-clicks-lista">
       <p class="hint">
         Alguém abriu o WhatsApp a partir do site. O clique não diz quem foi: quando a
-        mensagem chegar, confira o horário e o imóvel e use “Virar contato”.
+        mensagem chegar, confira o horário e o imóvel e use “Virar contato”. Se a
+        pessoa já foi cadastrada, use “Já é contato”; se não deu em conversa,
+        “Dispensar”.
       </p>
 
       <p v-if="error" class="err" role="alert">
@@ -89,15 +138,24 @@ function destino(c: WhatsappClick) {
             </small>
           </div>
           <span v-if="c.leadId" class="wa-ok"><AppIcon name="check" /> Virou contato</span>
-          <button
-            v-else
-            type="button"
-            class="admin-btn ghost sm"
-            :disabled="pending"
-            @click="emit('converter', c)"
-          >
-            Virar contato
-          </button>
+          <div v-else-if="vinculando === c.id" class="wa-acoes">
+            <select
+              class="admin-input sm"
+              :aria-label="`Contato para ligar ao clique de ${quando(c.createdAt)}`"
+              @change="vincular(c, ($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">Escolha o contato…</option>
+              <option v-for="l in props.contatos ?? []" :key="l.id" :value="l.id">{{ l.name || "Sem nome" }}</option>
+            </select>
+            <button type="button" class="link-btn" @click="vinculando = null">Voltar</button>
+          </div>
+          <div v-else class="wa-acoes">
+            <button type="button" class="admin-btn ghost sm" :disabled="pending" @click="emit('converter', c)">
+              Virar contato
+            </button>
+            <button v-if="props.contatos?.length" type="button" class="link-btn" @click="vinculando = c.id">Já é contato</button>
+            <button type="button" class="link-btn" @click="dispensar(c)">Dispensar</button>
+          </div>
         </li>
       </ul>
 
@@ -114,6 +172,13 @@ function destino(c: WhatsappClick) {
 </template>
 
 <style scoped>
+.wa-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .wa-clicks {
   margin-bottom: 16px;
   padding: 0;

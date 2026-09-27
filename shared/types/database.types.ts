@@ -1664,6 +1664,8 @@ export type Database = {
           broker_id: string | null
           created_at: string
           destination: string
+          dismissed_at: string | null
+          dismissed_by: string | null
           id: string
           ip_hash: string | null
           lead_id: string | null
@@ -1675,6 +1677,8 @@ export type Database = {
           broker_id?: string | null
           created_at?: string
           destination: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
           id?: string
           ip_hash?: string | null
           lead_id?: string | null
@@ -1686,6 +1690,8 @@ export type Database = {
           broker_id?: string | null
           created_at?: string
           destination?: string
+          dismissed_at?: string | null
+          dismissed_by?: string | null
           id?: string
           ip_hash?: string | null
           lead_id?: string | null

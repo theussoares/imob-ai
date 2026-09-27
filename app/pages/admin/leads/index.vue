@@ -891,7 +891,7 @@ useHead({ title: "Contatos · Painel" });
       <button class="link-btn live-ok" @click="liveIds = []">ok</button>
     </div>
 
-    <AdminWhatsappClicks ref="whatsappClicks" @converter="convertClick" />
+    <AdminWhatsappClicks ref="whatsappClicks" :contatos="leads ?? []" @converter="convertClick" />
 
     <!-- Resumo -->
     <div v-if="list.length" class="summary">
