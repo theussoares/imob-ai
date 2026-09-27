@@ -319,8 +319,18 @@ export async function convidarClientePortal(
       nomeImobiliaria: remetente.nome,
       link: acesso.linkConvite,
     })
+  } else if (vinculoConfirmado && existente?.first_login_at) {
+    // Caso 2a: reenvio para quem JÁ ENTROU no portal. Ele tem senha; mandar
+    // link de redefinição obrigava a trocar — o Supabase recusa a mesma senha
+    // ("a nova senha precisa ser diferente da atual") e a pessoa, que só
+    // queria entrar, ficava presa (teste de 27/09, MELHORIA 15). O aviso sem
+    // token diz para entrar com a senha de sempre, com o "Esqueci minha senha"
+    // ao lado para quem não lembra — um fluxo que ELA inicia.
+    semToken = true
+    corpo = emailAcessoLiberado({ nomeCliente: cliente.name, nomeImobiliaria: remetente.nome, urlPortal })
   } else if (vinculoConfirmado) {
-    // Caso 2: reenvio para quem já é cliente confirmado deste tenant.
+    // Caso 2: reenvio para quem já é cliente confirmado deste tenant e ainda
+    // não entrou — o convite se perdeu, e o link de definir senha é o que falta.
     const link = await linkDeRedefinicao(service, email, redirectTo)
     semToken = !link
     corpo = link

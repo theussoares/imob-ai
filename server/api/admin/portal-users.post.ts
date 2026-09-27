@@ -6,7 +6,12 @@ import { portalOrigin, urlDefinirSenha, urlLoginPortal } from '~~/server/utils/p
 
 /**
  * Cadastra um cliente e, se pedido, dispara o convite da Área do Cliente.
- * Reenvia quando já existe.
+ *
+ * Cadastro NOVO com e-mail que já é de um cliente desta imobiliária é recusado.
+ * Antes virava reenvio calado: a tela dizia "Convite enviado para <nome
+ * digitado>", descartava o nome, o WhatsApp e o CPF digitados e mandava um link
+ * de redefinição ao cadastro antigo (teste de 27/09, BUG-UI-07). Reenviar é o
+ * botão da linha do cliente (`portal-users/[id]/acesso`).
  *
  * O destino do link sai do BANCO (`portalOrigin`), não de
  * `getRequestURL(event).origin`: aquele valor vem de `Host`/`X-Forwarded-Host`,
@@ -22,6 +27,22 @@ export default defineEventHandler(async (event) => {
   // para a imobiliária — e nada de conta no Auth, nada de e-mail.
   if (!body.convidar) {
     return { cliente: await createClientRecord(client, tenant.id, body), convidado: false }
+  }
+
+  const email = body.email?.trim().toLowerCase()
+  if (email) {
+    const { data: jaCliente } = await client
+      .from('portal_users')
+      .select('name')
+      .eq('tenant_id', tenant.id)
+      .eq('email', email)
+      .maybeSingle()
+    if (jaCliente) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: `Este e-mail já é do cliente ${jaCliente.name}. Para reenviar o acesso, use o botão na linha dele.`,
+      })
+    }
   }
 
   const service = serviceSupabase()
