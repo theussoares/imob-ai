@@ -225,9 +225,12 @@
 [data-tema="alto_padrao"] .badge.rent {
   background: var(--ink);
 }
-[data-tema="alto_padrao"] .badge.high {
+[data-tema="alto_padrao"] :is(.badge.high, .badge.excl, .badge.novo) {
   background: rgba(255, 255, 255, 0.92);
   border-color: transparent;
+}
+[data-tema="alto_padrao"] :is(.badge.excl, .badge.novo) {
+  color: var(--ink);
 }
 [data-tema="alto_padrao"] :is(.btn-detail, .btn-wa, .search-go) {
   text-transform: uppercase;
@@ -1024,6 +1027,23 @@ select.ctl {
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line-2);
+}
+/* Qualificador em fundo claro, como o Alto padrão: chapado é o selo de
+   pretensão (o que o imóvel É), claro é o que o qualifica. O texto na marca é
+   o que separa os dois qualificadores, escurecido porque a marca do cliente
+   pode ser clara demais para texto sobre branco. */
+.badge.excl {
+  background: var(--paper);
+  color: color-mix(in srgb, var(--brand) 80%, black);
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, white);
+}
+/* Novo no acento, não na marca: é a cor que o site já usa para "Aluguel" e
+   para chamar atenção, e separa o Novo da Exclusiva quando os dois aparecem
+   em cards vizinhos. */
+.badge.novo {
+  background: var(--paper);
+  color: color-mix(in srgb, var(--accent) 82%, black);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, white);
 }
 .prop .price-row {
   display: flex;
