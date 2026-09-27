@@ -78,6 +78,11 @@ async function copyLink() {
   }
 }
 
+const PAPEL: Record<string, string> = { owner: "Responsável", admin: "Administrador" };
+const souDono = computed(() => members.value.some((m) => m.voce && m.role === "owner"));
+/** Só o owner remove, e nunca a si nem a outro owner — a mesma regra do servidor. */
+const podeRemover = (m: MemberView) => souDono.value && !m.voce && m.role !== "owner";
+
 async function revoke(m: MemberView) {
   const ok = await askConfirm({
     title: `Remover o acesso de ${m.email}?`,
@@ -154,9 +159,11 @@ useHead({ title: "Usuários · Painel" });
       <div v-for="m in members" :key="m.id" class="m-row">
         <div class="m-info">
           <strong>{{ m.email }}</strong>
+          <span class="badge papel">{{ PAPEL[m.role] ?? m.role }}</span>
+          <span v-if="m.voce" class="badge">Você</span>
           <span v-if="m.pending" class="badge">Convite pendente</span>
         </div>
-        <button class="admin-btn danger-ghost sm" @click="revoke(m)">Remover</button>
+        <button v-if="podeRemover(m)" class="admin-btn danger-ghost sm" @click="revoke(m)">Remover</button>
       </div>
     </div>
   </div>
@@ -243,5 +250,11 @@ useHead({ title: "Usuários · Painel" });
   background: #fffbeb;
   border: 1px solid #fde68a;
   color: #92400e;
+}
+/* Papel é informação, não alerta: neutro, para o "Convite pendente" continuar chamando atenção. */
+.badge.papel {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink-soft);
 }
 </style>
