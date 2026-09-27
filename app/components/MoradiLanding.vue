@@ -209,6 +209,21 @@ useSeoMeta({
   ogSiteName: "Moradi",
   ogType: "website",
 });
+
+/**
+ * Card social próprio, sobrescrevendo o que app.vue e index.vue anunciam
+ * (/og/home.jpg). Sem tenant, aquela rota só consegue devolver um retângulo
+ * liso na cor da plataforma — o runtime da Vercel não tem fontes para escrever
+ * texto —, e era isso que aparecia ao colar usemoradi.com.br no WhatsApp.
+ * Este é estático, gerado por scripts/og-landing.mjs. Regerou? Suba a versão:
+ * o WhatsApp guarda o preview por URL e não revalida.
+ */
+const OG_VERSAO = "1";
+const requestUrl = useRequestURL();
+useOgCard(() => ({
+  url: `${requestUrl.origin}/moradi/og.jpg?v=${OG_VERSAO}`,
+  alt: "Moradi: seus imóveis no Google, com a sua marca. Site de imóveis para corretores e imobiliárias.",
+}));
 </script>
 
 <template>
