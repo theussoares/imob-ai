@@ -199,6 +199,9 @@ useHead(() => ({
   <div v-else>
     <Hero :tenant="tenant" preload />
 
+    <LazyHomeDestaques :properties="list" purpose="venda" />
+    <LazyHomeDestaques :properties="list" purpose="aluguel" />
+
     <div class="search">
       <PropertySearch :filters="filters" @search="scrollToResults" />
     </div>

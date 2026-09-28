@@ -110,10 +110,11 @@ const filtered = computed(() => {
 const featured = computed(() => (properties.value ?? []).filter((p) => p.featured));
 const isFeaturedFull = computed(() => featured.value.length >= FEATURED_LIMIT);
 const refusedFeatured = ref<string | null>(null);
+const togglingId = ref<string | null>(null);
 
 async function toggleFeatured(id: string) {
   const p = properties.value?.find((prop) => prop.id === id);
-  if (!p) return;
+  if (!p || togglingId.value === id) return;
 
   const willBeFeatured = !p.featured;
   if (willBeFeatured && isFeaturedFull.value) {
@@ -122,6 +123,7 @@ async function toggleFeatured(id: string) {
   }
 
   refusedFeatured.value = null;
+  togglingId.value = id;
   try {
     await adminFetch(`/api/admin/properties/${id}/featured`, {
       method: "PATCH",
@@ -132,6 +134,8 @@ async function toggleFeatured(id: string) {
     toast.success(`Imóvel ${p.code} ${action}.`);
   } catch {
     toast.error("Não foi possível atualizar o destaque do imóvel.");
+  } finally {
+    togglingId.value = null;
   }
 }
 
@@ -415,7 +419,7 @@ useHead({ title: "Imóveis · Painel" });
                 class="admin-btn ghost sm flex items-center gap-2"
                 :class="{ 'text-amber-600': p.featured }"
                 @click="toggleFeatured(p.id)"
-                :disabled="isFeaturedFull && !p.featured"
+                :disabled="(isFeaturedFull && !p.featured) || togglingId === p.id"
                 :title="isFeaturedFull && !p.featured ? `Limite de ${FEATURED_LIMIT} destaques atingido` : ''"
               >
                 <AppIcon name="star" class="w-4 h-4" /> {{ p.featured ? "Remover destaque" : "Marcar destaque" }}
@@ -521,6 +525,7 @@ useHead({ title: "Imóveis · Painel" });
                   :class="{ 'text-amber-600': p.featured }"
                   :aria-pressed="p.featured"
                   :aria-label="`Destaque na home: ${p.code}`"
+                  :disabled="(isFeaturedFull && !p.featured) || togglingId === p.id"
                   @click="toggleFeatured(p.id)"
                 >
                   <AppIcon name="star" class="w-5 h-5" :class="{ 'fill-current': p.featured }" />
