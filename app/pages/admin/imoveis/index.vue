@@ -33,20 +33,24 @@ const { data: brokers } = useLazyAsyncData(
   { server: false, default: () => [] as Broker[] },
 );
 
+const FEATURED_LIMIT = 6;
+
 const filters = reactive({
   q: "",
   type: "",
   purpose: "",
   status: "",
   brokerId: "",
+  featured: "",
 });
 
 // Na URL: voltar da edição devolve a lista filtrada como estava. Ver
 // shared/utils/list-query.ts.
-useListQuery(filters, ["q", "type", "purpose", "status", "brokerId"] as const, {
+useListQuery(filters, ["q", "type", "purpose", "status", "brokerId", "featured"] as const, {
   type: PROPERTY_TYPES,
   purpose: ["venda", "aluguel"],
   status: PROPERTY_STATUSES,
+  featured: ["true"],
 });
 
 function resetFilters() {
@@ -55,6 +59,7 @@ function resetFilters() {
   filters.purpose = "";
   filters.status = "";
   filters.brokerId = "";
+  filters.featured = "";
 }
 
 // Chegou filtrado (link, voltar da edição): o painel abre mostrando QUAIS
@@ -97,9 +102,38 @@ const filtered = computed(() => {
   if (filters.status) list = list.filter((p) => p.status === filters.status);
   if (filters.brokerId)
     list = list.filter((p) => p.brokerId === filters.brokerId);
+  if (filters.featured === "true") list = list.filter((p) => p.featured);
 
   return list;
 });
+
+const featured = computed(() => (properties.value ?? []).filter((p) => p.featured));
+const isFeaturedFull = computed(() => featured.value.length >= FEATURED_LIMIT);
+const refusedFeatured = ref<string | null>(null);
+
+async function toggleFeatured(id: string) {
+  const p = properties.value?.find((prop) => prop.id === id);
+  if (!p) return;
+
+  const willBeFeatured = !p.featured;
+  if (willBeFeatured && isFeaturedFull.value) {
+    refusedFeatured.value = id;
+    return;
+  }
+
+  refusedFeatured.value = null;
+  try {
+    await adminFetch(`/api/admin/properties/${id}/featured`, {
+      method: "PATCH",
+      body: { featured: willBeFeatured },
+    });
+    await refresh();
+    const action = willBeFeatured ? "marcado como destaque" : "desmarcado como destaque";
+    toast.success(`Imóvel ${p.code} ${action}.`);
+  } catch {
+    toast.error("Não foi possível atualizar o destaque do imóvel.");
+  }
+}
 
 const deleting = ref<string | null>(null);
 
@@ -217,6 +251,15 @@ useHead({ title: "Imóveis · Painel" });
           </div>
         </div>
         <div class="filters-foot">
+          <label class="flex items-center gap-2 font-semibold text-sm cursor-pointer min-h-11">
+            <input
+              :checked="filters.featured === 'true'"
+              type="checkbox"
+              class="w-5 h-5 accent-current cursor-pointer"
+              @change="(e) => { filters.featured = (e.target as HTMLInputElement).checked ? 'true' : '' }"
+            />
+            Apenas destaques
+          </label>
           <button
             v-if="hasFilters"
             class="admin-btn ghost sm"
@@ -227,6 +270,22 @@ useHead({ title: "Imóveis · Painel" });
         </div>
       </div>
     </div>
+
+    <!-- Seção de gerenciamento de destaques -->
+    <template v-if="filters.featured === 'true' && properties?.length">
+      <div class="admin-card mb-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <span class="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-gray-50 font-bold text-sm" :class="{ 'text-amber-700': isFeaturedFull }">
+              <AppIcon name="star" class="w-4 h-4" /> Destaques na home: {{ featured.length }} de {{ FEATURED_LIMIT }}
+            </span>
+            <p v-if="isFeaturedFull" class="mt-2 px-3 py-2 rounded-md bg-yellow-50 border border-yellow-300 text-sm text-amber-900 leading-relaxed">
+              Os {{ FEATURED_LIMIT }} lugares estão ocupados. Tire o destaque de outro imóvel para marcar um novo.
+            </p>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <template v-if="pending && !properties?.length">
       <!-- Skeleton mobile (cards) -->
@@ -351,6 +410,15 @@ useHead({ title: "Imóveis · Painel" });
             </div>
 
             <div class="row-actions">
+              <button
+                v-if="filters.featured === 'true'"
+                type="button"
+                class="admin-btn ghost sm flex items-center gap-2"
+                :class="{ 'text-amber-600': p.featured }"
+                @click="toggleFeatured(p.id)"
+              >
+                <AppIcon name="star" class="w-4 h-4" /> {{ p.featured ? "Remover destaque" : "Marcar destaque" }}
+              </button>
               <NuxtLink
                 class="admin-btn ghost sm"
                 :to="`/admin/imoveis/${p.id}`"
@@ -384,6 +452,7 @@ useHead({ title: "Imóveis · Painel" });
               <th class="th-num">Preço</th>
               <th>Status</th>
               <th>Interno</th>
+              <th v-if="filters.featured === 'true'" class="text-center w-12"><span class="sr-only">Destaque</span></th>
               <th></th>
             </tr>
           </thead>
@@ -443,6 +512,18 @@ useHead({ title: "Imóveis · Painel" });
                   style="color: var(--line-2)"
                   >—</span
                 >
+              </td>
+              <td v-if="filters.featured === 'true'" class="text-center w-12">
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-gray-100 text-gray-400"
+                  :class="{ 'text-amber-600': p.featured }"
+                  :aria-pressed="p.featured"
+                  :aria-label="`Destaque na home: ${p.code}`"
+                  @click="toggleFeatured(p.id)"
+                >
+                  <AppIcon name="star" class="w-5 h-5" :class="{ 'fill-current': p.featured }" />
+                </button>
               </td>
               <td class="td-actions">
                 <NuxtLink
@@ -824,4 +905,5 @@ useHead({ title: "Imóveis · Painel" });
 td.mono {
   white-space: nowrap;
 }
+
 </style>

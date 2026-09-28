@@ -392,3 +392,18 @@ export async function deleteProperty(client: Client, tenantId: string, id: strin
   const { error } = await client.from('properties').delete().eq('tenant_id', tenantId).eq('id', id)
   if (error) throw error
 }
+
+export async function updatePropertyFeatured(
+  client: Client,
+  tenantId: string,
+  id: string,
+  featured: boolean,
+): Promise<Property> {
+  const { error } = await client
+    .from('properties')
+    .update({ featured })
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+  if (error) throw error
+  return (await getPropertyById(client, tenantId, id))!
+}
