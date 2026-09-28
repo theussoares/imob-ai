@@ -271,8 +271,8 @@ useHead({ title: "Imóveis · Painel" });
       </div>
     </div>
 
-    <!-- Seção de gerenciamento de destaques -->
-    <template v-if="filters.featured === 'true' && properties?.length">
+    <!-- Info de destaques (sempre visível) -->
+    <template v-if="featured.length > 0 && properties?.length">
       <div class="admin-card mb-4">
         <div class="flex items-start justify-between gap-3">
           <div>
@@ -411,11 +411,12 @@ useHead({ title: "Imóveis · Painel" });
 
             <div class="row-actions">
               <button
-                v-if="filters.featured === 'true'"
                 type="button"
                 class="admin-btn ghost sm flex items-center gap-2"
                 :class="{ 'text-amber-600': p.featured }"
                 @click="toggleFeatured(p.id)"
+                :disabled="isFeaturedFull && !p.featured"
+                :title="isFeaturedFull && !p.featured ? `Limite de ${FEATURED_LIMIT} destaques atingido` : ''"
               >
                 <AppIcon name="star" class="w-4 h-4" /> {{ p.featured ? "Remover destaque" : "Marcar destaque" }}
               </button>
@@ -452,7 +453,7 @@ useHead({ title: "Imóveis · Painel" });
               <th class="th-num">Preço</th>
               <th>Status</th>
               <th>Interno</th>
-              <th v-if="filters.featured === 'true'" class="text-center w-12"><span class="sr-only">Destaque</span></th>
+              <th class="text-center w-12"><span class="sr-only">Destaque</span></th>
               <th></th>
             </tr>
           </thead>
@@ -513,7 +514,7 @@ useHead({ title: "Imóveis · Painel" });
                   >—</span
                 >
               </td>
-              <td v-if="filters.featured === 'true'" class="text-center w-12">
+              <td class="text-center w-12">
                 <button
                   type="button"
                   class="inline-flex items-center justify-center w-10 h-10 rounded-full transition-colors hover:bg-gray-100 text-gray-400"
