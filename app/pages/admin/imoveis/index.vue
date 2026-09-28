@@ -342,7 +342,7 @@ useHead({ title: "Imóveis · Painel" });
     <template v-else>
       <!-- Mobile: cards -->
       <div class="cards">
-        <article v-for="p in filtered" :key="p.id" class="admin-card row-card">
+        <article v-for="p in filtered" :key="p.id" class="admin-card row-card" :class="{ 'bg-amber-50': p.featured }">
           <div class="row-info">
             <div class="flex gap-2">
               <div class="row-thumb">
@@ -458,7 +458,7 @@ useHead({ title: "Imóveis · Painel" });
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in filtered" :key="p.id">
+            <tr v-for="p in filtered" :key="p.id" :class="{ 'bg-amber-50': p.featured }">
               <!-- A foto é o jeito mais rápido de achar o imóvel numa lista de
                    60 títulos parecidos ("Casa no Bela Vista"). -->
               <td class="td-thumb">
