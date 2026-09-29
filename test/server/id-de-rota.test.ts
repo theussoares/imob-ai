@@ -33,9 +33,12 @@ function arquivosTs(dir: string): string[] {
 
 /**
  * `[code]` é o código do imóvel, escolhido pela imobiliária — texto, não uuid.
- * É o único parâmetro de rota que não é id de tabela.
+ *
+ * `[token]` é o segredo da URL de leads dos portais (0063), base64url de 32+
+ * caracteres — também não é uuid. A forma dele é conferida por regex no
+ * próprio webhook, e o teste abaixo cobra que continue sendo.
  */
-const NAO_E_ID = /getRouterParam\(event, 'code'\)/
+const NAO_E_ID = /getRouterParam\(event, '(code|token)'\)/
 
 describe('idDeRota', () => {
   test('devolve o uuid limpo', () => {
@@ -61,6 +64,13 @@ describe('idDeRota', () => {
       }
     })()
     expect(erro?.statusMessage).toBe('ID da parte inválido.')
+  })
+})
+
+describe('parâmetro de rota que não é id', () => {
+  test('o token de leads dos portais tem a forma conferida antes do banco', () => {
+    const fonte = stripComments(readFileSync(join(API, 'webhooks/portais/leads/[token].post.ts'), 'utf8'))
+    expect(fonte).toMatch(/if \(!\/\^\[A-Za-z0-9_-\]\{32,64\}\$\/\.test\(token\)\) throw createError\(\{ statusCode: 404/)
   })
 })
 

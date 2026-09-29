@@ -31,9 +31,12 @@ Verificado no código e no banco em 25/09.
 | Tratamento | Dado | Onde fica | Por quanto tempo |
 |---|---|---|---|
 | Formulário de contato e "Quero vender" | nome, telefone, mensagem, imóvel de interesse; no "Quero vender", tipo e bairro do imóvel | `leads` (Supabase, São Paulo) | **Sem prazo.** Fica até a imobiliária apagar |
+| Triagem automática no WhatsApp (0064) | o que procura (comprar/alugar/anunciar), faixa de valor, bairro — respostas a perguntas fixas, sem IA | `whatsapp_conversations.triagem_*` até o fim do fluxo; depois anotação no lead e `leads.lead_type` | como a conversa e o lead |
+| Lead de portal (Canal Pro, 0063) | nome, telefone, mensagem e imóvel repassados pelo Grupo OLX; **não** guarda e-mail, CPF/renda/FGTS do MCMV nem o link da conversa com o robô do portal | `leads` + `portal_lead_receipts` (só ids, contra reenvio) | como o lead do site (24 meses sem andamento) |
 | Anti-abuso dos formulários | hash do IP com sal (sha256), não o IP | `leads.ip_hash` | junto com o lead |
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |
 | Aviso de lead novo para a imobiliária | nome e telefone do lead | e-mail enviado pela Resend (EUA) | caixa de entrada da imobiliária |
+| Conversas do WhatsApp (0059), só com o número conectado pela API oficial | nome de perfil, número, texto das mensagens, fotos/áudios/vídeos/documentos até 16 MB (0060), imóvel de interesse | `whatsapp_conversations` e `whatsapp_messages`; arquivos no bucket PRIVADO `whatsapp-media`, pasta por tenant, leitura só por membro via URL assinada de 10 min (Supabase, São Paulo); entrega pela Meta (EUA e outros) | junto com o lead (24 meses sem andamento); conversa sem lead: **90 dias** da última mensagem, apagada com os arquivos pelo cron diário |
 | Estatísticas de visita | URL visitada (sem query exceto `utm_*`), país, navegador, dispositivo; visitante identificado por hash do request que **zera todo dia** | Vercel Web Analytics e Speed Insights | conforme a Vercel |
 | Processamento de toda requisição | IP, user-agent, URL | funções da Vercel, região `gru1` (São Paulo) desde 25/09; antes `iad1` (EUA) | logs de runtime da Vercel, retenção curta do plano |
 
@@ -67,6 +70,8 @@ partida dele, não o ponto final.
 | E-mail de aviso à imobiliária | **art. 7º, V** | É o próprio atendimento do pedido |
 | Anti-abuso (hash de IP) | **art. 7º, IX** | Legítimo interesse em segurança do formulário. Passa no teste do art. 10: finalidade legítima e concreta (barrar envio em massa), necessidade (sem isso não há limite por origem), expectativa razoável do titular, dado pseudonimizado |
 | Clique no WhatsApp | **art. 7º, IX** | Legítimo interesse em saber de qual imóvel veio a conversa. Não identifica quem clicou; 90 dias de retenção |
+| Conversas do WhatsApp | **art. 7º, V** | O titular escreveu para a imobiliária pedindo atendimento: o mesmo procedimento preliminar do formulário, por outro canal |
+| Histórico importado do app (Coexistence, 0061) | **art. 7º, V** para quem é contato no funil; **art. 7º, IX** no modo "todas" | Decisão do owner da imobiliária (controladora), com o texto do aceite gravado (`history_consent_by/_at`). Padrão `so_leads`: só telefones que já são lead. No modo "todas", entra conversa pessoal — legítimo interesse fraco, por isso a retenção de 90 dias da conversa sem lead vale aqui também, e na prática apaga no dia seguinte o que for mais antigo que isso. A agenda do app só nomeia conversa que já existe; nenhum contato vira linha |
 | Estatísticas de visita | **art. 7º, IX** | O Guia de Cookies da ANPD admite legítimo interesse para medição de audiência. Aqui nem há cookie |
 
 **Posição:** confirmadas. **Risco residual:** baixo. **Ação:** o art. 10, §2º
@@ -123,6 +128,16 @@ Paulo para falar com o banco.
 
 **Risco residual:** baixo. O que continua saindo do país (e-mail de aviso,
 estatísticas anonimizadas) tem fundamento, como descrito acima.
+
+**Conversas do WhatsApp (0059):** a mensagem passa pela Meta fora do Brasil
+por natureza — o titular a enviou pelo aplicativo da Meta. A base é o art. 7º,
+V, e o art. 33, IX a cobre. O que a plataforma guarda fica em São Paulo, inclusive
+os arquivos (0060), que são baixados da Meta pelo servidor e nunca passam pelo
+navegador com o token. Os arquivos que a imobiliária ENVIA pelo painel ficam no
+mesmo bucket e vão à Meta por URL assinada de 1h. O painel (não o site) carrega o SDK
+de JavaScript da Meta só quando o owner clica em "Conectar com o Facebook",
+com `cookie: false`; é a equipe da imobiliária conectando a conta dela, não
+dado de visitante.
 
 ### Q4. Registros de acesso (Marco Civil, art. 15)
 

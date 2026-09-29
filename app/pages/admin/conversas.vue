@@ -1,0 +1,1629 @@
+<script setup lang="ts">
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { Broker } from "~~/shared/models/broker";
+import type { LeadStage } from "~~/shared/models/lead";
+import { LEAD_STAGE_LABELS } from "~~/shared/models/lead";
+import type {
+  WhatsappAccountInfo,
+  WhatsappConversation,
+  WhatsappFiltro,
+  WhatsappMessage,
+} from "~~/shared/models/whatsapp";
+import {
+  WHATSAPP_FILTROS,
+  WHATSAPP_FILTRO_LABELS,
+  ACEITOS_NO_ANEXO,
+  WHATSAPP_ENVIO,
+  WHATSAPP_LEGENDA_MAX,
+  WHATSAPP_TEXTO_MAX,
+  aguardandoResposta,
+  mimeBase,
+  problemaNoAnexo,
+  textoDaMensagem,
+  toWhatsappFiltro,
+} from "~~/shared/models/whatsapp";
+import { formatWhatsapp } from "~~/shared/utils/phone";
+import { TRIAGEM_MODOS, TRIAGEM_MODO_LABELS, type TriagemModo } from "~~/shared/models/triagem";
+import { formatPropertyCode } from "~~/shared/utils/property-specs";
+
+/**
+ * Caixa de entrada do WhatsApp (0059).
+ *
+ * Três colunas no computador — lista, conversa, contato — porque quem atende
+ * precisa ver, sem trocar de tela, de qual imóvel a pessoa veio e em que etapa
+ * do funil ela está. No celular vira lista → conversa em tela cheia, com a
+ * conversa na URL (`?c=`): é o link que um aviso pode abrir direto, e é o que
+ * faz o "voltar" do Android voltar para a lista em vez de sair do painel.
+ */
+definePageMeta({ layout: "admin", middleware: ["admin", "whatsapp"] });
+useHead({ title: "Conversas · Painel" });
+
+const tenant = useTenant();
+const toast = useToast();
+const route = useRoute();
+const router = useRouter();
+
+// ---- Número conectado ----
+const {
+  data: conta,
+  pending: contaPending,
+  error: contaErro,
+  refresh: recarregarConta,
+} = useLazyAsyncData("admin:whatsapp:conta", () => adminFetch<WhatsappAccountInfo>("/api/admin/whatsapp/account"), {
+  server: false,
+});
+
+const conexao = reactive({ phoneNumberId: "", wabaId: "", accessToken: "" });
+const conectando = ref(false);
+async function conectar() {
+  conectando.value = true;
+  try {
+    await adminFetch("/api/admin/whatsapp/account", { method: "PUT", body: { ...conexao } });
+    conexao.accessToken = "";
+    toast.success("WhatsApp conectado. As próximas mensagens já chegam aqui.");
+    await recarregarConta();
+  } catch (e) {
+    toast.error(friendlyErrorMessage(e, "Não foi possível conectar o número."));
+  } finally {
+    conectando.value = false;
+  }
+}
+
+// ---- Embedded Signup ----
+const signup = useEmbeddedSignup();
+const coexistencia = ref(true);
+const pin = ref("");
+const conectandoFb = ref(false);
+async function conectarPeloFacebook() {
+  conectandoFb.value = true;
+  try {
+    const r = await signup.conectar(coexistencia.value);
+    // O `code` vale segundos: vai direto para o servidor, sem outra etapa no meio.
+    await adminFetch("/api/admin/whatsapp/embedded-signup", {
+      method: "POST",
+      body: { ...r, coexistencia: coexistencia.value, pin: coexistencia.value ? undefined : pin.value },
+    });
+    pin.value = "";
+    toast.success("WhatsApp conectado. As próximas mensagens já chegam aqui.");
+    await recarregarConta();
+  } catch (e) {
+    toast.error(e instanceof Error && !(e as { data?: unknown }).data ? e.message : friendlyErrorMessage(e, "Não foi possível conectar o número."));
+  } finally {
+    conectandoFb.value = false;
+  }
+}
+
+// ---- Triagem automática ----
+const salvandoTriagem = ref(false);
+async function mudarTriagem(modo: TriagemModo) {
+  salvandoTriagem.value = true;
+  try {
+    await adminFetch("/api/admin/whatsapp/triagem", { method: "PUT", body: { modo } });
+    toast.success(modo === "desligada" ? "Triagem desligada." : `Triagem: ${TRIAGEM_MODO_LABELS[modo].toLowerCase()}.`);
+    await recarregarConta();
+  } catch (e) {
+    toast.error(friendlyErrorMessage(e, "Não foi possível mudar a triagem."));
+  } finally {
+    salvandoTriagem.value = false;
+  }
+}
+
+const confirmarDesconexao = ref(false);
+async function desconectar() {
+  confirmarDesconexao.value = false;
+  try {
+    await adminFetch("/api/admin/whatsapp/account", { method: "DELETE" });
+    toast.success("WhatsApp desconectado. O histórico continua aqui.");
+    await recarregarConta();
+  } catch (e) {
+    toast.error(friendlyErrorMessage(e, "Não foi possível desconectar."));
+  }
+}
+
+async function copiar(texto: string) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast.success("Copiado.");
+  } catch {
+    toast.error("Não foi possível copiar. Selecione e copie à mão.");
+  }
+}
+
+// ---- Lista ----
+// A aba na URL: "o desempenho da semana" é um link que o dono guarda.
+const aba = ref<"caixa" | "desempenho">(route.query.aba === "desempenho" ? "desempenho" : "caixa");
+watch(aba, (a) => router.replace({ query: { ...route.query, aba: a === "caixa" ? undefined : a } }));
+
+const filtro = ref<WhatsappFiltro>(toWhatsappFiltro(route.query.filtro));
+const corretor = ref(String(route.query.corretor || ""));
+const abertaId = ref(String(route.query.c || ""));
+watch([filtro, corretor, abertaId], ([f, b, c]) =>
+  router.replace({ query: { ...route.query, filtro: f === "todas" ? undefined : f, corretor: b || undefined, c: c || undefined } }),
+);
+
+const { data: brokers } = useLazyAsyncData("admin:conversas:brokers", () => adminFetch<Broker[]>("/api/admin/brokers"), {
+  server: false,
+  default: () => [] as Broker[],
+});
+
+const {
+  data: conversas,
+  pending: listaPending,
+  error: listaErro,
+  refresh: recarregarLista,
+} = useLazyAsyncData(
+  () => `admin:conversas:${filtro.value}:${corretor.value}`,
+  () =>
+    adminFetch<WhatsappConversation[]>("/api/admin/whatsapp/conversations", {
+      query: { filtro: filtro.value, corretor: corretor.value || undefined },
+    }),
+  { server: false, default: () => [] as WhatsappConversation[], watch: [filtro, corretor] },
+);
+
+const semResposta = computed(() => (conversas.value ?? []).filter(aguardandoResposta).length);
+
+function nomeDe(c: WhatsappConversation): string {
+  return c.leadName || c.contactName || formatWhatsapp(c.waId) || "Contato";
+}
+
+// "Agora" anda com a tela aberta: "há 3 min" vira "há 4 min" sem recarregar.
+const agora = ref(Date.now());
+let tick: ReturnType<typeof setInterval> | null = null;
+onMounted(() => (tick = setInterval(() => (agora.value = Date.now()), 30000)));
+
+function ha(iso: string | null): string {
+  if (!iso) return "";
+  const min = Math.max(0, Math.round((agora.value - Date.parse(iso)) / 60000));
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.round(h / 24);
+  return `há ${d} dia${d > 1 ? "s" : ""}`;
+}
+
+function horaCurta(iso: string): string {
+  const d = new Date(iso);
+  const hoje = new Date(agora.value);
+  return d.toDateString() === hoje.toDateString()
+    ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+/** Na bolha: só a hora se foi hoje; senão dia e hora. */
+function horaDaMensagem(iso: string): string {
+  const d = new Date(iso);
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === new Date(agora.value).toDateString()
+    ? hora
+    : `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${hora}`;
+}
+
+/** Tempo até a primeira resposta — o número que o dono pede. */
+function tempoDeResposta(c: WhatsappConversation): string {
+  // Da primeira mensagem ao vivo do cliente (0062), não da criação da conversa.
+  if (!c.firstResponseAt || !c.firstInboundAt) return "";
+  const min = Math.max(0, Math.round((Date.parse(c.firstResponseAt) - Date.parse(c.firstInboundAt)) / 60000));
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  return `${h} h ${min % 60} min`;
+}
+
+// ---- Conversa aberta ----
+interface Aberta {
+  conversa: WhatsappConversation;
+  mensagens: WhatsappMessage[];
+  janelaAberta: boolean;
+}
+const aberta = ref<Aberta | null>(null);
+const abertaPending = ref(false);
+const abertaErro = ref(false);
+const listaMsgs = ref<HTMLElement | null>(null);
+
+async function carregarAberta(opts: { rolar?: boolean } = {}) {
+  const id = abertaId.value;
+  if (!id) {
+    aberta.value = null;
+    return;
+  }
+  if (aberta.value?.conversa.id !== id) abertaPending.value = true;
+  abertaErro.value = false;
+  try {
+    const r = await adminFetch<Aberta>(`/api/admin/whatsapp/conversations/${id}`);
+    if (abertaId.value !== id) return; // trocou de conversa no meio
+    const eraFim = noFim();
+    aberta.value = r;
+    if (r.conversa.unreadCount > 0) marcarLida(id);
+    // Rola só se a pessoa já estava no fim — quem subiu para reler algo não
+    // pode ser arrancado de lá por uma mensagem nova.
+    if (opts.rolar || eraFim) nextTick(rolarParaFim);
+  } catch {
+    abertaErro.value = true;
+  } finally {
+    abertaPending.value = false;
+  }
+}
+
+function noFim(): boolean {
+  const el = listaMsgs.value;
+  return !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+}
+function rolarParaFim() {
+  const el = listaMsgs.value;
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+async function marcarLida(id: string) {
+  try {
+    await adminFetch(`/api/admin/whatsapp/conversations/${id}/read`, { method: "POST" });
+    const c = conversas.value?.find((x) => x.id === id);
+    if (c) c.unreadCount = 0;
+  } catch {
+    // Contador errado até a próxima atualização; não vale um aviso.
+  }
+}
+
+function abrir(id: string) {
+  abertaId.value = id;
+  resposta.value = "";
+  usandoModelo.value = false;
+}
+
+const usandoModelo = ref(false);
+async function aoEnviarModelo() {
+  usandoModelo.value = false;
+  await Promise.all([carregarAberta({ rolar: true }), recarregarLista()]);
+}
+watch(abertaId, () => carregarAberta({ rolar: true }), { immediate: true });
+
+// ---- Responder ----
+const resposta = ref("");
+const enviando = ref(false);
+async function enviar() {
+  const id = abertaId.value;
+  const texto = resposta.value.trim();
+  if (!id || enviando.value) return;
+  if (anexo.value) return enviarAnexo(id, anexo.value, texto);
+  if (!texto) return;
+  enviando.value = true;
+  try {
+    await adminFetch(`/api/admin/whatsapp/conversations/${id}/messages`, { method: "POST", body: { text: texto } });
+    resposta.value = "";
+    await Promise.all([carregarAberta({ rolar: true }), recarregarLista()]);
+  } catch (e) {
+    // O texto fica no campo: a pessoa não perde o que escreveu.
+    toast.error(friendlyErrorMessage(e, "A mensagem não foi enviada."));
+  } finally {
+    enviando.value = false;
+  }
+}
+
+// ---- Anexo ----
+const ACEITOS = ACEITOS_NO_ANEXO.join(",");
+const seletor = ref<HTMLInputElement | null>(null);
+const anexo = ref<File | null>(null);
+const anexoPrevia = ref<string | null>(null);
+const etapaDoEnvio = ref<"" | "subindo" | "enviando">("");
+const anexoEhAudio = computed(() => (anexo.value ? WHATSAPP_ENVIO[mimeBase(anexo.value.type)]?.tipo === "audio" : false));
+
+function escolherAnexo(e: Event) {
+  const f = (e.target as HTMLInputElement).files?.[0] ?? null;
+  (e.target as HTMLInputElement).value = "";
+  if (!f) return;
+  // Confere antes de subir: descobrir depois de 15 MB enviados que o formato
+  // não serve é tempo e dado móvel jogados fora.
+  // .ogg anexado pode ser vorbis, que a Meta recusa; ogg só sai da gravação.
+  const problema = ACEITOS_NO_ANEXO.includes(mimeBase(f.type))
+    ? problemaNoAnexo(f.type, f.size)
+    : "Este tipo de arquivo não pode ser enviado pelo WhatsApp. Use foto (JPG ou PNG), PDF, documento do Office, vídeo MP4 ou áudio MP3.";
+  if (problema) {
+    toast.error(problema);
+    return;
+  }
+  usarAnexo(f);
+}
+function usarAnexo(f: File) {
+  tirarAnexo();
+  anexo.value = f;
+  if (f.type.startsWith("image/") || f.type.startsWith("audio/")) anexoPrevia.value = URL.createObjectURL(f);
+}
+function tirarAnexo() {
+  if (anexoPrevia.value) URL.revokeObjectURL(anexoPrevia.value);
+  anexoPrevia.value = null;
+  anexo.value = null;
+}
+
+// ---- Gravação pelo microfone ----
+const gravador = useGravadorDeAudio();
+async function gravar() {
+  try {
+    await gravador.iniciar();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Não foi possível gravar.");
+  }
+}
+/** Termina e deixa o áudio como anexo, para ouvir antes de mandar. */
+async function terminarGravacao() {
+  const f = await gravador.parar();
+  if (!f) return toast.error("Nada foi gravado.");
+  const problema = problemaNoAnexo(f.type, f.size);
+  if (problema) return toast.error(problema);
+  usarAnexo(f);
+}
+function relogio(seg: number): string {
+  return `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}`;
+}
+onBeforeUnmount(tirarAnexo);
+
+function tamanho(b: number): string {
+  return b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} kB` : `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
+}
+
+/**
+ * Três passos: o servidor dá uma URL de upload de uso único, o navegador sobe
+ * DIRETO no bucket (a função da Vercel não aceita corpo acima de 4,5 MB) e o
+ * servidor confere o que subiu e manda pela Meta.
+ */
+async function enviarAnexo(id: string, f: File, texto: string) {
+  enviando.value = true;
+  etapaDoEnvio.value = "subindo";
+  try {
+    const up = await adminFetch<{ path: string; token: string }>(`/api/admin/whatsapp/conversations/${id}/upload`, {
+      method: "POST",
+      body: { mime: f.type, size: f.size },
+    });
+    const client = await getAdminSupabase();
+    const { error } = await client.storage.from("whatsapp-media").uploadToSignedUrl(up.path, up.token, f, { contentType: f.type });
+    if (error) throw error;
+    etapaDoEnvio.value = "enviando";
+    const r = await adminFetch<{ tipo: string }>(`/api/admin/whatsapp/conversations/${id}/media`, {
+      method: "POST",
+      body: { path: up.path, caption: texto || undefined, filename: f.name },
+    });
+    // Áudio não leva legenda no WhatsApp: o texto vai logo depois, como mensagem.
+    if (r.tipo === "audio" && texto) {
+      await adminFetch(`/api/admin/whatsapp/conversations/${id}/messages`, { method: "POST", body: { text: texto } });
+    }
+    tirarAnexo();
+    resposta.value = "";
+    await Promise.all([carregarAberta({ rolar: true }), recarregarLista()]);
+  } catch (e) {
+    toast.error(friendlyErrorMessage(e, "O arquivo não foi enviado."));
+  } finally {
+    enviando.value = false;
+    etapaDoEnvio.value = "";
+  }
+}
+function aoTeclar(e: KeyboardEvent) {
+  // Enter envia, Shift+Enter quebra linha — o mesmo do WhatsApp Web, que é o
+  // hábito de quem atende.
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    enviar();
+  }
+}
+
+const STATUS_ROTULO: Record<WhatsappMessage["status"], string> = {
+  recebida: "",
+  enviada: "Enviada",
+  entregue: "Entregue",
+  lida: "Lida",
+  falhou: "Não entregue",
+};
+
+// ---- Tempo real ----
+// O payload do Realtime traz a linha crua; em vez de montar o modelo na mão,
+// refaz a busca (o mesmo desenho do quadro de leads).
+const liveStatus = ref<"conectando" | "on" | "off">("conectando");
+let channel: RealtimeChannel | null = null;
+let timer: ReturnType<typeof setTimeout> | null = null;
+let polling: ReturnType<typeof setInterval> | null = null;
+
+function agendarRecarga() {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(() => {
+    timer = null;
+    recarregarLista();
+    if (abertaId.value) carregarAberta();
+  }, 400);
+}
+
+onMounted(async () => {
+  const tenantId = tenant.value?.id;
+  if (!tenantId) return;
+  const client = await getAdminSupabase();
+  const filter = `tenant_id=eq.${tenantId}`;
+  channel = client
+    .channel(`conversas-${tenantId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_conversations", filter }, agendarRecarga)
+    .on("postgres_changes", { event: "*", schema: "public", table: "whatsapp_messages", filter }, agendarRecarga)
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") liveStatus.value = "on";
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") liveStatus.value = "off";
+    });
+});
+
+// Sem tempo real, recarga a cada 20s: uma caixa de entrada parada parecendo
+// atualizada é pior do que uma que avisa e recarrega devagar.
+watch(liveStatus, (s) => {
+  if (s === "off" && !polling) polling = setInterval(agendarRecarga, 20000);
+  if (s === "on" && polling) {
+    clearInterval(polling);
+    polling = null;
+  }
+});
+
+onBeforeUnmount(async () => {
+  if (tick) clearInterval(tick);
+  if (timer) clearTimeout(timer);
+  if (polling) clearInterval(polling);
+  if (!channel) return;
+  const client = await getAdminSupabase();
+  await client.removeChannel(channel);
+  channel = null;
+});
+</script>
+
+<template>
+  <div class="conv-page">
+    <div class="page-head">
+      <div>
+        <h1>Conversas</h1>
+        <p class="sub">
+          O WhatsApp da imobiliária num lugar só. Quem manda mensagem vira contato no funil, com o imóvel de onde veio.
+        </p>
+      </div>
+      <p v-if="conta?.conectado" class="numero">
+        <AppIcon name="wa" />
+        <span>{{ conta.verifiedName || "Número conectado" }} · {{ conta.displayPhone }}</span>
+        <span class="live" :class="liveStatus" role="status">
+          {{ liveStatus === "on" ? "Ao vivo" : liveStatus === "off" ? "Atualizando a cada 20s" : "Conectando…" }}
+        </span>
+      </p>
+    </div>
+
+    <!-- Estado: ainda carregando a conta -->
+    <div v-if="contaPending && !conta" class="skel" aria-busy="true" aria-label="Carregando">
+      <span v-for="i in 3" :key="i" class="skel-row" />
+    </div>
+    <div v-else-if="contaErro" class="admin-card estado" role="alert">
+      <p>Não foi possível carregar. Verifique a conexão.</p>
+      <button type="button" class="admin-btn" @click="recarregarConta()">Tentar de novo</button>
+    </div>
+
+    <!-- Estado: sem número conectado — a tela vazia leva direto a conectar -->
+    <section v-else-if="!conta?.conectado" class="admin-card conectar" aria-labelledby="conectar-t">
+      <AppIcon name="wa" class="estado-ico" />
+      <h2 id="conectar-t">Conectar o WhatsApp da imobiliária</h2>
+      <p class="estado-d">
+        Pela API oficial do WhatsApp: o número continua funcionando no celular e as conversas passam a ficar
+        registradas aqui. Os dados abaixo estão no painel da Meta, em <strong>WhatsApp → Configuração da API</strong>.
+      </p>
+      <p v-if="conta && !conta.plataformaPronta" class="aviso" role="alert">
+        A plataforma ainda não tem o app da Meta configurado — as mensagens não chegariam. Fale com o suporte da
+        Moradi antes de conectar.
+      </p>
+
+      <div v-if="signup.disponivel.value" class="facebook">
+        <fieldset class="modo">
+          <legend class="admin-label">Qual número?</legend>
+          <label class="modo-op" :class="{ on: coexistencia }">
+            <input v-model="coexistencia" type="radio" :value="true" name="modo" />
+            <span>
+              <strong>O número que já está no app WhatsApp Business</strong>
+              <span>Recomendado. O corretor continua usando o celular, e tudo fica registrado aqui também.</span>
+            </span>
+          </label>
+          <label class="modo-op" :class="{ on: !coexistencia }">
+            <input v-model="coexistencia" type="radio" :value="false" name="modo" />
+            <span>
+              <strong>Um número novo, que ainda não tem WhatsApp</strong>
+              <span>O número passa a funcionar só pelo painel.</span>
+            </span>
+          </label>
+        </fieldset>
+        <label v-if="!coexistencia" class="pin">
+          <span class="admin-label">PIN de 6 dígitos para o número</span>
+          <input
+            v-model.trim="pin"
+            class="admin-input"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="6"
+            pattern="\d{6}"
+            aria-describedby="pin-ajuda"
+          />
+          <span id="pin-ajuda" class="ajuda">É a verificação em duas etapas do WhatsApp. Anote: a Meta pede de novo se o número for reconectado.</span>
+        </label>
+        <button
+          type="button"
+          class="admin-btn fb"
+          :disabled="conectandoFb || (!coexistencia && !/^\d{6}$/.test(pin))"
+          @click="conectarPeloFacebook"
+        >
+          {{ conectandoFb ? "Conectando…" : "Conectar com o Facebook" }}
+        </button>
+        <p class="ajuda">
+          Abre uma janela da Meta. Entre com a conta que administra o WhatsApp da imobiliária e siga até o fim.
+        </p>
+      </div>
+
+      <details class="manual" :open="!signup.disponivel.value">
+        <summary v-if="signup.disponivel.value">Conectar manualmente (suporte)</summary>
+      <form class="conectar-form" @submit.prevent="conectar">
+        <label>
+          <span class="admin-label">Identificação do número de telefone</span>
+          <input v-model.trim="conexao.phoneNumberId" class="admin-input" inputmode="numeric" autocomplete="off" required />
+        </label>
+        <label>
+          <span class="admin-label">Identificação da conta do WhatsApp Business</span>
+          <input v-model.trim="conexao.wabaId" class="admin-input" inputmode="numeric" autocomplete="off" required />
+        </label>
+        <label class="span-2">
+          <span class="admin-label">Token de acesso (usuário do sistema)</span>
+          <input
+            v-model.trim="conexao.accessToken"
+            class="admin-input"
+            type="password"
+            autocomplete="off"
+            required
+            aria-describedby="token-ajuda"
+          />
+          <span id="token-ajuda" class="ajuda">Guardado cifrado. Nunca aparece de novo nesta tela.</span>
+        </label>
+        <div v-if="conta?.webhookUrl" class="span-2 webhook">
+          <span class="admin-label">Endereço do webhook (para o app da Meta)</span>
+          <div class="webhook-linha">
+            <code>{{ conta.webhookUrl }}</code>
+            <button type="button" class="admin-btn ghost" @click="copiar(conta.webhookUrl)"><AppIcon name="copy" /> Copiar</button>
+          </div>
+        </div>
+        <div class="span-2">
+          <button class="admin-btn" :disabled="conectando || !conexao.phoneNumberId || !conexao.wabaId || !conexao.accessToken">
+            {{ conectando ? "Conferindo com a Meta…" : "Conectar número" }}
+          </button>
+        </div>
+      </form>
+      </details>
+    </section>
+
+    <template v-else>
+    <AdminWaHistorico :historico="conta.historico" @atualizado="recarregarConta()" />
+    <div class="abas" role="tablist" aria-label="Conversas">
+      <button type="button" role="tab" :aria-selected="aba === 'caixa'" :class="{ on: aba === 'caixa' }" @click="aba = 'caixa'">
+        <AppIcon name="inbox" /> Caixa de entrada
+      </button>
+      <button type="button" role="tab" :aria-selected="aba === 'desempenho'" :class="{ on: aba === 'desempenho' }" @click="aba = 'desempenho'">
+        <AppIcon name="dashboard" /> Desempenho
+      </button>
+    </div>
+    <AdminWaDesempenho v-if="aba === 'desempenho'" />
+    <!-- Caixa de entrada -->
+    <div v-else class="inbox" :class="{ 'com-aberta': abertaId }">
+      <aside class="col-lista" aria-label="Conversas">
+        <div class="lista-topo">
+          <div class="seg" role="radiogroup" aria-label="Filtrar conversas">
+            <button
+              v-for="f in WHATSAPP_FILTROS"
+              :key="f"
+              type="button"
+              role="radio"
+              :aria-checked="filtro === f"
+              :class="{ on: filtro === f }"
+              @click="filtro = f"
+            >
+              {{ WHATSAPP_FILTRO_LABELS[f] }}
+            </button>
+          </div>
+          <select v-if="brokers?.length" v-model="corretor" class="admin-input" aria-label="Filtrar por corretor">
+            <option value="">Todos os corretores</option>
+            <option v-for="b in brokers" :key="b.id" :value="b.id">{{ b.name }}</option>
+          </select>
+          <p class="resumo" role="status" aria-atomic="true">
+            <template v-if="semResposta">{{ semResposta }} conversa{{ semResposta > 1 ? "s" : "" }} esperando resposta</template>
+            <template v-else-if="conversas?.length">Todas respondidas</template>
+          </p>
+        </div>
+
+        <div v-if="listaPending && !conversas?.length" class="skel" aria-busy="true" aria-label="Carregando conversas">
+          <span v-for="i in 5" :key="i" class="skel-row" />
+        </div>
+        <div v-else-if="listaErro" class="estado" role="alert">
+          <p>Não foi possível carregar as conversas.</p>
+          <button type="button" class="admin-btn" @click="recarregarLista()">Tentar de novo</button>
+        </div>
+        <div v-else-if="!conversas?.length" class="estado">
+          <AppIcon name="inbox" class="estado-ico" />
+          <p class="estado-t">{{ filtro === "todas" ? "Nenhuma conversa ainda." : "Nada por aqui." }}</p>
+          <p class="estado-d">
+            {{
+              filtro === "todas"
+                ? "Quando alguém mandar mensagem para o número conectado, a conversa aparece aqui na hora."
+                : "Nenhuma conversa neste filtro."
+            }}
+          </p>
+        </div>
+        <ul v-else class="lista">
+          <li v-for="c in conversas" :key="c.id">
+            <button
+              type="button"
+              class="item"
+              :class="{ on: c.id === abertaId, esperando: aguardandoResposta(c) }"
+              :aria-current="c.id === abertaId ? 'true' : undefined"
+              @click="abrir(c.id)"
+            >
+              <span class="item-l1">
+                <strong class="item-nome">{{ nomeDe(c) }}</strong>
+                <time class="item-hora" :datetime="c.lastMessageAt">{{ horaCurta(c.lastMessageAt) }}</time>
+              </span>
+              <span class="item-l2">
+                <span class="item-prev">
+                  <template v-if="c.lastDirection === 'out'">Você: </template>{{ c.lastMessagePreview }}
+                </span>
+                <span v-if="c.unreadCount" class="badge-n" :aria-label="`${c.unreadCount} não lidas`">{{ c.unreadCount }}</span>
+              </span>
+              <span class="item-l3">
+                <span v-if="aguardandoResposta(c)" class="tag espera"><AppIcon name="clock" /> {{ ha(c.lastMessageAt) === "agora" ? "Acabou de chegar" : `Esperando ${ha(c.lastMessageAt)}` }}</span>
+                <span v-if="c.propertyCode" class="tag">{{ formatPropertyCode(c.propertyCode) }}</span>
+                <span v-if="c.brokerName" class="tag">{{ c.brokerName }}</span>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </aside>
+
+      <section class="col-conversa" aria-label="Conversa">
+        <div v-if="!abertaId" class="estado vazio-conversa">
+          <AppIcon name="wa" class="estado-ico" />
+          <p class="estado-d">Escolha uma conversa na lista.</p>
+        </div>
+        <div v-else-if="abertaPending" class="skel" aria-busy="true" aria-label="Carregando conversa">
+          <span v-for="i in 4" :key="i" class="skel-row" />
+        </div>
+        <div v-else-if="abertaErro || !aberta" class="estado" role="alert">
+          <p>Não foi possível abrir a conversa.</p>
+          <button type="button" class="admin-btn" @click="carregarAberta()">Tentar de novo</button>
+        </div>
+        <template v-else>
+          <header class="conv-topo">
+            <button type="button" class="voltar" aria-label="Voltar para a lista" @click="abertaId = ''">
+              <AppIcon name="arrow-left" />
+            </button>
+            <div class="conv-quem">
+              <strong>{{ nomeDe(aberta.conversa) }}</strong>
+              <span>{{ formatWhatsapp(aberta.conversa.waId) }}</span>
+            </div>
+            <NuxtLink v-if="aberta.conversa.leadId" :to="`/admin/leads?lead=${aberta.conversa.leadId}`" class="admin-btn ghost">
+              Ver contato
+            </NuxtLink>
+          </header>
+
+          <ol ref="listaMsgs" class="msgs" aria-live="polite" aria-relevant="additions">
+            <li v-for="m in aberta.mensagens" :key="m.id" class="msg" :class="m.direction">
+              <AdminWaMidia v-if="m.mediaStatus" :m="m" />
+              <!-- Com arquivo, o texto é só a legenda — o rótulo "Foto" seria redundante com a foto. -->
+              <p v-if="!m.mediaStatus || m.body" class="msg-txt" :class="{ midia: !m.body }">{{ textoDaMensagem(m.type, m.body) }}</p>
+              <span class="msg-meta">
+                <time :datetime="m.occurredAt">{{ horaDaMensagem(m.occurredAt) }}</time>
+                <template v-if="m.origin === 'bot'"> · triagem automática</template>
+                <template v-else-if="m.imported"> · do histórico do celular</template>
+                <template v-else-if="m.origin === 'app'"> · pelo celular</template>
+                <template v-if="m.direction === 'out' && STATUS_ROTULO[m.status]">
+                  · <span :class="{ falhou: m.status === 'falhou' }">{{ STATUS_ROTULO[m.status] }}</span>
+                </template>
+              </span>
+              <span v-if="m.status === 'falhou' && m.error" class="msg-erro">{{ m.error }}</span>
+            </li>
+          </ol>
+
+          <form v-if="aberta.janelaAberta" class="compor" @submit.prevent="enviar">
+            <div v-if="anexo" class="anexo">
+              <img v-if="anexoPrevia && anexo.type.startsWith('image/')" :src="anexoPrevia" alt="" class="anexo-img" />
+              <audio v-else-if="anexoPrevia && anexo.type.startsWith('audio/')" :src="anexoPrevia" controls class="anexo-audio" />
+              <AppIcon v-else name="contract" class="anexo-ico" />
+              <span class="anexo-nome">
+                <strong>{{ anexo.name }}</strong>
+                <span>{{ tamanho(anexo.size) }}{{ anexoEhAudio ? " · áudio vai sem legenda; o texto sai logo depois" : "" }}</span>
+              </span>
+              <button type="button" class="icone" aria-label="Tirar o anexo" :disabled="enviando" @click="tirarAnexo">
+                <AppIcon name="close" />
+              </button>
+            </div>
+            <div v-if="gravador.estado.value !== 'parado'" class="gravando">
+              <button type="button" class="icone" aria-label="Descartar gravação" @click="gravador.cancelar()">
+                <AppIcon name="trash" />
+              </button>
+              <span class="grav-ponto" aria-hidden="true" />
+              <!-- O relógio muda a cada segundo: não é anunciado, senão o leitor de tela falaria sem parar. -->
+              <span class="grav-tempo">
+                {{ gravador.estado.value === "pedindo" ? "Liberando o microfone…" : `Gravando ${relogio(gravador.segundos.value)}` }}
+              </span>
+              <span role="status" class="sr-only">{{ gravador.estado.value === "gravando" ? "Gravando áudio" : "" }}</span>
+              <button type="button" class="admin-btn" :disabled="gravador.estado.value !== 'gravando'" @click="terminarGravacao">
+                <AppIcon name="parar" /> Terminar
+              </button>
+            </div>
+            <div v-else class="compor-linha">
+              <input ref="seletor" type="file" class="sr-only" :accept="ACEITOS" tabindex="-1" aria-hidden="true" @change="escolherAnexo" />
+              <button type="button" class="icone" aria-label="Anexar foto, vídeo, áudio ou documento" :disabled="enviando" @click="seletor?.click()">
+                <AppIcon name="anexo" />
+              </button>
+              <button
+                v-if="gravador.suportado.value && !anexo"
+                type="button"
+                class="icone"
+                aria-label="Gravar áudio"
+                :disabled="enviando"
+                @click="gravar"
+              >
+                <AppIcon name="microfone" />
+              </button>
+              <label class="sr-only" for="resposta">{{ anexo ? "Legenda" : "Resposta" }}</label>
+              <textarea
+                id="resposta"
+                v-model="resposta"
+                class="admin-input"
+                rows="2"
+                :maxlength="anexo ? WHATSAPP_LEGENDA_MAX : WHATSAPP_TEXTO_MAX"
+                :placeholder="anexo ? 'Legenda (opcional)' : 'Escreva a resposta (Enter envia, Shift+Enter quebra linha)'"
+                :disabled="enviando"
+                @keydown="aoTeclar"
+              />
+              <button class="admin-btn" :disabled="enviando || (!anexo && !resposta.trim())">
+                {{ etapaDoEnvio === "subindo" ? "Subindo…" : enviando ? "Enviando…" : "Enviar" }}
+              </button>
+            </div>
+          </form>
+          <div v-else-if="usandoModelo" class="compor-modelo">
+            <AdminModeloWhatsapp
+              :enviar-para="`/api/admin/whatsapp/conversations/${aberta.conversa.id}/template`"
+              :nome-do-cliente="aberta.conversa.leadName || aberta.conversa.contactName"
+              titulo="Retomar com um modelo"
+              @enviado="aoEnviarModelo"
+              @cancelar="usandoModelo = false"
+            />
+          </div>
+          <div v-else class="janela-fechada" role="note">
+            <AppIcon name="lock" />
+            <span>
+              Passaram 24h desde a última mensagem do cliente. Pela regra do WhatsApp, a conversa só pode ser retomada
+              com um modelo aprovado pela Meta.
+            </span>
+            <button type="button" class="admin-btn" @click="usandoModelo = true">Enviar modelo</button>
+          </div>
+        </template>
+      </section>
+
+      <aside v-if="aberta && abertaId" class="col-contato" aria-label="Contato">
+        <h2>Contato</h2>
+        <dl>
+          <template v-if="aberta.conversa.leadId">
+            <dt>No funil</dt>
+            <dd>{{ aberta.conversa.leadStage ? LEAD_STAGE_LABELS[aberta.conversa.leadStage as LeadStage] : "—" }}</dd>
+            <dt>Corretor</dt>
+            <dd>{{ aberta.conversa.brokerName || "Sem corretor" }}</dd>
+          </template>
+          <template v-else>
+            <dt>No funil</dt>
+            <dd>Ainda não é contato</dd>
+          </template>
+          <template v-if="aberta.conversa.propertyCode">
+            <dt>Imóvel de interesse</dt>
+            <dd>
+              <strong>{{ formatPropertyCode(aberta.conversa.propertyCode) }}</strong>
+              <span v-if="aberta.conversa.propertyTitle" class="dd-sub">{{ aberta.conversa.propertyTitle }}</span>
+            </dd>
+          </template>
+          <dt>Primeira resposta</dt>
+          <dd>{{ aberta.conversa.firstResponseAt ? `em ${tempoDeResposta(aberta.conversa)}` : "Ainda não respondida" }}</dd>
+          <dt>Início da conversa</dt>
+          <dd>{{ new Date(aberta.conversa.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) }}</dd>
+        </dl>
+        <NuxtLink v-if="aberta.conversa.leadId" :to="`/admin/leads?lead=${aberta.conversa.leadId}`" class="admin-btn ghost bloco">
+          Abrir no funil
+        </NuxtLink>
+      </aside>
+    </div>
+
+    </template>
+
+    <details v-if="conta?.conectado" class="gerenciar">
+      <summary>Gerenciar número</summary>
+      <fieldset class="triagem">
+        <legend class="admin-label">Triagem automática</legend>
+        <p class="estado-d">
+          Em conversa nova, sem imóvel identificado, o WhatsApp pergunta com botões se a pessoa quer comprar, alugar ou
+          anunciar, a faixa de valor e o bairro — e as respostas vão para o contato no funil. Para na hora em que alguém da
+          equipe responde. Não é inteligência artificial: são sempre as mesmas três perguntas.
+        </p>
+        <label v-for="m in TRIAGEM_MODOS" :key="m" class="triagem-op">
+          <input type="radio" name="triagem" :value="m" :checked="conta.triagem === m" :disabled="salvandoTriagem" @change="mudarTriagem(m)" />
+          <span>{{ TRIAGEM_MODO_LABELS[m] }}<template v-if="m === 'fora_do_horario'"> (seg a sex 8h–18h, sáb 8h–12h)</template></span>
+        </label>
+      </fieldset>
+      <p class="estado-d">
+        Desconectar apaga o token daqui. As conversas continuam no painel, mas nenhuma mensagem nova entra nem sai.
+      </p>
+      <button v-if="!confirmarDesconexao" type="button" class="admin-btn ghost perigo" @click="confirmarDesconexao = true">
+        Desconectar WhatsApp
+      </button>
+      <span v-else class="confirmar">
+        <span>Tem certeza?</span>
+        <button type="button" class="admin-btn perigo" @click="desconectar">Sim, desconectar</button>
+        <button type="button" class="admin-btn ghost" @click="confirmarDesconexao = false">Cancelar</button>
+      </span>
+    </details>
+  </div>
+</template>
+
+<style scoped>
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.sub {
+  color: var(--ink-soft);
+  margin: 4px 0 0;
+  font-size: var(--fs-ui);
+  max-width: 60ch;
+}
+.numero {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+.numero :deep(svg) {
+  width: 18px;
+  height: 18px;
+  color: var(--wa);
+}
+.live {
+  border-radius: var(--r-pill);
+  padding: 2px 10px;
+  border: 1px solid var(--line-2);
+  font-size: var(--fs-caption);
+}
+.live.on {
+  color: var(--ok);
+  border-color: currentColor;
+}
+.live.off {
+  color: var(--danger);
+  border-color: var(--danger-line);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Estados */
+.estado {
+  text-align: center;
+  padding: 32px 16px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.estado-ico {
+  width: 32px;
+  height: 32px;
+  color: var(--ink-soft);
+}
+.estado-t {
+  font-weight: 600;
+  margin: 0;
+}
+.estado-d {
+  color: var(--ink-soft);
+  margin: 0;
+  font-size: var(--fs-ui);
+  max-width: 60ch;
+}
+.skel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+.skel-row {
+  height: 56px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel-row {
+    animation: none;
+  }
+}
+
+/* Conectar */
+.conectar {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.conectar h2 {
+  margin: 0;
+  font-size: var(--fs-title-sm);
+}
+.conectar .estado-ico {
+  color: var(--wa);
+}
+.aviso {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--danger-ghost);
+  border: 1px solid var(--danger-line);
+  color: var(--danger);
+  font-size: var(--fs-label);
+}
+.facebook {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.modo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+.modo-op {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.modo-op.on {
+  border-color: var(--brand);
+  background: var(--brand-ghost);
+}
+.modo-op:focus-within {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.modo-op input {
+  margin-top: 3px;
+}
+.modo-op > span {
+  display: grid;
+  gap: 2px;
+}
+.modo-op > span > span {
+  color: var(--ink-soft);
+  font-size: var(--fs-label);
+}
+.pin {
+  display: grid;
+  gap: 6px;
+  max-width: 320px;
+}
+.admin-btn.fb {
+  min-height: 44px;
+}
+.manual {
+  width: 100%;
+}
+.manual summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: var(--fs-label);
+  min-height: 24px;
+}
+.conectar-form {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 6px;
+}
+.conectar-form label {
+  display: grid;
+  gap: 6px;
+}
+.span-2 {
+  grid-column: 1 / -1;
+}
+.ajuda {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+}
+.webhook {
+  display: grid;
+  gap: 6px;
+}
+.webhook-linha {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.webhook code {
+  overflow-wrap: anywhere;
+  background: var(--surface);
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-label);
+  min-width: 0;
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .conectar-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.abas {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.abas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 10px 14px;
+  min-height: 44px;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.abas button.on {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--brand);
+}
+.abas button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.abas :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+/* Caixa de entrada: três colunas no computador */
+.inbox {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) 260px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  height: calc(100dvh - 210px);
+  min-height: 480px;
+  overflow: hidden;
+}
+.col-lista {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.lista-topo {
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.seg {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border-radius: var(--r-pill);
+  padding: 3px;
+}
+.seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  padding: 7px 8px;
+  min-height: 36px;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.seg button.on {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+.seg button:focus-visible,
+.item:focus-visible,
+.voltar:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.resumo {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+}
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 12px 14px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+.item:hover {
+  background: var(--surface);
+}
+.item.on {
+  background: var(--brand-ghost);
+  border-left-color: var(--brand);
+}
+.item-l1,
+.item-l2 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.item-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-hora {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.item-prev {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  font-size: var(--fs-label);
+}
+.badge-n {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--wa);
+  color: #fff;
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  display: inline-grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.item-l3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.item-l3:empty {
+  display: none;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-caption);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  padding: 1px 8px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.tag :deep(svg) {
+  width: 12px;
+  height: 12px;
+}
+/* Texto, não só cor: "Esperando 12 min" se lê sem distinguir o vermelho. */
+.tag.espera {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-ghost);
+  font-weight: 600;
+}
+
+/* Conversa */
+.col-conversa {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+}
+.vazio-conversa {
+  margin: auto;
+}
+.conv-topo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.voltar {
+  display: none;
+  border: 0;
+  background: transparent;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  place-items: center;
+}
+.voltar :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+.conv-quem {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.conv-quem strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conv-quem span {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+}
+.msgs {
+  list-style: none;
+  margin: 0;
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.msg {
+  max-width: min(75%, 560px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  align-self: flex-start;
+}
+.msg.out {
+  align-self: flex-end;
+  background: var(--brand-ghost);
+  border-color: color-mix(in srgb, var(--brand) 20%, white);
+}
+.msg-txt {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-ui);
+  line-height: 1.5;
+}
+.msg-txt.midia {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.msg-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.falhou,
+.msg-erro {
+  color: var(--danger);
+  font-weight: 600;
+}
+.msg-erro {
+  display: block;
+  font-size: var(--fs-caption);
+  font-weight: 400;
+}
+.compor {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+.compor-linha {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.icone {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.icone:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--ink);
+}
+.icone:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.icone :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+.anexo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+.anexo-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.anexo-audio {
+  height: 40px;
+  max-width: 260px;
+}
+.gravando {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.grav-ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulso 1.2s ease-in-out infinite;
+}
+@keyframes pulso {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grav-ponto {
+    animation: none;
+  }
+}
+.grav-tempo {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-ui);
+}
+.gravando .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.gravando .admin-btn :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+.anexo-ico {
+  width: 28px;
+  height: 28px;
+  color: var(--ink-soft);
+}
+.anexo-nome {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  font-size: var(--fs-label);
+}
+.anexo-nome strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.anexo-nome span {
+  color: var(--ink-soft);
+  font-size: var(--fs-caption);
+}
+.compor textarea {
+  flex: 1;
+  resize: none;
+  min-height: 44px;
+  max-height: 160px;
+  font-size: 16px; /* 16px evita o zoom automático do iOS ao focar */
+}
+.compor .admin-btn {
+  min-height: 44px;
+}
+.compor-modelo {
+  padding: 12px 14px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  max-height: 60%;
+  overflow-y: auto;
+}
+.janela-fechada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+.janela-fechada > span {
+  flex: 1;
+  min-width: 200px;
+}
+.janela-fechada :deep(svg) {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+
+/* Contato */
+.col-contato {
+  border-left: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+}
+.col-contato h2 {
+  margin: 0 0 10px;
+  font-size: var(--fs-ui);
+}
+.col-contato dl {
+  margin: 0 0 14px;
+  display: grid;
+  gap: 2px;
+}
+.col-contato dt {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+  margin-top: 8px;
+}
+.col-contato dd {
+  margin: 0;
+  font-size: var(--fs-label);
+  display: grid;
+}
+.dd-sub {
+  color: var(--ink-soft);
+}
+.bloco {
+  display: block;
+  text-align: center;
+}
+
+.gerenciar {
+  margin-top: 16px;
+  font-size: var(--fs-label);
+}
+.gerenciar summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  min-height: 24px;
+}
+.triagem {
+  border: 0;
+  margin: 10px 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.triagem-op {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  cursor: pointer;
+}
+.gerenciar .estado-d {
+  margin: 8px 0;
+}
+.perigo {
+  color: var(--danger);
+}
+.admin-btn.perigo:not(.ghost) {
+  background: var(--danger);
+  color: #fff;
+}
+.confirmar {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Tablet: o painel do contato sai; o essencial dele já está no topo da conversa. */
+@media (max-width: 1100px) {
+  .inbox {
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  }
+  .col-contato {
+    display: none;
+  }
+}
+
+/* Celular: uma coluna por vez, a conversa na URL. */
+@media (max-width: 767px) {
+  .inbox {
+    grid-template-columns: 1fr;
+    height: calc(100dvh - 190px - var(--admin-bottom-nav, 64px));
+  }
+  .inbox.com-aberta .col-lista {
+    display: none;
+  }
+  .inbox:not(.com-aberta) .col-conversa {
+    display: none;
+  }
+  .col-lista {
+    border-right: 0;
+  }
+  .voltar {
+    display: inline-grid;
+  }
+  .msg {
+    max-width: 85%;
+  }
+}
+</style>

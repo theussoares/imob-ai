@@ -374,7 +374,7 @@ const edit = reactive({
  * (a imobiliária que não contratou — hoje, todas menos a da demonstração),
  * continua com "Anotações" e "Próximo retorno", como estava em produção.
  */
-const { crm: temCrm, carregar: carregarRecursos } = useAdminFeatures();
+const { crm: temCrm, whatsapp: temWhatsapp, carregar: carregarRecursos } = useAdminFeatures();
 onMounted(carregarRecursos);
 /**
  * Detalhes do contato numa gaveta lateral, e não dentro do card: o card do
@@ -383,6 +383,36 @@ onMounted(carregarRecursos);
  */
 const editingLead = computed(() =>
   editingId.value ? (leads.value?.find((x) => x.id === editingId.value) ?? null) : null,
+);
+/**
+ * A conversa do WhatsApp deste contato (0059), para o botão da gaveta abrir o
+ * histórico registrado em vez do `wa.me` — que fala pelo celular de quem clica
+ * e deixa a conversa fora do painel.
+ */
+const conversaDoLead = ref<string | null>(null);
+/**
+ * Contato do formulário que nunca escreveu no WhatsApp: a conversa começa por
+ * um modelo aprovado, pelo número da imobiliária — e já nasce no painel, em
+ * vez de no celular de quem clicou no botão de WhatsApp acima.
+ */
+const iniciandoWhatsapp = ref(false);
+function aoIniciarWhatsapp(r: { conversationId?: string }) {
+  iniciandoWhatsapp.value = false;
+  if (r.conversationId) conversaDoLead.value = r.conversationId;
+}
+watch(
+  () => (temWhatsapp.value ? editingId.value : null),
+  async (id) => {
+    conversaDoLead.value = null;
+    iniciandoWhatsapp.value = false;
+    if (!id) return;
+    try {
+      const r = await adminFetch<{ conversationId: string | null }>(`/api/admin/whatsapp/lead/${id}`);
+      if (editingId.value === id) conversaDoLead.value = r.conversationId;
+    } catch {
+      // Sem o atalho, sobra o botão de WhatsApp de sempre.
+    }
+  },
 );
 let focoAntes: HTMLElement | null = null;
 function closeEditor() {
@@ -1177,8 +1207,13 @@ useHead({ title: "Contatos · Painel" });
                 </NuxtLink>
               </p>
             </div>
+            <NuxtLink
+              v-if="conversaDoLead"
+              class="admin-btn sm dr-wa"
+              :to="`/admin/conversas?c=${conversaDoLead}`"
+            ><AppIcon name="wa" /> Conversa</NuxtLink>
             <a
-              v-if="waHref(editingLead.phone)"
+              v-else-if="waHref(editingLead.phone)"
               class="admin-btn sm dr-wa"
               :href="waHref(editingLead.phone)"
               target="_blank"
@@ -1189,6 +1224,19 @@ useHead({ title: "Contatos · Painel" });
             </button>
           </header>
           <div class="dr-body">
+            <div v-if="temWhatsapp && !conversaDoLead" class="dr-wa-iniciar">
+              <AdminModeloWhatsapp
+                v-if="iniciandoWhatsapp"
+                :enviar-para="`/api/admin/whatsapp/lead/${editingLead.id}/template`"
+                :nome-do-cliente="editingLead.name"
+                titulo="Começar a conversa pelo WhatsApp da imobiliária"
+                @enviado="aoIniciarWhatsapp"
+                @cancelar="iniciandoWhatsapp = false"
+              />
+              <button v-else type="button" class="admin-btn ghost sm" @click="iniciandoWhatsapp = true">
+                <AppIcon name="wa" /> Começar conversa pelo número da imobiliária
+              </button>
+            </div>
             <p v-if="editingLead.message" class="dr-msg">“{{ editingLead.message }}”</p>
             <ReuseEditor :l="editingLead" />
           </div>
@@ -1230,6 +1278,17 @@ useHead({ title: "Contatos · Painel" });
   color: #b91c1c;
   font-size: var(--fs-label);
   margin: 12px 0 0;
+}
+
+.dr-wa-iniciar {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.dr-wa-iniciar .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Gaveta de detalhes */

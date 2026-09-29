@@ -175,3 +175,29 @@ export async function purgeOldWhatsappClicks(service: Client, antesDe: string): 
   const { error } = await service.from('whatsapp_clicks').delete().lt('created_at', antesDe)
   if (error) throw error
 }
+
+/**
+ * O clique mais recente neste imóvel ainda sem lead — o provável autor da
+ * primeira mensagem que citou o imóvel. "Provável" é a palavra: o clique não
+ * diz quem clicou, e a janela curta (quem chama chega em minutos) é o que
+ * mantém o palpite honesto.
+ */
+export async function findRecentFreeClick(
+  service: Client,
+  tenantId: string,
+  propertyId: string,
+  desde: string,
+): Promise<{ id: string; brokerId: string | null } | null> {
+  const { data, error } = await service
+    .from('whatsapp_clicks')
+    .select('id, broker_id')
+    .eq('tenant_id', tenantId)
+    .eq('property_id', propertyId)
+    .is('lead_id', null)
+    .gte('created_at', desde)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = data?.[0]
+  return row ? { id: row.id, brokerId: row.broker_id } : null
+}

@@ -196,3 +196,63 @@ export async function deleteLead(client: Client, tenantId: string, id: string): 
   const { error } = await client.from('leads').delete().eq('tenant_id', tenantId).eq('id', id)
   if (error) throw error
 }
+
+/**
+ * Lead em aberto com um destes telefones, o mais recente — para a mensagem de
+ * WhatsApp de quem já preencheu o formulário cair no MESMO card, e não num
+ * duplicado. Fechado e perdido não contam: quem volta depois de fechar é uma
+ * oportunidade nova, e reabrir o card antigo apagaria o resultado do funil.
+ *
+ * Service role (é o webhook), então o `tenant_id` no filtro é a trava.
+ */
+export async function findOpenLeadByPhones(service: Client, tenantId: string, phones: string[]): Promise<{ id: string; brokerId: string | null } | null> {
+  if (!phones.length) return null
+  const { data, error } = await service
+    .from('leads')
+    .select('id, broker_id')
+    .eq('tenant_id', tenantId)
+    .in('phone', phones)
+    .not('stage', 'in', '(fechado,perdido)')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = data?.[0]
+  return row ? { id: row.id, brokerId: row.broker_id } : null
+}
+
+/** Nome e telefone do contato, para o painel começar a conversa pelo WhatsApp. */
+export async function getLeadContact(client: Client, tenantId: string, id: string): Promise<{ id: string; name: string | null; phone: string | null } | null> {
+  const { data, error } = await client.from('leads').select('id, name, phone').eq('tenant_id', tenantId).eq('id', id).maybeSingle()
+  if (error) throw error
+  return data ? { id: data.id, name: data.name, phone: data.phone } : null
+}
+
+/**
+ * Algum lead, em qualquer etapa, com um destes telefones — o critério de "já é
+ * contato no funil" da importação do histórico (0061). Diferente de
+ * `findOpenLeadByPhones`: aqui fechado e perdido contam, porque a pergunta é
+ * "esta pessoa é cliente?", não "este atendimento está aberto?".
+ */
+export async function findAnyLeadByPhones(service: Client, tenantId: string, phones: string[], criadoAntesDe: string | null): Promise<string | null> {
+  if (!phones.length) return null
+  let q = service.from('leads').select('id').eq('tenant_id', tenantId).in('phone', phones)
+  if (criadoAntesDe) q = q.lt('created_at', criadoAntesDe)
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(1)
+  if (error) throw error
+  return data?.[0]?.id ?? null
+}
+
+/**
+ * Corrige o tipo do lead pela triagem — só se ainda for 'indefinido'. Um tipo
+ * que o corretor (ou o imóvel de origem) já definiu vale mais que um botão.
+ */
+export async function setLeadTypeIfUnknown(service: Client, tenantId: string, leadId: string, leadType: LeadType): Promise<void> {
+  if (leadType === 'indefinido') return
+  const { error } = await service
+    .from('leads')
+    .update({ lead_type: leadType })
+    .eq('tenant_id', tenantId)
+    .eq('id', leadId)
+    .eq('lead_type', 'indefinido')
+  if (error) throw error
+}

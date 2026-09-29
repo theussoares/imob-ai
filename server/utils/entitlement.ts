@@ -7,7 +7,7 @@ import { recursoAtivo } from '~~/shared/utils/portal-access'
  * (`FooterPageFeature`): uma tradução no meio faria quem lê o código procurar
  * uma linha que não existe com aquele nome.
  */
-export type RecursoOpcional = 'portal' | 'about' | 'ai' | 'crm' | 'cobranca'
+export type RecursoOpcional = 'portal' | 'about' | 'ai' | 'crm' | 'cobranca' | 'whatsapp'
 
 /**
  * Este recurso está valendo para esta imobiliária?
@@ -122,5 +122,25 @@ export function cobrancaAtiva(tenantId: string): Promise<boolean> {
 export async function exigirCobranca(tenantId: string): Promise<void> {
   if (!(await cobrancaAtiva(tenantId))) {
     throw createError({ statusCode: 404, statusMessage: 'Cobrança não está ativa para esta imobiliária.' })
+  }
+}
+
+/**
+ * As conversas do WhatsApp (0059) estão valendo para esta imobiliária?
+ */
+export function whatsappAtivo(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'whatsapp')
+}
+
+/**
+ * Recusa a operação de conversa de quem não tem o recurso — 404, como
+ * `exigirCobranca`, e no servidor pelo mesmo motivo: mandar mensagem gasta a
+ * conta da Meta DA IMOBILIÁRIA e fala com o cliente dela em nome dela. Um
+ * membro que chamasse a API direto num recurso não contratado estaria fazendo
+ * isso sem a tela que mostra o que saiu.
+ */
+export async function exigirWhatsapp(tenantId: string): Promise<void> {
+  if (!(await whatsappAtivo(tenantId))) {
+    throw createError({ statusCode: 404, statusMessage: 'Conversas do WhatsApp não estão ativas para esta imobiliária.' })
   }
 }
