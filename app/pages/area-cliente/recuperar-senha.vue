@@ -8,7 +8,8 @@
  * imobiliárias. Pelo servidor, o e-mail sai com o nome desta imobiliária e o
  * Reply-To dela.
  */
-definePageMeta({ layout: 'portal' })
+// Mesma moldura do login (`PortalAuthShell`), sem o layout do portal.
+definePageMeta({ layout: false })
 
 const email = ref('')
 const loading = ref(false)
@@ -44,114 +45,52 @@ useHead({
 </script>
 
 <template>
-  <div class="rec-wrap">
-    <div class="rec-card">
-      <h1>Recuperar senha</h1>
-
-      <div v-if="enviado">
-        <p class="muted">
-          Se houver uma conta com esse e-mail, enviamos um link para criar
-          uma nova senha. Verifique também a caixa de spam.
+  <PortalAuthShell>
+    <div v-if="enviado" role="status">
+      <h1>Confira seu e-mail</h1>
+      <p class="pa-sub">O link para criar uma nova senha está a caminho.</p>
+      <div class="pa-caixa destaque">
+        <p>
+          Se houver uma conta com esse e-mail, enviamos um link para criar uma
+          nova senha. Verifique também a caixa de spam.
         </p>
-        <NuxtLink to="/area-cliente/login" class="link">Voltar para o login</NuxtLink>
+        <p style="margin: 0">O link vale uma vez só e por pouco tempo.</p>
       </div>
+      <p class="pa-voltar">
+        <NuxtLink to="/area-cliente/login" class="pa-link">Voltar para o login</NuxtLink>
+      </p>
+    </div>
 
-      <form v-else @submit.prevent="enviar">
-        <p class="muted">
-          Informe o e-mail cadastrado e enviaremos um link para criar uma nova
-          senha.
-        </p>
+    <form v-else novalidate @submit.prevent="enviar">
+      <h1>Recuperar senha</h1>
+      <p class="pa-sub">Informe o e-mail cadastrado e enviaremos um link para você criar uma nova senha.</p>
 
-        <label class="lbl" for="email">E-mail</label>
+      <label class="pa-lbl" for="email">E-mail</label>
+      <div class="pa-campo">
+        <AppIcon name="mail" class="pa-campo-ic" />
         <input
           id="email"
           v-model="email"
-          class="inp"
+          class="pa-inp"
           type="email"
-          autocomplete="email"
+          autocomplete="username"
           inputmode="email"
+          autocapitalize="off"
+          placeholder="Digite seu e-mail"
           required
         >
+      </div>
 
-        <p v-if="error" class="erro" role="alert">{{ error }}</p>
+      <p v-if="error" class="pa-erro" role="alert">{{ error }}</p>
 
-        <button class="btn" type="submit" :disabled="loading">
-          {{ loading ? 'Enviando…' : 'Enviar link' }}
-        </button>
+      <button class="pa-btn" type="submit" :disabled="loading">
+        {{ loading ? 'Enviando…' : 'Enviar link' }}
+        <AppIcon v-if="!loading" name="arrow-right" />
+      </button>
 
-        <NuxtLink to="/area-cliente/login" class="link">Voltar para o login</NuxtLink>
-      </form>
-    </div>
-  </div>
+      <p class="pa-voltar">
+        <NuxtLink to="/area-cliente/login" class="pa-link">Voltar para o login</NuxtLink>
+      </p>
+    </form>
+  </PortalAuthShell>
 </template>
-
-<style scoped>
-.rec-wrap {
-  display: grid;
-  place-items: center;
-  padding: 18px 0 40px;
-}
-.rec-card {
-  width: 100%;
-  max-width: 380px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 22px 20px;
-}
-h1 {
-  font-size: var(--fs-title);
-  margin: 0 0 12px;
-}
-.muted {
-  font-size: var(--fs-label);
-  color: #6b7280;
-  margin: 0 0 14px;
-}
-.lbl {
-  display: block;
-  font-size: var(--fs-label);
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-.inp {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: var(--r-sm);
-  font-size: var(--fs-body);
-  padding: 11px 12px;
-  margin-bottom: 14px;
-  background: #fff;
-}
-.inp:focus {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
-}
-.erro {
-  color: #b91c1c;
-  font-size: var(--fs-label);
-  margin: 0 0 12px;
-}
-.btn {
-  width: 100%;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: var(--brand);
-  color: #fff;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  padding: 12px;
-  cursor: pointer;
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.link {
-  display: block;
-  text-align: center;
-  margin-top: 14px;
-  font-size: var(--fs-label);
-  color: #4b5563;
-}
-</style>

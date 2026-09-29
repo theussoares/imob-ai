@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ContractForClient } from '~~/shared/models/portal'
-import { CONTRACT_PARTY_LABELS } from '~~/shared/models/portal'
 import { classificarFalha, MENSAGEM_DE_FALHA } from '~~/shared/utils/session-error'
 
 definePageMeta({ layout: 'portal', middleware: 'portal' })
@@ -19,16 +18,15 @@ onMounted(async () => {
   }
 })
 
-/** "Você é o inquilino" / "Você é o proprietário e o fiador". */
-function papeis(c: ContractForClient): string {
-  const nomes = c.roles.map((r) => CONTRACT_PARTY_LABELS[r])
-  if (nomes.length === 1) return `Você é o ${nomes[0]}`
-  return `Você é o ${nomes.slice(0, -1).join(', ')} e o ${nomes[nomes.length - 1]}`
-}
+const tenant = useTenant()
 
-function titulo(c: ContractForClient): string {
-  return c.addressLabel || `Contrato ${c.code}`
-}
+/**
+ * Ativos primeiro: o encerrado é consulta de arquivo (o recibo do ano passado),
+ * e no alto da lista empurraria para baixo o contrato que a pessoa usa todo mês.
+ */
+const ordenados = computed(() =>
+  [...contratos.value].sort((a, b) => Number(a.status === 'encerrado') - Number(b.status === 'encerrado')),
+)
 
 useHead({
   title: 'Meus contratos · Área do Cliente',
@@ -38,101 +36,123 @@ useHead({
 
 <template>
   <div>
-    <h1 class="tit">Meus contratos</h1>
+    <header class="topo">
+      <h1>Meus contratos</h1>
+      <p>Seu aluguel com a {{ tenant?.name || 'imobiliária' }}: contratos, boletos e documentos.</p>
+    </header>
 
-    <p v-if="carregando" class="muted">Carregando…</p>
-    <p v-else-if="erro" class="erro" role="alert">{{ erro }}</p>
+    <!-- Esqueleto com a forma do cartão, e não "Carregando…": a lista chega em
+         meio segundo e o texto piscava; o esqueleto ocupa o mesmo lugar e a
+         página não pula quando o conteúdo entra. -->
+    <div v-if="carregando" class="lista" aria-busy="true" aria-label="Carregando seus contratos">
+      <div v-for="i in 2" :key="i" class="esqueleto" />
+    </div>
+
+    <p v-else-if="erro" class="erro" role="alert">
+      <AppIcon name="alert" />
+      {{ erro }}
+    </p>
 
     <!--
       Estado vazio com instrução, não área em branco: quem chega aqui sem
       contrato precisa saber a quem falar, senão conclui que o portal quebrou.
     -->
     <div v-else-if="!contratos.length" class="vazio">
-      <p><b>Nenhum contrato por aqui ainda.</b></p>
-      <p>Se você já assinou um contrato, fale com a imobiliária para vinculá-lo ao seu acesso.</p>
+      <span class="vazio-ic"><AppIcon name="contract" /></span>
+      <b>Nenhum contrato por aqui ainda</b>
+      <p>Se você já assinou um contrato, fale com a {{ tenant?.name || 'imobiliária' }} para vinculá-lo ao seu acesso.</p>
     </div>
 
     <ul v-else class="lista">
-      <li v-for="c in contratos" :key="c.id">
-        <NuxtLink :to="`/area-cliente/contratos/${c.id}`" class="cartao">
-          <span class="cartao-tit">{{ titulo(c) }}</span>
-          <span class="cartao-sub">{{ papeis(c) }}</span>
-          <span v-if="c.status === 'encerrado'" class="tag">Encerrado</span>
-          <span class="cartao-seta" aria-hidden="true">→</span>
-        </NuxtLink>
+      <li v-for="c in ordenados" :key="c.id">
+        <PortalContratoCard :contrato="c" />
       </li>
     </ul>
+
+    <PortalAjuda />
   </div>
 </template>
 
 <style scoped>
-.tit {
-  font-size: var(--fs-title);
-  margin: 4px 0 16px;
+.topo {
+  margin: 6px 0 22px;
 }
-.muted {
-  font-size: var(--fs-ui);
-  color: #6b7280;
+.topo h1 {
+  margin: 0;
+  font-size: clamp(26px, 5vw, 32px);
+  font-weight: 700;
+  line-height: 1.15;
 }
-.erro {
-  color: #b91c1c;
-  font-size: var(--fs-ui);
-}
-.vazio {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 20px;
-  font-size: var(--fs-ui);
-  color: #4b5563;
-}
-.vazio p {
-  margin: 0 0 6px;
+.topo p {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--muted);
 }
 .lista {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 14px;
 }
-.cartao {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.esqueleto {
+  height: 214px;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #efeee9 30%, #f7f6f2 50%, #efeee9 70%) 0 0 / 300% 100%;
+  animation: brilho 1.4s ease-in-out infinite;
+}
+@keyframes brilho {
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
+}
+.erro {
+  display: flex;
   align-items: center;
-  gap: 2px 10px;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fdecec;
+  color: #9f1c1c;
+  font-size: 15px;
+}
+.vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 24px;
+  border: 1px dashed var(--line-2);
+  border-radius: 16px;
   background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 14px 16px;
-  text-decoration: none;
-  color: inherit;
+  text-align: center;
 }
-.cartao:hover {
-  border-color: var(--brand);
+.vazio-ic {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 6px;
+  border-radius: 14px;
+  background: var(--ipe-soft);
+  color: #6b4e00;
+  font-size: 24px;
 }
-.cartao-tit {
-  font-weight: 600;
-  font-size: var(--fs-body);
+.vazio b {
+  font-size: 17px;
 }
-.cartao-sub {
-  grid-column: 1;
-  font-size: var(--fs-label);
-  color: #6b7280;
-}
-.tag {
-  grid-column: 1;
-  justify-self: start;
-  margin-top: 6px;
-  font-size: var(--fs-caption);
-  background: #f3f4f6;
-  border-radius: var(--r-pill);
-  padding: 2px 9px;
-  color: #4b5563;
-}
-.cartao-seta {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  color: #9ca3af;
+.vazio p {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink-2);
 }
 </style>

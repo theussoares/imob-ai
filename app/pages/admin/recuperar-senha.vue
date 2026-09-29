@@ -35,59 +35,52 @@ useHead({
 </script>
 
 <template>
-  <div class="rec-wrap">
-    <form class="admin-card rec-card" @submit.prevent="enviar">
-      <div class="brand sem-logo" style="margin-bottom: 6px">
-        <span class="mark"><AppIcon name="home" /></span>
-        <span><b>{{ tenant?.name || 'Painel' }}</b><small>Área administrativa</small></span>
-      </div>
-      <h1 style="font-size: 22px; margin: 22px 0 12px">Recuperar senha do painel</h1>
-
-      <template v-if="enviado">
-        <p class="muted" role="status">
+  <PainelAuthShell>
+    <div v-if="enviado" role="status">
+      <span class="pa-rotulo"><AppIcon name="key" /> Acesso da equipe</span>
+      <h1>Confira seu e-mail</h1>
+      <p class="pa-sub">O link para criar uma nova senha está a caminho.</p>
+      <div class="pa-caixa destaque">
+        <p>
           Se esse e-mail tiver acesso ao painel, enviamos um link para criar uma
-          nova senha. Confira também o spam. O link vale uma vez só e por pouco
-          tempo.
+          nova senha. Confira também o spam.
         </p>
-        <NuxtLink to="/admin/login" class="voltar">Voltar para o login</NuxtLink>
-      </template>
+        <p style="margin: 0">O link vale uma vez só e por pouco tempo.</p>
+      </div>
+      <p class="pa-voltar">
+        <NuxtLink to="/admin/login" class="pa-link">Voltar para o login</NuxtLink>
+      </p>
+    </div>
 
-      <template v-else>
-        <p class="muted">Informe o e-mail que você usa para entrar no painel.</p>
-        <label class="admin-label" for="email">E-mail</label>
-        <input id="email" v-model="email" class="admin-input" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required />
-        <button class="admin-btn" type="submit" style="margin-top: 16px; width: 100%" :disabled="loading">
-          {{ loading ? 'Enviando...' : 'Enviar link' }}
-        </button>
-        <NuxtLink to="/admin/login" class="voltar">Voltar para o login</NuxtLink>
-      </template>
+    <form v-else @submit.prevent="enviar">
+      <span class="pa-rotulo"><AppIcon name="key" /> Acesso da equipe</span>
+      <h1>Recuperar senha do painel</h1>
+      <p class="pa-sub">Informe o e-mail que você usa para entrar no painel.</p>
+
+      <label class="pa-lbl" for="email">E-mail</label>
+      <div class="pa-campo">
+        <AppIcon name="mail" class="pa-campo-ic" />
+        <input
+          id="email"
+          v-model="email"
+          class="pa-inp"
+          type="email"
+          inputmode="email"
+          autocomplete="username"
+          autocapitalize="off"
+          placeholder="Digite seu e-mail"
+          required
+        >
+      </div>
+
+      <button class="pa-btn" type="submit" :disabled="loading">
+        {{ loading ? 'Enviando…' : 'Enviar link' }}
+        <AppIcon v-if="!loading" name="arrow-right" />
+      </button>
+
+      <p class="pa-voltar">
+        <NuxtLink to="/admin/login" class="pa-link">Voltar para o login</NuxtLink>
+      </p>
     </form>
-  </div>
+  </PainelAuthShell>
 </template>
-
-<style scoped>
-.rec-wrap {
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 18px;
-  background: var(--surface);
-}
-.rec-card {
-  width: 100%;
-  max-width: 380px;
-}
-.muted {
-  font-size: var(--fs-label);
-  color: var(--ink-soft);
-  margin: 0 0 14px;
-}
-.voltar {
-  display: block;
-  margin-top: 12px;
-  text-align: center;
-  font-size: var(--fs-label);
-  color: var(--ink-soft);
-}
-</style>
