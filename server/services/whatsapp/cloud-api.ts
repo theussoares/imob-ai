@@ -1,11 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import type { WhatsappMessageStatus } from '~~/shared/models/whatsapp'
+import type { WhatsappMessageStatus, WhatsappTemplateCategory, WhatsappTemplateStatus } from '~~/shared/models/whatsapp'
+import { variaveisDoModelo } from '~~/shared/models/whatsapp'
 import {
   ErroDoWhatsapp,
   type Conexao,
   type LoteDoWebhook,
   type MensagemEcoada,
   type MensagemRecebida,
+  type Enviada,
+  type ModeloDaMeta,
   type MudancaDeStatus,
   type WhatsappProvider,
 } from './provider'
@@ -169,10 +172,67 @@ export function lotesDoWebhook(payload: unknown): LoteDoWebhook[] {
 }
 
 // ---------------------------------------------------------------------------
+// Modelos
+// ---------------------------------------------------------------------------
+
+interface MetaModelo {
+  name?: string
+  language?: string
+  status?: string
+  category?: string
+  parameter_format?: string
+  components?: {
+    type?: string
+    format?: string
+    text?: string
+    buttons?: { type?: string; url?: string }[]
+  }[]
+}
+
+const STATUS_DO_MODELO: Record<string, WhatsappTemplateStatus> = {
+  APPROVED: 'aprovado',
+  PENDING: 'em_analise',
+  IN_APPEAL: 'em_analise',
+  REJECTED: 'recusado',
+  PAUSED: 'pausado',
+  DISABLED: 'pausado',
+}
+
+const CATEGORIAS: WhatsappTemplateCategory[] = ['MARKETING', 'UTILITY', 'AUTHENTICATION']
+
+/**
+ * Normaliza um modelo da Graph API. Nunca lança; o que não reconhece vira
+ * `suportado: false` e a tela mostra sem oferecer o envio.
+ */
+export function modeloDaMeta(m: MetaModelo): ModeloDaMeta | null {
+  if (!m?.name || !m.language) return null
+  const comps = m.components ?? []
+  const corpo = comps.find((c) => c.type === 'BODY')?.text ?? ''
+  const cabecalho = comps.find((c) => c.type === 'HEADER')
+  const botoes = comps.find((c) => c.type === 'BUTTONS')?.buttons ?? []
+  // Só o corpo tem variáveis preenchíveis pela tela. Cabeçalho de mídia ou
+  // com variável, e botão de link com variável, pedem parâmetros próprios.
+  const cabecalhoOk = !cabecalho || (cabecalho.format === 'TEXT' && !/\{\{/.test(cabecalho.text ?? ''))
+  const botoesOk = botoes.every((b) => !(b.type === 'URL' && /\{\{/.test(b.url ?? '')))
+  const categoria = CATEGORIAS.includes(m.category as WhatsappTemplateCategory) ? (m.category as WhatsappTemplateCategory) : 'MARKETING'
+  return {
+    name: m.name,
+    language: m.language,
+    category: categoria,
+    status: STATUS_DO_MODELO[m.status ?? ''] ?? 'outro',
+    body: corpo,
+    variables: variaveisDoModelo(corpo),
+    nomeado: m.parameter_format === 'NAMED',
+    // Autenticação é código de login: não é o que uma imobiliária manda pelo painel.
+    suportado: Boolean(corpo) && cabecalhoOk && botoesOk && categoria !== 'AUTHENTICATION',
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Chamadas à Graph API
 // ---------------------------------------------------------------------------
 
-interface ErroDaMeta { error?: { code?: number; message?: string; error_user_msg?: string } }
+interface ErroDaMeta { error?: { code?: number; error_subcode?: number; message?: string; error_user_msg?: string } }
 
 async function chamar<T>(f: Fetch, c: Conexao, caminho: string, init: { method: 'GET' | 'POST'; body?: unknown }): Promise<T> {
   let res: Response
@@ -190,9 +250,19 @@ async function chamar<T>(f: Fetch, c: Conexao, caminho: string, init: { method: 
   if (!res.ok) {
     const code = json.error?.code
     const msg = json.error?.error_user_msg || json.error?.message || `HTTP ${res.status}`
-    throw new ErroDoWhatsapp(msg, res.status === 401 || res.status === 403 || code === 190, code === 131047)
+    const e = new ErroDoWhatsapp(msg, res.status === 401 || res.status === 403 || code === 190, code === 131047)
+    e.subcodigo = json.error?.error_subcode ?? null
+    throw e
   }
   return json
+}
+
+interface Resposta { messages?: { id?: string }[]; contacts?: { wa_id?: string }[] }
+
+function enviada(r: Resposta): Enviada {
+  const wamid = r.messages?.[0]?.id
+  if (!wamid) throw new ErroDoWhatsapp('O WhatsApp não confirmou o envio.')
+  return { wamid, waId: r.contacts?.[0]?.wa_id ?? null }
 }
 
 export function cloudApi(f: Fetch = fetch): WhatsappProvider {
@@ -212,7 +282,7 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
     },
 
     async enviarTexto(c, para, texto) {
-      const r = await chamar<{ messages?: { id?: string }[] }>(f, c, `/${encodeURIComponent(c.phoneNumberId)}/messages`, {
+      const r = await chamar<Resposta>(f, c, `/${encodeURIComponent(c.phoneNumberId)}/messages`, {
         method: 'POST',
         body: {
           messaging_product: 'whatsapp',
@@ -222,9 +292,67 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
           text: { body: texto, preview_url: false },
         },
       })
-      const wamid = r.messages?.[0]?.id
-      if (!wamid) throw new ErroDoWhatsapp('O WhatsApp não confirmou o envio.')
-      return { wamid }
+      return enviada(r)
+    },
+
+    async listarModelos(c) {
+      const modelos: ModeloDaMeta[] = []
+      let caminho: string | null =
+        `/${encodeURIComponent(c.wabaId)}/message_templates?fields=name,language,status,category,parameter_format,components&limit=100`
+      // Paginado. Teto de 5 páginas (500 modelos): nenhuma imobiliária tem
+      // tantos, e um laço sem teto num `next` malformado prenderia a função.
+      for (let pagina = 0; caminho && pagina < 5; pagina++) {
+        const r: { data?: MetaModelo[]; paging?: { next?: string } } = await chamar(f, c, caminho, { method: 'GET' })
+        for (const m of r.data ?? []) {
+          const n = modeloDaMeta(m)
+          if (n) modelos.push(n)
+        }
+        // O `next` vem absoluto; só o caminho depois da versão é reaproveitado,
+        // para a chamada continuar indo para o host fixo acima.
+        const next = r.paging?.next
+        caminho = next && next.startsWith(GRAPH) ? next.slice(GRAPH.length) : null
+      }
+      return modelos
+    },
+
+    async enviarModelo(c, para, modelo, valores) {
+      const parametros = modelo.variables.map((nome, i) =>
+        modelo.nomeado ? { type: 'text', parameter_name: nome, text: valores[i] ?? '' } : { type: 'text', text: valores[i] ?? '' },
+      )
+      const r = await chamar<Resposta>(f, c, `/${encodeURIComponent(c.phoneNumberId)}/messages`, {
+        method: 'POST',
+        body: {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: para,
+          type: 'template',
+          template: {
+            name: modelo.name,
+            language: { code: modelo.language },
+            ...(parametros.length ? { components: [{ type: 'body', parameters: parametros }] } : {}),
+          },
+        },
+      })
+      return enviada(r)
+    },
+
+    async criarModelo(c, m) {
+      try {
+        await chamar(f, c, `/${encodeURIComponent(c.wabaId)}/message_templates`, {
+          method: 'POST',
+          body: {
+            name: m.name,
+            language: m.language,
+            category: m.category,
+            components: [{ type: 'BODY', text: m.body, ...(m.exemplo.length ? { example: { body_text: [m.exemplo] } } : {}) }],
+          },
+        })
+        return 'criado'
+      } catch (e) {
+        // 2388024: "já existe conteúdo neste idioma" — pedir de novo não é erro.
+        if (e instanceof ErroDoWhatsapp && e.subcodigo === 2388024) return 'ja_existe'
+        throw e
+      }
     },
   }
 }

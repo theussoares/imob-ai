@@ -216,6 +216,13 @@ async function marcarLida(id: string) {
 function abrir(id: string) {
   abertaId.value = id;
   resposta.value = "";
+  usandoModelo.value = false;
+}
+
+const usandoModelo = ref(false);
+async function aoEnviarModelo() {
+  usandoModelo.value = false;
+  await Promise.all([carregarAberta({ rolar: true }), recarregarLista()]);
 }
 watch(abertaId, () => carregarAberta({ rolar: true }), { immediate: true });
 
@@ -513,13 +520,23 @@ onBeforeUnmount(async () => {
               {{ enviando ? "Enviando…" : "Enviar" }}
             </button>
           </form>
-          <p v-else class="janela-fechada" role="note">
+          <div v-else-if="usandoModelo" class="compor-modelo">
+            <AdminModeloWhatsapp
+              :enviar-para="`/api/admin/whatsapp/conversations/${aberta.conversa.id}/template`"
+              :nome-do-cliente="aberta.conversa.leadName || aberta.conversa.contactName"
+              titulo="Retomar com um modelo"
+              @enviado="aoEnviarModelo"
+              @cancelar="usandoModelo = false"
+            />
+          </div>
+          <div v-else class="janela-fechada" role="note">
             <AppIcon name="lock" />
             <span>
               Passaram 24h desde a última mensagem do cliente. Pela regra do WhatsApp, a conversa só pode ser retomada
-              com um modelo aprovado — ou pelo celular, se o cliente escrever de novo.
+              com um modelo aprovado pela Meta.
             </span>
-          </p>
+            <button type="button" class="admin-btn" @click="usandoModelo = true">Enviar modelo</button>
+          </div>
         </template>
       </section>
 
@@ -1008,8 +1025,16 @@ onBeforeUnmount(async () => {
 .compor .admin-btn {
   min-height: 44px;
 }
+.compor-modelo {
+  padding: 12px 14px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  max-height: 60%;
+  overflow-y: auto;
+}
 .janela-fechada {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: flex-start;
   margin: 0;
@@ -1018,6 +1043,10 @@ onBeforeUnmount(async () => {
   border-top: 1px solid var(--line);
   font-size: var(--fs-label);
   color: var(--ink-soft);
+}
+.janela-fechada > span {
+  flex: 1;
+  min-width: 200px;
 }
 .janela-fechada :deep(svg) {
   flex: none;

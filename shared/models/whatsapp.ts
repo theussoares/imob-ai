@@ -168,3 +168,111 @@ export function statusAvanca(atual: WhatsappMessageStatus, novo: WhatsappMessage
 
 /** Teto do texto enviado pelo painel. É o limite da própria Meta para corpo de texto. */
 export const WHATSAPP_TEXTO_MAX = 4096
+
+// ---------------------------------------------------------------------------
+// Modelos de mensagem (templates)
+//
+// Fora da janela de 24h, a Meta só entrega mensagem a partir de um modelo
+// aprovado por ela. O modelo mora na conta do WhatsApp Business DA
+// imobiliária; aqui só lemos, preenchemos as variáveis e enviamos.
+// ---------------------------------------------------------------------------
+
+export type WhatsappTemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+
+export const WHATSAPP_CATEGORIA_LABELS: Record<WhatsappTemplateCategory, string> = {
+  MARKETING: 'Marketing',
+  UTILITY: 'Utilidade',
+  AUTHENTICATION: 'Autenticação',
+}
+
+export type WhatsappTemplateStatus = 'aprovado' | 'em_analise' | 'recusado' | 'pausado' | 'outro'
+
+export const WHATSAPP_TEMPLATE_STATUS_LABELS: Record<WhatsappTemplateStatus, string> = {
+  aprovado: 'Aprovado',
+  em_analise: 'Em análise na Meta',
+  recusado: 'Recusado pela Meta',
+  pausado: 'Pausado pela Meta',
+  outro: 'Indisponível',
+}
+
+export interface WhatsappTemplate {
+  name: string
+  language: string
+  category: WhatsappTemplateCategory
+  status: WhatsappTemplateStatus
+  /** Texto do corpo, com as variáveis (`{{1}}` ou `{{nome}}`). */
+  body: string
+  /** Variáveis do corpo, na ordem em que aparecem. */
+  variables: string[]
+  /**
+   * Dá para mandar pelo painel? Modelo com cabeçalho de mídia ou botão com
+   * link variável exige parâmetros que a tela ainda não pede; mandar sem eles
+   * a Meta recusa, e é melhor não oferecer do que falhar no clique.
+   */
+  suportado: boolean
+}
+
+export interface WhatsappTemplateSendInput {
+  name: string
+  language: string
+  /** Um valor por variável, na ordem de `variables`. */
+  values: string[]
+}
+
+/** Variáveis do texto, sem repetir, na ordem da primeira aparição. */
+export function variaveisDoModelo(body: string): string[] {
+  const vistas: string[] = []
+  for (const m of body.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)) {
+    if (!vistas.includes(m[1]!)) vistas.push(m[1]!)
+  }
+  return vistas
+}
+
+/** O texto como o cliente vai ler — é o que fica no histórico. */
+export function preencherModelo(body: string, variables: string[], values: string[]): string {
+  return body.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (inteiro, nome: string) => {
+    const i = variables.indexOf(nome)
+    return i >= 0 && values[i] ? values[i]! : inteiro
+  })
+}
+
+/**
+ * Valor de variável aceitável pela Meta. Ela recusa parâmetro com quebra de
+ * linha, tabulação ou mais de quatro espaços seguidos — e recusa o envio
+ * inteiro, com um código que não diz qual variável.
+ */
+export function problemaNoValor(v: string): string | null {
+  if (!v.trim()) return 'Preencha todos os campos.'
+  if (/[\n\r\t]/.test(v)) return 'Os campos do modelo não aceitam quebra de linha.'
+  if (/ {5,}/.test(v)) return 'Os campos do modelo não aceitam tantos espaços seguidos.'
+  if (v.length > 500) return 'Um dos campos passou de 500 caracteres.'
+  return null
+}
+
+/**
+ * Os dois modelos que a Moradi sugere, para a imobiliária não começar do zero.
+ * Os nomes têm prefixo `moradi_` para ficarem reconhecíveis na conta da Meta
+ * dela, e a tela preenche as variáveis sozinha por eles.
+ *
+ * Categorias honestas: retomar contato é MARKETING (a Meta reclassifica, e
+ * cobra, quem tenta passar por utilidade), responder a um pedido que a pessoa
+ * fez no site é UTILITY.
+ */
+export const MODELOS_SUGERIDOS = [
+  {
+    name: 'moradi_primeiro_contato',
+    category: 'UTILITY' as const,
+    body: 'Olá, {{1}}! Aqui é da {{2}}. Recebemos o seu pedido de contato pelo nosso site e vamos continuar o atendimento por aqui. Pode responder esta mensagem quando quiser.',
+    exemplo: ['Ana', 'Imobiliária Exemplo'],
+    descricao: 'Para responder quem preencheu o formulário do site e ainda não falou pelo WhatsApp.',
+  },
+  {
+    name: 'moradi_retomar_conversa',
+    category: 'MARKETING' as const,
+    body: 'Olá, {{1}}! Aqui é da {{2}}. Você falou com a gente sobre um imóvel há alguns dias. Ainda tem interesse? Se quiser, é só responder esta mensagem.',
+    exemplo: ['Ana', 'Imobiliária Exemplo'],
+    descricao: 'Para retomar uma conversa parada há mais de 24h.',
+  },
+]
+
+export const MODELO_IDIOMA = 'pt_BR'

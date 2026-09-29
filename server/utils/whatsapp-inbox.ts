@@ -8,6 +8,7 @@ import type { WhatsappAccountRecord } from '~~/server/mappers/whatsapp.mapper'
 import type { LoteDoWebhook, MensagemEcoada, MensagemRecebida } from '~~/server/services/whatsapp/provider'
 import {
   ensureConversation,
+  findConversationByWaIds,
   incrementUnread,
   insertMessage,
   updateConversation,
@@ -43,7 +44,7 @@ export async function processarLoteWhatsapp(service: Client, conta: WhatsappAcco
 }
 
 async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, m: MensagemRecebida): Promise<void> {
-  const { state } = await ensureConversation(service, conta.tenantId, conta.id, m.de, m.nomeDoPerfil)
+  const state = await conversaDoContato(service, conta, m.de, m.nomeDoPerfil)
 
   const nova = await insertMessage(service, conta.tenantId, {
     conversationId: state.id,
@@ -74,7 +75,7 @@ async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, 
 }
 
 async function registrarEco(service: Client, conta: WhatsappAccountRecord, e: MensagemEcoada): Promise<void> {
-  const { state } = await ensureConversation(service, conta.tenantId, conta.id, e.para, null)
+  const state = await conversaDoContato(service, conta, e.para, null)
   const nova = await insertMessage(service, conta.tenantId, {
     conversationId: state.id,
     wamid: e.wamid,
@@ -88,6 +89,22 @@ async function registrarEco(service: Client, conta: WhatsappAccountRecord, e: Me
   })
   if (!nova) return
   await updateConversation(service, conta.tenantId, state.id, respostaPatch(state, e.quando, previa(e.tipo, e.texto)))
+}
+
+/**
+ * A conversa deste contato neste número, criando se não houver. Procura pelas
+ * duas formas do celular antes de criar — ver `findConversationByWaIds`.
+ */
+export async function conversaDoContato(
+  service: Client,
+  conta: Pick<WhatsappAccountRecord, 'id' | 'tenantId'>,
+  waId: string,
+  nome: string | null,
+): Promise<ConversationState> {
+  const formas = [...new Set([waId, ...telefonesDoWaId(waId).map((t) => '55' + t)])]
+  const existente = await findConversationByWaIds(service, conta.tenantId, conta.id, formas)
+  if (existente) return existente
+  return (await ensureConversation(service, conta.tenantId, conta.id, waId, nome)).state
 }
 
 /**

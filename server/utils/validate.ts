@@ -1,4 +1,4 @@
-import { WHATSAPP_TEXTO_MAX, type WhatsappAccountInput } from '~~/shared/models/whatsapp'
+import { WHATSAPP_TEXTO_MAX, type WhatsappAccountInput, type WhatsappTemplateSendInput } from '~~/shared/models/whatsapp'
 import { HEADER_STYLES, SITE_THEMES } from '~~/shared/models/site-theme'
 import type { PropertyInput, PropertyPurpose } from '~~/shared/models/property'
 import { areaRangeError, priceRangeError, roomsRangeError } from '~~/shared/utils/property-limits'
@@ -816,4 +816,17 @@ export function assertWhatsappTexto(input: unknown): asserts input is { text: st
   const t = String((input as { text?: unknown } | null)?.text ?? '').trim()
   if (!t) throw createError({ statusCode: 422, statusMessage: 'Escreva a mensagem.' })
   if (t.length > WHATSAPP_TEXTO_MAX) throw createError({ statusCode: 422, statusMessage: `A mensagem passa de ${WHATSAPP_TEXTO_MAX} caracteres.` })
+}
+
+/**
+ * Envio de modelo. Só a forma: se o modelo existe, está aprovado e quantas
+ * variáveis tem, quem decide é a Meta, relida em `modeloParaEnviar`.
+ */
+export function assertWhatsappTemplateSend(input: unknown): asserts input is WhatsappTemplateSendInput {
+  const b = (input ?? {}) as Record<string, unknown>
+  if (typeof b.name !== 'string' || !/^[a-z0-9_]{1,512}$/.test(b.name)) throw createError({ statusCode: 422, statusMessage: 'Modelo inválido.' })
+  if (typeof b.language !== 'string' || !/^[a-z]{2,3}(_[A-Z]{2})?$/.test(b.language)) throw createError({ statusCode: 422, statusMessage: 'Idioma do modelo inválido.' })
+  if (!Array.isArray(b.values) || b.values.length > 20 || b.values.some((v) => typeof v !== 'string')) {
+    throw createError({ statusCode: 422, statusMessage: 'Campos do modelo inválidos.' })
+  }
 }

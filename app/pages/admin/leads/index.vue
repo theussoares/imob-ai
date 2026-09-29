@@ -390,10 +390,21 @@ const editingLead = computed(() =>
  * e deixa a conversa fora do painel.
  */
 const conversaDoLead = ref<string | null>(null);
+/**
+ * Contato do formulário que nunca escreveu no WhatsApp: a conversa começa por
+ * um modelo aprovado, pelo número da imobiliária — e já nasce no painel, em
+ * vez de no celular de quem clicou no botão de WhatsApp acima.
+ */
+const iniciandoWhatsapp = ref(false);
+function aoIniciarWhatsapp(r: { conversationId?: string }) {
+  iniciandoWhatsapp.value = false;
+  if (r.conversationId) conversaDoLead.value = r.conversationId;
+}
 watch(
   () => (temWhatsapp.value ? editingId.value : null),
   async (id) => {
     conversaDoLead.value = null;
+    iniciandoWhatsapp.value = false;
     if (!id) return;
     try {
       const r = await adminFetch<{ conversationId: string | null }>(`/api/admin/whatsapp/lead/${id}`);
@@ -1213,6 +1224,19 @@ useHead({ title: "Contatos · Painel" });
             </button>
           </header>
           <div class="dr-body">
+            <div v-if="temWhatsapp && !conversaDoLead" class="dr-wa-iniciar">
+              <AdminModeloWhatsapp
+                v-if="iniciandoWhatsapp"
+                :enviar-para="`/api/admin/whatsapp/lead/${editingLead.id}/template`"
+                :nome-do-cliente="editingLead.name"
+                titulo="Começar a conversa pelo WhatsApp da imobiliária"
+                @enviado="aoIniciarWhatsapp"
+                @cancelar="iniciandoWhatsapp = false"
+              />
+              <button v-else type="button" class="admin-btn ghost sm" @click="iniciandoWhatsapp = true">
+                <AppIcon name="wa" /> Começar conversa pelo número da imobiliária
+              </button>
+            </div>
             <p v-if="editingLead.message" class="dr-msg">“{{ editingLead.message }}”</p>
             <ReuseEditor :l="editingLead" />
           </div>
@@ -1254,6 +1278,17 @@ useHead({ title: "Contatos · Painel" });
   color: #b91c1c;
   font-size: var(--fs-label);
   margin: 12px 0 0;
+}
+
+.dr-wa-iniciar {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.dr-wa-iniciar .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Gaveta de detalhes */

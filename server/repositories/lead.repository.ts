@@ -219,3 +219,10 @@ export async function findOpenLeadByPhones(service: Client, tenantId: string, ph
   const row = data?.[0]
   return row ? { id: row.id, brokerId: row.broker_id } : null
 }
+
+/** Nome e telefone do contato, para o painel começar a conversa pelo WhatsApp. */
+export async function getLeadContact(client: Client, tenantId: string, id: string): Promise<{ id: string; name: string | null; phone: string | null } | null> {
+  const { data, error } = await client.from('leads').select('id, name, phone').eq('tenant_id', tenantId).eq('id', id).maybeSingle()
+  if (error) throw error
+  return data ? { id: data.id, name: data.name, phone: data.phone } : null
+}

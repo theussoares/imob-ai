@@ -56,7 +56,17 @@ conta da Meta é dela, e ela paga a Meta direto.
 Para testar sem cliente: o **número de teste** do app (WhatsApp → Configuração
 da API) funciona com até 5 destinatários cadastrados, na hora.
 
-## 4. Conferir
+## 4. Modelos de mensagem
+
+Fora das 24h, e para começar a conversa com quem veio pelo formulário, só com
+modelo aprovado. Em Conversas, numa conversa com a janela fechada → "Enviar
+modelo" → **Criar modelos sugeridos** (só o owner). A Meta analisa em minutos
+ou horas; até lá eles aparecem como "Em análise na Meta".
+
+Modelos criados direto no painel da Meta também aparecem, desde que tenham
+variáveis só no corpo.
+
+## 5. Conferir
 
 - Mande uma mensagem para o número: ela aparece em Conversas, e um contato novo
   aparece no funil com o imóvel (se a mensagem veio do botão do site).

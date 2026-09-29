@@ -37,6 +37,15 @@ resumida na seção 6.
 7. **Tempo de primeira resposta** por conversa (`first_response_at`), que é o
    número que o dono pede.
 8. **Retenção:** conversa sem lead some em 90 dias, como o clique.
+9. **Modelos de mensagem** (entrou em 29/09, logo depois do F0):
+   - lista dos modelos da conta da Meta da imobiliária, com o status de lá;
+   - envio de modelo aprovado numa conversa fora da janela de 24h;
+   - **começar a conversa** com um contato do formulário que nunca escreveu,
+     pela gaveta do contato — o atendimento nasce no painel, e não no
+     celular de quem clicou no `wa.me`;
+   - botão "Criar modelos sugeridos": dois modelos em português
+     (`moradi_primeiro_contato`, utilidade; `moradi_retomar_conversa`,
+     marketing) enviados para análise da Meta.
 
 Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 
@@ -46,9 +55,12 @@ Tudo atrás de `tenant_features.feature = 'whatsapp'`.
   ser Tech Provider aprovada na Meta, que é espera externa de dias a semanas.
   Até lá a conexão é manual (item 1), feita por nós no onboarding. O adaptador
   (`server/services/whatsapp/provider.ts`) já isola a troca.
-- **Modelos de mensagem (templates)** para falar fora da janela de 24h.
-  Exigem aprovação da Meta por modelo; entram na F2 com os dois modelos
-  ("novo lead" e "retomar conversa").
+- **Modelos com imagem no cabeçalho ou link variável em botão.** Pedem
+  parâmetros que a tela ainda não coleta; aparecem na lista como "tipo ainda
+  não suportado", sem botão de enviar — a Meta recusaria o envio sem eles.
+- **Criar modelo livre pelo painel.** Só os dois sugeridos. Modelo escrito à
+  mão é recusado com frequência pela Meta, e a recusa chega sem explicação
+  útil; quem precisa de outro cria no painel da Meta, e ele aparece aqui.
 - **Mídia.** Foto e áudio chegam como mensagem com o tipo ("Foto", em itálico), sem o
   arquivo. Baixar exige o token e uma função que caiba no tempo da Vercel;
   entra junto com o bucket privado na F2.
@@ -118,6 +130,11 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Realtime + recarga de 20s quando cai | Só polling | O quadro de leads já usa Realtime com RLS; conversa sem tempo real parece quebrada. |
 | Mídia fora do F0 | Baixar no webhook | Download com token dentro do tempo da Vercel, com retentativa, é uma entrega por si. |
 | 90 dias para conversa sem lead | Guardar sempre | Conteúdo de conversa é dado pessoal; sem lead não há atendimento que justifique. |
+| Modelo relido na Meta a cada envio | Confiar no corpo que o navegador mostrou | O histórico grava o que o cliente leu; e a Meta pausa ou recusa modelo sem avisar. |
+| Número do contato sai do lead | Aceitar o número no body | Número do body = mensagem em nome da imobiliária para quem o membro quisesse. |
+| Conversa criada com o `wa_id` que a Meta devolve no envio | O número do formulário | A resposta chega pelo `wa_id` resolvido (nono dígito); com o outro, a mesma pessoa teria duas conversas. |
+| Categorias honestas nos sugeridos | Tudo como utilidade (mais barato) | A Meta reclassifica e cobra; e um modelo "utilidade" que é marketing derruba a qualidade do número. |
+| Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 
 ## 6. Pesquisa (resumo)
 

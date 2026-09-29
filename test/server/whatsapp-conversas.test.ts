@@ -76,8 +76,8 @@ describe('de quem é a mensagem', () => {
   test('toda escrita do processamento leva o tenant da conta', async () => {
     const { client, calls } = fakeSupabase({
       whatsapp_conversations: [
-        { data: [], error: null }, // upsert: já existia
-        { data: { id: 'c1', lead_id: 'l1', last_inbound_at: null, first_response_at: null, unread_count: 0, wa_id: '5567991234567', account_id: 'a1' }, error: null },
+        // procura pelas duas formas do número: já existia
+        { data: [{ id: 'c1', lead_id: 'l1', last_inbound_at: null, first_response_at: null, unread_count: 0, wa_id: '5567991234567', account_id: 'a1' }], error: null },
         { data: null, error: null }, // update
       ],
       whatsapp_messages: { data: null, error: null },
@@ -95,12 +95,26 @@ const lote = (recebidas: ReturnType<typeof msg>[]) => ({ phoneNumberId: '111', r
 const insertLevaTenant = (calls: { table: string; method: string; args: unknown[] }[], t: string) =>
   calls.some((c) => c.table === t && (c.method === 'insert' || c.method === 'upsert') && (c.args[0] as { tenant_id?: string })?.tenant_id === 't1')
 
+describe('mesma pessoa, uma conversa', () => {
+  test('a mensagem que chega sem o nono dígito procura também a forma com ele', async () => {
+    const { client, calls } = fakeSupabase({
+      whatsapp_conversations: [{ data: [{ id: 'c1', lead_id: 'l1', last_inbound_at: null, first_response_at: null, unread_count: 0, wa_id: '5567991234567', account_id: 'a1' }], error: null }],
+      whatsapp_messages: { data: null, error: { code: '23505' } },
+    })
+    await processarLoteWhatsapp(client, CONTA, { ...lote([]), recebidas: [{ ...msg('w'), de: '556791234567' }] })
+    const busca = calls.find((c) => c.table === 'whatsapp_conversations' && c.method === 'in')
+    expect(busca?.args[0]).toBe('wa_id')
+    expect(busca?.args[1]).toEqual(expect.arrayContaining(['556791234567', '5567991234567']))
+    // Achou: não cria outra.
+    expect(calls.some((c) => c.table === 'whatsapp_conversations' && c.method === 'upsert')).toBe(false)
+  })
+})
+
 describe('reenvio da Meta', () => {
   test('mensagem repetida (mesmo wamid) não conta não lida, não mexe na conversa e não cria lead', async () => {
     const { client, calls } = fakeSupabase({
       whatsapp_conversations: [
-        { data: [], error: null },
-        { data: { id: 'c1', lead_id: null, last_inbound_at: null, first_response_at: null, unread_count: 0, wa_id: '5567991234567', account_id: 'a1' }, error: null },
+        { data: [{ id: 'c1', lead_id: null, last_inbound_at: null, first_response_at: null, unread_count: 0, wa_id: '5567991234567', account_id: 'a1' }], error: null },
       ],
       whatsapp_messages: { data: null, error: { code: '23505', message: 'duplicate key' } },
     })

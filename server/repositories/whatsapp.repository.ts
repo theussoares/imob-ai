@@ -180,6 +180,32 @@ export async function findConversation(service: Client, tenantId: string, accoun
   return data ? toState(data) : null
 }
 
+/**
+ * A conversa deste contato, aceitando as duas formas do número (com e sem o
+ * nono dígito). A Meta pode mandar o mesmo celular de um jeito no webhook e
+ * de outro na resposta de envio; procurar só pela forma exata abriria duas
+ * conversas para a mesma pessoa, com o histórico partido ao meio.
+ */
+export async function findConversationByWaIds(
+  service: Client,
+  tenantId: string,
+  accountId: string,
+  waIds: string[],
+): Promise<ConversationState | null> {
+  if (!waIds.length) return null
+  const { data, error } = await service
+    .from('whatsapp_conversations')
+    .select(STATE_COLUMNS)
+    .eq('tenant_id', tenantId)
+    .eq('account_id', accountId)
+    .in('wa_id', waIds)
+    .order('last_message_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = data?.[0]
+  return row ? toState(row) : null
+}
+
 export async function getConversationState(client: Client, tenantId: string, id: string): Promise<ConversationState | null> {
   const { data, error } = await client
     .from('whatsapp_conversations')

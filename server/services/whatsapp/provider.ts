@@ -8,7 +8,7 @@
  * sem tocar em tabela nem em tela (spec 29/09, seção 5).
  */
 
-import type { WhatsappMessageStatus } from '~~/shared/models/whatsapp'
+import type { WhatsappMessageStatus, WhatsappTemplate, WhatsappTemplateCategory } from '~~/shared/models/whatsapp'
 
 /** Mensagem que o CONTATO mandou para o número da imobiliária. */
 export interface MensagemRecebida {
@@ -65,6 +65,9 @@ export class ErroDoWhatsapp extends Error {
   ) {
     super(message)
   }
+
+  /** `error_subcode` da Meta, para os poucos casos que mudam o que fazer. */
+  subcodigo: number | null = null
 }
 
 export interface Conexao {
@@ -73,10 +76,42 @@ export interface Conexao {
   accessToken: string
 }
 
+/**
+ * Modelo como o servidor o conhece. `nomeado` diz o formato das variáveis
+ * (`{{nome}}` ou `{{1}}`): a Meta exige `parameter_name` num e recusa no
+ * outro, e a tela não precisa saber disso.
+ */
+export interface ModeloDaMeta extends WhatsappTemplate {
+  nomeado: boolean
+}
+
+export interface NovoModelo {
+  name: string
+  language: string
+  category: WhatsappTemplateCategory
+  body: string
+  /** Um exemplo por variável — a Meta exige para analisar. */
+  exemplo: string[]
+}
+
+export interface Enviada {
+  wamid: string
+  /**
+   * O wa_id que a Meta resolveu para o destinatário. Pode diferir do número
+   * enviado (o nono dígito de celular antigo): é por ele que as respostas vão
+   * chegar, então é ele que identifica a conversa.
+   */
+  waId: string | null
+}
+
 export interface WhatsappProvider {
   /** Confere o token contra o número — antes de gravar, não na primeira mensagem. */
   conferirNumero(c: Conexao): Promise<NumeroConferido>
   /** Assina o nosso app na WABA; sem isso a Meta não manda webhook nenhum. */
   assinarWebhook(c: Conexao): Promise<void>
-  enviarTexto(c: Conexao, para: string, texto: string): Promise<{ wamid: string }>
+  enviarTexto(c: Conexao, para: string, texto: string): Promise<Enviada>
+  listarModelos(c: Conexao): Promise<ModeloDaMeta[]>
+  enviarModelo(c: Conexao, para: string, modelo: ModeloDaMeta, valores: string[]): Promise<Enviada>
+  /** `'ja_existe'` quando a conta já tem um modelo com esse nome e idioma. */
+  criarModelo(c: Conexao, modelo: NovoModelo): Promise<'criado' | 'ja_existe'>
 }
