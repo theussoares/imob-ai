@@ -12,8 +12,12 @@ import type {
 import {
   WHATSAPP_FILTROS,
   WHATSAPP_FILTRO_LABELS,
+  WHATSAPP_ENVIO,
+  WHATSAPP_LEGENDA_MAX,
   WHATSAPP_TEXTO_MAX,
   aguardandoResposta,
+  mimeBase,
+  problemaNoAnexo,
   textoDaMensagem,
   toWhatsappFiltro,
 } from "~~/shared/models/whatsapp";
@@ -232,7 +236,9 @@ const enviando = ref(false);
 async function enviar() {
   const id = abertaId.value;
   const texto = resposta.value.trim();
-  if (!id || !texto || enviando.value) return;
+  if (!id || enviando.value) return;
+  if (anexo.value) return enviarAnexo(id, anexo.value, texto);
+  if (!texto) return;
   enviando.value = true;
   try {
     await adminFetch(`/api/admin/whatsapp/conversations/${id}/messages`, { method: "POST", body: { text: texto } });
@@ -243,6 +249,76 @@ async function enviar() {
     toast.error(friendlyErrorMessage(e, "A mensagem não foi enviada."));
   } finally {
     enviando.value = false;
+  }
+}
+
+// ---- Anexo ----
+const ACEITOS = Object.keys(WHATSAPP_ENVIO).join(",");
+const seletor = ref<HTMLInputElement | null>(null);
+const anexo = ref<File | null>(null);
+const anexoPrevia = ref<string | null>(null);
+const etapaDoEnvio = ref<"" | "subindo" | "enviando">("");
+const anexoEhAudio = computed(() => (anexo.value ? WHATSAPP_ENVIO[mimeBase(anexo.value.type)]?.tipo === "audio" : false));
+
+function escolherAnexo(e: Event) {
+  const f = (e.target as HTMLInputElement).files?.[0] ?? null;
+  (e.target as HTMLInputElement).value = "";
+  if (!f) return;
+  // Confere antes de subir: descobrir depois de 15 MB enviados que o formato
+  // não serve é tempo e dado móvel jogados fora.
+  const problema = problemaNoAnexo(f.type, f.size);
+  if (problema) {
+    toast.error(problema);
+    return;
+  }
+  tirarAnexo();
+  anexo.value = f;
+  if (f.type.startsWith("image/")) anexoPrevia.value = URL.createObjectURL(f);
+}
+function tirarAnexo() {
+  if (anexoPrevia.value) URL.revokeObjectURL(anexoPrevia.value);
+  anexoPrevia.value = null;
+  anexo.value = null;
+}
+onBeforeUnmount(tirarAnexo);
+
+function tamanho(b: number): string {
+  return b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} kB` : `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
+}
+
+/**
+ * Três passos: o servidor dá uma URL de upload de uso único, o navegador sobe
+ * DIRETO no bucket (a função da Vercel não aceita corpo acima de 4,5 MB) e o
+ * servidor confere o que subiu e manda pela Meta.
+ */
+async function enviarAnexo(id: string, f: File, texto: string) {
+  enviando.value = true;
+  etapaDoEnvio.value = "subindo";
+  try {
+    const up = await adminFetch<{ path: string; token: string }>(`/api/admin/whatsapp/conversations/${id}/upload`, {
+      method: "POST",
+      body: { mime: f.type, size: f.size },
+    });
+    const client = await getAdminSupabase();
+    const { error } = await client.storage.from("whatsapp-media").uploadToSignedUrl(up.path, up.token, f, { contentType: f.type });
+    if (error) throw error;
+    etapaDoEnvio.value = "enviando";
+    const r = await adminFetch<{ tipo: string }>(`/api/admin/whatsapp/conversations/${id}/media`, {
+      method: "POST",
+      body: { path: up.path, caption: texto || undefined, filename: f.name },
+    });
+    // Áudio não leva legenda no WhatsApp: o texto vai logo depois, como mensagem.
+    if (r.tipo === "audio" && texto) {
+      await adminFetch(`/api/admin/whatsapp/conversations/${id}/messages`, { method: "POST", body: { text: texto } });
+    }
+    tirarAnexo();
+    resposta.value = "";
+    await Promise.all([carregarAberta({ rolar: true }), recarregarLista()]);
+  } catch (e) {
+    toast.error(friendlyErrorMessage(e, "O arquivo não foi enviado."));
+  } finally {
+    enviando.value = false;
+    etapaDoEnvio.value = "";
   }
 }
 function aoTeclar(e: KeyboardEvent) {
@@ -507,20 +583,37 @@ onBeforeUnmount(async () => {
           </ol>
 
           <form v-if="aberta.janelaAberta" class="compor" @submit.prevent="enviar">
-            <label class="sr-only" for="resposta">Resposta</label>
-            <textarea
-              id="resposta"
-              v-model="resposta"
-              class="admin-input"
-              rows="2"
-              :maxlength="WHATSAPP_TEXTO_MAX"
-              placeholder="Escreva a resposta (Enter envia, Shift+Enter quebra linha)"
-              :disabled="enviando"
-              @keydown="aoTeclar"
-            />
-            <button class="admin-btn" :disabled="enviando || !resposta.trim()">
-              {{ enviando ? "Enviando…" : "Enviar" }}
-            </button>
+            <div v-if="anexo" class="anexo">
+              <img v-if="anexoPrevia" :src="anexoPrevia" alt="" class="anexo-img" />
+              <AppIcon v-else name="contract" class="anexo-ico" />
+              <span class="anexo-nome">
+                <strong>{{ anexo.name }}</strong>
+                <span>{{ tamanho(anexo.size) }}{{ anexoEhAudio ? " · áudio vai sem legenda; o texto sai logo depois" : "" }}</span>
+              </span>
+              <button type="button" class="icone" aria-label="Tirar o anexo" :disabled="enviando" @click="tirarAnexo">
+                <AppIcon name="close" />
+              </button>
+            </div>
+            <div class="compor-linha">
+              <input ref="seletor" type="file" class="sr-only" :accept="ACEITOS" tabindex="-1" aria-hidden="true" @change="escolherAnexo" />
+              <button type="button" class="icone" aria-label="Anexar foto, vídeo, áudio ou documento" :disabled="enviando" @click="seletor?.click()">
+                <AppIcon name="anexo" />
+              </button>
+              <label class="sr-only" for="resposta">{{ anexo ? "Legenda" : "Resposta" }}</label>
+              <textarea
+                id="resposta"
+                v-model="resposta"
+                class="admin-input"
+                rows="2"
+                :maxlength="anexo ? WHATSAPP_LEGENDA_MAX : WHATSAPP_TEXTO_MAX"
+                :placeholder="anexo ? 'Legenda (opcional)' : 'Escreva a resposta (Enter envia, Shift+Enter quebra linha)'"
+                :disabled="enviando"
+                @keydown="aoTeclar"
+              />
+              <button class="admin-btn" :disabled="enviando || (!anexo && !resposta.trim())">
+                {{ etapaDoEnvio === "subindo" ? "Subindo…" : enviando ? "Enviando…" : "Enviar" }}
+              </button>
+            </div>
           </form>
           <div v-else-if="usandoModelo" class="compor-modelo">
             <AdminModeloWhatsapp
@@ -1010,12 +1103,75 @@ onBeforeUnmount(async () => {
   font-weight: 400;
 }
 .compor {
-  display: flex;
+  display: grid;
   gap: 8px;
-  align-items: flex-end;
   padding: 10px 12px;
   background: var(--paper);
   border-top: 1px solid var(--line);
+}
+.compor-linha {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.icone {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-pill);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.icone:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--ink);
+}
+.icone:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.icone :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+.anexo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+.anexo-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.anexo-ico {
+  width: 28px;
+  height: 28px;
+  color: var(--ink-soft);
+}
+.anexo-nome {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  font-size: var(--fs-label);
+}
+.anexo-nome strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.anexo-nome span {
+  color: var(--ink-soft);
+  font-size: var(--fs-caption);
 }
 .compor textarea {
   flex: 1;

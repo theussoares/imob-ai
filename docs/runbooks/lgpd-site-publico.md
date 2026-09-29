@@ -130,7 +130,8 @@ estatísticas anonimizadas) tem fundamento, como descrito acima.
 por natureza — o titular a enviou pelo aplicativo da Meta. A base é o art. 7º,
 V, e o art. 33, IX a cobre. O que a plataforma guarda fica em São Paulo, inclusive
 os arquivos (0060), que são baixados da Meta pelo servidor e nunca passam pelo
-navegador com o token.
+navegador com o token. Os arquivos que a imobiliária ENVIA pelo painel ficam no
+mesmo bucket e vão à Meta por URL assinada de 1h.
 
 ### Q4. Registros de acesso (Marco Civil, art. 15)
 

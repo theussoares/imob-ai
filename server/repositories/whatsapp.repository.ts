@@ -325,45 +325,42 @@ export async function getConversationIdByLead(client: Client, tenantId: string, 
  * não é linha com FK. Sem apagar os arquivos antes, a foto ficaria no bucket
  * para sempre, depois de a política prometer que sumiu.
  *
- * Arquivo antes da linha: se a remoção do arquivo falhar, a linha fica e o
- * cron de amanhã tenta de novo. Ao contrário, a linha sumiria e o arquivo
- * ficaria órfão, sem nada que aponte para ele.
+ * Pela PASTA da conversa, e não pela coluna `media_path`: a pasta pega também
+ * o arquivo que subiu e nunca virou mensagem (upload do painel cujo envio
+ * não aconteceu, ou gravação do caminho que falhou — achado da revisão de
+ * 29/09). A coluna só conhece o que deu certo.
+ *
+ * Arquivo antes da linha: se a remoção falhar, a linha fica e o cron de
+ * amanhã tenta de novo. Ao contrário, a pasta ficaria sem nada que a lembre.
  */
 export async function purgeOrphanConversations(service: Client, antesDe: string): Promise<void> {
   const { data: conversas, error: e1 } = await service
     .from('whatsapp_conversations')
-    .select('id')
+    .select('id, tenant_id')
     .is('lead_id', null)
     .lt('last_message_at', antesDe)
     .limit(200)
   if (e1) throw e1
-  const ids = (conversas ?? []).map((c) => c.id)
-  if (!ids.length) return
+  if (!conversas?.length) return
 
-  // Paginado: o PostgREST corta em `max_rows` (1000 por padrão) sem avisar.
-  // Sem a paginação, um lote com mais arquivos que isso apagaria as conversas
-  // e deixaria o excedente no bucket sem nenhuma linha apontando para ele —
-  // achado da revisão de 29/09.
-  const PAGINA = 1000
-  const caminhos: string[] = []
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await service
-      .from('whatsapp_messages')
-      .select('media_path')
-      .in('conversation_id', ids)
-      .not('media_path', 'is', null)
-      .order('id')
-      .range(de, de + PAGINA - 1)
-    if (error) throw error
-    for (const a of data ?? []) if (a.media_path) caminhos.push(a.media_path)
-    if ((data?.length ?? 0) < PAGINA) break
-  }
-  for (let i = 0; i < caminhos.length; i += 100) {
-    const { error } = await service.storage.from('whatsapp-media').remove(caminhos.slice(i, i + 100))
-    if (error) throw error
+  const bucket = service.storage.from('whatsapp-media')
+  for (const c of conversas) {
+    const pasta = `${c.tenant_id}/${c.id}`
+    const PAGINA = 1000
+    const caminhos: string[] = []
+    for (let offset = 0; ; offset += PAGINA) {
+      const { data, error } = await bucket.list(pasta, { limit: PAGINA, offset })
+      if (error) throw error
+      for (const o of data ?? []) caminhos.push(`${pasta}/${o.name}`)
+      if ((data?.length ?? 0) < PAGINA) break
+    }
+    for (let i = 0; i < caminhos.length; i += 100) {
+      const { error } = await bucket.remove(caminhos.slice(i, i + 100))
+      if (error) throw error
+    }
   }
 
-  const { error } = await service.from('whatsapp_conversations').delete().in('id', ids)
+  const { error } = await service.from('whatsapp_conversations').delete().in('id', conversas.map((c) => c.id))
   if (error) throw error
 }
 
@@ -381,7 +378,11 @@ export interface InsertMessageArgs {
   status: WhatsappMessageStatus
   sentBy: string | null
   occurredAt: string
-  media?: { id: string; mime: string | null; filename: string | null } | null
+  /**
+   * Recebida: `id` da Meta e o arquivo ainda a baixar (`pendente`).
+   * Enviada pelo painel: já está no bucket (`path`), sem id da Meta.
+   */
+  media?: { id: string | null; mime: string | null; filename: string | null; path?: string; size?: number } | null
 }
 
 /**
@@ -404,7 +405,9 @@ export async function insertMessage(service: Client, tenantId: string, a: Insert
     media_id: a.media?.id ?? null,
     media_mime: a.media?.mime ?? null,
     media_filename: a.media?.filename ?? null,
-    media_status: a.media ? 'pendente' : null,
+    media_path: a.media?.path ?? null,
+    media_size: a.media?.size ?? null,
+    media_status: a.media ? (a.media.path ? 'salva' : 'pendente') : null,
   }).select('id').single()
   if (!error) return data.id
   if ((error as { code?: string }).code === '23505') return null
@@ -414,7 +417,7 @@ export async function insertMessage(service: Client, tenantId: string, a: Insert
 export interface MediaRef {
   messageId: string
   conversationId: string
-  mediaId: string
+  mediaId: string | null
   mime: string | null
   status: string | null
   path: string | null
@@ -430,7 +433,8 @@ export async function getMessageMedia(client: Client, tenantId: string, messageI
     .eq('id', messageId)
     .maybeSingle()
   if (error) throw error
-  if (!data?.media_id) return null
+  // Enviada pelo painel não tem id da Meta, mas tem o arquivo.
+  if (!data || (!data.media_id && !data.media_path)) return null
   return {
     messageId: data.id,
     conversationId: data.conversation_id,

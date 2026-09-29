@@ -55,7 +55,14 @@ resumida na seção 6.
       assinada de 10 min, assinada com o client dele (policy confere a pasta).
     - O token só vai para host da Meta (`urlDaMeta`); o nome do arquivo do
       cliente nunca entra no caminho do objeto.
-    - A retenção apaga os arquivos ANTES das linhas.
+    - A retenção apaga os arquivos ANTES das linhas, pela pasta da conversa.
+11. **Envio de arquivo pelo painel**: foto (JPG/PNG até 5 MB), vídeo MP4,
+    áudio MP3/M4A/AAC/AMR, PDF e Office até 16 MB, com legenda.
+    - O navegador sobe DIRETO no bucket com URL de upload de uso único; o
+      servidor escolhe o caminho (`<tenant>/<conversa>/out-<uuid>.<ext>`).
+    - O servidor confere o caminho contra a pasta de envio da conversa, lê
+      tipo e tamanho do objeto no Storage e manda pela Meta **por link**
+      (URL assinada de 1h). Se a Meta recusar, o arquivo sai do bucket.
 
 Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 
@@ -71,9 +78,9 @@ Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 - **Criar modelo livre pelo painel.** Só os dois sugeridos. Modelo escrito à
   mão é recusado com frequência pela Meta, e a recusa chega sem explicação
   útil; quem precisa de outro cria no painel da Meta, e ele aparece aqui.
-- **Enviar mídia pelo painel.** Receber entrou (item 10); mandar foto ou PDF
-  daqui fica para depois — o corretor que precisa manda pelo celular, e o eco
-  do Coexistence já registra.
+- **Gravar áudio pelo painel** (microfone do navegador). O navegador grava
+  webm/ogg, que a Meta não aceita como áudio sem opus garantido; anexar um mp3
+  ou m4a funciona.
 - **Histórico importado do Coexistence** (até 6 meses). Traz conversa pessoal
   de quem não é lead, e isso precisa de decisão de LGPD com o cliente antes.
 - **Origem `whatsapp` em `leads.source`.** Mesmo motivo da spec do clique: a
@@ -147,6 +154,10 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Baixar a mídia no servidor e guardar | Mostrar direto da Meta | O endereço da Meta expira em minutos e exige o token, que não pode ir ao navegador. |
 | Webhook com prazo + download na primeira visualização | Só no webhook / só sob demanda | Só no webhook perde a foto quando a Meta demora; só sob demanda perde a de quem ninguém abriu a tempo. |
 | Teto de 16 MB | Guardar tudo (documento vai a 100 MB) | É o teto de vídeo e áudio do próprio WhatsApp; PDF gigante fica "abra no celular". |
+| Upload direto no bucket + envio por link | Arquivo pelo corpo da função | A Vercel recusa corpo acima de 4,5 MB; um vídeo de 12 MB nem chegaria ao código. |
+| Caminho escolhido pelo servidor, conferido no envio | Navegador escolhe | Caminho do body apontando para o arquivo de outro cliente sairia pelo WhatsApp para outra pessoa. |
+| Membro sem policy de escrita no bucket | Policy de insert na própria pasta | Ele escreveria por cima de um arquivo recebido — o histórico deixaria de ser prova. |
+| Retenção pela pasta, não pela coluna | Só `media_path` | A pasta pega o upload que nunca virou mensagem. |
 | Sem sistema de fila | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 

@@ -383,6 +383,17 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
       return { bytes, mime: info.mime_type || res.headers.get('content-type') || 'application/octet-stream' }
     },
 
+    async enviarMidia(c, para, m) {
+      const arquivo: Record<string, string> = { link: m.link }
+      if (m.legenda && m.tipo !== 'audio') arquivo.caption = m.legenda
+      if (m.tipo === 'document' && m.nomeDoArquivo) arquivo.filename = m.nomeDoArquivo
+      const r = await chamar<Resposta>(f, c, `/${encodeURIComponent(c.phoneNumberId)}/messages`, {
+        method: 'POST',
+        body: { messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: m.tipo, [m.tipo]: arquivo },
+      })
+      return enviada(r)
+    },
+
     async criarModelo(c, m) {
       try {
         await chamar(f, c, `/${encodeURIComponent(c.wabaId)}/message_templates`, {

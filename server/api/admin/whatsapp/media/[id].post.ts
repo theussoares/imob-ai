@@ -30,6 +30,8 @@ export default defineEventHandler(async (event) => {
   }
 
   if (ref.status !== 'salva' || !ref.path) {
+    // Sem id da Meta não há de onde baixar (enviada pelo painel que perdeu o arquivo).
+    if (!ref.mediaId) throw createError({ statusCode: 410, statusMessage: 'O arquivo não está mais disponível.' })
     const state = await getConversationState(client, tenant.id, ref.conversationId)
     if (!state) throw createError({ statusCode: 404, statusMessage: 'Arquivo não encontrado.' })
     const service = serviceSupabase()

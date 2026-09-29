@@ -97,6 +97,68 @@ const EXTENSOES: Record<string, string> = {
   'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac', 'audio/amr': 'amr',
   'video/mp4': 'mp4', 'video/3gpp': '3gp',
   'application/pdf': 'pdf', 'text/plain': 'txt',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+}
+
+/** O tipo de um arquivo que NÓS gravamos, pela extensão que o caminho recebeu. */
+export function mimeDoCaminho(caminho: string): string | null {
+  const ext = caminho.split('.').pop()?.toLowerCase()
+  return Object.entries(EXTENSOES).find(([, e]) => e === ext)?.[0] ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Envio de mídia pelo painel
+// ---------------------------------------------------------------------------
+
+export type WhatsappTipoDeEnvio = 'image' | 'video' | 'audio' | 'document'
+
+/**
+ * O que o painel manda, e em que tipo de mensagem da Meta. Os tetos são os da
+ * Meta (foto 5 MB) ou o do nosso bucket (16 MB), o menor dos dois.
+ *
+ * `image/webp` fica fora: para a Meta, webp é figurinha, e a foto chegaria
+ * como sticker sem legenda. Áudio `audio/ogg` só com opus, o que o navegador
+ * não garante; áudio fica restrito a mp3, m4a, aac e amr.
+ */
+export const WHATSAPP_ENVIO: Record<string, { tipo: WhatsappTipoDeEnvio; maxBytes: number }> = {
+  'image/jpeg': { tipo: 'image', maxBytes: 5 * 1024 * 1024 },
+  'image/png': { tipo: 'image', maxBytes: 5 * 1024 * 1024 },
+  'video/mp4': { tipo: 'video', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'video/3gpp': { tipo: 'video', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'audio/mpeg': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'audio/mp4': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'audio/aac': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'audio/amr': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/pdf': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'text/plain': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/msword': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/vnd.ms-excel': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/vnd.ms-powerpoint': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+}
+
+/** Legenda: o limite da Meta para foto, vídeo e documento. */
+export const WHATSAPP_LEGENDA_MAX = 1024
+
+/** O arquivo pode ser mandado? `null` = pode; senão, a frase para a tela. */
+export function problemaNoAnexo(mime: string, bytes: number): string | null {
+  const regra = WHATSAPP_ENVIO[mimeBase(mime)]
+  if (!regra) return 'Este tipo de arquivo não pode ser enviado pelo WhatsApp. Use foto (JPG ou PNG), PDF, documento do Office, vídeo MP4 ou áudio MP3.'
+  if (bytes <= 0) return 'O arquivo está vazio.'
+  if (bytes > regra.maxBytes) return `Arquivo grande demais: o limite para ${regra.tipo === 'image' ? 'foto' : 'este tipo'} é ${Math.round(regra.maxBytes / 1024 / 1024)} MB.`
+  return null
+}
+
+/** Pasta dos arquivos ENVIADOS pelo painel numa conversa. O `out-` separa dos recebidos. */
+export function prefixoDeEnvio(tenantId: string, conversationId: string): string {
+  return `${tenantId}/${conversationId}/out-`
 }
 
 /**

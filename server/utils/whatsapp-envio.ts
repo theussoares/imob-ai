@@ -98,7 +98,13 @@ export async function registrarSaida(
   tenant: { id: string; slug: string },
   userId: string,
   state: Pick<ConversationState, 'id' | 'leadId' | 'firstResponseAt' | 'lastInboundAt'>,
-  msg: { wamid: string; type: 'text' | 'template'; body: string; modelo?: string },
+  msg: {
+    wamid: string
+    type: string
+    body: string | null
+    modelo?: string
+    media?: { id: null; mime: string; filename: string | null; path: string; size?: number }
+  },
 ): Promise<void> {
   const quando = new Date().toISOString()
   await insertMessage(service, tenant.id, {
@@ -111,6 +117,7 @@ export async function registrarSaida(
     status: 'enviada',
     sentBy: userId,
     occurredAt: quando,
+    media: msg.media ?? null,
   })
   await updateConversation(service, tenant.id, state.id, respostaPatch(state, quando, previa(msg.type, msg.body)))
   // Modelo entra na linha do tempo do contato; texto na janela não — a

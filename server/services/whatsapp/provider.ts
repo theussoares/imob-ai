@@ -8,7 +8,7 @@
  * sem tocar em tabela nem em tela (spec 29/09, seção 5).
  */
 
-import type { WhatsappMessageStatus, WhatsappTemplate, WhatsappTemplateCategory } from '~~/shared/models/whatsapp'
+import type { WhatsappMessageStatus, WhatsappTemplate, WhatsappTemplateCategory, WhatsappTipoDeEnvio } from '~~/shared/models/whatsapp'
 
 /** Arquivo anexado. Só o id: o arquivo em si é baixado à parte (`baixarMidia`). */
 export interface MidiaRecebida {
@@ -130,6 +130,21 @@ export interface WhatsappProvider {
    * o tempo da função inteira.
    */
   baixarMidia(c: Conexao, mediaId: string, maxBytes: number, prazoMs: number): Promise<MidiaBaixada>
+  /**
+   * Manda um arquivo que JÁ está no nosso bucket, por link: a Meta busca pela
+   * URL assinada. Assim o arquivo não passa pela função (que na Vercel aceita
+   * no máximo 4,5 MB de corpo).
+   */
+  enviarMidia(c: Conexao, para: string, midia: MidiaParaEnviar): Promise<Enviada>
+}
+
+export interface MidiaParaEnviar {
+  tipo: WhatsappTipoDeEnvio
+  link: string
+  /** Ignorada em áudio: a Meta não aceita legenda nele. */
+  legenda: string | null
+  /** Só em documento: é o nome que o cliente vê. */
+  nomeDoArquivo: string | null
 }
 
 export interface MidiaBaixada {

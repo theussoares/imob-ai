@@ -61,6 +61,8 @@ const icons: Record<string, string> = {
   // Área do Cliente: copiar Pix/código de barras e baixar documento.
   copy: 'tabler:copy',
   download: 'tabler:download',
+  // Conversas: anexar foto ou documento.
+  anexo: 'tabler:paperclip',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

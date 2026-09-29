@@ -132,16 +132,21 @@ describe('webhook com mídia', () => {
 })
 
 describe('retenção', () => {
-  test('mais arquivos que o max_rows do PostgREST: pagina, remove todos, e só então apaga as conversas', async () => {
-    const pagina = (n: number, de: number) => Array.from({ length: n }, (_, i) => ({ media_path: `t1/c1/m${de + i}.jpg` }))
+  test('pela pasta da conversa, paginado: pega também o upload que nunca virou mensagem', async () => {
+    const nomes = (n: number, de: number) => Array.from({ length: n }, (_, k) => ({ name: `out-${de + k}.jpg` }))
     const { client, calls } = fakeSupabase({
-      whatsapp_conversations: [{ data: [{ id: 'c1' }], error: null }, { data: null, error: null }],
-      whatsapp_messages: [{ data: pagina(1000, 0), error: null }, { data: pagina(5, 1000), error: null }],
+      whatsapp_conversations: [{ data: [{ id: 'c1', tenant_id: 't1' }], error: null }, { data: null, error: null }],
     })
+    const listadas: { pasta: string; offset: number }[] = []
+    const paginas = [nomes(1000, 0), nomes(5, 1000)]
     const removidos: string[] = []
     let apagouAntesDeRemover = false
     client.storage = {
       from: () => ({
+        list: async (pasta: string, o: { offset: number }) => {
+          listadas.push({ pasta, offset: o.offset })
+          return { data: paginas.shift() ?? [], error: null }
+        },
         remove: async (p: string[]) => {
           if (calls.some((c) => c.table === 'whatsapp_conversations' && c.method === 'delete')) apagouAntesDeRemover = true
           removidos.push(...p)
@@ -150,17 +155,21 @@ describe('retenção', () => {
       }),
     }
     await purgeOrphanConversations(client, '2026-07-01T00:00:00Z')
+    expect(listadas.map((l) => l.pasta)).toEqual(['t1/c1', 't1/c1'])
     expect(removidos).toHaveLength(1005)
+    expect(removidos[0]).toBe('t1/c1/out-0.jpg')
     expect(apagouAntesDeRemover).toBe(false)
     expect(calls.some((c) => c.table === 'whatsapp_conversations' && c.method === 'delete')).toBe(true)
   })
 
   test('se a remoção de arquivo falhar, as conversas ficam para o cron de amanhã', async () => {
-    const { client, calls } = fakeSupabase({
-      whatsapp_conversations: [{ data: [{ id: 'c1' }], error: null }],
-      whatsapp_messages: [{ data: [{ media_path: 't1/c1/m.jpg' }], error: null }],
-    })
-    client.storage = { from: () => ({ remove: async () => ({ error: { message: 'storage fora' } }) }) }
+    const { client, calls } = fakeSupabase({ whatsapp_conversations: [{ data: [{ id: 'c1', tenant_id: 't1' }], error: null }] })
+    client.storage = {
+      from: () => ({
+        list: async () => ({ data: [{ name: 'm.jpg' }], error: null }),
+        remove: async () => ({ error: { message: 'storage fora' } }),
+      }),
+    }
     await expect(purgeOrphanConversations(client, '2026-07-01T00:00:00Z')).rejects.toBeTruthy()
     expect(calls.some((c) => c.table === 'whatsapp_conversations' && c.method === 'delete')).toBe(false)
   })

@@ -79,6 +79,10 @@ baixado na primeira vez que a bolha aparece na tela.
   aceita. Se for legítimo, entra em `WHATSAPP_MIDIA_MIMES` e na 0060 juntos
   (o teste confere que batem).
 
+Envio pelo painel: o clipe na conversa aberta. A Meta busca o arquivo por
+uma URL assinada de 1h do nosso bucket. `whatsapp.upload_url_falhou` nos logs =
+o Storage recusou gerar a URL de upload (bucket ausente: aplicar a 0060).
+
 ## 6. Conferir
 
 - Mande uma mensagem para o número: ela aparece em Conversas, e um contato novo
