@@ -3,7 +3,7 @@ import type { Database } from '~~/shared/types/database.types'
 import type { WhatsappTemplateSendInput } from '~~/shared/models/whatsapp'
 import { preencherModelo, previa, problemaNoValor } from '~~/shared/models/whatsapp'
 import type { WhatsappAccountRecord } from '~~/server/mappers/whatsapp.mapper'
-import { getAccountById, getActiveAccount, insertMessage, updateConversation, type ConversationState } from '~~/server/repositories/whatsapp.repository'
+import { getAccountById, getActiveAccount, insertMessage, interromperTriagem, updateConversation, type ConversationState } from '~~/server/repositories/whatsapp.repository'
 import { cloudApi } from '~~/server/services/whatsapp/cloud-api'
 import { ErroDoWhatsapp, type Conexao, type Enviada, type ModeloDaMeta } from '~~/server/services/whatsapp/provider'
 import { registrarEventos } from '~~/server/utils/lead-crm'
@@ -121,6 +121,8 @@ export async function registrarSaida(
     media: msg.media ?? null,
   })
   await updateConversation(service, tenant.id, state.id, respostaPatch(state, quando, previa(msg.type, msg.body)))
+  // Uma pessoa entrou na conversa: o robô da triagem sai.
+  await interromperTriagem(service, tenant.id, state.id)
   // Modelo entra na linha do tempo do contato; texto na janela não — a
   // conversa inteira já está na tela de Conversas, e repetir cada mensagem no
   // histórico o afogaria.

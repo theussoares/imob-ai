@@ -31,6 +31,7 @@ Verificado no código e no banco em 25/09.
 | Tratamento | Dado | Onde fica | Por quanto tempo |
 |---|---|---|---|
 | Formulário de contato e "Quero vender" | nome, telefone, mensagem, imóvel de interesse; no "Quero vender", tipo e bairro do imóvel | `leads` (Supabase, São Paulo) | **Sem prazo.** Fica até a imobiliária apagar |
+| Triagem automática no WhatsApp (0064) | o que procura (comprar/alugar/anunciar), faixa de valor, bairro — respostas a perguntas fixas, sem IA | `whatsapp_conversations.triagem_*` até o fim do fluxo; depois anotação no lead e `leads.lead_type` | como a conversa e o lead |
 | Lead de portal (Canal Pro, 0063) | nome, telefone, mensagem e imóvel repassados pelo Grupo OLX; **não** guarda e-mail, CPF/renda/FGTS do MCMV nem o link da conversa com o robô do portal | `leads` + `portal_lead_receipts` (só ids, contra reenvio) | como o lead do site (24 meses sem andamento) |
 | Anti-abuso dos formulários | hash do IP com sal (sha256), não o IP | `leads.ip_hash` | junto com o lead |
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |

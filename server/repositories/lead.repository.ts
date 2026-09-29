@@ -241,3 +241,18 @@ export async function findAnyLeadByPhones(service: Client, tenantId: string, pho
   if (error) throw error
   return data?.[0]?.id ?? null
 }
+
+/**
+ * Corrige o tipo do lead pela triagem — só se ainda for 'indefinido'. Um tipo
+ * que o corretor (ou o imóvel de origem) já definiu vale mais que um botão.
+ */
+export async function setLeadTypeIfUnknown(service: Client, tenantId: string, leadId: string, leadType: LeadType): Promise<void> {
+  if (leadType === 'indefinido') return
+  const { error } = await service
+    .from('leads')
+    .update({ lead_type: leadType })
+    .eq('tenant_id', tenantId)
+    .eq('id', leadId)
+    .eq('lead_type', 'indefinido')
+  if (error) throw error
+}

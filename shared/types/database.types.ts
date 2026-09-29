@@ -1745,6 +1745,7 @@ export type Database = {
           history_mode: string | null
           history_requested_at: string | null
           history_status: string | null
+          triagem: string
         }
         Insert: {
           access_token_enc?: string | null
@@ -1766,6 +1767,7 @@ export type Database = {
           history_mode?: string | null
           history_requested_at?: string | null
           history_status?: string | null
+          triagem?: string
         }
         Update: {
           access_token_enc?: string | null
@@ -1787,6 +1789,7 @@ export type Database = {
           history_mode?: string | null
           history_requested_at?: string | null
           history_status?: string | null
+          triagem?: string
         }
         Relationships: [
           {
@@ -1888,6 +1891,11 @@ export type Database = {
           wa_id: string
           whatsapp_click_id: string | null
           first_inbound_at: string | null
+          triagem_em: string | null
+          triagem_faixa: string | null
+          triagem_passo: string | null
+          triagem_tentativas: number
+          triagem_tipo: string | null
         }
         Insert: {
           account_id: string
@@ -1907,6 +1915,11 @@ export type Database = {
           wa_id: string
           whatsapp_click_id?: string | null
           first_inbound_at?: string | null
+          triagem_em?: string | null
+          triagem_faixa?: string | null
+          triagem_passo?: string | null
+          triagem_tentativas?: number
+          triagem_tipo?: string | null
         }
         Update: {
           account_id?: string
@@ -1926,6 +1939,11 @@ export type Database = {
           wa_id?: string
           whatsapp_click_id?: string | null
           first_inbound_at?: string | null
+          triagem_em?: string | null
+          triagem_faixa?: string | null
+          triagem_passo?: string | null
+          triagem_tentativas?: number
+          triagem_tipo?: string | null
         }
         Relationships: [
           {

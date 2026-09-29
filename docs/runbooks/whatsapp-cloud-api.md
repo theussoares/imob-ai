@@ -146,3 +146,14 @@ Integrações → Leads → Receber leads no CRM**, com o nome Moradi.
   `PORTAL_LEADS_POR_HORA`), `portal_lead.whatsapp_automatico_falhou`
   (normalmente o modelo ainda em análise).
 - Link vazado: "Gerar um link novo" e colar de novo no Canal Pro.
+
+## 8. Triagem automática (0064)
+
+Conversas → Gerenciar número → "Triagem automática". Desligada por padrão.
+
+- As perguntas usam mensagem interativa (botões e lista), que só pode sair
+  dentro da janela de 24h — como só responde a quem acabou de escrever, a
+  janela está sempre aberta.
+- Log: `whatsapp.triagem_falhou` (normalmente token expirado ou número
+  desconectado). A mensagem do cliente já foi gravada; o corretor só não viu
+  as perguntas saírem.

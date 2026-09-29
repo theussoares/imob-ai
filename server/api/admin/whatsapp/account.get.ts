@@ -12,6 +12,7 @@ export default defineEventHandler(async (event): Promise<WhatsappAccountInfo> =>
   return {
     conectado: Boolean(conta?.accessTokenEnc),
     coexistencia: conta?.coexistencia ?? false,
+    triagem: conta?.triagem ?? 'desligada',
     historico: {
       status: conta?.historyStatus ?? null,
       mode: conta?.historyMode ?? null,

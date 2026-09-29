@@ -4,7 +4,7 @@
  */
 
 export type WhatsappDirection = 'in' | 'out'
-export type WhatsappOrigin = 'contato' | 'painel' | 'app'
+export type WhatsappOrigin = 'contato' | 'painel' | 'app' | 'bot'
 export type WhatsappMessageStatus = 'recebida' | 'enviada' | 'entregue' | 'lida' | 'falhou'
 
 // ---------------------------------------------------------------------------
@@ -48,6 +48,8 @@ export const ACEITE_DO_HISTORICO =
 export interface WhatsappAccountInfo {
   conectado: boolean
   coexistencia: boolean
+  /** Triagem automática (0064). */
+  triagem: 'desligada' | 'fora_do_horario' | 'sempre'
   historico: {
     status: WhatsappHistoryStatus | null
     mode: WhatsappHistoryMode | null

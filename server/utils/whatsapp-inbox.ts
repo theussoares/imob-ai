@@ -8,9 +8,11 @@ import type { WhatsappAccountRecord } from '~~/server/mappers/whatsapp.mapper'
 import type { LoteDoWebhook, MensagemEcoada, MensagemRecebida } from '~~/server/services/whatsapp/provider'
 import type { MidiaPendente } from '~~/server/utils/whatsapp-midia'
 import { registrarContatos, registrarHistorico } from '~~/server/utils/whatsapp-historico'
+import { conduzirTriagem } from '~~/server/utils/whatsapp-triagem'
 import {
   ensureConversation,
   findConversationByWaIds,
+  interromperTriagem,
   incrementUnread,
   insertMessage,
   updateConversation,
@@ -92,6 +94,14 @@ async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, 
 
   await updateConversation(service, conta.tenantId, state.id, patch)
   await incrementUnread(service, conta.tenantId, state.id)
+
+  // Depois de a mensagem e o lead estarem gravados: a triagem responde, mas
+  // nunca é ela que decide se a mensagem entrou.
+  await conduzirTriagem(service, conta, state, m, {
+    conversaNova: state.nova,
+    temImovel: Boolean(patch.property_id ?? state.propertyId),
+    leadId: patch.lead_id ?? state.leadId,
+  })
   return m.midia ? { messageId: nova, conversationId: state.id, mediaId: m.midia.id } : null
 }
 
@@ -111,6 +121,8 @@ async function registrarEco(service: Client, conta: WhatsappAccountRecord, e: Me
   })
   if (!nova) return null
   await updateConversation(service, conta.tenantId, state.id, respostaPatch(state, e.quando, previa(e.tipo, e.texto)))
+  // O corretor respondeu pelo celular: o robô sai da conversa.
+  await interromperTriagem(service, conta.tenantId, state.id)
   return e.midia ? { messageId: nova, conversationId: state.id, mediaId: e.midia.id } : null
 }
 

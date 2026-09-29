@@ -9,6 +9,7 @@
  */
 
 import type { WhatsappMessageStatus, WhatsappTemplate, WhatsappTemplateCategory, WhatsappTipoDeEnvio } from '~~/shared/models/whatsapp'
+import type { MensagemDaTriagem } from '~~/shared/models/triagem'
 
 /** Arquivo anexado. Só o id: o arquivo em si é baixado à parte (`baixarMidia`). */
 export interface MidiaRecebida {
@@ -26,6 +27,8 @@ export interface MensagemRecebida {
   nomeDoPerfil: string | null
   tipo: string
   texto: string | null
+  /** id do botão ou da linha de lista tocada (mensagem interativa ou botão de modelo). */
+  respostaId?: string | null
   midia: MidiaRecebida | null
   /** ISO. */
   quando: string
@@ -164,6 +167,8 @@ export interface WhatsappProvider {
    * no máximo 4,5 MB de corpo).
    */
   enviarMidia(c: Conexao, para: string, midia: MidiaParaEnviar): Promise<Enviada>
+  /** Botões de resposta (até 3) ou lista (até 10 linhas) — só dentro da janela de 24h. */
+  enviarInterativo(c: Conexao, para: string, msg: MensagemDaTriagem): Promise<Enviada>
   /** Ids dos números desta WABA que o token enxerga. */
   numerosDaWaba(c: Conexao): Promise<string[]>
   /**

@@ -111,6 +111,20 @@ resumida na seção 6.
     - Não cria lead, não conta não lida, não é "primeira resposta", não avisa.
     - Mídia antiga fica `pendente` e baixa se alguém abrir.
     - A agenda do app (`smb_app_state_sync`) só dá nome a conversa existente.
+17. **Triagem automática** (0064): três perguntas fixas antes do corretor.
+    - Gerenciar número → "Triagem automática": desligada (padrão), só fora do
+      horário comercial (seg–sex 8h–18h, sáb 8h–12h, Brasília) ou sempre.
+    - Começa só na primeira mensagem ao vivo de conversa nova, sem imóvel
+      identificado e sem resposta humana. Pergunta: o que procura (comprar,
+      alugar, anunciar) → faixa de valor (ou vender/alugar, para quem anuncia)
+      → bairro.
+    - No fim: anotação no histórico do contato e o tipo do lead, se ainda era
+      indefinido. Resposta fora do roteiro repete a pergunta uma vez; na
+      segunda, o robô se despede e deixa para o corretor.
+    - Para de vez quando alguém responde pelo painel ou pelo app, e desiste
+      depois de 2h sem resposta.
+    - Mensagem do robô tem `origin = 'bot'`: não é "primeira resposta", não
+      muda a conversa para "respondida" e não entra no desempenho.
 
 Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 
@@ -129,8 +143,11 @@ Tudo atrás de `tenant_features.feature = 'whatsapp'`.
   botão de gravar (anexar mp3/m4a continua). Converter exigiria um codificador
   de áudio no bundle do painel para um caso que, em 2026, é raro: Chrome 126+,
   Edge e Safari gravam mp4/AAC, e o Firefox grava ogg/opus.
-- **Histórico importado do Coexistence** (até 6 meses). Traz conversa pessoal
-  de quem não é lead, e isso precisa de decisão de LGPD com o cliente antes.
+- **Robô de IA / respostas livres na triagem.** A Meta proíbe chatbot de IA de
+  uso geral na Cloud API desde 15/01/2026, e o que falta à imobiliária
+  pequena é o básico perguntado sempre igual. Fluxo fixo, com botões.
+- **Horário comercial por imobiliária.** Fixo no horário da grande maioria;
+  configurável quando alguém pedir.
 - **Origem `whatsapp` em `leads.source`.** Mesmo motivo da spec do clique: a
   constraint teria de ser recriada, e esta pasta de migrations diverge do
   banco. O lead entra como `outro`; o vínculo é
@@ -218,6 +235,11 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Token secreto na URL dos leads | Assinatura | O Canal Pro não assina nem autentica; é o que a spec dele oferece. |
 | Telefone com lead aberto vira anotação | Card novo | Dois cards = dois corretores ligando para a mesma pessoa. |
 | Tetos por hora e por dia | Sem teto | Com a URL vazada, cada POST seria lead falso e WhatsApp pago pelo número da imobiliária. |
+| Triagem por fluxo fixo | IA conversando | Regra da Meta desde 01/2026; e resposta inventada sobre imóvel é pior que pergunta nenhuma. |
+| Triagem desligada por padrão | Ligada para todos | É mensagem saindo em nome da imobiliária; quem liga é o owner. |
+| Não triar quem veio do botão de um imóvel | Triar toda conversa nova | Essa pessoa já disse o que quer; perguntar "comprar ou alugar?" soa como robô que não leu. |
+| Origem `bot` própria | Contar como `painel` | O desempenho mediria o robô, e a conversa sairia de "esperando" sem ninguém ter respondido. |
+| Desistir na 2ª resposta fora do roteiro e após 2h | Insistir até responder | Quem digita um parágrafo quer uma pessoa; insistir é o que faz o cliente bloquear o número. |
 | Sem cache da lista de modelos | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 

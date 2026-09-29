@@ -9,6 +9,7 @@ import type {
   WhatsappMessageStatus,
   WhatsappOrigin,
 } from '~~/shared/models/whatsapp'
+import type { TriagemModo } from '~~/shared/models/triagem'
 
 type Tables = Database['public']['Tables']
 type AccountRow = Tables['whatsapp_accounts']['Row']
@@ -34,6 +35,7 @@ export interface WhatsappAccountRecord {
   historyMode: WhatsappHistoryMode | null
   historyStatus: WhatsappHistoryStatus | null
   historyRequestedAt: string | null
+  triagem: TriagemModo
 }
 
 export function toWhatsappAccountRecord(row: AccountRow): WhatsappAccountRecord {
@@ -51,6 +53,7 @@ export function toWhatsappAccountRecord(row: AccountRow): WhatsappAccountRecord 
     historyMode: (row.history_mode as WhatsappHistoryMode | null) ?? null,
     historyStatus: (row.history_status as WhatsappHistoryStatus | null) ?? null,
     historyRequestedAt: row.history_requested_at,
+    triagem: (row.triagem as TriagemModo) ?? 'desligada',
   }
 }
 

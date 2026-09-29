@@ -188,7 +188,7 @@ describe('payload da Meta', () => {
     )
     expect(l!.phoneNumberId).toBe('111')
     expect(l!.recebidas).toEqual([
-      { wamid: 'wamid.A', de: '556791234567', nomeDoPerfil: 'Ana', tipo: 'text', texto: 'Oi', midia: null, quando: new Date(1790000000 * 1000).toISOString() },
+      { wamid: 'wamid.A', de: '556791234567', nomeDoPerfil: 'Ana', tipo: 'text', texto: 'Oi', respostaId: null, midia: null, quando: new Date(1790000000 * 1000).toISOString() },
     ])
   })
 

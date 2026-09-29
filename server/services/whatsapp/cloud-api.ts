@@ -64,8 +64,8 @@ interface MetaMensagem {
   timestamp?: string
   type?: string
   text?: MetaTexto
-  button?: { text?: string }
-  interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } }
+  button?: { text?: string; payload?: string }
+  interactive?: { button_reply?: { id?: string; title?: string }; list_reply?: { id?: string; title?: string } }
   image?: MetaArquivo
   video?: MetaArquivo
   document?: MetaArquivo
@@ -163,6 +163,7 @@ export function lotesDoWebhook(payload: unknown): LoteDoWebhook[] {
             nomeDoPerfil: nomes.get(m.from) ?? null,
             tipo: m.type ?? 'unknown',
             texto: textoDe(m),
+            respostaId: m.interactive?.button_reply?.id ?? m.interactive?.list_reply?.id ?? m.button?.payload ?? null,
             midia: midiaDe(m),
             quando: quando(m.timestamp),
           }
@@ -475,6 +476,30 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
         method: 'POST',
         body: { messaging_product: 'whatsapp', sync_type: tipo },
       })
+    },
+
+    async enviarInterativo(c, para, msg) {
+      if (msg.tipo === 'texto') return this.enviarTexto(c, para, msg.corpo)
+      const interactive =
+        msg.tipo === 'botoes'
+          ? {
+              type: 'button',
+              body: { text: msg.corpo },
+              action: { buttons: msg.botoes.slice(0, 3).map((b) => ({ type: 'reply', reply: { id: b.id, title: b.titulo.slice(0, 20) } })) },
+            }
+          : {
+              type: 'list',
+              body: { text: msg.corpo },
+              action: {
+                button: msg.botao.slice(0, 20),
+                sections: [{ title: 'Opções', rows: msg.linhas.slice(0, 10).map((l) => ({ id: l.id, title: l.titulo.slice(0, 24) })) }],
+              },
+            }
+      const r = await chamar<Resposta>(f, c, `/${encodeURIComponent(c.phoneNumberId)}/messages`, {
+        method: 'POST',
+        body: { messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: 'interactive', interactive },
+      })
+      return enviada(r)
     },
 
     async criarModelo(c, m) {

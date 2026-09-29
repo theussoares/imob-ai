@@ -23,6 +23,7 @@ import {
   toWhatsappFiltro,
 } from "~~/shared/models/whatsapp";
 import { formatWhatsapp } from "~~/shared/utils/phone";
+import { TRIAGEM_MODOS, TRIAGEM_MODO_LABELS, type TriagemModo } from "~~/shared/models/triagem";
 import { formatPropertyCode } from "~~/shared/utils/property-specs";
 
 /**
@@ -89,6 +90,21 @@ async function conectarPeloFacebook() {
     toast.error(e instanceof Error && !(e as { data?: unknown }).data ? e.message : friendlyErrorMessage(e, "Não foi possível conectar o número."));
   } finally {
     conectandoFb.value = false;
+  }
+}
+
+// ---- Triagem automática ----
+const salvandoTriagem = ref(false);
+async function mudarTriagem(modo: TriagemModo) {
+  salvandoTriagem.value = true;
+  try {
+    await adminFetch("/api/admin/whatsapp/triagem", { method: "PUT", body: { modo } });
+    toast.success(modo === "desligada" ? "Triagem desligada." : `Triagem: ${TRIAGEM_MODO_LABELS[modo].toLowerCase()}.`);
+    await recarregarConta();
+  } catch (e) {
+    toast.error(friendlyErrorMessage(e, "Não foi possível mudar a triagem."));
+  } finally {
+    salvandoTriagem.value = false;
   }
 }
 
@@ -689,7 +705,8 @@ onBeforeUnmount(async () => {
               <p v-if="!m.mediaStatus || m.body" class="msg-txt" :class="{ midia: !m.body }">{{ textoDaMensagem(m.type, m.body) }}</p>
               <span class="msg-meta">
                 <time :datetime="m.occurredAt">{{ horaDaMensagem(m.occurredAt) }}</time>
-                <template v-if="m.imported"> · do histórico do celular</template>
+                <template v-if="m.origin === 'bot'"> · triagem automática</template>
+                <template v-else-if="m.imported"> · do histórico do celular</template>
                 <template v-else-if="m.origin === 'app'"> · pelo celular</template>
                 <template v-if="m.direction === 'out' && STATUS_ROTULO[m.status]">
                   · <span :class="{ falhou: m.status === 'falhou' }">{{ STATUS_ROTULO[m.status] }}</span>
@@ -812,6 +829,18 @@ onBeforeUnmount(async () => {
 
     <details v-if="conta?.conectado" class="gerenciar">
       <summary>Gerenciar número</summary>
+      <fieldset class="triagem">
+        <legend class="admin-label">Triagem automática</legend>
+        <p class="estado-d">
+          Em conversa nova, sem imóvel identificado, o WhatsApp pergunta com botões se a pessoa quer comprar, alugar ou
+          anunciar, a faixa de valor e o bairro — e as respostas vão para o contato no funil. Para na hora em que alguém da
+          equipe responde. Não é inteligência artificial: são sempre as mesmas três perguntas.
+        </p>
+        <label v-for="m in TRIAGEM_MODOS" :key="m" class="triagem-op">
+          <input type="radio" name="triagem" :value="m" :checked="conta.triagem === m" :disabled="salvandoTriagem" @change="mudarTriagem(m)" />
+          <span>{{ TRIAGEM_MODO_LABELS[m] }}<template v-if="m === 'fora_do_horario'"> (seg a sex 8h–18h, sáb 8h–12h)</template></span>
+        </label>
+      </fieldset>
       <p class="estado-d">
         Desconectar apaga o token daqui. As conversas continuam no painel, mas nenhuma mensagem nova entra nem sai.
       </p>
@@ -1533,6 +1562,20 @@ onBeforeUnmount(async () => {
   cursor: pointer;
   color: var(--ink-soft);
   min-height: 24px;
+}
+.triagem {
+  border: 0;
+  margin: 10px 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.triagem-op {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  cursor: pointer;
 }
 .gerenciar .estado-d {
   margin: 8px 0;

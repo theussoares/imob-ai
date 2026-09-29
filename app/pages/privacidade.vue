@@ -113,6 +113,14 @@ useHead(() => ({
       ficam guardados, em área restrita à equipe de {{ nome }}, junto com a
       conversa e pelo mesmo prazo. Arquivos acima de 16 MB não são guardados.
     </p>
+    <!-- Triagem automática (0064): perguntas fixas, sem IA. -->
+    <p>
+      {{ nome }} pode usar uma triagem automática no WhatsApp: três perguntas
+      fixas, com botões, sobre o que você procura (comprar, alugar ou
+      anunciar), a faixa de valor e o bairro. Não é inteligência artificial, e
+      você pode responder direto por texto, se preferir. As respostas ficam no
+      seu pedido de contato, pelo mesmo prazo.
+    </p>
     <p>
       Se {{ nome }} já conversava com você pelo app WhatsApp Business do
       celular, ela pode decidir trazer para o painel as conversas dos últimos

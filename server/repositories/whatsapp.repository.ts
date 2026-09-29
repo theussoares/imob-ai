@@ -11,6 +11,7 @@ import type {
   WhatsappMessageStatus,
   WhatsappOrigin,
 } from '~~/shared/models/whatsapp'
+import { PASSOS_ATIVOS, type EstadoDaTriagem, type TriagemModo, type TriagemPasso, type TriagemTipo } from '~~/shared/models/triagem'
 import {
   toWhatsappAccountRecord,
   toWhatsappConversationModel,
@@ -34,7 +35,7 @@ type Client = SupabaseClient<Database>
 // ---------------------------------------------------------------------------
 
 const ACCOUNT_COLUMNS =
-  'id, tenant_id, phone_number_id, waba_id, display_phone, verified_name, access_token_enc, status, provider, created_at, created_by, updated_at, coexistence, connected_at, history_mode, history_status, history_requested_at, history_consent_by, history_consent_at'
+  'id, tenant_id, phone_number_id, waba_id, display_phone, verified_name, access_token_enc, status, provider, created_at, created_by, updated_at, coexistence, connected_at, history_mode, history_status, history_requested_at, history_consent_by, history_consent_at, triagem'
 
 /**
  * De quem é este número? A ÚNICA leitura sem `tenant_id` do arquivo, e é de
@@ -158,6 +159,8 @@ export interface ConversationState {
   lastMessageAt: string
   contactName: string | null
   firstInboundAt: string | null
+  propertyId: string | null
+  triagem: EstadoDaTriagem & { em: string | null }
   firstResponseAt: string | null
   unreadCount: number
   waId: string
@@ -171,6 +174,12 @@ function toState(r: {
   last_message_at: string
   contact_name: string | null
   first_inbound_at: string | null
+  property_id: string | null
+  triagem_passo: string | null
+  triagem_tipo: string | null
+  triagem_faixa: string | null
+  triagem_tentativas: number
+  triagem_em: string | null
   first_response_at: string | null
   unread_count: number
   wa_id: string
@@ -183,6 +192,14 @@ function toState(r: {
     lastMessageAt: r.last_message_at,
     contactName: r.contact_name,
     firstInboundAt: r.first_inbound_at,
+    propertyId: r.property_id,
+    triagem: {
+      passo: (r.triagem_passo as TriagemPasso | null) ?? null,
+      tipo: (r.triagem_tipo as TriagemTipo | null) ?? null,
+      faixa: r.triagem_faixa,
+      tentativas: r.triagem_tentativas,
+      em: r.triagem_em,
+    },
     firstResponseAt: r.first_response_at,
     unreadCount: r.unread_count,
     waId: r.wa_id,
@@ -190,7 +207,8 @@ function toState(r: {
   }
 }
 
-const STATE_COLUMNS = 'id, lead_id, last_inbound_at, last_message_at, contact_name, first_inbound_at, first_response_at, unread_count, wa_id, account_id'
+const STATE_COLUMNS =
+  'id, lead_id, last_inbound_at, last_message_at, contact_name, first_inbound_at, property_id, triagem_passo, triagem_tipo, triagem_faixa, triagem_tentativas, triagem_em, first_response_at, unread_count, wa_id, account_id'
 
 export async function findConversation(service: Client, tenantId: string, accountId: string, waId: string): Promise<ConversationState | null> {
   const { data, error } = await service
@@ -430,6 +448,64 @@ export async function purgeOrphanConversations(service: Client, antesDe: string)
 // ---------------------------------------------------------------------------
 // Mensagem
 // ---------------------------------------------------------------------------
+
+export async function setTriagemModo(service: Client, tenantId: string, accountId: string, modo: TriagemModo): Promise<void> {
+  const { error } = await service.from('whatsapp_accounts').update({ triagem: modo }).eq('tenant_id', tenantId).eq('id', accountId)
+  if (error) throw error
+}
+
+/**
+ * Avança a triagem SÓ se ela ainda está onde o webhook a leu — devolve se
+ * conseguiu. Quem conseguir envia; quem não conseguir não manda nada.
+ *
+ * Sem a condição, duas mensagens em webhooks paralelos ("oi" e "vi o
+ * anúncio") mandavam a saudação duas vezes, e o webhook que gravasse por
+ * último podia desfazer um `interrompida` do corretor — o robô voltava a
+ * falar por cima dele na mensagem seguinte. A reserva vem ANTES do envio pelo
+ * mesmo motivo: o que sai pela Meta não dá para desfazer.
+ */
+export async function salvarTriagem(
+  service: Client,
+  tenantId: string,
+  conversationId: string,
+  antes: Pick<EstadoDaTriagem, 'passo' | 'tentativas'>,
+  depois: EstadoDaTriagem,
+): Promise<boolean> {
+  const q = service
+    .from('whatsapp_conversations')
+    .update({
+      triagem_passo: depois.passo,
+      triagem_tipo: depois.tipo,
+      triagem_faixa: depois.faixa,
+      triagem_tentativas: depois.tentativas,
+      triagem_em: new Date().toISOString(),
+    })
+    .eq('tenant_id', tenantId)
+    .eq('id', conversationId)
+    .eq('triagem_tentativas', antes.tentativas)
+  const { data, error } = await (antes.passo === null ? q.is('triagem_passo', null) : q.eq('triagem_passo', antes.passo)).select('id')
+  if (error) throw error
+  return (data ?? []).length > 0
+}
+
+/**
+ * Para a triagem porque uma PESSOA entrou na conversa (painel ou celular).
+ *
+ * Inclui o passo `null`: o corretor que responde enquanto o webhook da
+ * primeira mensagem ainda está na roleta tem que impedir a saudação de sair
+ * depois dele — e a reserva de `salvarTriagem` espera `null`, então perde.
+ * Não reescreve 'concluida': o registro de que a triagem terminou vale mais
+ * que o de que alguém respondeu depois.
+ */
+export async function interromperTriagem(service: Client, tenantId: string, conversationId: string): Promise<void> {
+  const { error } = await service
+    .from('whatsapp_conversations')
+    .update({ triagem_passo: 'interrompida' })
+    .eq('tenant_id', tenantId)
+    .eq('id', conversationId)
+    .or(`triagem_passo.is.null,triagem_passo.in.(${PASSOS_ATIVOS.join(',')})`)
+  if (error) throw error
+}
 
 /** Registra o aceite e o pedido do histórico. */
 export async function markHistoryRequested(
