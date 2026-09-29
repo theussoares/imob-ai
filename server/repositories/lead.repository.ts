@@ -226,3 +226,18 @@ export async function getLeadContact(client: Client, tenantId: string, id: strin
   if (error) throw error
   return data ? { id: data.id, name: data.name, phone: data.phone } : null
 }
+
+/**
+ * Algum lead, em qualquer etapa, com um destes telefones — o critério de "já é
+ * contato no funil" da importação do histórico (0061). Diferente de
+ * `findOpenLeadByPhones`: aqui fechado e perdido contam, porque a pergunta é
+ * "esta pessoa é cliente?", não "este atendimento está aberto?".
+ */
+export async function findAnyLeadByPhones(service: Client, tenantId: string, phones: string[], criadoAntesDe: string | null): Promise<string | null> {
+  if (!phones.length) return null
+  let q = service.from('leads').select('id').eq('tenant_id', tenantId).in('phone', phones)
+  if (criadoAntesDe) q = q.lt('created_at', criadoAntesDe)
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(1)
+  if (error) throw error
+  return data?.[0]?.id ?? null
+}

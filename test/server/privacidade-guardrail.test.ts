@@ -154,7 +154,7 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       // 16 MB, pelo prazo da conversa).
       whatsapp_messages: [
         'body', 'conversation_id', 'direction', 'media_filename', 'media_id', 'media_mime', 'media_path', 'media_size', 'media_status',
-        'occurred_at', 'origin', 'sent_by', 'status', 'tenant_id', 'type', 'wamid',
+        'imported', 'occurred_at', 'origin', 'sent_by', 'status', 'tenant_id', 'type', 'wamid',
       ].sort(),
     })
   })

@@ -7,6 +7,7 @@ import { formatPropertyCode } from '~~/shared/utils/property-specs'
 import type { WhatsappAccountRecord } from '~~/server/mappers/whatsapp.mapper'
 import type { LoteDoWebhook, MensagemEcoada, MensagemRecebida } from '~~/server/services/whatsapp/provider'
 import type { MidiaPendente } from '~~/server/utils/whatsapp-midia'
+import { registrarContatos, registrarHistorico } from '~~/server/utils/whatsapp-historico'
 import {
   ensureConversation,
   findConversationByWaIds,
@@ -49,6 +50,8 @@ export async function processarLoteWhatsapp(service: Client, conta: WhatsappAcco
     if (p) midias.push(p)
   }
   for (const s of lote.status) await updateMessageStatus(service, conta.tenantId, s.wamid, s.status, s.erro)
+  if (lote.historico?.length) await registrarHistorico(service, conta, lote.historico)
+  if (lote.contatos?.length) await registrarContatos(service, conta, lote.contatos)
   // Devolvidas, e não baixadas aqui: o download vem DEPOIS de todas as
   // mensagens gravadas, para uma foto lenta não atrasar o texto que veio junto.
   return midias
@@ -118,11 +121,12 @@ export async function conversaDoContato(
   conta: Pick<WhatsappAccountRecord, 'id' | 'tenantId'>,
   waId: string,
   nome: string | null,
-): Promise<ConversationState> {
+): Promise<ConversationState & { nova: boolean }> {
   const formas = [...new Set([waId, ...telefonesDoWaId(waId).map((t) => '55' + t)])]
   const existente = await findConversationByWaIds(service, conta.tenantId, conta.id, formas)
-  if (existente) return existente
-  return (await ensureConversation(service, conta.tenantId, conta.id, waId, nome)).state
+  if (existente) return { ...existente, nova: false }
+  const { state, nova } = await ensureConversation(service, conta.tenantId, conta.id, waId, nome)
+  return { ...state, nova }
 }
 
 /**

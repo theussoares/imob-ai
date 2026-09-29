@@ -7,9 +7,54 @@ export type WhatsappDirection = 'in' | 'out'
 export type WhatsappOrigin = 'contato' | 'painel' | 'app'
 export type WhatsappMessageStatus = 'recebida' | 'enviada' | 'entregue' | 'lida' | 'falhou'
 
+// ---------------------------------------------------------------------------
+// Histórico do Coexistence (0061)
+// ---------------------------------------------------------------------------
+
+export type WhatsappHistoryMode = 'so_leads' | 'tudo'
+export type WhatsappHistoryStatus = 'solicitado' | 'recebendo' | 'concluido' | 'recusado' | 'falhou'
+
+export const WHATSAPP_HISTORY_MODE_LABELS: Record<WhatsappHistoryMode, string> = {
+  so_leads: 'Só as conversas de quem já é contato no funil',
+  tudo: 'Todas as conversas',
+}
+
+export const WHATSAPP_HISTORY_STATUS_LABELS: Record<WhatsappHistoryStatus, string> = {
+  solicitado: 'Pedido à Meta — o histórico chega em alguns minutos',
+  recebendo: 'Recebendo o histórico',
+  concluido: 'Histórico importado',
+  recusado: 'O compartilhamento de histórico foi recusado no app do celular',
+  falhou: 'A Meta não aceitou o pedido',
+}
+
+/** A Meta só entrega o histórico se pedido até 24h depois da conexão. */
+export const PRAZO_DO_HISTORICO_MS = 24 * 60 * 60 * 1000
+
+export function podePedirHistorico(
+  c: { coexistencia: boolean; connectedAt: string | null; historyStatus: WhatsappHistoryStatus | null },
+  agora: Date,
+): boolean {
+  if (!c.coexistencia || !c.connectedAt) return false
+  // 'falhou' pode tentar de novo dentro do prazo; o resto já foi decidido.
+  if (c.historyStatus && c.historyStatus !== 'falhou') return false
+  return agora.getTime() - Date.parse(c.connectedAt) < PRAZO_DO_HISTORICO_MS
+}
+
+/** O texto do aceite. O mesmo que a tela mostra é o que o servidor exige de volta. */
+export const ACEITE_DO_HISTORICO =
+  'Entendo que a imobiliária é a responsável (controladora) por estes dados e que o histórico pode conter conversas pessoais.'
+
 /** O que o painel sabe do número conectado. Nunca o token. */
 export interface WhatsappAccountInfo {
   conectado: boolean
+  coexistencia: boolean
+  historico: {
+    status: WhatsappHistoryStatus | null
+    mode: WhatsappHistoryMode | null
+    podePedir: boolean
+    /** ISO: até quando a Meta aceita o pedido. */
+    prazo: string | null
+  }
   displayPhone: string | null
   verifiedName: string | null
   phoneNumberId: string | null
@@ -61,6 +106,8 @@ export interface WhatsappMessage {
   mediaStatus: WhatsappMediaStatus | null
   mediaMime: string | null
   mediaFilename: string | null
+  /** Veio do histórico do app, não chegou ao vivo. */
+  imported: boolean
 }
 
 /** Tipos de mensagem que carregam arquivo. */

@@ -78,8 +78,15 @@ interface MetaStatus {
   status?: string
   errors?: { code?: number; title?: string; message?: string }[]
 }
+interface MetaHistorico {
+  metadata?: { progress?: number }
+  errors?: { code?: number }[]
+  threads?: { id?: string; messages?: MetaMensagem[] }[]
+}
 interface MetaValor {
   metadata?: { phone_number_id?: string }
+  history?: MetaHistorico[]
+  state_sync?: { type?: string; action?: string; contact?: { full_name?: string; first_name?: string; phone_number?: string } }[]
   contacts?: { wa_id?: string; profile?: { name?: string } }[]
   messages?: MetaMensagem[]
   message_echoes?: MetaMensagem[]
@@ -171,6 +178,40 @@ export function lotesDoWebhook(payload: unknown): LoteDoWebhook[] {
             erro: e ? [e.code, e.title ?? e.message].filter(Boolean).join(' — ') : null,
           }
           lote(numero).status.push(mudanca)
+        }
+      } else if (change.field === 'history') {
+        const l = lote(numero)
+        l.historico ??= []
+        for (const h of v.history ?? []) {
+          // 2593109: o compartilhamento de histórico está desligado no app.
+          const recusado = (h.errors ?? []).some((e) => e.code === 2593109)
+          const conversas = (h.threads ?? [])
+            .filter((t) => t.id)
+            .map((t) => ({
+              waId: t.id!,
+              mensagens: (t.messages ?? [])
+                .filter((m) => m.id)
+                .map((m) => ({
+                  wamid: m.id!,
+                  // No histórico o contato é o dono da "thread": o que veio
+                  // dele é entrada; o resto saiu do app da imobiliária.
+                  doContato: m.from === t.id,
+                  tipo: m.type ?? 'unknown',
+                  texto: textoDe(m),
+                  midia: midiaDe(m),
+                  quando: quando(m.timestamp),
+                })),
+            }))
+          const progresso = typeof h.metadata?.progress === 'number' ? h.metadata.progress : null
+          l.historico.push({ progresso, recusado, conversas })
+        }
+      } else if (change.field === 'smb_app_state_sync') {
+        const l = lote(numero)
+        l.contatos ??= []
+        for (const e of v.state_sync ?? []) {
+          const tel = e.contact?.phone_number?.replace(/\D/g, '')
+          const nome = (e.contact?.full_name || e.contact?.first_name || '').trim()
+          if (e.type === 'contact' && e.action !== 'remove' && tel && nome) l.contatos.push({ waId: tel, nome: nome.slice(0, 120) })
         }
       } else if (change.field === 'smb_message_echoes') {
         for (const m of v.message_echoes ?? []) {
@@ -426,6 +467,13 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
       await chamar(f, c, `/${encodeURIComponent(c.phoneNumberId)}/register`, {
         method: 'POST',
         body: { messaging_product: 'whatsapp', pin },
+      })
+    },
+
+    async pedirSincronizacao(c, tipo) {
+      await chamar(f, c, `/${encodeURIComponent(c.phoneNumberId)}/smb_app_data`, {
+        method: 'POST',
+        body: { messaging_product: 'whatsapp', sync_type: tipo },
       })
     },
 

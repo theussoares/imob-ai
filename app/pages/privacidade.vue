@@ -103,6 +103,12 @@ useHead(() => ({
       ficam guardados, em área restrita à equipe de {{ nome }}, junto com a
       conversa e pelo mesmo prazo. Arquivos acima de 16 MB não são guardados.
     </p>
+    <p>
+      Se {{ nome }} já conversava com você pelo app WhatsApp Business do
+      celular, ela pode decidir trazer para o painel as conversas dos últimos
+      6 meses. Por padrão, só as de quem já pediu contato; essas conversas não
+      geram aviso nem mensagem nova para você.
+    </p>
 
     <h3>Proteção contra abuso</h3>
     <p>

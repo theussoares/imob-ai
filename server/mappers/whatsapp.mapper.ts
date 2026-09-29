@@ -2,6 +2,8 @@ import type { Database } from '~~/shared/types/database.types'
 import type {
   WhatsappConversation,
   WhatsappDirection,
+  WhatsappHistoryMode,
+  WhatsappHistoryStatus,
   WhatsappMessage,
   WhatsappMediaStatus,
   WhatsappMessageStatus,
@@ -27,6 +29,11 @@ export interface WhatsappAccountRecord {
   verifiedName: string | null
   accessTokenEnc: string | null
   ativo: boolean
+  coexistencia: boolean
+  connectedAt: string | null
+  historyMode: WhatsappHistoryMode | null
+  historyStatus: WhatsappHistoryStatus | null
+  historyRequestedAt: string | null
 }
 
 export function toWhatsappAccountRecord(row: AccountRow): WhatsappAccountRecord {
@@ -39,6 +46,11 @@ export function toWhatsappAccountRecord(row: AccountRow): WhatsappAccountRecord 
     verifiedName: row.verified_name,
     accessTokenEnc: row.access_token_enc,
     ativo: row.status === 'ativo',
+    coexistencia: row.coexistence,
+    connectedAt: row.connected_at,
+    historyMode: (row.history_mode as WhatsappHistoryMode | null) ?? null,
+    historyStatus: (row.history_status as WhatsappHistoryStatus | null) ?? null,
+    historyRequestedAt: row.history_requested_at,
   }
 }
 
@@ -83,5 +95,6 @@ export function toWhatsappMessageModel(row: MessageRow): WhatsappMessage {
     mediaStatus: (row.media_status as WhatsappMediaStatus | null) ?? null,
     mediaMime: row.media_mime,
     mediaFilename: row.media_filename,
+    imported: row.imported,
   }
 }

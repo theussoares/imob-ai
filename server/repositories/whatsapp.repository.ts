@@ -4,6 +4,8 @@ import type {
   WhatsappConversation,
   WhatsappDirection,
   WhatsappFiltro,
+  WhatsappHistoryMode,
+  WhatsappHistoryStatus,
   WhatsappMessage,
   WhatsappMessageStatus,
   WhatsappOrigin,
@@ -30,7 +32,8 @@ type Client = SupabaseClient<Database>
 // Número conectado
 // ---------------------------------------------------------------------------
 
-const ACCOUNT_COLUMNS = 'id, tenant_id, phone_number_id, waba_id, display_phone, verified_name, access_token_enc, status, provider, created_at, created_by, updated_at'
+const ACCOUNT_COLUMNS =
+  'id, tenant_id, phone_number_id, waba_id, display_phone, verified_name, access_token_enc, status, provider, created_at, created_by, updated_at, coexistence, connected_at, history_mode, history_status, history_requested_at, history_consent_by, history_consent_at'
 
 /**
  * De quem é este número? A ÚNICA leitura sem `tenant_id` do arquivo, e é de
@@ -79,6 +82,8 @@ export interface SaveAccountArgs {
   verifiedName: string | null
   accessTokenEnc: string
   userId: string
+  /** Número do app WhatsApp Business (Embedded Signup com Coexistence). */
+  coexistencia?: boolean
 }
 
 /**
@@ -107,6 +112,15 @@ export async function saveAccount(service: Client, tenantId: string, args: SaveA
     verified_name: args.verifiedName,
     access_token_enc: args.accessTokenEnc,
     status: 'ativo',
+    coexistence: args.coexistencia ?? false,
+    // Reconectar recomeça o prazo de 24h do histórico e esquece o pedido
+    // anterior: é outra conexão, e a Meta trata assim.
+    connected_at: new Date().toISOString(),
+    history_mode: null,
+    history_status: null,
+    history_requested_at: null,
+    history_consent_by: null,
+    history_consent_at: null,
   }
   if (existente) {
     const { error } = await service.from('whatsapp_accounts').update(campos).eq('tenant_id', tenantId).eq('id', existente.id)
@@ -140,6 +154,8 @@ export interface ConversationState {
   id: string
   leadId: string | null
   lastInboundAt: string | null
+  lastMessageAt: string
+  contactName: string | null
   firstResponseAt: string | null
   unreadCount: number
   waId: string
@@ -150,6 +166,8 @@ function toState(r: {
   id: string
   lead_id: string | null
   last_inbound_at: string | null
+  last_message_at: string
+  contact_name: string | null
   first_response_at: string | null
   unread_count: number
   wa_id: string
@@ -159,6 +177,8 @@ function toState(r: {
     id: r.id,
     leadId: r.lead_id,
     lastInboundAt: r.last_inbound_at,
+    lastMessageAt: r.last_message_at,
+    contactName: r.contact_name,
     firstResponseAt: r.first_response_at,
     unreadCount: r.unread_count,
     waId: r.wa_id,
@@ -166,7 +186,7 @@ function toState(r: {
   }
 }
 
-const STATE_COLUMNS = 'id, lead_id, last_inbound_at, first_response_at, unread_count, wa_id, account_id'
+const STATE_COLUMNS = 'id, lead_id, last_inbound_at, last_message_at, contact_name, first_response_at, unread_count, wa_id, account_id'
 
 export async function findConversation(service: Client, tenantId: string, accountId: string, waId: string): Promise<ConversationState | null> {
   const { data, error } = await service
@@ -368,6 +388,27 @@ export async function purgeOrphanConversations(service: Client, antesDe: string)
 // Mensagem
 // ---------------------------------------------------------------------------
 
+/** Registra o aceite e o pedido do histórico. */
+export async function markHistoryRequested(
+  service: Client,
+  tenantId: string,
+  accountId: string,
+  a: { mode: WhatsappHistoryMode; userId: string; status: WhatsappHistoryStatus },
+): Promise<void> {
+  const agora = new Date().toISOString()
+  const { error } = await service
+    .from('whatsapp_accounts')
+    .update({ history_mode: a.mode, history_status: a.status, history_requested_at: agora, history_consent_by: a.userId, history_consent_at: agora })
+    .eq('tenant_id', tenantId)
+    .eq('id', accountId)
+  if (error) throw error
+}
+
+export async function setHistoryStatus(service: Client, tenantId: string, accountId: string, status: WhatsappHistoryStatus): Promise<void> {
+  const { error } = await service.from('whatsapp_accounts').update({ history_status: status }).eq('tenant_id', tenantId).eq('id', accountId)
+  if (error) throw error
+}
+
 export interface InsertMessageArgs {
   conversationId: string
   wamid: string | null
@@ -378,6 +419,8 @@ export interface InsertMessageArgs {
   status: WhatsappMessageStatus
   sentBy: string | null
   occurredAt: string
+  /** Veio do histórico do Coexistence. */
+  imported?: boolean
   /**
    * Recebida: `id` da Meta e o arquivo ainda a baixar (`pendente`).
    * Enviada pelo painel: já está no bucket (`path`), sem id da Meta.
@@ -408,6 +451,7 @@ export async function insertMessage(service: Client, tenantId: string, a: Insert
     media_path: a.media?.path ?? null,
     media_size: a.media?.size ?? null,
     media_status: a.media ? (a.media.path ? 'salva' : 'pendente') : null,
+    imported: a.imported ?? false,
   }).select('id').single()
   if (!error) return data.id
   if ((error as { code?: string }).code === '23505') return null
@@ -491,7 +535,7 @@ export async function updateMessageStatus(
 export async function listMessages(client: Client, tenantId: string, conversationId: string): Promise<WhatsappMessage[]> {
   const { data, error } = await client
     .from('whatsapp_messages')
-    .select('id, direction, origin, type, body, status, error, occurred_at, tenant_id, conversation_id, wamid, sent_by, created_at, media_id, media_mime, media_filename, media_path, media_size, media_status')
+    .select('id, direction, origin, type, body, status, error, occurred_at, tenant_id, conversation_id, wamid, sent_by, created_at, media_id, media_mime, media_filename, media_path, media_size, media_status, imported')
     .eq('tenant_id', tenantId)
     .eq('conversation_id', conversationId)
     .order('occurred_at', { ascending: false })

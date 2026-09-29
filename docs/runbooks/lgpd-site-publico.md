@@ -68,7 +68,8 @@ partida dele, não o ponto final.
 | E-mail de aviso à imobiliária | **art. 7º, V** | É o próprio atendimento do pedido |
 | Anti-abuso (hash de IP) | **art. 7º, IX** | Legítimo interesse em segurança do formulário. Passa no teste do art. 10: finalidade legítima e concreta (barrar envio em massa), necessidade (sem isso não há limite por origem), expectativa razoável do titular, dado pseudonimizado |
 | Clique no WhatsApp | **art. 7º, IX** | Legítimo interesse em saber de qual imóvel veio a conversa. Não identifica quem clicou; 90 dias de retenção |
-| Conversas do WhatsApp | **art. 7º, V** | O titular escreveu para a imobiliária pedindo atendimento: o mesmo procedimento preliminar do formulário, por outro canal. O histórico importado do Coexistence (até 6 meses de conversas, inclusive pessoais) fica **fora** até haver decisão com a imobiliária, que é a controladora |
+| Conversas do WhatsApp | **art. 7º, V** | O titular escreveu para a imobiliária pedindo atendimento: o mesmo procedimento preliminar do formulário, por outro canal |
+| Histórico importado do app (Coexistence, 0061) | **art. 7º, V** para quem é contato no funil; **art. 7º, IX** no modo "todas" | Decisão do owner da imobiliária (controladora), com o texto do aceite gravado (`history_consent_by/_at`). Padrão `so_leads`: só telefones que já são lead. No modo "todas", entra conversa pessoal — legítimo interesse fraco, por isso a retenção de 90 dias da conversa sem lead vale aqui também, e na prática apaga no dia seguinte o que for mais antigo que isso. A agenda do app só nomeia conversa que já existe; nenhum contato vira linha |
 | Estatísticas de visita | **art. 7º, IX** | O Guia de Cookies da ANPD admite legítimo interesse para medição de audiência. Aqui nem há cookie |
 
 **Posição:** confirmadas. **Risco residual:** baixo. **Ação:** o art. 10, §2º

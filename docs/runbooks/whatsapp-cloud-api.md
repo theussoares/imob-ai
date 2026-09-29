@@ -21,8 +21,9 @@ dias a ~2 semanas. Comece por ela.
    - URL de callback: `https://<painel>/api/webhooks/whatsapp` (a tela de
      conexão no painel mostra o endereço exato, com botão de copiar);
    - token de verificação: o mesmo de `NUXT_WHATSAPP_VERIFY_TOKEN`;
-   - campos assinados: **`messages`** e **`smb_message_echoes`** (o segundo é
-     o que registra as respostas dadas pelo celular no Coexistence).
+   - campos assinados: **`messages`**, **`smb_message_echoes`** (respostas
+     dadas pelo celular no Coexistence), **`history`** e
+     **`smb_app_state_sync`** (importação do histórico, 0061).
 5. **Tech Provider + App Review** das permissões `whatsapp_business_messaging`
    e `whatsapp_business_management`. Destrava o Embedded Signup (F1). Os vídeos
    do review podem ser gravados com o número de teste do próprio app.
@@ -65,7 +66,12 @@ logs: `whatsapp.embedded_signup_recusado` (a Meta recusou, a frase dela vai
 para a tela) e `whatsapp.embedded_signup_numero_fora_da_waba` (ids que não
 batem — se repetir, investigar).
 
-O histórico de 6 meses do Coexistence NÃO é importado (decisão de LGPD na spec).
+**Histórico (Coexistence, 0061).** Nas 24h depois da conexão, Conversas mostra
+"Trazer as conversas do celular?". Só o owner, com aceite; o padrão importa só
+quem já é contato no funil. As conversas chegam em pedaços por webhook (campo
+**`history`** e **`smb_app_state_sync`** — assine os dois no app da Meta). Se no
+celular o compartilhamento de histórico foi recusado durante o QR, o status
+vira "recusado" e não há o que fazer além de reconectar.
 
 ## 3b. Conectar o número à mão (suporte)
 

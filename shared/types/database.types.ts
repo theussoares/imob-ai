@@ -1708,6 +1708,13 @@ export type Database = {
           updated_at: string
           verified_name: string | null
           waba_id: string
+          coexistence: boolean
+          connected_at: string | null
+          history_consent_at: string | null
+          history_consent_by: string | null
+          history_mode: string | null
+          history_requested_at: string | null
+          history_status: string | null
         }
         Insert: {
           access_token_enc?: string | null
@@ -1722,6 +1729,13 @@ export type Database = {
           updated_at?: string
           verified_name?: string | null
           waba_id: string
+          coexistence?: boolean
+          connected_at?: string | null
+          history_consent_at?: string | null
+          history_consent_by?: string | null
+          history_mode?: string | null
+          history_requested_at?: string | null
+          history_status?: string | null
         }
         Update: {
           access_token_enc?: string | null
@@ -1736,6 +1750,13 @@ export type Database = {
           updated_at?: string
           verified_name?: string | null
           waba_id?: string
+          coexistence?: boolean
+          connected_at?: string | null
+          history_consent_at?: string | null
+          history_consent_by?: string | null
+          history_mode?: string | null
+          history_requested_at?: string | null
+          history_status?: string | null
         }
         Relationships: [
           {
@@ -1932,6 +1953,7 @@ export type Database = {
           media_path: string | null
           media_size: number | null
           media_status: string | null
+          imported: boolean
         }
         Insert: {
           body?: string | null
@@ -1953,6 +1975,7 @@ export type Database = {
           media_path?: string | null
           media_size?: number | null
           media_status?: string | null
+          imported?: boolean
         }
         Update: {
           body?: string | null
@@ -1974,6 +1997,7 @@ export type Database = {
           media_path?: string | null
           media_size?: number | null
           media_status?: string | null
+          imported?: boolean
         }
         Relationships: [
           {

@@ -75,6 +75,7 @@ export default defineEventHandler(async (event) => {
       verifiedName: numero.verifiedName,
       accessTokenEnc: cifrado,
       userId: user.id,
+      coexistencia,
     })
     if (r === 'de_outro_tenant') {
       logWarn('whatsapp.numero_de_outro_tenant', { tenant: tenant.slug })

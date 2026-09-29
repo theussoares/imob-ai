@@ -52,12 +52,40 @@ export interface MudancaDeStatus {
   erro: string | null
 }
 
+/** Mensagem do histórico do app (Coexistence), de um lado ou do outro. */
+export interface MensagemDoHistorico {
+  wamid: string
+  /** true = o contato mandou; false = a imobiliária, pelo app. */
+  doContato: boolean
+  tipo: string
+  texto: string | null
+  midia: MidiaRecebida | null
+  quando: string
+}
+
+/** Um pedaço do histórico. A Meta manda em vários, com o progresso. */
+export interface PedacoDoHistorico {
+  /** 0–100, quando a Meta informa. */
+  progresso: number | null
+  /** A imobiliária desligou o compartilhamento no app do celular. */
+  recusado: boolean
+  conversas: { waId: string; mensagens: MensagemDoHistorico[] }[]
+}
+
+/** Nome de um contato da agenda do app. Só serve para nomear conversa que já existe. */
+export interface ContatoDaAgenda {
+  waId: string
+  nome: string
+}
+
 /** Tudo o que um webhook trouxe para UM número conectado. */
 export interface LoteDoWebhook {
   phoneNumberId: string
   recebidas: MensagemRecebida[]
   ecos: MensagemEcoada[]
   status: MudancaDeStatus[]
+  historico?: PedacoDoHistorico[]
+  contatos?: ContatoDaAgenda[]
 }
 
 export interface NumeroConferido {
@@ -143,6 +171,11 @@ export interface WhatsappProvider {
    * etapas. No Coexistence não se registra: o número já está no app.
    */
   registrarNumero(c: Conexao, pin: string): Promise<void>
+  /**
+   * Pede à Meta a agenda (`smb_app_state_sync`) ou o histórico (`history`)
+   * do app, que chegam depois por webhook. Só vale até 24h depois da conexão.
+   */
+  pedirSincronizacao(c: Conexao, tipo: 'smb_app_state_sync' | 'history'): Promise<void>
 }
 
 /** Troca do `code` do Embedded Signup pelo token da integração. Fora da interface: não usa Conexão. */

@@ -70,14 +70,24 @@ resumida na seção 6.
     - Só o painel ganha `COOP: same-origin-allow-popups` e a CSP com a Meta; o
       site público continua igual (o guardrail de privacidade confere).
     - A conexão manual continua, recolhida, para o suporte.
+13. **Histórico do Coexistence** (0061): até 6 meses de conversas do app.
+    - Só nas 24h depois da conexão (regra da Meta), só o owner, com o texto do
+      aceite gravado antes do pedido; o webhook descarta histórico sem pedido.
+    - `so_leads` (padrão): só telefones que já eram lead ANTES da conexão, em
+      qualquer etapa — um lead criado depois pelo formulário público (que aceita
+      qualquer telefone) faria uma conversa pessoal passar pelo filtro.
+      `tudo`: todas, com a retenção de 90 dias da conversa sem lead.
+    - Não cria lead, não conta não lida, não é "primeira resposta", não avisa.
+    - Mídia antiga fica `pendente` e baixa se alguém abrir.
+    - A agenda do app (`smb_app_state_sync`) só dá nome a conversa existente.
 
 Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 
 ## 2. Fora do escopo, por decisão
 
-- **Sincronizar contatos e histórico do Coexistence** (`smb_app_data`). O
-  histórico traz conversa pessoal de quem não é lead; fica para decisão de
-  LGPD com a imobiliária, que é a controladora.
+- **Criar lead a partir do histórico.** Seis meses de agenda do celular
+  virariam card no funil e e-mail para o corretor — lista de prospecção feita
+  com conversa pessoal.
 - **Modelos com imagem no cabeçalho ou link variável em botão.** Pedem
   parâmetros que a tela ainda não coleta; aparecem na lista como "tipo ainda
   não suportado", sem botão de enviar — a Meta recusaria o envio sem eles.
@@ -167,6 +177,9 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Número conferido contra a WABA do token | Confiar nos ids do popup | Os ids passam pelo navegador; trocados, prenderiam o número de outro cliente da Meta. |
 | COOP e CSP afrouxados só em `/admin/**` | Afrouxar no site todo | O visitante nunca carrega a Meta; o afrouxamento só tem motivo onde o popup abre. |
 | SDK carregado no clique, `cookie: false` | Carregar ao abrir Conversas | Script da Meta em toda visita, de quem nunca vai conectar nada. |
+| Histórico só com aceite do owner, padrão `so_leads` | Importar tudo ao conectar | O histórico traz conversa pessoal; quem decide é a controladora, e o padrão é o mais estreito. |
+| Aceite = o texto exato, gravado com quem e quando | Um booleano | Um `true` não diz o que foi aceito, nem serve de registro se um titular perguntar. |
+| Histórico não cria lead nem avisa | Tratar como mensagem nova | Seria transformar a agenda do celular em lista de prospecção. |
 | Sem cache da lista de modelos | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 

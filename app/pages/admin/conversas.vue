@@ -538,8 +538,10 @@ onBeforeUnmount(async () => {
       </details>
     </section>
 
+    <template v-else>
+    <AdminWaHistorico :historico="conta.historico" @atualizado="recarregarConta()" />
     <!-- Caixa de entrada -->
-    <div v-else class="inbox" :class="{ 'com-aberta': abertaId }">
+    <div class="inbox" :class="{ 'com-aberta': abertaId }">
       <aside class="col-lista" aria-label="Conversas">
         <div class="lista-topo">
           <div class="seg" role="radiogroup" aria-label="Filtrar conversas">
@@ -645,7 +647,8 @@ onBeforeUnmount(async () => {
               <p v-if="!m.mediaStatus || m.body" class="msg-txt" :class="{ midia: !m.body }">{{ textoDaMensagem(m.type, m.body) }}</p>
               <span class="msg-meta">
                 <time :datetime="m.occurredAt">{{ horaDaMensagem(m.occurredAt) }}</time>
-                <template v-if="m.origin === 'app'"> · pelo celular</template>
+                <template v-if="m.imported"> · do histórico do celular</template>
+                <template v-else-if="m.origin === 'app'"> · pelo celular</template>
                 <template v-if="m.direction === 'out' && STATUS_ROTULO[m.status]">
                   · <span :class="{ falhou: m.status === 'falhou' }">{{ STATUS_ROTULO[m.status] }}</span>
                 </template>
@@ -737,6 +740,8 @@ onBeforeUnmount(async () => {
         </NuxtLink>
       </aside>
     </div>
+
+    </template>
 
     <details v-if="conta?.conectado" class="gerenciar">
       <summary>Gerenciar número</summary>
