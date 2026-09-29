@@ -2,6 +2,7 @@ import type { Database } from '~~/shared/types/database.types'
 import type { Property, PropertyCard, PropertyImage, PropertyInput } from '~~/shared/models/property'
 import type { Broker } from '~~/shared/models/broker'
 import { displayNeighborhood } from '~~/shared/utils/neighborhood'
+import { onlyDigits } from '~~/shared/utils/phone'
 
 type PropertyRow = Database['public']['Tables']['properties']['Row']
 type PropertyImageRow = Database['public']['Tables']['property_images']['Row']
@@ -171,6 +172,9 @@ export function toPropertyAdminModel(
     neighborhood: row.neighborhood,
     updatedBy: row.updated_by,
     location: row.location,
+    addressZip: row.address_zip,
+    addressStreet: row.address_street,
+    addressNumber: row.address_number,
     brokerId: row.broker_id,
     broker,
     ownerName: row.owner_name,
@@ -201,6 +205,11 @@ export function toPropertyRow(input: PropertyInput, tenantId: string): PropertyI
     status: input.status ?? 'active',
     featured: input.featured ?? false,
     location: input.location ?? null,
+    // CEP gravado só com dígitos: a check da 0058 recusa máscara, e quem digita
+    // "79600-000" não deveria ver erro por causa do hífen.
+    address_zip: onlyDigits(input.addressZip) || null,
+    address_street: input.addressStreet?.trim() || null,
+    address_number: input.addressNumber?.trim() || null,
     broker_id: input.brokerId ?? null,
     owner_name: input.ownerName ?? null,
     owner_phone: input.ownerPhone ?? null,
