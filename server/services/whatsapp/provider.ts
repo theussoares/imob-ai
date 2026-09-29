@@ -136,6 +136,20 @@ export interface WhatsappProvider {
    * no máximo 4,5 MB de corpo).
    */
   enviarMidia(c: Conexao, para: string, midia: MidiaParaEnviar): Promise<Enviada>
+  /** Ids dos números desta WABA que o token enxerga. */
+  numerosDaWaba(c: Conexao): Promise<string[]>
+  /**
+   * Registra um número NOVO na Cloud API, com o PIN de verificação em duas
+   * etapas. No Coexistence não se registra: o número já está no app.
+   */
+  registrarNumero(c: Conexao, pin: string): Promise<void>
+}
+
+/** Troca do `code` do Embedded Signup pelo token da integração. Fora da interface: não usa Conexão. */
+export interface TrocaDeCodigo {
+  appId: string
+  appSecret: string
+  code: string
 }
 
 export interface MidiaParaEnviar {

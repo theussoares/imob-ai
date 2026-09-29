@@ -9,3 +9,8 @@ export function whatsappAppSecret(): string {
 export function whatsappVerifyToken(): string {
   return segredoDeRuntime(useRuntimeConfig().whatsappVerifyToken, 'WHATSAPP_VERIFY_TOKEN')
 }
+
+/** Id do app na Meta — público (vai no JS do popup), mas o servidor precisa dele para trocar o `code`. */
+export function whatsappAppId(): string {
+  return String(useRuntimeConfig().public.whatsappAppId || '').trim()
+}

@@ -1,5 +1,87 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// CSP do site e do painel. O comentário de cada diretiva fica aqui porque é
+// aqui que alguém vai mexer.
+//
+// O ganho principal é `connect-src`: o painel guarda a sessão do Supabase no
+// localStorage, e restringir para onde a página pode enviar dados impede que
+// um XSS exfiltre esse token para um domínio do atacante.
+//
+// script-src leva 'unsafe-inline' porque o Nuxt emite um script inline e um
+// importmap; travar isso exige nonce por requisição (módulo à parte). Assumido
+// conscientemente — as diretivas abaixo seguem valendo.
+//
+// img-src é permissivo em https: de propósito: o painel deixa cadastrar imagem
+// colando URL de qualquer origem, então restringir a domínios fixos quebraria
+// imóveis já cadastrados.
+const CSP_PUBLICO = [
+  "default-src 'self'",
+  // va.vercel-scripts.com: o @vercel/speed-insights injeta esse script
+  // em runtime (não aparece no HTML inicial — só o navegador revela).
+  "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline'", // <style id="tenant-theme"> + style= nos cards
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:", // fontes são self-hosted pelo @nuxt/fonts
+  // wss:// precisa vir explícito. Pela spec do CSP, um source com
+  // esquema `https` casa só com `https` — não com `wss` — então o
+  // WebSocket do Realtime (contato novo aparecendo no funil na hora)
+  // era bloqueado mesmo com o mesmo domínio já liberado acima.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // O mapa do rodapé e a pré-visualização do painel são iframes do
+  // Google Maps (shared/utils/address.ts). Sem esta linha, frame-src
+  // herda o default-src 'self' e o navegador bloqueia o iframe em
+  // silêncio — foi assim de 08/09, quando o mapa entrou, até 24/09:
+  // nenhum tenant viu o mapa, e o painel também não, o que escondeu
+  // uma coordenada da Olmi digitada sem o sinal de menos.
+  // Os dois hosts porque maps.google.com responde 301 para
+  // www.google.com/maps/embed, e o CSP confere cada salto.
+  "frame-src https://maps.google.com https://www.google.com",
+  "frame-ancestors 'self'", // sucessor do X-Frame-Options
+  "base-uri 'self'", // bloqueia injeção de <base> pra sequestrar URLs relativas
+  "form-action 'self'",
+  "object-src 'none'",
+]
+
+// O painel precisa de mais que o site, e só ele:
+//
+// - connect.facebook.net e facebook.com: o popup "Conectar com o Facebook" do
+//   WhatsApp (Embedded Signup) carrega o SDK da Meta e conversa com ela. Só no
+//   painel — o visitante do site nunca carrega nada da Meta, e é isso que
+//   test/server/privacidade-guardrail.test.ts vigia na CSP pública;
+// - media-src: áudio e vídeo das conversas vêm por URL assinada do Supabase.
+//   Sem a diretiva, ela herda o default-src 'self' e o player fica mudo, sem
+//   erro na tela.
+
+const EXTRAS_DO_PAINEL: Record<string, string[]> = {
+  'script-src': ['https://connect.facebook.net'],
+  'connect-src': ['https://*.facebook.com'],
+  'frame-src': ['https://www.facebook.com', 'https://*.facebook.com'],
+  'media-src': ["'self'", 'blob:', 'https://*.supabase.co'],
+}
+
+function cspDoPainel(): string {
+  const diretivas = CSP_PUBLICO.map((d) => {
+    const nome = d.split(' ')[0]!
+    return EXTRAS_DO_PAINEL[nome] ? `${d} ${EXTRAS_DO_PAINEL[nome]!.join(' ')}` : d
+  })
+  for (const [nome, fontes] of Object.entries(EXTRAS_DO_PAINEL)) {
+    if (!CSP_PUBLICO.some((d) => d.startsWith(nome + ' '))) diretivas.push(`${nome} ${fontes.join(' ')}`)
+  }
+  return diretivas.join('; ')
+}
+
+const CABECALHOS_DO_PAINEL = {
+  // O Disallow do robots.txt impede o crawl, mas não a indexação da URL (que
+  // apareceria "sem descrição" se linkada em algum lugar).
+  'X-Robots-Tag': 'noindex, nofollow',
+  // `same-origin` (o do site) corta a ligação entre o painel e o popup da
+  // Meta: o popup não consegue mandar de volta o número escolhido e o login
+  // "termina" sem resultado. `allow-popups` mantém o isolamento para quem
+  // abre o painel e libera só as janelas que o PRÓPRIO painel abriu.
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+  'Content-Security-Policy': cspDoPainel(),
+}
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
@@ -209,6 +291,12 @@ export default defineNuxtConfig({
     // Trocar de modelo é variável de ambiente, não deploy de código.
     aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {
+      // Embedded Signup (popup "Conectar com o Facebook"). Os dois são públicos
+      // por natureza — o id do app e o da configuração vão no JS da Meta no
+      // navegador. Vazios, o painel mostra só a conexão manual.
+      // NUXT_PUBLIC_WHATSAPP_APP_ID e NUXT_PUBLIC_WHATSAPP_CONFIG_ID.
+      whatsappAppId: '',
+      whatsappConfigId: '',
       // Não existe URL canônica global: cada tenant se auto-canonicaliza no
       // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.
       // Anon key + URL (públicas) — usadas só pelo painel /admin, sob demanda.
@@ -261,8 +349,8 @@ export default defineNuxtConfig({
       // X-Robots-Tag: o Disallow do robots.txt impede o crawl, mas não a indexação
       // da URL (que apareceria "sem descrição" se linkada em algum lugar).
       // '/admin/**' não cobre '/admin' exato, por isso as duas regras.
-      '/admin': { ssr: false, headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
-      '/admin/**': { ssr: false, headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+      '/admin': { ssr: false, headers: CABECALHOS_DO_PAINEL },
+      '/admin/**': { ssr: false, headers: CABECALHOS_DO_PAINEL },
       // Cabeçalhos de segurança (Best Practices): anti-clickjacking + isolamento de origem.
       '/**': {
         headers: {
@@ -271,45 +359,7 @@ export default defineNuxtConfig({
           'Referrer-Policy': 'strict-origin-when-cross-origin',
           'Cross-Origin-Opener-Policy': 'same-origin',
           'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-          // CSP. O ganho principal aqui é `connect-src`: o painel guarda a sessão
-          // do Supabase no localStorage, e restringir para onde a página pode
-          // enviar dados impede que um XSS exfiltre esse token para um domínio
-          // do atacante.
-          //
-          // script-src leva 'unsafe-inline' porque o Nuxt emite um script inline
-          // e um importmap; travar isso exige nonce por requisição (módulo à
-          // parte). Assumido conscientemente — as diretivas abaixo seguem valendo.
-          //
-          // img-src é permissivo em https: de propósito: o painel deixa cadastrar
-          // imagem colando URL de qualquer origem, então restringir a domínios
-          // fixos quebraria imóveis já cadastrados.
-          'Content-Security-Policy': [
-            "default-src 'self'",
-            // va.vercel-scripts.com: o @vercel/speed-insights injeta esse script
-            // em runtime (não aparece no HTML inicial — só o navegador revela).
-            "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
-            "style-src 'self' 'unsafe-inline'", // <style id="tenant-theme"> + style= nos cards
-            "img-src 'self' data: blob: https:",
-            "font-src 'self' data:", // fontes são self-hosted pelo @nuxt/fonts
-            // wss:// precisa vir explícito. Pela spec do CSP, um source com
-            // esquema `https` casa só com `https` — não com `wss` — então o
-            // WebSocket do Realtime (contato novo aparecendo no funil na hora)
-            // era bloqueado mesmo com o mesmo domínio já liberado acima.
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
-            // O mapa do rodapé e a pré-visualização do painel são iframes do
-            // Google Maps (shared/utils/address.ts). Sem esta linha, frame-src
-            // herda o default-src 'self' e o navegador bloqueia o iframe em
-            // silêncio — foi assim de 08/09, quando o mapa entrou, até 24/09:
-            // nenhum tenant viu o mapa, e o painel também não, o que escondeu
-            // uma coordenada da Olmi digitada sem o sinal de menos.
-            // Os dois hosts porque maps.google.com responde 301 para
-            // www.google.com/maps/embed, e o CSP confere cada salto.
-            "frame-src https://maps.google.com https://www.google.com",
-            "frame-ancestors 'self'", // sucessor do X-Frame-Options
-            "base-uri 'self'", // bloqueia injeção de <base> pra sequestrar URLs relativas
-            "form-action 'self'",
-            "object-src 'none'",
-          ].join('; '),
+          'Content-Security-Policy': CSP_PUBLICO.join('; '),
         },
       },
     },

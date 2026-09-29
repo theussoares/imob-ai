@@ -131,7 +131,10 @@ por natureza — o titular a enviou pelo aplicativo da Meta. A base é o art. 7�
 V, e o art. 33, IX a cobre. O que a plataforma guarda fica em São Paulo, inclusive
 os arquivos (0060), que são baixados da Meta pelo servidor e nunca passam pelo
 navegador com o token. Os arquivos que a imobiliária ENVIA pelo painel ficam no
-mesmo bucket e vão à Meta por URL assinada de 1h.
+mesmo bucket e vão à Meta por URL assinada de 1h. O painel (não o site) carrega o SDK
+de JavaScript da Meta só quando o owner clica em "Conectar com o Facebook",
+com `cookie: false`; é a equipe da imobiliária conectando a conta dela, não
+dado de visitante.
 
 ### Q4. Registros de acesso (Marco Civil, art. 15)
 

@@ -38,7 +38,36 @@ on conflict (tenant_id, feature) do update set enabled = true;
 Develop e produção dividem o banco: ligue só para a imobiliária da demo até o
 recurso estar vendido.
 
-## 3. Conectar o número (F0, manual)
+## 3. Conectar o número pelo popup (Embedded Signup)
+
+Depende do Tech Provider aprovado (passo 1.5). Uma vez, no app da Meta:
+
+1. **Facebook Login for Business → Configurações → Criar configuração**, do
+   tipo *WhatsApp Embedded Signup*, com as permissões
+   `whatsapp_business_management` e `whatsapp_business_messaging`. O id dela é
+   o `NUXT_PUBLIC_WHATSAPP_CONFIG_ID`; o id do app é o
+   `NUXT_PUBLIC_WHATSAPP_APP_ID`. Redeploy.
+2. **Domínios permitidos para o SDK de JavaScript** (Facebook Login →
+   Configurações): cada endereço de PAINEL, com https. ⚠️ É por host, sem
+   curinga: painel em domínio próprio de imobiliária precisa entrar na lista,
+   senão o popup abre e fecha com "domínio não permitido".
+
+No painel, como **owner**: Conversas → "Conectar com o Facebook".
+
+- **Número do app WhatsApp Business** (Coexistence, recomendado): a pessoa lê
+  um QR no app do celular durante o popup. Nada muda para quem usa o celular.
+- **Número novo**: a tela pede um PIN de 6 dígitos (verificação em duas
+  etapas), e o servidor registra o número na Cloud API.
+
+O servidor troca o `code` pelo token (com o App Secret), confere que o número
+está na WABA autorizada, assina o webhook e grava o token cifrado. Erros nos
+logs: `whatsapp.embedded_signup_recusado` (a Meta recusou, a frase dela vai
+para a tela) e `whatsapp.embedded_signup_numero_fora_da_waba` (ids que não
+batem — se repetir, investigar).
+
+O histórico de 6 meses do Coexistence NÃO é importado (decisão de LGPD na spec).
+
+## 3b. Conectar o número à mão (suporte)
 
 Pré-requisitos da imobiliária: número no **WhatsApp Business** há 7+ dias (para
 o Coexistence), Business Manager próprio e **cartão cadastrado na WABA** — a

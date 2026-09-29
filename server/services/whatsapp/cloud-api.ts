@@ -11,6 +11,7 @@ import {
   MidiaGrandeDemais,
   type Enviada,
   type ModeloDaMeta,
+  type TrocaDeCodigo,
   type MudancaDeStatus,
   type WhatsappProvider,
 } from './provider'
@@ -290,6 +291,28 @@ function enviada(r: Resposta): Enviada {
   return { wamid, waId: r.contacts?.[0]?.wa_id ?? null }
 }
 
+/**
+ * Troca o `code` que o popup do Embedded Signup devolveu pelo token da
+ * integração da imobiliária com o nosso app.
+ *
+ * Aqui, no servidor, e nunca no navegador: a troca exige o App Secret. O
+ * `code` vale segundos e uma vez só — quem chama tem de fazer isto logo.
+ */
+export async function trocarCodigo(t: TrocaDeCodigo, f: Fetch = fetch): Promise<string> {
+  const q = new URLSearchParams({ client_id: t.appId, client_secret: t.appSecret, code: t.code })
+  let res: Response
+  try {
+    res = await f(`${GRAPH}/oauth/access_token?${q}`, { method: 'GET', signal: AbortSignal.timeout(TIMEOUT_MS) })
+  } catch (e) {
+    throw new ErroDoWhatsapp(`Não foi possível falar com a Meta agora (${errMessage(e)}).`)
+  }
+  const json = (await res.json().catch(() => ({}))) as { access_token?: string } & ErroDaMeta
+  if (!res.ok || !json.access_token) {
+    throw new ErroDoWhatsapp(json.error?.error_user_msg || json.error?.message || `HTTP ${res.status}`, true)
+  }
+  return json.access_token
+}
+
 export function cloudApi(f: Fetch = fetch): WhatsappProvider {
   return {
     async conferirNumero(c) {
@@ -392,6 +415,18 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
         body: { messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: m.tipo, [m.tipo]: arquivo },
       })
       return enviada(r)
+    },
+
+    async numerosDaWaba(c) {
+      const r = await chamar<{ data?: { id?: string }[] }>(f, c, `/${encodeURIComponent(c.wabaId)}/phone_numbers?fields=id&limit=100`, { method: 'GET' })
+      return (r.data ?? []).map((n) => n.id).filter((id): id is string => Boolean(id))
+    },
+
+    async registrarNumero(c, pin) {
+      await chamar(f, c, `/${encodeURIComponent(c.phoneNumberId)}/register`, {
+        method: 'POST',
+        body: { messaging_product: 'whatsapp', pin },
+      })
     },
 
     async criarModelo(c, m) {

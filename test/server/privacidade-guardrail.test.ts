@@ -37,7 +37,11 @@ function ler(caminho: string): string {
 }
 
 function semComentarios(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '')
+  // `(?<!\/)`: o "/*" de "https://*.supabase.co" não abre comentário. Sem isso,
+  // bastava um "*/" DEPOIS da CSP no nuxt.config (um JSDoc qualquer) para a
+  // regex engolir a CSP inteira, e o teste abaixo passaria a ler uma lista
+  // vazia — foi o que aconteceu quando a CSP subiu para o topo do arquivo.
+  return src.replace(/(?<!\/)\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '')
 }
 
 describe('privacidade: o que a política afirma continua verdade', () => {

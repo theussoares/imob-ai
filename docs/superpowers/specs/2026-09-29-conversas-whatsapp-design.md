@@ -63,15 +63,21 @@ resumida na seção 6.
     - O servidor confere o caminho contra a pasta de envio da conversa, lê
       tipo e tamanho do objeto no Storage e manda pela Meta **por link**
       (URL assinada de 1h). Se a Meta recusar, o arquivo sai do bucket.
+12. **Embedded Signup** — "Conectar com o Facebook" em Conversas (owner).
+    - Coexistence (número do app WhatsApp Business) ou número novo com PIN.
+    - O SDK da Meta só carrega no clique; o `code` é trocado no servidor com o
+      App Secret; o número é conferido contra a WABA que o token enxerga.
+    - Só o painel ganha `COOP: same-origin-allow-popups` e a CSP com a Meta; o
+      site público continua igual (o guardrail de privacidade confere).
+    - A conexão manual continua, recolhida, para o suporte.
 
 Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 
 ## 2. Fora do escopo, por decisão
 
-- **Embedded Signup** (o popup "Conectar com o Facebook"). Depende de a Moradi
-  ser Tech Provider aprovada na Meta, que é espera externa de dias a semanas.
-  Até lá a conexão é manual (item 1), feita por nós no onboarding. O adaptador
-  (`server/services/whatsapp/provider.ts`) já isola a troca.
+- **Sincronizar contatos e histórico do Coexistence** (`smb_app_data`). O
+  histórico traz conversa pessoal de quem não é lead; fica para decisão de
+  LGPD com a imobiliária, que é a controladora.
 - **Modelos com imagem no cabeçalho ou link variável em botão.** Pedem
   parâmetros que a tela ainda não coleta; aparecem na lista como "tipo ainda
   não suportado", sem botão de enviar — a Meta recusaria o envio sem eles.
@@ -158,7 +164,10 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Caminho escolhido pelo servidor, conferido no envio | Navegador escolhe | Caminho do body apontando para o arquivo de outro cliente sairia pelo WhatsApp para outra pessoa. |
 | Membro sem policy de escrita no bucket | Policy de insert na própria pasta | Ele escreveria por cima de um arquivo recebido — o histórico deixaria de ser prova. |
 | Retenção pela pasta, não pela coluna | Só `media_path` | A pasta pega o upload que nunca virou mensagem. |
-| Sem sistema de fila | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
+| Número conferido contra a WABA do token | Confiar nos ids do popup | Os ids passam pelo navegador; trocados, prenderiam o número de outro cliente da Meta. |
+| COOP e CSP afrouxados só em `/admin/**` | Afrouxar no site todo | O visitante nunca carrega a Meta; o afrouxamento só tem motivo onde o popup abre. |
+| SDK carregado no clique, `cookie: false` | Carregar ao abrir Conversas | Script da Meta em toda visita, de quem nunca vai conectar nada. |
+| Sem cache da lista de modelos | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 
 ## 6. Pesquisa (resumo)
@@ -187,6 +196,8 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
    `https://<painel>/api/webhooks/whatsapp`, campos `messages` e
    `smb_message_echoes`.
 3. Pedido de Tech Provider + App Review (`whatsapp_business_messaging`,
-   `whatsapp_business_management`) — destrava o Embedded Signup.
-4. Variáveis: `NUXT_WHATSAPP_APP_SECRET`, `NUXT_WHATSAPP_VERIFY_TOKEN`
+   `whatsapp_business_management`) — destrava o Embedded Signup (item 12).
+   Criar a configuração do Embedded Signup e liberar os domínios do painel.
+4. Variáveis: `NUXT_WHATSAPP_APP_SECRET`, `NUXT_WHATSAPP_VERIFY_TOKEN`,
+   `NUXT_PUBLIC_WHATSAPP_APP_ID`, `NUXT_PUBLIC_WHATSAPP_CONFIG_ID`
    (e `NUXT_PAYMENTS_ENCRYPTION_KEY`, já existente, cifra o token).

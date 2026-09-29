@@ -67,6 +67,30 @@ async function conectar() {
   }
 }
 
+// ---- Embedded Signup ----
+const signup = useEmbeddedSignup();
+const coexistencia = ref(true);
+const pin = ref("");
+const conectandoFb = ref(false);
+async function conectarPeloFacebook() {
+  conectandoFb.value = true;
+  try {
+    const r = await signup.conectar(coexistencia.value);
+    // O `code` vale segundos: vai direto para o servidor, sem outra etapa no meio.
+    await adminFetch("/api/admin/whatsapp/embedded-signup", {
+      method: "POST",
+      body: { ...r, coexistencia: coexistencia.value, pin: coexistencia.value ? undefined : pin.value },
+    });
+    pin.value = "";
+    toast.success("WhatsApp conectado. As próximas mensagens já chegam aqui.");
+    await recarregarConta();
+  } catch (e) {
+    toast.error(e instanceof Error && !(e as { data?: unknown }).data ? e.message : friendlyErrorMessage(e, "Não foi possível conectar o número."));
+  } finally {
+    conectandoFb.value = false;
+  }
+}
+
 const confirmarDesconexao = ref(false);
 async function desconectar() {
   confirmarDesconexao.value = false;
@@ -430,6 +454,53 @@ onBeforeUnmount(async () => {
         A plataforma ainda não tem o app da Meta configurado — as mensagens não chegariam. Fale com o suporte da
         Moradi antes de conectar.
       </p>
+
+      <div v-if="signup.disponivel.value" class="facebook">
+        <fieldset class="modo">
+          <legend class="admin-label">Qual número?</legend>
+          <label class="modo-op" :class="{ on: coexistencia }">
+            <input v-model="coexistencia" type="radio" :value="true" name="modo" />
+            <span>
+              <strong>O número que já está no app WhatsApp Business</strong>
+              <span>Recomendado. O corretor continua usando o celular, e tudo fica registrado aqui também.</span>
+            </span>
+          </label>
+          <label class="modo-op" :class="{ on: !coexistencia }">
+            <input v-model="coexistencia" type="radio" :value="false" name="modo" />
+            <span>
+              <strong>Um número novo, que ainda não tem WhatsApp</strong>
+              <span>O número passa a funcionar só pelo painel.</span>
+            </span>
+          </label>
+        </fieldset>
+        <label v-if="!coexistencia" class="pin">
+          <span class="admin-label">PIN de 6 dígitos para o número</span>
+          <input
+            v-model.trim="pin"
+            class="admin-input"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="6"
+            pattern="\d{6}"
+            aria-describedby="pin-ajuda"
+          />
+          <span id="pin-ajuda" class="ajuda">É a verificação em duas etapas do WhatsApp. Anote: a Meta pede de novo se o número for reconectado.</span>
+        </label>
+        <button
+          type="button"
+          class="admin-btn fb"
+          :disabled="conectandoFb || (!coexistencia && !/^\d{6}$/.test(pin))"
+          @click="conectarPeloFacebook"
+        >
+          {{ conectandoFb ? "Conectando…" : "Conectar com o Facebook" }}
+        </button>
+        <p class="ajuda">
+          Abre uma janela da Meta. Entre com a conta que administra o WhatsApp da imobiliária e siga até o fim.
+        </p>
+      </div>
+
+      <details class="manual" :open="!signup.disponivel.value">
+        <summary v-if="signup.disponivel.value">Conectar manualmente (suporte)</summary>
       <form class="conectar-form" @submit.prevent="conectar">
         <label>
           <span class="admin-label">Identificação do número de telefone</span>
@@ -464,6 +535,7 @@ onBeforeUnmount(async () => {
           </button>
         </div>
       </form>
+      </details>
     </section>
 
     <!-- Caixa de entrada -->
@@ -801,6 +873,65 @@ onBeforeUnmount(async () => {
   border: 1px solid var(--danger-line);
   color: var(--danger);
   font-size: var(--fs-label);
+}
+.facebook {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.modo {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+.modo-op {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.modo-op.on {
+  border-color: var(--brand);
+  background: var(--brand-ghost);
+}
+.modo-op:focus-within {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.modo-op input {
+  margin-top: 3px;
+}
+.modo-op > span {
+  display: grid;
+  gap: 2px;
+}
+.modo-op > span > span {
+  color: var(--ink-soft);
+  font-size: var(--fs-label);
+}
+.pin {
+  display: grid;
+  gap: 6px;
+  max-width: 320px;
+}
+.admin-btn.fb {
+  min-height: 44px;
+}
+.manual {
+  width: 100%;
+}
+.manual summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: var(--fs-label);
+  min-height: 24px;
 }
 .conectar-form {
   width: 100%;
