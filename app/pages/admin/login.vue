@@ -90,11 +90,18 @@ useHead({ title: 'Entrar · Painel' })
         <AppIcon v-if="!loading" name="arrow-right" />
       </button>
 
-      <div class="pa-divisor">É inquilino ou proprietário?</div>
-      <div class="pa-caixa">
-        <p>Seus contratos e documentos ficam na Área do Cliente.</p>
-        <a :href="`${siteUrl}area-cliente/login`" class="pa-link">Ir para a Área do Cliente</a>
-      </div>
+      <!-- Só onde a Área do Cliente existe: o mesmo `portalEnabled` que põe o
+           link no rodapé do site (escolha da imobiliária × flag `portal`, ver
+           `comLinksEfetivos`). Sem isto, toda imobiliária em produção anunciava
+           um recurso que está atrás de flag, e o link levava a um login que
+           recusa todo mundo. -->
+      <template v-if="tenant?.portalEnabled">
+        <div class="pa-divisor">É inquilino ou proprietário?</div>
+        <div class="pa-caixa">
+          <p>Seus contratos e documentos ficam na Área do Cliente.</p>
+          <a :href="`${siteUrl}area-cliente/login`" class="pa-link">Ir para a Área do Cliente</a>
+        </div>
+      </template>
     </form>
 
     <!-- Aqui, e não só na sidebar: esta é a tela em que a pessoa cai ao digitar

@@ -133,3 +133,15 @@ describe('páginas de mock', () => {
     }
   })
 })
+
+describe('recurso atrás de flag', () => {
+  test('o login do painel só anuncia a Área do Cliente onde ela está ligada', () => {
+    // A Área do Cliente é recurso por imobiliária (`tenant_features.portal`).
+    // O login do painel é visto por TODA imobiliária em produção; o link sem
+    // a condição anunciava o recurso a quem não o tem.
+    const t = template(ler('app', 'pages', 'admin', 'login.vue'))
+    const i = t.indexOf('area-cliente/login')
+    expect(i, 'o link sumiu — atualize este teste').toBeGreaterThan(-1)
+    expect(t.slice(0, i)).toMatch(/v-if="tenant\?\.portalEnabled"[\s\S]*$/)
+  })
+})
