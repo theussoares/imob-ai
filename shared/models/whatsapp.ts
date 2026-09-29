@@ -177,6 +177,10 @@ export const WHATSAPP_ENVIO: Record<string, { tipo: WhatsappTipoDeEnvio; maxByte
   'image/png': { tipo: 'image', maxBytes: 5 * 1024 * 1024 },
   'video/mp4': { tipo: 'video', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
   'video/3gpp': { tipo: 'video', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
+  // Só da GRAVAÇÃO pelo painel, que garante opus (`FORMATOS_DE_GRAVACAO`). Um
+  // .ogg qualquer anexado pode ser vorbis, que a Meta recusa — por isso não
+  // entra no seletor de arquivo (`ACEITOS_NO_ANEXO`).
+  'audio/ogg': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
   'audio/mpeg': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
   'audio/mp4': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
   'audio/aac': { tipo: 'audio', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
@@ -190,6 +194,34 @@ export const WHATSAPP_ENVIO: Record<string, { tipo: WhatsappTipoDeEnvio; maxByte
   'application/vnd.ms-powerpoint': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': { tipo: 'document', maxBytes: WHATSAPP_MIDIA_MAX_BYTES },
 }
+
+/** O que o seletor de arquivo oferece: tudo de `WHATSAPP_ENVIO`, menos o ogg (ver lá). */
+export const ACEITOS_NO_ANEXO = Object.keys(WHATSAPP_ENVIO).filter((m) => m !== 'audio/ogg')
+
+/**
+ * Formatos de gravação pelo microfone, em ordem de preferência. Todos aceitos
+ * pela Meta como áudio:
+ * - ogg/opus (Firefox): o formato da nota de voz do próprio WhatsApp;
+ * - mp4/AAC (Safari, Chrome 126+, Edge). O codec vai EXPLÍCITO: `audio/mp4`
+ *   sozinho deixa o Chrome escolher opus dentro do mp4, que a Meta recusa.
+ *
+ * WebM, o padrão do Chrome, fica de fora: a Meta não aceita, e converter no
+ * navegador exigiria um codificador de áudio no bundle do painel.
+ */
+export const FORMATOS_DE_GRAVACAO = [
+  { mimeDoGravador: 'audio/ogg;codecs=opus', mime: 'audio/ogg', ext: 'ogg' },
+  { mimeDoGravador: 'audio/mp4;codecs=mp4a.40.2', mime: 'audio/mp4', ext: 'm4a' },
+] as const
+
+export type FormatoDeGravacao = (typeof FORMATOS_DE_GRAVACAO)[number]
+
+/** O primeiro formato que este navegador grava, ou null. */
+export function formatoDeGravacao(suporta: (mime: string) => boolean): FormatoDeGravacao | null {
+  return FORMATOS_DE_GRAVACAO.find((f) => suporta(f.mimeDoGravador)) ?? null
+}
+
+/** Teto da gravação. Nota de voz longa demais ninguém ouve; e mantém o arquivo longe dos 16 MB. */
+export const GRAVACAO_MAX_SEGUNDOS = 5 * 60
 
 /** Legenda: o limite da Meta para foto, vídeo e documento. */
 export const WHATSAPP_LEGENDA_MAX = 1024

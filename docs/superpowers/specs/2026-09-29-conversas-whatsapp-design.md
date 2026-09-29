@@ -70,6 +70,15 @@ resumida na seção 6.
     - Só o painel ganha `COOP: same-origin-allow-popups` e a CSP com a Meta; o
       site público continua igual (o guardrail de privacidade confere).
     - A conexão manual continua, recolhida, para o suporte.
+14. **Gravar áudio pelo microfone** na conversa aberta.
+    - Formato por navegador, só o que a Meta aceita: ogg/opus (Firefox) ou
+      mp4 com AAC explícito (Chrome 126+, Edge, Safari). Conferido no Chrome
+      152: o arquivo sai `ftypisom` com trilha `mp4a`.
+    - Ouve antes de mandar (vira o mesmo anexo do clipe), teto de 5 minutos,
+      microfone solto ao terminar ou cancelar.
+    - `Permissions-Policy: microphone=(self)` só no painel; o site segue `()`.
+    - `audio/ogg` entra no envio só pela gravação — no seletor de arquivo não,
+      porque um .ogg qualquer pode ser vorbis, que a Meta recusa.
 13. **Histórico do Coexistence** (0061): até 6 meses de conversas do app.
     - Só nas 24h depois da conexão (regra da Meta), só o owner, com o texto do
       aceite gravado antes do pedido; o webhook descarta histórico sem pedido.
@@ -94,9 +103,10 @@ Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 - **Criar modelo livre pelo painel.** Só os dois sugeridos. Modelo escrito à
   mão é recusado com frequência pela Meta, e a recusa chega sem explicação
   útil; quem precisa de outro cria no painel da Meta, e ele aparece aqui.
-- **Gravar áudio pelo painel** (microfone do navegador). O navegador grava
-  webm/ogg, que a Meta não aceita como áudio sem opus garantido; anexar um mp3
-  ou m4a funciona.
+- **Converter WebM no navegador.** O navegador que só grava WebM fica sem o
+  botão de gravar (anexar mp3/m4a continua). Converter exigiria um codificador
+  de áudio no bundle do painel para um caso que, em 2026, é raro: Chrome 126+,
+  Edge e Safari gravam mp4/AAC, e o Firefox grava ogg/opus.
 - **Histórico importado do Coexistence** (até 6 meses). Traz conversa pessoal
   de quem não é lead, e isso precisa de decisão de LGPD com o cliente antes.
 - **Origem `whatsapp` em `leads.source`.** Mesmo motivo da spec do clique: a

@@ -12,6 +12,7 @@ import type {
 import {
   WHATSAPP_FILTROS,
   WHATSAPP_FILTRO_LABELS,
+  ACEITOS_NO_ANEXO,
   WHATSAPP_ENVIO,
   WHATSAPP_LEGENDA_MAX,
   WHATSAPP_TEXTO_MAX,
@@ -277,7 +278,7 @@ async function enviar() {
 }
 
 // ---- Anexo ----
-const ACEITOS = Object.keys(WHATSAPP_ENVIO).join(",");
+const ACEITOS = ACEITOS_NO_ANEXO.join(",");
 const seletor = ref<HTMLInputElement | null>(null);
 const anexo = ref<File | null>(null);
 const anexoPrevia = ref<string | null>(null);
@@ -290,19 +291,46 @@ function escolherAnexo(e: Event) {
   if (!f) return;
   // Confere antes de subir: descobrir depois de 15 MB enviados que o formato
   // não serve é tempo e dado móvel jogados fora.
-  const problema = problemaNoAnexo(f.type, f.size);
+  // .ogg anexado pode ser vorbis, que a Meta recusa; ogg só sai da gravação.
+  const problema = ACEITOS_NO_ANEXO.includes(mimeBase(f.type))
+    ? problemaNoAnexo(f.type, f.size)
+    : "Este tipo de arquivo não pode ser enviado pelo WhatsApp. Use foto (JPG ou PNG), PDF, documento do Office, vídeo MP4 ou áudio MP3.";
   if (problema) {
     toast.error(problema);
     return;
   }
+  usarAnexo(f);
+}
+function usarAnexo(f: File) {
   tirarAnexo();
   anexo.value = f;
-  if (f.type.startsWith("image/")) anexoPrevia.value = URL.createObjectURL(f);
+  if (f.type.startsWith("image/") || f.type.startsWith("audio/")) anexoPrevia.value = URL.createObjectURL(f);
 }
 function tirarAnexo() {
   if (anexoPrevia.value) URL.revokeObjectURL(anexoPrevia.value);
   anexoPrevia.value = null;
   anexo.value = null;
+}
+
+// ---- Gravação pelo microfone ----
+const gravador = useGravadorDeAudio();
+async function gravar() {
+  try {
+    await gravador.iniciar();
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Não foi possível gravar.");
+  }
+}
+/** Termina e deixa o áudio como anexo, para ouvir antes de mandar. */
+async function terminarGravacao() {
+  const f = await gravador.parar();
+  if (!f) return toast.error("Nada foi gravado.");
+  const problema = problemaNoAnexo(f.type, f.size);
+  if (problema) return toast.error(problema);
+  usarAnexo(f);
+}
+function relogio(seg: number): string {
+  return `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}`;
 }
 onBeforeUnmount(tirarAnexo);
 
@@ -659,7 +687,8 @@ onBeforeUnmount(async () => {
 
           <form v-if="aberta.janelaAberta" class="compor" @submit.prevent="enviar">
             <div v-if="anexo" class="anexo">
-              <img v-if="anexoPrevia" :src="anexoPrevia" alt="" class="anexo-img" />
+              <img v-if="anexoPrevia && anexo.type.startsWith('image/')" :src="anexoPrevia" alt="" class="anexo-img" />
+              <audio v-else-if="anexoPrevia && anexo.type.startsWith('audio/')" :src="anexoPrevia" controls class="anexo-audio" />
               <AppIcon v-else name="contract" class="anexo-ico" />
               <span class="anexo-nome">
                 <strong>{{ anexo.name }}</strong>
@@ -669,10 +698,34 @@ onBeforeUnmount(async () => {
                 <AppIcon name="close" />
               </button>
             </div>
-            <div class="compor-linha">
+            <div v-if="gravador.estado.value !== 'parado'" class="gravando">
+              <button type="button" class="icone" aria-label="Descartar gravação" @click="gravador.cancelar()">
+                <AppIcon name="trash" />
+              </button>
+              <span class="grav-ponto" aria-hidden="true" />
+              <!-- O relógio muda a cada segundo: não é anunciado, senão o leitor de tela falaria sem parar. -->
+              <span class="grav-tempo">
+                {{ gravador.estado.value === "pedindo" ? "Liberando o microfone…" : `Gravando ${relogio(gravador.segundos.value)}` }}
+              </span>
+              <span role="status" class="sr-only">{{ gravador.estado.value === "gravando" ? "Gravando áudio" : "" }}</span>
+              <button type="button" class="admin-btn" :disabled="gravador.estado.value !== 'gravando'" @click="terminarGravacao">
+                <AppIcon name="parar" /> Terminar
+              </button>
+            </div>
+            <div v-else class="compor-linha">
               <input ref="seletor" type="file" class="sr-only" :accept="ACEITOS" tabindex="-1" aria-hidden="true" @change="escolherAnexo" />
               <button type="button" class="icone" aria-label="Anexar foto, vídeo, áudio ou documento" :disabled="enviando" @click="seletor?.click()">
                 <AppIcon name="anexo" />
+              </button>
+              <button
+                v-if="gravador.suportado.value && !anexo"
+                type="button"
+                class="icone"
+                aria-label="Gravar áudio"
+                :disabled="enviando"
+                @click="gravar"
+              >
+                <AppIcon name="microfone" />
               </button>
               <label class="sr-only" for="resposta">{{ anexo ? "Legenda" : "Resposta" }}</label>
               <textarea
@@ -1288,6 +1341,48 @@ onBeforeUnmount(async () => {
   height: 48px;
   object-fit: cover;
   border-radius: 6px;
+}
+.anexo-audio {
+  height: 40px;
+  max-width: 260px;
+}
+.gravando {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.grav-ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulso 1.2s ease-in-out infinite;
+}
+@keyframes pulso {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grav-ponto {
+    animation: none;
+  }
+}
+.grav-tempo {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-ui);
+}
+.gravando .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+.gravando .admin-btn :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 .anexo-ico {
   width: 28px;

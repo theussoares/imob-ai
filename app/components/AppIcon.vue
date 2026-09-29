@@ -63,6 +63,8 @@ const icons: Record<string, string> = {
   download: 'tabler:download',
   // Conversas: anexar foto ou documento.
   anexo: 'tabler:paperclip',
+  microfone: 'tabler:microphone',
+  parar: 'tabler:player-stop',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { cloudApi } from '~~/server/services/whatsapp/cloud-api'
-import { WHATSAPP_ENVIO, WHATSAPP_MIDIA_MIMES, caminhoDaMidia, mimeDoCaminho, prefixoDeEnvio, problemaNoAnexo } from '~~/shared/models/whatsapp'
+import { ACEITOS_NO_ANEXO, WHATSAPP_ENVIO, WHATSAPP_MIDIA_MIMES, caminhoDaMidia, mimeDoCaminho, prefixoDeEnvio, problemaNoAnexo } from '~~/shared/models/whatsapp'
 import { stripComments } from '../helpers/strip-comments'
 
 /**
@@ -34,9 +34,10 @@ describe('o que pode ser enviado', () => {
     expect(problemaNoAnexo('application/pdf', 17 * 1024 * 1024)).toMatch(/16 MB/)
   })
 
-  test('webp e ogg ficam fora: chegariam como figurinha e como áudio quebrado', () => {
+  test('webp fica fora (chegaria como figurinha); ogg só da gravação, não do seletor (pode ser vorbis)', () => {
     expect(problemaNoAnexo('image/webp', 100)).toBeTruthy()
-    expect(problemaNoAnexo('audio/ogg', 100)).toBeTruthy()
+    expect(ACEITOS_NO_ANEXO).not.toContain('audio/ogg')
+    expect(ACEITOS_NO_ANEXO).not.toContain('image/webp')
     expect(problemaNoAnexo('application/x-msdownload', 100)).toBeTruthy()
     expect(problemaNoAnexo('image/png', 0)).toBeTruthy()
   })

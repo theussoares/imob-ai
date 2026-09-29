@@ -92,6 +92,9 @@ const CABECALHOS_DO_PAINEL = {
   // "termina" sem resultado. `allow-popups` mantém o isolamento para quem
   // abre o painel e libera só as janelas que o PRÓPRIO painel abriu.
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+  // Microfone só para a própria origem: é a gravação de áudio das Conversas.
+  // O site continua com `microphone=()` — o visitante nunca é pedido.
+  'Permissions-Policy': 'geolocation=(), microphone=(self), camera=()',
   'Content-Security-Policy': cspDoPainel(),
 }
 
