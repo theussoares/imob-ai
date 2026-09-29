@@ -79,6 +79,15 @@ resumida na seção 6.
     - `Permissions-Policy: microphone=(self)` só no painel; o site segue `()`.
     - `audio/ogg` entra no envio só pela gravação — no seletor de arquivo não,
       porque um .ogg qualquer pode ser vorbis, que a Meta recusa.
+15. **Desempenho do atendimento** — aba em Conversas, para o dono.
+    - Mediana e 90% do tempo até a primeira resposta, % respondidas,
+      "esperando agora" com a espera mais longa, distribuição por faixa e
+      tabela por corretor do contato; 7, 30 ou 90 dias.
+    - A medida conta da primeira mensagem AO VIVO (`first_inbound_at`, 0062):
+      nem o histórico importado nem a conversa puxada pela imobiliária
+      (modelo para contato do formulário) viram "espera".
+    - Mediana e p90, não média: a mensagem da madrugada respondida às 9h
+      puxaria a média para horas e esconderia o resto do dia.
 13. **Histórico do Coexistence** (0061): até 6 meses de conversas do app.
     - Só nas 24h depois da conexão (regra da Meta), só o owner, com o texto do
       aceite gravado antes do pedido; o webhook descarta histórico sem pedido.
@@ -190,6 +199,9 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Histórico só com aceite do owner, padrão `so_leads` | Importar tudo ao conectar | O histórico traz conversa pessoal; quem decide é a controladora, e o padrão é o mais estreito. |
 | Aceite = o texto exato, gravado com quem e quando | Um booleano | Um `true` não diz o que foi aceito, nem serve de registro se um titular perguntar. |
 | Histórico não cria lead nem avisa | Tratar como mensagem nova | Seria transformar a agenda do celular em lista de prospecção. |
+| Tempo medido da primeira entrada ao vivo | Da criação da conversa | O histórico cria conversa com mensagens de meses; a primeira resposta ao vivo viraria "minutos" de espera falsa. |
+| Mediana e p90 pelo posto mais próximo | Média | A média é puxada pela madrugada; o percentil sem interpolação é sempre um tempo que aconteceu. |
+| Por corretor do lead | Por quem respondeu | Corretor não loga; quem respondeu (painel ou celular) não é conhecido. |
 | Sem cache da lista de modelos | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 

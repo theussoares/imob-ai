@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type {
+  ConversaParaDesempenho,
   WhatsappConversation,
   WhatsappDirection,
   WhatsappFiltro,
@@ -156,6 +157,7 @@ export interface ConversationState {
   lastInboundAt: string | null
   lastMessageAt: string
   contactName: string | null
+  firstInboundAt: string | null
   firstResponseAt: string | null
   unreadCount: number
   waId: string
@@ -168,6 +170,7 @@ function toState(r: {
   last_inbound_at: string | null
   last_message_at: string
   contact_name: string | null
+  first_inbound_at: string | null
   first_response_at: string | null
   unread_count: number
   wa_id: string
@@ -179,6 +182,7 @@ function toState(r: {
     lastInboundAt: r.last_inbound_at,
     lastMessageAt: r.last_message_at,
     contactName: r.contact_name,
+    firstInboundAt: r.first_inbound_at,
     firstResponseAt: r.first_response_at,
     unreadCount: r.unread_count,
     waId: r.wa_id,
@@ -186,7 +190,7 @@ function toState(r: {
   }
 }
 
-const STATE_COLUMNS = 'id, lead_id, last_inbound_at, last_message_at, contact_name, first_response_at, unread_count, wa_id, account_id'
+const STATE_COLUMNS = 'id, lead_id, last_inbound_at, last_message_at, contact_name, first_inbound_at, first_response_at, unread_count, wa_id, account_id'
 
 export async function findConversation(service: Client, tenantId: string, accountId: string, waId: string): Promise<ConversationState | null> {
   const { data, error } = await service
@@ -274,6 +278,7 @@ export type ConversationPatch = Partial<{
   property_id: string | null
   whatsapp_click_id: string | null
   last_inbound_at: string
+  first_inbound_at: string
   last_message_at: string
   last_message_preview: string
   last_direction: WhatsappDirection
@@ -324,6 +329,44 @@ export async function getConversation(client: Client, tenantId: string, id: stri
     .maybeSingle()
   if (error) throw error
   return data ? toWhatsappConversationModel(data) : null
+}
+
+/**
+ * Conversas cuja primeira mensagem ao vivo caiu no período, para o painel de
+ * desempenho. Client do membro (RLS). Teto de 5.000: acima disso a conta
+ * precisaria ir para o banco, e nenhuma imobiliária do porte-alvo chega perto.
+ */
+export async function listConversationsForMetrics(client: Client, tenantId: string, desde: string): Promise<ConversaParaDesempenho[]> {
+  const { data, error } = await client
+    .from('whatsapp_conversations')
+    .select('first_inbound_at, first_response_at, leads(broker_id, brokers(name))')
+    .eq('tenant_id', tenantId)
+    .gte('first_inbound_at', desde)
+    .limit(5000)
+  if (error) throw error
+  return (data ?? [])
+    .filter((r) => r.first_inbound_at)
+    .map((r) => {
+      const lead = r.leads as { broker_id: string | null; brokers?: { name: string | null } | null } | null
+      return {
+        firstInboundAt: r.first_inbound_at!,
+        firstResponseAt: r.first_response_at,
+        brokerId: lead?.broker_id ?? null,
+        brokerName: lead?.brokers?.name ?? null,
+      }
+    })
+}
+
+/** Conversas esperando resposta agora (última mensagem é do contato). */
+export async function listWaitingConversations(client: Client, tenantId: string): Promise<{ lastMessageAt: string }[]> {
+  const { data, error } = await client
+    .from('whatsapp_conversations')
+    .select('last_message_at')
+    .eq('tenant_id', tenantId)
+    .eq('last_direction', 'in')
+    .limit(1000)
+  if (error) throw error
+  return (data ?? []).map((r) => ({ lastMessageAt: r.last_message_at }))
 }
 
 /** A conversa deste lead, para o atalho na ficha do contato. */

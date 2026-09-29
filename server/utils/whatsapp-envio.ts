@@ -97,7 +97,7 @@ export async function registrarSaida(
   service: Client,
   tenant: { id: string; slug: string },
   userId: string,
-  state: Pick<ConversationState, 'id' | 'leadId' | 'firstResponseAt' | 'lastInboundAt'>,
+  state: Pick<ConversationState, 'id' | 'leadId' | 'firstResponseAt' | 'firstInboundAt'>,
   msg: {
     wamid: string
     type: string

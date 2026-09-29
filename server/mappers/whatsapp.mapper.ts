@@ -73,6 +73,7 @@ export function toWhatsappConversationModel(row: ConversationRow & ConversationE
     propertyCode: row.properties?.code ?? null,
     propertyTitle: row.properties?.title ?? null,
     lastInboundAt: row.last_inbound_at,
+    firstInboundAt: row.first_inbound_at,
     lastMessageAt: row.last_message_at,
     lastMessagePreview: row.last_message_preview,
     lastDirection: (row.last_direction as WhatsappDirection | null) ?? null,

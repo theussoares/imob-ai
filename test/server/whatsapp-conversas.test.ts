@@ -248,10 +248,11 @@ describe('janela de 24h e primeira resposta', () => {
     expect(janelaAberta(null, agora)).toBe(false)
   })
 
-  test('a primeira resposta conta pelo app também, mas só depois de uma entrada', () => {
-    expect(respostaPatch({ firstResponseAt: null, lastInboundAt: '2026-09-29T11:00:00Z' }, 'T', 'p').first_response_at).toBe('T')
-    expect(respostaPatch({ firstResponseAt: null, lastInboundAt: null }, 'T', 'p').first_response_at).toBeUndefined()
-    expect(respostaPatch({ firstResponseAt: 'X', lastInboundAt: '2026-09-29T11:00:00Z' }, 'T', 'p').first_response_at).toBeUndefined()
+  test('a primeira resposta conta pelo app também, mas só depois de uma entrada AO VIVO', () => {
+    expect(respostaPatch({ firstResponseAt: null, firstInboundAt: '2026-09-29T11:00:00Z' }, 'T', 'p').first_response_at).toBe('T')
+    // Conversa só de histórico (ou puxada pela imobiliária): não há espera a medir.
+    expect(respostaPatch({ firstResponseAt: null, firstInboundAt: null }, 'T', 'p').first_response_at).toBeUndefined()
+    expect(respostaPatch({ firstResponseAt: 'X', firstInboundAt: '2026-09-29T11:00:00Z' }, 'T', 'p').first_response_at).toBeUndefined()
   })
 })
 

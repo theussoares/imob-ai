@@ -1857,6 +1857,7 @@ export type Database = {
           updated_at: string
           wa_id: string
           whatsapp_click_id: string | null
+          first_inbound_at: string | null
         }
         Insert: {
           account_id: string
@@ -1875,6 +1876,7 @@ export type Database = {
           updated_at?: string
           wa_id: string
           whatsapp_click_id?: string | null
+          first_inbound_at?: string | null
         }
         Update: {
           account_id?: string
@@ -1893,6 +1895,7 @@ export type Database = {
           updated_at?: string
           wa_id?: string
           whatsapp_click_id?: string | null
+          first_inbound_at?: string | null
         }
         Relationships: [
           {

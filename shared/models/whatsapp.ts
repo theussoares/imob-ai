@@ -83,6 +83,7 @@ export interface WhatsappConversation {
   propertyCode: string | null
   propertyTitle: string | null
   lastInboundAt: string | null
+  firstInboundAt: string | null
   lastMessageAt: string
   lastMessagePreview: string | null
   lastDirection: WhatsappDirection | null
@@ -468,3 +469,138 @@ export const MODELOS_SUGERIDOS = [
 ]
 
 export const MODELO_IDIOMA = 'pt_BR'
+
+// ---------------------------------------------------------------------------
+// Desempenho do atendimento (tempo de primeira resposta)
+// ---------------------------------------------------------------------------
+
+export const DESEMPENHO_PERIODOS = [7, 30, 90] as const
+export type DesempenhoPeriodo = (typeof DESEMPENHO_PERIODOS)[number]
+
+export function toDesempenhoPeriodo(v: unknown): DesempenhoPeriodo {
+  const n = Number(v)
+  return (DESEMPENHO_PERIODOS as readonly number[]).includes(n) ? (n as DesempenhoPeriodo) : 7
+}
+
+export interface ConversaParaDesempenho {
+  firstInboundAt: string
+  firstResponseAt: string | null
+  brokerId: string | null
+  brokerName: string | null
+}
+
+export type FaixaDeResposta = 'ate5' | 'ate30' | 'ate2h' | 'ate24h' | 'mais24h' | 'sem'
+
+export const FAIXAS_DE_RESPOSTA: { chave: FaixaDeResposta; rotulo: string; ateMin: number }[] = [
+  { chave: 'ate5', rotulo: 'Até 5 min', ateMin: 5 },
+  { chave: 'ate30', rotulo: '5 a 30 min', ateMin: 30 },
+  { chave: 'ate2h', rotulo: '30 min a 2 h', ateMin: 120 },
+  { chave: 'ate24h', rotulo: '2 a 24 h', ateMin: 1440 },
+  { chave: 'mais24h', rotulo: 'Mais de 24 h', ateMin: Infinity },
+  { chave: 'sem', rotulo: 'Sem resposta', ateMin: Infinity },
+]
+
+export interface NumerosDeResposta {
+  total: number
+  respondidas: number
+  /** Minutos. null quando não há resposta no grupo. */
+  medianaMin: number | null
+  p90Min: number | null
+  semResposta: number
+}
+
+export interface Desempenho extends NumerosDeResposta {
+  dias: DesempenhoPeriodo
+  faixas: { chave: FaixaDeResposta; rotulo: string; n: number }[]
+  porCorretor: (NumerosDeResposta & { brokerId: string | null; nome: string })[]
+  esperandoAgora: number
+  /** Minutos que a conversa mais antiga sem resposta está esperando. */
+  maiorEsperaMin: number | null
+}
+
+/**
+ * Percentil pelo posto mais próximo, sobre valores já ordenados. Sem
+ * interpolação: "90% responderam em até X" tem de ser um X que aconteceu.
+ */
+function percentil(ordenados: number[], p: number): number | null {
+  if (!ordenados.length) return null
+  return ordenados[Math.min(ordenados.length - 1, Math.ceil((p / 100) * ordenados.length) - 1)]!
+}
+
+function numeros(cs: ConversaParaDesempenho[]): NumerosDeResposta {
+  const tempos = cs
+    .filter((c) => c.firstResponseAt)
+    .map((c) => Math.max(0, (Date.parse(c.firstResponseAt!) - Date.parse(c.firstInboundAt)) / 60000))
+    .sort((a, b) => a - b)
+  return {
+    total: cs.length,
+    respondidas: tempos.length,
+    medianaMin: percentil(tempos, 50),
+    p90Min: percentil(tempos, 90),
+    semResposta: cs.length - tempos.length,
+  }
+}
+
+/**
+ * O resumo que o dono da imobiliária pede: quanto a equipe demora para
+ * responder quem chama no WhatsApp, e quem ficou sem resposta.
+ *
+ * Mediana e p90, e não média: uma conversa que chegou de madrugada e foi
+ * respondida às 9h puxaria a média para horas e esconderia que o resto do dia
+ * é respondido em minutos. O p90 mostra essas caudas sem deixar que elas
+ * definam o número principal.
+ *
+ * Por corretor pelo corretor do LEAD da conversa (corretor não loga — quem
+ * respondeu de fato não é conhecido). Conversa sem lead ou sem corretor entra
+ * como "Sem corretor".
+ */
+export function resumoDeDesempenho(
+  dias: DesempenhoPeriodo,
+  conversas: ConversaParaDesempenho[],
+  esperando: { lastMessageAt: string }[],
+  agora: Date,
+): Desempenho {
+  const faixas = FAIXAS_DE_RESPOSTA.map((f) => ({ chave: f.chave, rotulo: f.rotulo, n: 0 }))
+  for (const c of conversas) {
+    if (!c.firstResponseAt) {
+      faixas.find((f) => f.chave === 'sem')!.n++
+      continue
+    }
+    const min = (Date.parse(c.firstResponseAt) - Date.parse(c.firstInboundAt)) / 60000
+    const f = FAIXAS_DE_RESPOSTA.find((x) => x.chave !== 'sem' && min <= x.ateMin)!
+    faixas.find((x) => x.chave === f.chave)!.n++
+  }
+
+  const grupos = new Map<string, ConversaParaDesempenho[]>()
+  for (const c of conversas) {
+    const k = c.brokerId ?? ''
+    grupos.set(k, [...(grupos.get(k) ?? []), c])
+  }
+  const porCorretor = [...grupos.entries()]
+    .map(([k, cs]) => ({ brokerId: k || null, nome: cs[0]!.brokerName || 'Sem corretor', ...numeros(cs) }))
+    .sort((a, b) => b.total - a.total)
+
+  const esperas = esperando.map((e) => (agora.getTime() - Date.parse(e.lastMessageAt)) / 60000)
+  return {
+    dias,
+    ...numeros(conversas),
+    faixas,
+    porCorretor,
+    esperandoAgora: esperando.length,
+    maiorEsperaMin: esperas.length ? Math.max(0, Math.max(...esperas)) : null,
+  }
+}
+
+/** "4 min", "1 h 20 min", "2 dias". */
+export function duracao(min: number | null): string {
+  if (min === null) return '—'
+  if (min < 1) return 'menos de 1 min'
+  if (min < 60) return `${Math.round(min)} min`
+  if (min < 1440) {
+    const h = Math.floor(min / 60)
+    const m = Math.round(min % 60)
+    return m ? `${h} h ${m} min` : `${h} h`
+  }
+  const d = Math.round(min / 1440)
+  return `${d} dia${d > 1 ? 's' : ''}`
+}

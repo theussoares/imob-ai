@@ -84,6 +84,8 @@ async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, 
     last_message_preview: previa(m.tipo, m.texto),
     last_direction: 'in',
   }
+  // A primeira AO VIVO — é daqui que o tempo de primeira resposta conta (0062).
+  if (!state.firstInboundAt) patch.first_inbound_at = m.quando
   if (m.nomeDoPerfil) patch.contact_name = m.nomeDoPerfil
 
   if (!state.leadId) Object.assign(patch, await vincularLead(service, conta.tenantId, state, m))
@@ -136,7 +138,11 @@ export async function conversaDoContato(
  * Coexistence o corretor responde do celular, e contar só o painel faria o
  * dono ver "nunca respondido" em conversa atendida em dois minutos.
  */
-export function respostaPatch(state: Pick<ConversationState, 'firstResponseAt' | 'lastInboundAt'>, quando: string, preview: string): ConversationPatch {
+export function respostaPatch(
+  state: Pick<ConversationState, 'firstResponseAt' | 'firstInboundAt'>,
+  quando: string,
+  preview: string,
+): ConversationPatch {
   const patch: ConversationPatch = {
     last_message_at: quando,
     last_message_preview: preview,
@@ -144,8 +150,9 @@ export function respostaPatch(state: Pick<ConversationState, 'firstResponseAt' |
     // Quem respondeu leu.
     unread_count: 0,
   }
-  // Só depois de uma entrada: mensagem que a imobiliária puxa primeiro não é "resposta".
-  if (!state.firstResponseAt && state.lastInboundAt) patch.first_response_at = quando
+  // Só depois de uma entrada AO VIVO: mensagem que a imobiliária puxa primeiro
+  // não é "resposta", nem a que responde a uma conversa só de histórico.
+  if (!state.firstResponseAt && state.firstInboundAt) patch.first_response_at = quando
   return patch
 }
 

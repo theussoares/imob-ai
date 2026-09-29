@@ -114,6 +114,10 @@ async function copiar(texto: string) {
 }
 
 // ---- Lista ----
+// A aba na URL: "o desempenho da semana" é um link que o dono guarda.
+const aba = ref<"caixa" | "desempenho">(route.query.aba === "desempenho" ? "desempenho" : "caixa");
+watch(aba, (a) => router.replace({ query: { ...route.query, aba: a === "caixa" ? undefined : a } }));
+
 const filtro = ref<WhatsappFiltro>(toWhatsappFiltro(route.query.filtro));
 const corretor = ref(String(route.query.corretor || ""));
 const abertaId = ref(String(route.query.c || ""));
@@ -181,8 +185,9 @@ function horaDaMensagem(iso: string): string {
 
 /** Tempo até a primeira resposta — o número que o dono pede. */
 function tempoDeResposta(c: WhatsappConversation): string {
-  if (!c.firstResponseAt) return "";
-  const min = Math.max(0, Math.round((Date.parse(c.firstResponseAt) - Date.parse(c.createdAt)) / 60000));
+  // Da primeira mensagem ao vivo do cliente (0062), não da criação da conversa.
+  if (!c.firstResponseAt || !c.firstInboundAt) return "";
+  const min = Math.max(0, Math.round((Date.parse(c.firstResponseAt) - Date.parse(c.firstInboundAt)) / 60000));
   if (min < 60) return `${min} min`;
   const h = Math.floor(min / 60);
   return `${h} h ${min % 60} min`;
@@ -568,8 +573,17 @@ onBeforeUnmount(async () => {
 
     <template v-else>
     <AdminWaHistorico :historico="conta.historico" @atualizado="recarregarConta()" />
+    <div class="abas" role="tablist" aria-label="Conversas">
+      <button type="button" role="tab" :aria-selected="aba === 'caixa'" :class="{ on: aba === 'caixa' }" @click="aba = 'caixa'">
+        <AppIcon name="inbox" /> Caixa de entrada
+      </button>
+      <button type="button" role="tab" :aria-selected="aba === 'desempenho'" :class="{ on: aba === 'desempenho' }" @click="aba = 'desempenho'">
+        <AppIcon name="dashboard" /> Desempenho
+      </button>
+    </div>
+    <AdminWaDesempenho v-if="aba === 'desempenho'" />
     <!-- Caixa de entrada -->
-    <div class="inbox" :class="{ 'com-aberta': abertaId }">
+    <div v-else class="inbox" :class="{ 'com-aberta': abertaId }">
       <aside class="col-lista" aria-label="Conversas">
         <div class="lista-topo">
           <div class="seg" role="radiogroup" aria-label="Filtrar conversas">
@@ -1032,6 +1046,40 @@ onBeforeUnmount(async () => {
   .conectar-form {
     grid-template-columns: 1fr;
   }
+}
+
+.abas {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.abas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 10px 14px;
+  min-height: 44px;
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.abas button.on {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--brand);
+}
+.abas button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.abas :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 
 /* Caixa de entrada: três colunas no computador */
