@@ -374,7 +374,7 @@ const edit = reactive({
  * (a imobiliária que não contratou — hoje, todas menos a da demonstração),
  * continua com "Anotações" e "Próximo retorno", como estava em produção.
  */
-const { crm: temCrm, carregar: carregarRecursos } = useAdminFeatures();
+const { crm: temCrm, whatsapp: temWhatsapp, carregar: carregarRecursos } = useAdminFeatures();
 onMounted(carregarRecursos);
 /**
  * Detalhes do contato numa gaveta lateral, e não dentro do card: o card do
@@ -383,6 +383,25 @@ onMounted(carregarRecursos);
  */
 const editingLead = computed(() =>
   editingId.value ? (leads.value?.find((x) => x.id === editingId.value) ?? null) : null,
+);
+/**
+ * A conversa do WhatsApp deste contato (0059), para o botão da gaveta abrir o
+ * histórico registrado em vez do `wa.me` — que fala pelo celular de quem clica
+ * e deixa a conversa fora do painel.
+ */
+const conversaDoLead = ref<string | null>(null);
+watch(
+  () => (temWhatsapp.value ? editingId.value : null),
+  async (id) => {
+    conversaDoLead.value = null;
+    if (!id) return;
+    try {
+      const r = await adminFetch<{ conversationId: string | null }>(`/api/admin/whatsapp/lead/${id}`);
+      if (editingId.value === id) conversaDoLead.value = r.conversationId;
+    } catch {
+      // Sem o atalho, sobra o botão de WhatsApp de sempre.
+    }
+  },
 );
 let focoAntes: HTMLElement | null = null;
 function closeEditor() {
@@ -1177,8 +1196,13 @@ useHead({ title: "Contatos · Painel" });
                 </NuxtLink>
               </p>
             </div>
+            <NuxtLink
+              v-if="conversaDoLead"
+              class="admin-btn sm dr-wa"
+              :to="`/admin/conversas?c=${conversaDoLead}`"
+            ><AppIcon name="wa" /> Conversa</NuxtLink>
             <a
-              v-if="waHref(editingLead.phone)"
+              v-else-if="waHref(editingLead.phone)"
               class="admin-btn sm dr-wa"
               :href="waHref(editingLead.phone)"
               target="_blank"

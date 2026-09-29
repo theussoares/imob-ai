@@ -34,6 +34,7 @@ Verificado no código e no banco em 25/09.
 | Anti-abuso dos formulários | hash do IP com sal (sha256), não o IP | `leads.ip_hash` | junto com o lead |
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |
 | Aviso de lead novo para a imobiliária | nome e telefone do lead | e-mail enviado pela Resend (EUA) | caixa de entrada da imobiliária |
+| Conversas do WhatsApp (0059), só com o número conectado pela API oficial | nome de perfil, número, texto das mensagens, tipo da mídia (o arquivo NÃO é baixado), imóvel de interesse | `whatsapp_conversations` e `whatsapp_messages` (Supabase, São Paulo); entrega pela Meta (EUA e outros) | junto com o lead (24 meses sem andamento); conversa sem lead: **90 dias** da última mensagem, apagada pelo cron diário |
 | Estatísticas de visita | URL visitada (sem query exceto `utm_*`), país, navegador, dispositivo; visitante identificado por hash do request que **zera todo dia** | Vercel Web Analytics e Speed Insights | conforme a Vercel |
 | Processamento de toda requisição | IP, user-agent, URL | funções da Vercel, região `gru1` (São Paulo) desde 25/09; antes `iad1` (EUA) | logs de runtime da Vercel, retenção curta do plano |
 
@@ -67,6 +68,7 @@ partida dele, não o ponto final.
 | E-mail de aviso à imobiliária | **art. 7º, V** | É o próprio atendimento do pedido |
 | Anti-abuso (hash de IP) | **art. 7º, IX** | Legítimo interesse em segurança do formulário. Passa no teste do art. 10: finalidade legítima e concreta (barrar envio em massa), necessidade (sem isso não há limite por origem), expectativa razoável do titular, dado pseudonimizado |
 | Clique no WhatsApp | **art. 7º, IX** | Legítimo interesse em saber de qual imóvel veio a conversa. Não identifica quem clicou; 90 dias de retenção |
+| Conversas do WhatsApp | **art. 7º, V** | O titular escreveu para a imobiliária pedindo atendimento: o mesmo procedimento preliminar do formulário, por outro canal. O histórico importado do Coexistence (até 6 meses de conversas, inclusive pessoais) fica **fora** até haver decisão com a imobiliária, que é a controladora |
 | Estatísticas de visita | **art. 7º, IX** | O Guia de Cookies da ANPD admite legítimo interesse para medição de audiência. Aqui nem há cookie |
 
 **Posição:** confirmadas. **Risco residual:** baixo. **Ação:** o art. 10, §2º
@@ -123,6 +125,11 @@ Paulo para falar com o banco.
 
 **Risco residual:** baixo. O que continua saindo do país (e-mail de aviso,
 estatísticas anonimizadas) tem fundamento, como descrito acima.
+
+**Conversas do WhatsApp (0059):** a mensagem passa pela Meta fora do Brasil
+por natureza — o titular a enviou pelo aplicativo da Meta. A base é o art. 7º,
+V, e o art. 33, IX a cobre. O que a plataforma guarda fica em São Paulo, e a
+mídia não é baixada no F0, o que reduz o que existe para vazar.
 
 ### Q4. Registros de acesso (Marco Civil, art. 15)
 

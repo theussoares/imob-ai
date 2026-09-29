@@ -52,6 +52,7 @@ export function useAdminFeatures() {
     descricaoIa: computed(() => estado.value?.descricaoIa === true),
     crm: computed(() => estado.value?.crm === true),
     cobranca: computed(() => estado.value?.cobranca === true),
+    whatsapp: computed(() => estado.value?.whatsapp === true),
     carregar,
     carregado: computed(() => estado.value !== null),
   }
@@ -64,6 +65,7 @@ interface Recursos {
   descricaoIa: boolean
   crm: boolean
   cobranca: boolean
+  whatsapp: boolean
 }
 
 /**

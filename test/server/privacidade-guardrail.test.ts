@@ -109,6 +109,8 @@ describe('privacidade: o que a política afirma continua verdade', () => {
         'api.asaas.com',
         // Resend — "Resend" na política (e-mail de aviso de lead, EUA).
         'api.resend.com',
+        // Meta — "Meta (WhatsApp)" na política (conversas do WhatsApp, 0059).
+        'graph.facebook.com',
       ],
       sdks: [
         // Descrição por IA: recebe só dados do imóvel, nunca do visitante —
@@ -134,6 +136,7 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       {
         leads: colunas('server/repositories/lead.repository.ts', 'leads'),
         whatsapp_clicks: colunas('server/repositories/whatsapp-click.repository.ts', 'whatsapp_clicks'),
+        whatsapp_messages: colunas('server/repositories/whatsapp.repository.ts', 'whatsapp_messages'),
       },
       `Campo novo coletado do visitante. Atualize "Neste site" em ${POLITICA} e a tabela ` +
         `"O que o site público trata" em ${PARECER}.`,
@@ -142,6 +145,10 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       leads: ['ip_hash', 'lead_type', 'message', 'name', 'phone', 'property_id', 'source', 'tenant_id'].sort(),
       // "Quando você clica para conversar pelo WhatsApp" na política.
       whatsapp_clicks: ['broker_id', 'destination', 'ip_hash', 'origin', 'property_id', 'tenant_id'].sort(),
+      // "Quando você conversa pelo WhatsApp" na política. `body` é o texto;
+      // mídia não é baixada (a política afirma isso — um `media_path` aqui a
+      // tornaria falsa).
+      whatsapp_messages: ['body', 'conversation_id', 'direction', 'occurred_at', 'origin', 'sent_by', 'status', 'tenant_id', 'type', 'wamid'].sort(),
     })
   })
 })

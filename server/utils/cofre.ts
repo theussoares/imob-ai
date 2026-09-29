@@ -1,7 +1,8 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 
 /**
- * Cifra a chave de API do provedor de pagamento de cada imobiliária.
+ * Cifra a chave de API do provedor de pagamento de cada imobiliária — e o
+ * token do WhatsApp (0059), pelo mesmo motivo: ele fala em nome dela.
  *
  * A chave do Asaas emite, cancela e estorna cobrança no CNPJ do cliente. Com
  * ela em texto puro no banco, qualquer vazamento do banco — um dump, um backup,
@@ -26,7 +27,7 @@ function chaveMestra(): Buffer {
     logError('cofre.chave_ausente', { dica: 'Defina NUXT_PAYMENTS_ENCRYPTION_KEY (32+ caracteres) e faça redeploy.' })
     throw createError({
       statusCode: 503,
-      statusMessage: 'A cobrança ainda não está habilitada nesta plataforma. Fale com o suporte.',
+      statusMessage: 'Este recurso ainda não está habilitado nesta plataforma. Fale com o suporte.',
     })
   }
   return createHash('sha256').update(bruta).digest()

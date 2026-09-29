@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { canalDoTitular } from '~~/shared/utils/canal-titular'
 import { LEAD_RETENCAO_MESES } from '~~/shared/models/lead'
+import { WHATSAPP_CONVERSA_RETENCAO_DIAS } from '~~/shared/models/whatsapp'
 /**
  * Política de privacidade do site da imobiliária: o site público e a Área do
  * Cliente.
@@ -85,6 +86,21 @@ useHead(() => ({
       Registramos de qual imóvel partiu o clique e para qual número a conversa
       foi, para que {{ nome }} saiba sobre o que você quer falar. O registro não
       diz quem você é: não guardamos seu nome nem seu número.
+    </p>
+
+    <!--
+      Conversas do WhatsApp (0059): só quando a imobiliária conecta o número
+      pela API oficial. Ver docs/superpowers/specs/2026-09-29-conversas-whatsapp-design.md
+      e "Conversas do WhatsApp" em docs/runbooks/lgpd-site-publico.md.
+    -->
+    <h3>Quando você conversa pelo WhatsApp</h3>
+    <p>
+      Quando {{ nome }} atende pelo WhatsApp conectado ao sistema, as mensagens
+      trocadas com você ficam registradas no painel dela, junto com o seu nome
+      de perfil, o seu número e o imóvel sobre o qual você perguntou. É o que
+      permite que outra pessoa da equipe continue o atendimento sem você ter de
+      repetir tudo. Fotos, áudios e documentos que você enviar não são
+      guardados no sistema; fica só o registro de que foram enviados.
     </p>
 
     <h3>Proteção contra abuso</h3>
@@ -176,6 +192,10 @@ useHead(() => ({
         você (art. 7º, IX).
       </li>
       <li>
+        <b>Conversas pelo WhatsApp:</b> para atender a um pedido seu, antes de
+        um possível negócio (art. 7º, V) — foi você quem escreveu.
+      </li>
+      <li>
         <b>Área do Cliente:</b> para cumprir o contrato que você tem com
         {{ nome }} (art. 7º, V) e manter o registro de quem acessou cada
         documento (art. 7º, IX).
@@ -206,12 +226,18 @@ useHead(() => ({
         nome, o CPF ou CNPJ, o e-mail e o telefone de quem paga o aluguel,
         quando {{ nome }} cobra pelo sistema.
       </li>
+      <li>
+        <b>Meta (WhatsApp):</b> entrega das mensagens, com servidores fora do
+        Brasil, quando {{ nome }} atende pelo WhatsApp conectado ao sistema.
+        A conta do WhatsApp é de {{ nome }}.
+      </li>
     </ul>
     <!--
       Transferência internacional (LGPD art. 33): as funções rodam em `gru1`
       (São Paulo, nuxt.config.ts), então o formulário e o hash de IP são
       processados no Brasil. O que sai do país é o e-mail de aviso (Resend),
-      coberto pelo art. 33, IX, e as estatísticas anonimizadas da Vercel — ver
+      coberto pelo art. 33, IX, as conversas do WhatsApp (Meta), que o próprio
+      titular iniciou no aplicativo da Meta, e as estatísticas anonimizadas da Vercel — ver
       Q3 em docs/runbooks/lgpd-site-publico.md. Não afirmar aqui garantia
       contratual que ninguém verificou.
     -->
@@ -235,6 +261,13 @@ useHead(() => ({
       <li>
         <b>Registros de clique no WhatsApp:</b> 90 dias. Depois disso são
         apagados automaticamente.
+      </li>
+      <!-- WHATSAPP_CONVERSA_RETENCAO_DIAS, lida direto; a do pedido de contato é a de cima. -->
+      <li>
+        <b>Conversas pelo WhatsApp:</b> ficam enquanto existir o seu pedido de
+        contato, e seguem o prazo dele. Conversa que não virou pedido de contato
+        é apagada {{ WHATSAPP_CONVERSA_RETENCAO_DIAS }} dias depois da última
+        mensagem.
       </li>
       <li>
         <b>Cadastro e documentos da Área do Cliente:</b> enquanto durar a

@@ -196,3 +196,26 @@ export async function deleteLead(client: Client, tenantId: string, id: string): 
   const { error } = await client.from('leads').delete().eq('tenant_id', tenantId).eq('id', id)
   if (error) throw error
 }
+
+/**
+ * Lead em aberto com um destes telefones, o mais recente — para a mensagem de
+ * WhatsApp de quem já preencheu o formulário cair no MESMO card, e não num
+ * duplicado. Fechado e perdido não contam: quem volta depois de fechar é uma
+ * oportunidade nova, e reabrir o card antigo apagaria o resultado do funil.
+ *
+ * Service role (é o webhook), então o `tenant_id` no filtro é a trava.
+ */
+export async function findOpenLeadByPhones(service: Client, tenantId: string, phones: string[]): Promise<{ id: string; brokerId: string | null } | null> {
+  if (!phones.length) return null
+  const { data, error } = await service
+    .from('leads')
+    .select('id, broker_id')
+    .eq('tenant_id', tenantId)
+    .in('phone', phones)
+    .not('stage', 'in', '(fechado,perdido)')
+    .order('created_at', { ascending: false })
+    .limit(1)
+  if (error) throw error
+  const row = data?.[0]
+  return row ? { id: row.id, brokerId: row.broker_id } : null
+}

@@ -2,6 +2,8 @@ import { enviarLembretesDeLeadsParados } from '~~/server/utils/lead-alert'
 import { purgeOldWhatsappClicks } from '~~/server/repositories/whatsapp-click.repository'
 import { purgeStaleLeads } from '~~/server/repositories/lead.repository'
 import { corteDeRetencaoDeLeads } from '~~/shared/models/lead'
+import { purgeOrphanConversations } from '~~/server/repositories/whatsapp.repository'
+import { WHATSAPP_CONVERSA_RETENCAO_DIAS } from '~~/shared/models/whatsapp'
 
 /**
  * Lembrete diário de leads parados, e a retenção dos cliques no WhatsApp e dos
@@ -56,6 +58,20 @@ export default defineEventHandler(async (event) => {
     logError('lead.retencao_falhou', { reason: errMessage(e) })
   }
 
-  return { ...resultado, cliquesLimpos, leadsExpurgados }
+  // Conversa do WhatsApp sem lead (0059). DEPOIS do expurgo de leads: o lead
+  // que acabou de sair solta a conversa (SET NULL), e ela entra na conta já
+  // hoje se estiver parada há mais do prazo.
+  let conversasLimpas = true
+  try {
+    await purgeOrphanConversations(
+      serviceSupabase(),
+      new Date(Date.now() - WHATSAPP_CONVERSA_RETENCAO_DIAS * 24 * 60 * 60 * 1000).toISOString(),
+    )
+  } catch (e) {
+    conversasLimpas = false
+    logError('whatsapp.retencao_falhou', { reason: errMessage(e) })
+  }
+
+  return { ...resultado, cliquesLimpos, leadsExpurgados, conversasLimpas }
 })
 

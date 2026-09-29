@@ -199,6 +199,13 @@ export default defineNuxtConfig({
     // imobiliárias precisam reconectar a conta. Guarde-a como se guarda a
     // service_role.
     paymentsEncryptionKey: '',
+    // App da Moradi na Meta (conversas do WhatsApp, 0059). Um app para a
+    // plataforma inteira, e não por imobiliária: a Meta aceita UM webhook por
+    // app. Sem default, como a da IA: os nomes são NUXT_WHATSAPP_APP_SECRET
+    // (confere a assinatura de cada webhook) e NUXT_WHATSAPP_VERIFY_TOKEN
+    // (o texto combinado no cadastro do webhook no painel da Meta).
+    whatsappAppSecret: '',
+    whatsappVerifyToken: '',
     // Trocar de modelo é variável de ambiente, não deploy de código.
     aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {

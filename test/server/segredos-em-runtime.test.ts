@@ -36,6 +36,10 @@ const SEGREDOS = [
   'useRuntimeConfig().supabaseServiceKey',
   'config.paymentsEncryptionKey',
   'useRuntimeConfig().paymentsEncryptionKey',
+  'config.whatsappAppSecret',
+  'config.whatsappVerifyToken',
+  'useRuntimeConfig().whatsappAppSecret',
+  'useRuntimeConfig().whatsappVerifyToken',
 ]
 
 /**
