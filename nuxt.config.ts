@@ -70,7 +70,20 @@ function cspDoPainel(): string {
   return diretivas.join('; ')
 }
 
+// Anti-clickjacking + isolamento de origem, para o site e o painel.
+const CABECALHOS_DE_SEGURANCA = {
+  'X-Frame-Options': 'SAMEORIGIN',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+}
+
 const CABECALHOS_DO_PAINEL = {
+  // Repetidos aqui, e não herdados de '/**': na Vercel, a regra de '/admin/**'
+  // vira uma rota de borda SEM `continue` (conferido em .vercel/output/config.json),
+  // e a de '/**' não chega a ser aplicada. Sem esta linha o painel sairia da
+  // borda sem X-Frame-Options nem nosniff.
+  ...CABECALHOS_DE_SEGURANCA,
   // O Disallow do robots.txt impede o crawl, mas não a indexação da URL (que
   // apareceria "sem descrição" se linkada em algum lugar).
   'X-Robots-Tag': 'noindex, nofollow',
@@ -351,14 +364,10 @@ export default defineNuxtConfig({
       // '/admin/**' não cobre '/admin' exato, por isso as duas regras.
       '/admin': { ssr: false, headers: CABECALHOS_DO_PAINEL },
       '/admin/**': { ssr: false, headers: CABECALHOS_DO_PAINEL },
-      // Cabeçalhos de segurança (Best Practices): anti-clickjacking + isolamento de origem.
       '/**': {
         headers: {
-          'X-Frame-Options': 'SAMEORIGIN',
-          'X-Content-Type-Options': 'nosniff',
-          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          ...CABECALHOS_DE_SEGURANCA,
           'Cross-Origin-Opener-Policy': 'same-origin',
-          'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
           'Content-Security-Policy': CSP_PUBLICO.join('; '),
         },
       },
