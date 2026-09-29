@@ -18,6 +18,7 @@ import {
 } from "~~/shared/utils/property-limits";
 import { draftKey, parseDraft, serializeDraft } from "~~/shared/utils/form-draft";
 import { AI_TONE_LABELS, type AiTone } from "~~/shared/models/ai-tone";
+import { pendenciasVrsync } from "~~/shared/utils/vrsync";
 import { COTA_MENSAL_DESCRICAO, type SaldoMensalIA } from "~~/shared/models/ai-generation";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
@@ -50,6 +51,9 @@ const form = reactive<
   featured: false,
   images: [],
   location: "",
+  addressZip: "",
+  addressStreet: "",
+  addressNumber: "",
   brokerId: "",
   ownerName: "",
   ownerPhone: "",
@@ -165,6 +169,9 @@ watchEffect(() => {
       position: i.position,
     })),
     location: p.location || "",
+    addressZip: formatCep(p.addressZip || ""),
+    addressStreet: p.addressStreet || "",
+    addressNumber: p.addressNumber || "",
     brokerId: p.brokerId || "",
     ownerName: p.ownerName || "",
     ownerPhone: p.ownerPhone || "",
@@ -270,6 +277,35 @@ async function mostrarErro(msg: string) {
  * engano de digitação, e quem cadastra é quem sabe se é engano mesmo. O que
  * bloqueia é o teto do servidor, que é ordens de grandeza acima daqui.
  */
+// CEP exibido como 79600-000; o servidor grava só os dígitos.
+function formatCep(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+function onCepInput(e: Event) {
+  form.addressZip = formatCep((e.target as HTMLInputElement).value);
+}
+const cepValido = computed(() => {
+  const d = (form.addressZip || "").replace(/\D/g, "");
+  return d.length === 0 || d.length === 8;
+});
+
+/**
+ * O que falta para o imóvel entrar no feed dos portais — a mesma regra que o
+ * feed aplica (`pendenciasVrsync`). Mostrado aqui, na hora de cadastrar,
+ * porque é onde dá para resolver; na tela de Configurações a imobiliária só
+ * descobre depois, imóvel por imóvel.
+ */
+const pendenciasPortais = computed(() =>
+  form.status === "active"
+    ? pendenciasVrsync({
+        ...form,
+        description: form.description || null,
+        images: form.images,
+      } as unknown as Property)
+    : [],
+);
+
 const avisos = computed(() => {
   const out: string[] = [];
   const p = form.price;
@@ -326,6 +362,11 @@ async function save() {
   if (form.price <= 0) {
     await mostrarErro("Informe o preço do imóvel.");
     document.getElementById("f-preco")?.focus();
+    return;
+  }
+  if (!cepValido.value) {
+    await mostrarErro("CEP inválido: use os 8 dígitos (ex.: 79600-000).");
+    document.getElementById("f-cep")?.focus();
     return;
   }
   if (!ownerPhoneValid.value) {
@@ -837,6 +878,40 @@ useHead(() => ({
           <span>(só no painel, não aparecem no site)</span>
         </legend>
         <div class="form-grid">
+          <div>
+            <label class="admin-label" for="f-cep">CEP</label>
+            <input
+              id="f-cep"
+              :value="form.addressZip"
+              class="admin-input"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="79600-000"
+              :aria-invalid="!cepValido || undefined"
+              :aria-describedby="!cepValido ? 'f-cep-err' : 'f-end-hint'"
+              @input="onCepInput"
+            />
+            <p v-if="!cepValido" id="f-cep-err" class="field-err">CEP com 8 dígitos.</p>
+          </div>
+          <div>
+            <label class="admin-label" for="f-rua">Rua</label>
+            <input
+              id="f-rua"
+              v-model="form.addressStreet"
+              class="admin-input"
+              autocomplete="off"
+              placeholder="Rua Paranaíba"
+              aria-describedby="f-end-hint"
+            />
+          </div>
+          <div>
+            <label class="admin-label" for="f-numero">Número</label>
+            <input id="f-numero" v-model="form.addressNumber" class="admin-input" autocomplete="off" />
+          </div>
+          <p id="f-end-hint" class="end-hint">
+            CEP e rua vão só para ZAP, Viva Real e OLX, que exigem os dois e
+            mostram no anúncio apenas o bairro. O site não publica.
+          </p>
           <div style="grid-column: 1 / -1">
             <label class="admin-label" for="f-local">Localização (endereço / referência)</label>
             <input
@@ -888,6 +963,15 @@ useHead(() => ({
       <ul v-if="avisos.length" class="chk" role="status">
         <li v-for="a in avisos" :key="a">{{ a }}</li>
       </ul>
+
+      <!-- Não impede salvar: o imóvel continua no site, só fica fora do feed
+           dos portais até completar. -->
+      <div v-if="pendenciasPortais.length" class="chk portais" role="status">
+        <strong>Fica fora dos portais (ZAP, Viva Real, OLX) até completar:</strong>
+        <ul>
+          <li v-for="p in pendenciasPortais" :key="p">{{ p }}</li>
+        </ul>
+      </div>
 
       <!-- role="alert" + foco (ver `mostrarErro`): o erro nasce no fim da
            ficha, longe de quem apertou salvar na barra fixa. -->
@@ -1171,5 +1255,18 @@ useHead(() => ({
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.chk.portais {
+  padding-left: 14px;
+}
+.chk.portais ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.end-hint {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
 }
 </style>

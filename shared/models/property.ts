@@ -56,6 +56,14 @@ export interface Property {
   updatedBy?: string | null
   // Campos privados (somente painel/admin) — nunca expostos no site público.
   location?: string | null
+  /**
+   * Endereço estruturado, também interno. Existe por causa dos portais: o
+   * VRSync recusa anúncio sem CEP e rua, e `location` é texto livre. O feed
+   * manda, o portal mostra só o bairro. Ver 0058.
+   */
+  addressZip?: string | null
+  addressStreet?: string | null
+  addressNumber?: string | null
   brokerId?: string | null
   broker?: Broker | null
   // Telefone do corretor para contato público no detalhe (quando houver captador).
@@ -149,6 +157,9 @@ export interface PropertyInput {
   images?: PropertyImageInput[]
   // Campos privados (admin)
   location?: string | null
+  addressZip?: string | null
+  addressStreet?: string | null
+  addressNumber?: string | null
   brokerId?: string | null
   ownerName?: string | null
   ownerPhone?: string | null

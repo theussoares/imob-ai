@@ -31,8 +31,27 @@ import { stripComments } from '../helpers/strip-comments'
  */
 
 /** Colunas que NUNCA podem sair numa resposta pública, por tabela. */
-const INTERNAL_PROPERTY_COLUMNS = ['location', 'broker_id', 'owner_name', 'owner_phone', 'updated_by']
-const INTERNAL_MODEL_KEYS = ['location', 'brokerId', 'broker', 'ownerName', 'ownerPhone', 'updatedBy']
+const INTERNAL_PROPERTY_COLUMNS = [
+  'location',
+  'broker_id',
+  'owner_name',
+  'owner_phone',
+  'updated_by',
+  'address_zip',
+  'address_street',
+  'address_number',
+]
+const INTERNAL_MODEL_KEYS = [
+  'location',
+  'brokerId',
+  'broker',
+  'ownerName',
+  'ownerPhone',
+  'updatedBy',
+  'addressZip',
+  'addressStreet',
+  'addressNumber',
+]
 
 /** Row de imóvel COM todas as colunas internas preenchidas — o pior caso. */
 function fullPropertyRow(over: Record<string, unknown> = {}) {
@@ -60,6 +79,9 @@ function fullPropertyRow(over: Record<string, unknown> = {}) {
     created_at: '2026-08-21T10:00:00.000Z',
     updated_at: '2026-08-21T10:00:00.000Z',
     location: 'Rua Secreta, 123',
+    address_zip: '79600000',
+    address_street: 'Rua Secreta',
+    address_number: '123',
     broker_id: 'b1',
     owner_name: 'Dono Silva',
     owner_phone: '5567999990000',
@@ -205,7 +227,7 @@ function functionsUsingSelectAll(source: string): string[] {
 }
 
 describe('leitura pública não usa select(*)', () => {
-  const repos = ['property', 'broker', 'tenant', 'lead', 'member']
+  const repos = ['property', 'broker', 'tenant', 'lead', 'member', 'portal-feed']
 
   for (const repo of repos) {
     test(`${repo}.repository: todo select(*) é declarado`, () => {

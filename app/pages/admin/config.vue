@@ -108,13 +108,29 @@ watch(
   },
 );
 
-// URL do feed para os portais. Deriva do domínio público: no host de painel
-// (painel.<dominio>) remove o prefixo para apontar ao site, não ao admin.
-const feedUrl = ref("");
+/*
+ * Feed dos portais. O link e as pendências vêm do servidor: o link leva um
+ * token (o feed carrega CEP e rua) e sai do domínio primário — derivá-lo da
+ * barra de endereço, como antes, dava `olmiimoveis.com.br`, que redireciona
+ * para o `www.`. E sem as pendências a tela afirmava uma integração que o
+ * Canal Pro recusava imóvel por imóvel.
+ */
+interface PortaisResumo {
+  feedUrl: string;
+  publicados: number;
+  prontos: number;
+  pendentes: { id: string; code: string; title: string; pendencias: string[] }[];
+}
+const portais = ref<PortaisResumo | null>(null);
+const portaisErro = ref("");
+const feedUrl = computed(() => portais.value?.feedUrl ?? "");
 const feedCopied = ref(false);
-onMounted(() => {
-  const host = window.location.host.replace(/^(painel|admin)\./, "");
-  feedUrl.value = `${window.location.protocol}//${host}/feed/imoveis.xml`;
+onMounted(async () => {
+  try {
+    portais.value = await adminFetch<PortaisResumo>("/api/admin/portais");
+  } catch {
+    portaisErro.value = "Não foi possível carregar o link do feed. Recarregue a página.";
+  }
 });
 async function copyFeed() {
   try {
@@ -264,24 +280,51 @@ useHead({ title: "Configurações · Painel" });
         </p>
       </div>
 
-      <h3 class="section-t">Integrações · Portais (ZAP, VivaReal, OLX)</h3>
+      <h3 class="section-t">Integrações · Portais (ZAP, Viva Real, OLX)</h3>
       <p style="color: var(--ink-soft); font-size: 13px; margin: -4px 0 12px">
-        Cole o link abaixo no seu painel do Canal Pro (Grupo OLX / ZAP). Os
-        imóveis publicados aqui aparecem e se atualizam sozinhos nos portais.
+        Cole o link abaixo no Canal Pro (Grupo OLX), em
+        <em>Integração de imóveis</em>. O portal busca o arquivo algumas vezes
+        por dia: os imóveis publicados aqui sobem e se atualizam sozinhos.
       </p>
-      <div class="feed-row">
-        <a class="feed-url" :href="feedUrl" target="_blank" rel="noopener">{{
-          feedUrl
-        }}</a>
-        <button type="button" class="admin-btn ghost" @click="copyFeed">
-          {{ feedCopied ? "Copiado!" : "Copiar link" }}
-        </button>
-      </div>
-      <p class="hint-text">
-        Só entram no feed os imóveis com status <strong>Publicado</strong>. O
-        portal cobra o plano de anúncios à parte — a integração em si não tem
-        custo.
-      </p>
+      <p v-if="portaisErro" role="alert" style="color: #b91c1c">{{ portaisErro }}</p>
+      <p v-else-if="!portais" class="hint-text">Carregando…</p>
+      <template v-else>
+        <div class="feed-row">
+          <a class="feed-url" :href="feedUrl" target="_blank" rel="noopener">{{
+            feedUrl
+          }}</a>
+          <button type="button" class="admin-btn ghost" @click="copyFeed">
+            {{ feedCopied ? "Copiado!" : "Copiar link" }}
+          </button>
+        </div>
+        <p class="hint-text">
+          O link é secreto: ele leva o CEP e a rua dos imóveis, que o portal
+          exige e não mostra (o anúncio exibe só o bairro). Não publique.
+        </p>
+
+        <p class="portais-resumo" role="status">
+          <strong>{{ portais.prontos }} de {{ portais.publicados }}</strong>
+          imóveis publicados vão para os portais.
+        </p>
+        <div v-if="portais.pendentes.length" class="portais-pend">
+          <p>
+            Estes ficam de fora até completar o cadastro — o Canal Pro recusa
+            anúncio sem estes dados:
+          </p>
+          <ul>
+            <li v-for="p in portais.pendentes" :key="p.id">
+              <NuxtLink :to="`/admin/imoveis/${p.id}`">{{ p.code }} · {{ p.title }}</NuxtLink>
+              <span>{{ p.pendencias.join(" · ") }}</span>
+            </li>
+          </ul>
+        </div>
+        <p class="hint-text">
+          Só entram imóveis com status <strong>Publicado</strong>. O portal
+          cobra o plano de anúncios à parte — a integração em si não tem custo.
+          Se você já tinha colado o link antigo (terminado em
+          <code>/feed/imoveis.xml</code>), troque por este no Canal Pro.
+        </p>
+      </template>
 
       <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p
@@ -514,6 +557,36 @@ useHead({ title: "Configurações · Painel" });
   font-size: var(--fs-caption);
   color: var(--ink-soft);
   margin: 6px 0 0;
+}
+.portais-resumo {
+  margin: 14px 0 6px;
+  font-size: var(--fs-label);
+}
+.portais-pend {
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #78350f;
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-size: var(--fs-label);
+}
+.portais-pend p {
+  margin: 0 0 8px;
+}
+.portais-pend ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.portais-pend a {
+  color: inherit;
+  font-weight: 600;
+}
+.portais-pend span {
+  display: block;
+  font-size: var(--fs-caption);
 }
 .feed-row {
   display: flex;
