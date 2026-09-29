@@ -81,6 +81,16 @@ useHead(() => ({
       cadastramos você em lista de e-mail nem enviamos propaganda.
     </p>
 
+    <!-- Leads do Canal Pro (0063): o portal repassa; e-mail e dados do MCMV são descartados. -->
+    <h3>Quando você pede contato num portal</h3>
+    <p>
+      Se você chamou num anúncio de {{ nome }} no ZAP Imóveis, Viva Real ou
+      OLX, o portal nos repassa seu nome, telefone, a mensagem e o imóvel. O
+      pedido é tratado como os feitos neste site, pelo mesmo prazo. O e-mail e
+      os dados de simulação de financiamento que o portal envia não são
+      guardados.
+    </p>
+
     <h3>Quando você clica para conversar pelo WhatsApp</h3>
     <p>
       Registramos de qual imóvel partiu o clique e para qual número a conversa

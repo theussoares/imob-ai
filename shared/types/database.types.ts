@@ -1122,21 +1122,51 @@ export type Database = {
           },
         ]
       }
+      portal_lead_receipts: {
+        Row: {
+          lead_id: string | null
+          origin_lead_id: string
+          received_at: string
+          tenant_id: string
+          whatsapp_enviado: boolean
+        }
+        Insert: {
+          lead_id?: string | null
+          origin_lead_id: string
+          received_at?: string
+          tenant_id: string
+          whatsapp_enviado?: boolean
+        }
+        Update: {
+          lead_id?: string | null
+          origin_lead_id?: string
+          received_at?: string
+          tenant_id?: string
+          whatsapp_enviado?: boolean
+        }
+        Relationships: []
+      }
       portal_feeds: {
         Row: {
           created_at: string
           tenant_id: string
           token: string
+          leads_auto_whatsapp: boolean
+          leads_token: string | null
         }
         Insert: {
           created_at?: string
           tenant_id: string
           token: string
+          leads_auto_whatsapp?: boolean
+          leads_token?: string | null
         }
         Update: {
           created_at?: string
           tenant_id?: string
           token?: string
+          leads_auto_whatsapp?: boolean
+          leads_token?: string | null
         }
         Relationships: [
           {

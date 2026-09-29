@@ -96,3 +96,137 @@ export async function feedTokenMatches(client: Client, tenantId: string, token: 
   const b = Buffer.from(token)
   return a.length === b.length && timingSafeEqual(a, b)
 }
+
+// ---------------------------------------------------------------------------
+// Leads dos portais (0063)
+// ---------------------------------------------------------------------------
+
+export interface ConfigDeLeadsDoPortal {
+  token: string
+  autoWhatsapp: boolean
+}
+
+/**
+ * Token da URL de leads, criado na primeira vez. Linha nova leva os DOIS
+ * tokens: `token` (do feed) é obrigatório, e o feed não pode achar uma linha
+ * sem ele. Linha que já existia só pelo feed ganha o de leads por um update
+ * condicional (`is null`) — duas abas abrindo a tela ao mesmo tempo não trocam
+ * o token uma da outra.
+ */
+export async function getOrCreateLeadsToken(client: Client, tenantId: string): Promise<ConfigDeLeadsDoPortal> {
+  const atual = await readLeadsConfig(client, tenantId)
+  if (atual?.token) return { token: atual.token, autoWhatsapp: atual.autoWhatsapp }
+
+  if (!atual) {
+    const { error } = await client.from('portal_feeds').upsert(
+      { tenant_id: tenantId, token: randomBytes(24).toString('base64url'), leads_token: randomBytes(24).toString('base64url') },
+      { onConflict: 'tenant_id', ignoreDuplicates: true },
+    )
+    if (error) throw error
+  }
+  const { error } = await client
+    .from('portal_feeds')
+    .update({ leads_token: randomBytes(24).toString('base64url') })
+    .eq('tenant_id', tenantId)
+    .is('leads_token', null)
+  if (error) throw error
+
+  const depois = await readLeadsConfig(client, tenantId)
+  if (!depois?.token) throw new Error('portal_feeds: token de leads não encontrado após criação')
+  return { token: depois.token, autoWhatsapp: depois.autoWhatsapp }
+}
+
+async function readLeadsConfig(client: Client, tenantId: string): Promise<{ token: string | null; autoWhatsapp: boolean } | null> {
+  const { data, error } = await client
+    .from('portal_feeds')
+    .select('leads_token, leads_auto_whatsapp')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { token: data.leads_token, autoWhatsapp: data.leads_auto_whatsapp } : null
+}
+
+/**
+ * De quem é este token? É assim que o webhook descobre o tenant — o corpo do
+ * Canal Pro não diz de qual imobiliária é o lead.
+ */
+export async function tenantByLeadsToken(client: Client, token: string): Promise<{ tenantId: string; autoWhatsapp: boolean } | null> {
+  const { data, error } = await client
+    .from('portal_feeds')
+    .select('tenant_id, leads_auto_whatsapp')
+    .eq('leads_token', token)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { tenantId: data.tenant_id, autoWhatsapp: data.leads_auto_whatsapp } : null
+}
+
+export async function setLeadsAutoWhatsapp(client: Client, tenantId: string, ligado: boolean): Promise<void> {
+  const { error } = await client.from('portal_feeds').update({ leads_auto_whatsapp: ligado }).eq('tenant_id', tenantId)
+  if (error) throw error
+}
+
+/**
+ * Reserva o lead do portal. `false` = já recebido (reenvio do Canal Pro, ou
+ * o mesmo lead por outro canal). O insert é a trava: dois reenvios
+ * simultâneos não passam os dois.
+ */
+export async function claimPortalLead(client: Client, tenantId: string, originLeadId: string): Promise<boolean> {
+  const { error } = await client.from('portal_lead_receipts').insert({ tenant_id: tenantId, origin_lead_id: originLeadId })
+  if (!error) return true
+  if ((error as { code?: string }).code === '23505') return false
+  throw error
+}
+
+export async function setPortalLeadReceipt(client: Client, tenantId: string, originLeadId: string, leadId: string): Promise<void> {
+  const { error } = await client
+    .from('portal_lead_receipts')
+    .update({ lead_id: leadId })
+    .eq('tenant_id', tenantId)
+    .eq('origin_lead_id', originLeadId)
+  if (error) throw error
+}
+
+/**
+ * Desfaz a reserva quando a gravação do lead falhou — senão o reenvio do
+ * Canal Pro, que é justamente a segunda chance, seria descartado como
+ * "já recebido" e o lead se perderia.
+ */
+export async function releasePortalLead(client: Client, tenantId: string, originLeadId: string): Promise<void> {
+  const { error } = await client
+    .from('portal_lead_receipts')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('origin_lead_id', originLeadId)
+    .is('lead_id', null)
+  if (error) throw error
+}
+
+/** Leads de portal recebidos por este tenant desde `desde` — para o teto. */
+export async function countPortalLeadsSince(client: Client, tenantId: string, desde: string, soComWhatsapp = false): Promise<number> {
+  let q = client.from('portal_lead_receipts').select('origin_lead_id', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('received_at', desde)
+  if (soComWhatsapp) q = q.eq('whatsapp_enviado', true)
+  const { count, error } = await q
+  if (error) throw error
+  return count ?? 0
+}
+
+export async function markPortalLeadWhatsapp(client: Client, tenantId: string, originLeadId: string): Promise<void> {
+  const { error } = await client
+    .from('portal_lead_receipts')
+    .update({ whatsapp_enviado: true })
+    .eq('tenant_id', tenantId)
+    .eq('origin_lead_id', originLeadId)
+  if (error) throw error
+}
+
+/**
+ * Troca o token da URL de leads — para quando ela vazou. A URL antiga para de
+ * funcionar na hora; a imobiliária cola a nova no Canal Pro.
+ */
+export async function rotateLeadsToken(client: Client, tenantId: string): Promise<string> {
+  await getOrCreateLeadsToken(client, tenantId)
+  const novo = randomBytes(24).toString('base64url')
+  const { error } = await client.from('portal_feeds').update({ leads_token: novo }).eq('tenant_id', tenantId)
+  if (error) throw error
+  return novo
+}

@@ -5,9 +5,9 @@ import { preencherModelo, previa, problemaNoValor } from '~~/shared/models/whats
 import type { WhatsappAccountRecord } from '~~/server/mappers/whatsapp.mapper'
 import { getAccountById, getActiveAccount, insertMessage, updateConversation, type ConversationState } from '~~/server/repositories/whatsapp.repository'
 import { cloudApi } from '~~/server/services/whatsapp/cloud-api'
-import { ErroDoWhatsapp, type Conexao, type ModeloDaMeta } from '~~/server/services/whatsapp/provider'
+import { ErroDoWhatsapp, type Conexao, type Enviada, type ModeloDaMeta } from '~~/server/services/whatsapp/provider'
 import { registrarEventos } from '~~/server/utils/lead-crm'
-import { respostaPatch } from '~~/server/utils/whatsapp-inbox'
+import { conversaDoContato, respostaPatch } from '~~/server/utils/whatsapp-inbox'
 
 type Client = SupabaseClient<Database>
 
@@ -96,7 +96,8 @@ export async function modeloParaEnviar(conexao: Conexao, input: WhatsappTemplate
 export async function registrarSaida(
   service: Client,
   tenant: { id: string; slug: string },
-  userId: string,
+  /** null = envio automático (lead de portal), sem pessoa do painel. */
+  userId: string | null,
   state: Pick<ConversationState, 'id' | 'leadId' | 'firstResponseAt' | 'firstInboundAt'>,
   msg: {
     wamid: string
@@ -126,4 +127,36 @@ export async function registrarSaida(
   if (msg.modelo && state.leadId) {
     await registrarEventos(service, tenant, state.leadId, [{ kind: 'whatsapp', body: `Modelo "${msg.modelo}" enviado pelo WhatsApp`, meta: {} }], userId)
   }
+}
+
+/**
+ * Começa a conversa com um contato que ainda não escreveu, por modelo
+ * aprovado: o painel (gaveta do contato) e o lead de portal automático.
+ *
+ * O telefone vem do LEAD já gravado, nunca de body. A conversa é criada
+ * DEPOIS do envio, pelo wa_id que a Meta resolveu — é por ele que a resposta
+ * vai chegar.
+ */
+export async function iniciarConversaComModelo(
+  service: Client,
+  tenant: { id: string; slug: string },
+  userId: string | null,
+  lead: { id: string; name: string | null; phone: string },
+  input: WhatsappTemplateSendInput,
+): Promise<string> {
+  const { conta, conexao } = await conexaoDoTenant(service, tenant.id)
+  const { modelo, texto } = await modeloParaEnviar(conexao, input, tenant.slug)
+  let enviada: Enviada
+  try {
+    enviada = await cloudApi().enviarModelo(conexao, '55' + lead.phone, modelo, input.values)
+  } catch (e) {
+    erroDoEnvio(e, tenant.slug)
+  }
+  const state = await conversaDoContato(service, conta, enviada.waId || '55' + lead.phone, lead.name)
+  if (!state.leadId) {
+    await updateConversation(service, tenant.id, state.id, { lead_id: lead.id })
+    state.leadId = lead.id
+  }
+  await registrarSaida(service, tenant, userId, state, { wamid: enviada.wamid, type: 'template', body: texto, modelo: modelo.name })
+  return state.id
 }

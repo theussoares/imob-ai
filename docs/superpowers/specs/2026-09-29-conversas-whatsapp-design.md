@@ -88,6 +88,19 @@ resumida na seção 6.
       (modelo para contato do formulário) viram "espera".
     - Mediana e p90, não média: a mensagem da madrugada respondida às 9h
       puxaria a média para horas e esconderia o resto do dia.
+16. **Leads dos portais (Canal Pro)** — atrás de `crm` (0063).
+    - Configurações → "Receber os leads dos portais": URL secreta por
+      imobiliária para o Canal Pro ("Receber leads no CRM"); o Canal Pro não
+      assina a chamada, então o token é a autenticação. "Gerar link novo" troca.
+    - Lead novo: funil com o imóvel (pelo `clientListingId` = código do nosso
+      feed), roleta e aviso. Telefone com lead aberto: anotação no histórico.
+      Reenvio (mesmo `originLeadId`): nada.
+    - Opcional (owner, com `whatsapp`): primeiro WhatsApp automático pelo
+      modelo `moradi_primeiro_contato`.
+    - URL vazada: teto de 60 leads/hora (429, o Canal Pro reenvia depois), 100
+      WhatsApps automáticos/dia, nome saneado antes da saudação, resposta que
+      não diz se o telefone já é cliente.
+    - E-mail, dados do MCMV e o link do robô do portal não são guardados.
 13. **Histórico do Coexistence** (0061): até 6 meses de conversas do app.
     - Só nas 24h depois da conexão (regra da Meta), só o owner, com o texto do
       aceite gravado antes do pedido; o webhook descarta histórico sem pedido.
@@ -202,6 +215,9 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Tempo medido da primeira entrada ao vivo | Da criação da conversa | O histórico cria conversa com mensagens de meses; a primeira resposta ao vivo viraria "minutos" de espera falsa. |
 | Mediana e p90 pelo posto mais próximo | Média | A média é puxada pela madrugada; o percentil sem interpolação é sempre um tempo que aconteceu. |
 | Por corretor do lead | Por quem respondeu | Corretor não loga; quem respondeu (painel ou celular) não é conhecido. |
+| Token secreto na URL dos leads | Assinatura | O Canal Pro não assina nem autentica; é o que a spec dele oferece. |
+| Telefone com lead aberto vira anotação | Card novo | Dois cards = dois corretores ligando para a mesma pessoa. |
+| Tetos por hora e por dia | Sem teto | Com a URL vazada, cada POST seria lead falso e WhatsApp pago pelo número da imobiliária. |
 | Sem cache da lista de modelos | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 

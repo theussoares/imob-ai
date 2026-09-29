@@ -132,3 +132,17 @@ o Storage recusou gerar a URL de upload (bucket ausente: aplicar a 0060).
 Cobrança por mensagem desde 07/2025. No Brasil, marketing ~US$0,0625 e utility
 ~US$0,0068. Resposta dentro da janela de 24h: conferir a mudança anunciada para
 01/10/2026. Mensagem enviada pelo app no Coexistence não é cobrada.
+
+## 7. Leads dos portais (Canal Pro, 0063)
+
+Com `crm` ligado: Configurações → Integrações → "Receber os leads dos
+portais". A imobiliária cola a URL no Canal Pro em **Configurações →
+Integrações → Leads → Receber leads no CRM**, com o nome Moradi.
+
+- O primeiro WhatsApp automático usa `moradi_primeiro_contato` — só sai com o
+  modelo aprovado (Conversas → Criar modelos sugeridos).
+- Logs: `portal_lead.recusado` (corpo sem código do anúncio ou telefone),
+  `portal_lead.teto_por_hora` (acima de 60/h — se for legítimo, subir
+  `PORTAL_LEADS_POR_HORA`), `portal_lead.whatsapp_automatico_falhou`
+  (normalmente o modelo ainda em análise).
+- Link vazado: "Gerar um link novo" e colar de novo no Canal Pro.
