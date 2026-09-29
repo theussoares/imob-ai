@@ -31,15 +31,20 @@ test('a tela diz quem vai ver antes de publicar, e o portal obedece', async ({ p
   await entrarNoPainel(page, amb.slug, amb.membro)
   await page.goto(`/admin/contratos/${amb.contratoId}?tenant=${amb.slug}`)
 
+  // O formulário de envio fica recolhido atrás deste botão desde o contrato
+  // em 4 etapas (84fe05f), que também trocou o id do título para `#dtit` e o
+  // botão final para "Enviar como rascunho"; o teste ficou para trás e
+  // esperava `#arq` até o timeout.
+  await page.getByRole('button', { name: 'Enviar documento' }).click()
   await page.locator('#arq').setInputFiles('e2e/fixtures/documento.pdf')
   await page.locator('#cat').selectOption('contrato_administracao')
-  await page.locator('#tit').fill('Administração E2E')
+  await page.locator('#dtit').fill('Administração E2E')
 
   // A frase, ANTES de enviar. Um rótulo que descreve a regra antiga é pior que
   // rótulo nenhum, porque quem leu confiou.
   await expect(page.locator('p.regra b')).toHaveText('Só o proprietário vê.')
 
-  await page.getByRole('button', { name: 'Enviar documento' }).click()
+  await page.getByRole('button', { name: 'Enviar como rascunho' }).click()
   await expect(page.getByText('Administração E2E')).toBeVisible()
 
   // Nasce rascunho: publicar é ato separado.

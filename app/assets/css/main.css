@@ -1945,3 +1945,50 @@ a.btn-detail:hover {
 .cat-links a:hover {
   text-decoration-color: currentColor;
 }
+
+/* ============================================================
+   Telas de acesso e Área do Cliente: paleta da Moradi (amarelo-ipê e preto)
+   ------------------------------------------------------------
+   Classe, e não :root: o portal e as telas de acesso vestem a Moradi, o site
+   público do mesmo host veste o tenant. Aplicada no layout `portal` e no
+   `AuthShell` (login, recuperar e definir senha do painel e do portal), que
+   não usa layout. A paleta repete a da
+   landing (`.lp` em MoradiLanding.vue), que é escopada lá.
+
+   `--brand` volta para o preto aqui dentro porque as telas do portal usam
+   `var(--brand)` em foco e hover de borda: sem isto, a cor do tenant vazava
+   nesses detalhes. Texto sobre o amarelo é sempre `--ink`: branco sobre
+   #f4b400 dá 1,9:1 e reprova.
+   ============================================================ */
+.moradi-tema {
+  --ink: #16181b;
+  --ink-2: #3d4248;
+  --muted: #5f656b;
+  --paper: #fbfbf9;
+  --line: #e4e2db;
+  --line-2: #d3d0c7;
+  --ipe: #f4b400;
+  --ipe-hover: #ffc21a;
+  --ipe-soft: #fff3cc;
+  --night: #16181b;
+  --brand: var(--ink);
+  --portal-shadow: 0 1px 2px rgba(22, 24, 27, 0.05), 0 10px 28px -14px rgba(22, 24, 27, 0.18);
+  /* A tipografia da landing, pelas mesmas variáveis que os temas usam: o
+     tema da vitrine do tenant não alcança o portal, e a fonte substituta do
+     @nuxt/fonts vai junto (ver --font-display em :root). */
+  --font-display: "Schibsted Grotesk", "Schibsted Grotesk Fallback: sans-serif", sans-serif;
+  --font-body: "Figtree", "Figtree Fallback: sans-serif", system-ui, sans-serif;
+
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+.moradi-tema h1,
+.moradi-tema h2 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.moradi-tema ::selection {
+  background: var(--ipe);
+  color: var(--ink);
+}

@@ -11,7 +11,9 @@ import { credencialDaUrl, linkRecusadoNaUrl, validarNovaSenha, type TipoDeLink }
  * a do painel: era o mesmo bloco copiado nos dois arquivos, e o que difere de
  * verdade é só o client do Supabase e o destino depois de salvar.
  */
-definePageMeta({ layout: 'portal' })
+// Mesma moldura do login (`PortalAuthShell`): o convite cai aqui, e é a
+// primeira tela do portal que o cliente vê.
+definePageMeta({ layout: false })
 
 const tenant = useTenant()
 
@@ -113,13 +115,21 @@ async function salvar() {
 
 useHead({
   title: 'Definir senha da Área do Cliente',
-  meta: [{ name: 'robots', content: 'noindex, nofollow' }],
+  meta: [
+    { name: 'robots', content: 'noindex, nofollow' },
+    // O token do convite fica na URL (`?token_hash=`) até o clique em
+    // "Continuar", e esta tela tem link externo (crédito no rodapé). O
+    // Referrer-Policy global já manda só a origem para fora; isto zera o
+    // Referer inteiro aqui, como o OWASP recomenda para telas de redefinição —
+    // defesa que não depende de alguém lembrar do cabeçalho em nuxt.config.
+    { name: 'referrer', content: 'no-referrer' },
+  ],
 })
 </script>
 
 <template>
-  <div class="senha-wrap">
-    <div class="senha-card">
+  <PortalAuthShell>
+    <div>
       <!--
         O título nomeia o destino, e não por preciosismo: esta tela é gêmea de
         `/admin/definir-senha`, e um convite que caísse na errada era
@@ -127,148 +137,74 @@ useHead({
         passou despercebido, com a pessoa preenchendo a senha inteira antes de
         descobrir que estava no lugar errado.
 
-        O layout `portal` já põe logo e nome da imobiliária no topo; o que
+        O `PortalAuthShell` já põe logo e nome da imobiliária no topo; o que
         faltava era dizer QUAL acesso está sendo criado.
       -->
       <h1>Definir sua senha da Área do Cliente</h1>
 
-      <p v-if="state === 'verificando'" class="muted">Verificando o convite…</p>
+      <p v-if="state === 'verificando'" class="pa-sub">Verificando o convite…</p>
 
       <!-- MELHORIA 04: o porquê e o próximo passo, em vez de só "não é válido".
            O Supabase não distingue "já usado" de "vencido"; a frase cobre os
            dois sem chutar. -->
       <div v-else-if="state === 'invalido'">
-        <p class="muted">
+        <p class="pa-sub">
           Este link já foi usado ou passou do prazo. Por segurança, cada link
           vale uma vez só e por pouco tempo.
         </p>
-        <p class="muted">
+        <p class="pa-sub">
           Se você já definiu sua senha, é só entrar. Se não lembra, peça um link
           novo — ele chega no seu e-mail em instantes.
         </p>
-        <NuxtLink to="/area-cliente/login" class="link">Ir para o login</NuxtLink>
-        <NuxtLink to="/area-cliente/recuperar-senha" class="link">Pedir um link novo</NuxtLink>
+        <NuxtLink to="/area-cliente/login" class="pa-link">Ir para o login</NuxtLink>
+        <NuxtLink to="/area-cliente/recuperar-senha" class="pa-link">Pedir um link novo</NuxtLink>
       </div>
 
       <div v-else-if="state === 'confirmar' || state === 'confirmando'">
-        <p class="muted">
+        <p class="pa-sub">
           Continue para escolher a senha do seu acesso
           <template v-if="tenant?.name">à {{ tenant.name }}</template>.
         </p>
-        <button class="btn" type="button" :disabled="state === 'confirmando'" @click="continuar">
+        <button class="pa-btn" type="button" :disabled="state === 'confirmando'" @click="continuar">
           {{ state === 'confirmando' ? 'Conferindo o link…' : 'Continuar' }}
         </button>
       </div>
 
       <template v-else>
-        <p class="muted">
+        <p class="pa-sub">
           Escolha uma senha para acessar seus contratos e documentos
           <template v-if="tenant?.name">na {{ tenant.name }}</template>.
         </p>
 
         <form @submit.prevent="salvar">
-          <label class="lbl" for="senha">Nova senha</label>
-          <input
-            id="senha"
-            v-model="password"
-            class="inp"
-            type="password"
-            autocomplete="new-password"
-            required
-          >
+          <label class="pa-lbl" for="senha">Nova senha</label>
+          <AuthPasswordField id="senha" v-model="password" autocomplete="new-password" />
 
-          <label class="lbl" for="confirma">Repita a senha</label>
-          <input
-            id="confirma"
-            v-model="confirmPassword"
-            class="inp"
-            type="password"
-            autocomplete="new-password"
-            required
-          >
+          <label class="pa-lbl" for="confirma">Repita a senha</label>
+          <AuthPasswordField id="confirma" v-model="confirmPassword" autocomplete="new-password" />
 
-          <p v-if="error" class="erro" role="alert">{{ error }}</p>
+          <p v-if="error" class="pa-erro" role="alert">{{ error }}</p>
 
           <!-- O rótulo diz para onde leva: é a última chance de perceber que se
                está na tela errada antes de entregar a senha. -->
-          <button class="btn" type="submit" :disabled="state === 'salvando'">
+          <button class="pa-btn" type="submit" :disabled="state === 'salvando'">
             {{ state === 'salvando' ? 'Salvando…' : 'Definir senha e entrar na Área do Cliente' }}
           </button>
         </form>
       </template>
     </div>
-  </div>
+  </PortalAuthShell>
 </template>
 
 <style scoped>
-.senha-wrap {
-  display: grid;
-  place-items: center;
-  padding: 18px 0 40px;
+.pa-sub {
+  margin: 8px 0 16px;
 }
-.senha-card {
-  width: 100%;
-  max-width: 380px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 22px 20px;
-}
-h1 {
-  font-size: var(--fs-title);
-  margin: 0 0 14px;
-}
-.muted {
-  font-size: var(--fs-label);
-  color: #6b7280;
-  margin: 0 0 10px;
-}
-.lbl {
-  display: block;
-  font-size: var(--fs-label);
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-.inp {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: var(--r-sm);
-  font-size: var(--fs-body);
-  padding: 11px 12px;
-  margin-bottom: 14px;
-  background: #fff;
-}
-.inp:focus {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
-}
-.erro {
-  color: #b91c1c;
-  font-size: var(--fs-label);
-  margin: 0 0 12px;
-}
-.btn {
-  width: 100%;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: var(--brand);
-  color: #fff;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  padding: 12px;
-  cursor: pointer;
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.link {
+.pa-link {
   display: inline-block;
-  margin-top: 8px;
-  font-size: var(--fs-label);
-  color: #4b5563;
+  margin-top: 4px;
 }
-.link + .link {
-  margin-left: 14px;
+.pa-link + .pa-link {
+  margin-left: 16px;
 }
 </style>

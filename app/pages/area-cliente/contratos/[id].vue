@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { ContractForClient, PortalDocCategory, PortalDocument } from '~~/shared/models/portal'
-import { CONTRACT_PARTY_LABELS, PORTAL_DOC_CATEGORIES, PORTAL_DOC_LABELS } from '~~/shared/models/portal'
+import { PORTAL_DOC_CATEGORIES, PORTAL_DOC_LABELS } from '~~/shared/models/portal'
 import { classificarFalha, MENSAGEM_DE_FALHA } from '~~/shared/utils/session-error'
 import type { ChargeForClient } from '~~/shared/models/cobranca'
-import { CHARGE_STATUS_LABELS } from '~~/shared/models/cobranca'
 
 definePageMeta({ layout: 'portal', middleware: 'portal' })
 
@@ -17,7 +16,6 @@ const erro = ref('')
 const baixando = ref<string | null>(null)
 const erroDownload = ref('')
 const boletos = ref<ChargeForClient[]>([])
-const copiado = ref('')
 
 onMounted(async () => {
   try {
@@ -91,46 +89,12 @@ async function baixar(doc: PortalDocument) {
   }
 }
 
-function competencia(d: PortalDocument): string {
-  if (!d.competence) return ''
-  // A competência é gravada no dia 1; só o mês e o ano interessam na tela.
-  const [ano, mes] = d.competence.split('-')
-  return `${mes}/${ano}`
-}
-
-function data(v: string | null): string {
-  if (!v) return '—'
-  const [ano, mes, dia] = v.split('-')
-  return `${dia}/${mes}/${ano}`
-}
-
-function dinheiro(v: number | null): string {
-  if (v === null) return '—'
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 /** Em aberto primeiro (o que o inquilino veio fazer aqui), depois o histórico. */
 const boletosEmAberto = computed(() =>
   boletos.value.filter((b) => b.status === 'emitida' || b.status === 'vencida' || b.status === 'parcial').sort((a, b) => a.dueOn.localeCompare(b.dueOn)),
 )
-const boletosPassados = computed(() => boletos.value.filter((b) => b.status === 'paga' || b.status === 'cancelada'))
-const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
-function mesDe(competencia: string) {
-  const [a, m] = competencia.split('-')
-  return `${MESES[Number(m) - 1]} de ${a}`
-}
-async function copiar(texto: string, id: string) {
-  try {
-    await navigator.clipboard.writeText(texto)
-    copiado.value = id
-    setTimeout(() => (copiado.value = ''), 2500)
-  } catch {
-    copiado.value = ''
-  }
-}
-
-const papeis = computed(() =>
-  (contrato.value?.roles ?? []).map((r) => CONTRACT_PARTY_LABELS[r]).join(' e '),
+const boletosPassados = computed(() =>
+  boletos.value.filter((b) => b.status === 'paga' || b.status === 'cancelada').sort((a, b) => b.dueOn.localeCompare(a.dueOn)),
 )
 
 useHead({
@@ -141,290 +105,243 @@ useHead({
 
 <template>
   <div>
-    <NuxtLink to="/area-cliente" class="voltar">← Meus contratos</NuxtLink>
+    <NuxtLink to="/area-cliente" class="voltar">
+      <AppIcon name="arrow-left" />
+      Meus contratos
+    </NuxtLink>
 
-    <p v-if="carregando" class="muted">Carregando…</p>
-    <p v-else-if="erro" class="erro" role="alert">{{ erro }}</p>
+    <div v-if="carregando" aria-busy="true" aria-label="Carregando o contrato">
+      <div class="esqueleto alto" />
+      <div class="esqueleto" />
+    </div>
+
+    <p v-else-if="erro" class="erro" role="alert">
+      <AppIcon name="alert" />
+      {{ erro }}
+    </p>
 
     <template v-else-if="contrato">
-      <h1 class="tit">{{ contrato.addressLabel || `Contrato ${contrato.code}` }}</h1>
-      <p class="sub">Você é o {{ papeis }} neste contrato.</p>
+      <PortalContratoResumo :contrato="contrato" />
 
-      <section class="painel">
-        <div><span>Contrato</span><b>{{ contrato.code }}</b></div>
-        <div><span>Situação</span><b>{{ contrato.status === 'ativo' ? 'Ativo' : 'Encerrado' }}</b></div>
-        <div><span>Início</span><b>{{ data(contrato.startedOn) }}</b></div>
-        <div><span>Término</span><b>{{ data(contrato.endsOn) }}</b></div>
-        <div><span>Aluguel</span><b>{{ dinheiro(contrato.rentAmount) }}</b></div>
-        <div><span>Vencimento</span><b>{{ contrato.dueDay ? `dia ${contrato.dueDay}` : '—' }}</b></div>
+      <section v-if="boletos.length" class="secao" aria-labelledby="t-boletos">
+        <h2 id="t-boletos" class="secao-tit">Boletos do aluguel</h2>
+
+        <ul v-if="boletosEmAberto.length" class="boletos">
+          <PortalBoletoItem v-for="(b, i) in boletosEmAberto" :key="b.id" :boleto="b" :principal="i === 0" />
+        </ul>
+        <p v-else class="em-dia">
+          <AppIcon name="check" />
+          Nenhum boleto em aberto. Tudo em dia!
+        </p>
+
+        <!-- Histórico recolhido: é consulta rara (o comprovante para o IR), e
+             aberto empurraria os documentos para longe no celular. -->
+        <details v-if="boletosPassados.length" class="historico">
+          <summary>
+            Histórico de pagamentos
+            <span class="conta">{{ boletosPassados.length }}</span>
+            <AppIcon name="chevron-down" class="seta" />
+          </summary>
+          <ul>
+            <PortalBoletoItem v-for="b in boletosPassados" :key="b.id" :boleto="b" historico />
+          </ul>
+        </details>
       </section>
 
-      <template v-if="boletos.length">
-        <h2 class="tit2">Boletos do aluguel</h2>
-        <ul class="boletos">
-          <li v-for="b in boletosEmAberto" :key="b.id" class="boleto" :class="b.status">
-            <div class="b-topo">
-              <div class="doc-info">
-                <b>Aluguel de {{ mesDe(b.competence) }}</b>
-                <small>vence {{ data(b.dueOn) }}</small>
-              </div>
-              <div class="b-valor">
-                <b>{{ dinheiro(b.amount) }}</b>
-                <span class="b-st">{{ CHARGE_STATUS_LABELS[b.status] }}</span>
-              </div>
-            </div>
-            <p v-if="b.status === 'vencida'" class="b-aviso">Pagando depois do vencimento, o boleto soma a multa e os juros do contrato.</p>
-            <div class="b-acoes">
-              <button v-if="b.pixCopyPaste" type="button" class="btn-baixar" @click="copiar(b.pixCopyPaste, `pix-${b.id}`)">
-                {{ copiado === `pix-${b.id}` ? 'Pix copiado!' : 'Copiar Pix' }}
-              </button>
-              <button v-if="b.digitableLine" type="button" class="btn-sec" @click="copiar(b.digitableLine, `lin-${b.id}`)">
-                {{ copiado === `lin-${b.id}` ? 'Código copiado!' : 'Copiar código de barras' }}
-              </button>
-              <a v-if="b.paymentUrl" :href="b.paymentUrl" target="_blank" rel="noopener" class="btn-sec">Ver boleto</a>
-            </div>
-          </li>
-          <li v-for="b in boletosPassados" :key="b.id" class="boleto passado">
-            <div class="b-topo">
-              <div class="doc-info">
-                <b>Aluguel de {{ mesDe(b.competence) }}</b>
-                <small>venceu {{ data(b.dueOn) }}</small>
-              </div>
-              <div class="b-valor">
-                <b>{{ dinheiro(b.amount) }}</b>
-                <span class="b-st" :class="b.status">{{ CHARGE_STATUS_LABELS[b.status] }}</span>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </template>
+      <section class="secao" aria-labelledby="t-docs">
+        <h2 id="t-docs" class="secao-tit">
+          Documentos
+          <span v-if="documentos.length" class="conta">{{ documentos.length }}</span>
+        </h2>
 
-      <h2 class="tit2">Documentos</h2>
+        <p v-if="erroDownload" class="erro" role="alert">
+          <AppIcon name="alert" />
+          {{ erroDownload }}
+        </p>
 
-      <p v-if="erroDownload" class="erro" role="alert">{{ erroDownload }}</p>
+        <div v-if="!documentos.length" class="vazio">
+          <b>Nenhum documento publicado ainda</b>
+          <p>Quando a imobiliária publicar contratos, vistorias ou comprovantes, eles aparecem aqui.</p>
+        </div>
 
-      <div v-if="!documentos.length" class="vazio">
-        <p><b>Nenhum documento publicado ainda.</b></p>
-        <p>Quando a imobiliária publicar contratos, vistorias ou comprovantes, eles aparecem aqui.</p>
-      </div>
-
-      <section v-for="grupo in porCategoria" :key="grupo.categoria" class="grupo">
-        <h3 class="grupo-tit">{{ PORTAL_DOC_LABELS[grupo.categoria] }}</h3>
-        <ul class="docs">
-          <li v-for="d in grupo.docs" :key="d.id">
-            <div class="doc-info">
-              <b>{{ d.title }}</b>
-              <small>
-                <template v-if="competencia(d)">{{ competencia(d) }}</template>
-                <template v-if="d.dueOn"> · vence {{ data(d.dueOn) }}</template>
-                <template v-if="d.amount !== null"> · {{ dinheiro(d.amount) }}</template>
-              </small>
-            </div>
-            <button type="button" class="btn-baixar" :disabled="baixando === d.id" @click="baixar(d)">
-              {{ baixando === d.id ? 'Abrindo…' : 'Baixar' }}
-            </button>
-          </li>
-        </ul>
+        <div v-for="grupo in porCategoria" :key="grupo.categoria" class="grupo">
+          <h3 class="grupo-tit">{{ PORTAL_DOC_LABELS[grupo.categoria] }}</h3>
+          <ul class="docs">
+            <PortalDocumentoItem
+              v-for="d in grupo.docs"
+              :key="d.id"
+              :doc="d"
+              :baixando="baixando === d.id"
+              @baixar="baixar(d)"
+            />
+          </ul>
+        </div>
       </section>
+
+      <PortalAjuda :codigo="contrato.code" />
     </template>
   </div>
 </template>
 
 <style scoped>
 .voltar {
-  display: inline-block;
-  font-size: var(--fs-label);
-  color: #4b5563;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-2);
   text-decoration: none;
-  margin-bottom: 12px;
 }
-.tit {
-  font-size: var(--fs-title);
-  margin: 0 0 4px;
+.voltar:hover {
+  color: var(--ink);
 }
-.tit2 {
-  font-size: var(--fs-title-sm);
-  margin: 26px 0 10px;
+.voltar:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
-.sub {
-  font-size: var(--fs-label);
-  color: #6b7280;
-  margin: 0 0 16px;
+.esqueleto {
+  height: 140px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #efeee9 30%, #f7f6f2 50%, #efeee9 70%) 0 0 / 300% 100%;
+  animation: brilho 1.4s ease-in-out infinite;
 }
-.muted {
-  font-size: var(--fs-ui);
-  color: #6b7280;
+.esqueleto.alto {
+  height: 230px;
+  background-color: var(--ink);
+}
+@keyframes brilho {
+  to {
+    background-position: -150% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+  }
 }
 .erro {
-  color: #b91c1c;
-  font-size: var(--fs-ui);
-}
-.painel {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 16px;
-}
-.painel div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.painel span {
-  font-size: var(--fs-caption);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #6b7280;
-}
-.painel b {
-  font-size: var(--fs-ui);
-}
-.vazio {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 20px;
-  font-size: var(--fs-ui);
-  color: #4b5563;
-}
-.vazio p {
-  margin: 0 0 6px;
-}
-.grupo {
-  margin-bottom: 18px;
-}
-.grupo-tit {
-  font-size: var(--fs-label);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #6b7280;
-  margin: 0 0 8px;
-}
-.docs {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-.docs li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
+  gap: 8px;
+  margin: 0 0 12px;
   padding: 12px 14px;
+  border-radius: 12px;
+  background: #fdecec;
+  color: #9f1c1c;
+  font-size: 15px;
 }
-.doc-info {
+.secao {
+  margin-top: 34px;
+}
+.secao-tit {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 700;
 }
-.doc-info b {
-  font-size: var(--fs-ui);
-}
-.doc-info small {
-  font-size: var(--fs-caption);
-  color: #6b7280;
-}
-.btn-baixar {
-  flex: none;
-  border: 1px solid var(--brand);
-  background: var(--brand);
-  color: #fff;
-  border-radius: var(--r-sm);
-  padding: 8px 14px;
-  font-size: var(--fs-label);
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn-baixar:disabled {
-  opacity: 0.6;
-  cursor: default;
+.conta {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--line);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: 0;
 }
 .boletos {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
-.boleto {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 14px;
-}
-.boleto.vencida {
-  border-color: #fca5a5;
-}
-.boleto.passado {
-  padding: 10px 14px;
-}
-.b-topo {
+.em-dia {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-.b-valor {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  font-variant-numeric: tabular-nums;
-}
-.b-st {
-  font-size: var(--fs-caption);
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #1e40af;
-}
-.vencida .b-st {
-  background: #fee2e2;
-  color: #991b1b;
-}
-.b-st.paga {
-  background: #dcfce7;
-  color: #166534;
-}
-.b-st.cancelada {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-.b-aviso {
-  margin: 10px 0 0;
-  font-size: var(--fs-caption);
-  color: #991b1b;
-}
-.b-acoes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-.b-acoes .btn-baixar,
-.btn-sec {
-  min-height: 44px;
-}
-.btn-sec {
-  display: inline-flex;
   align-items: center;
-  border: 1px solid #d1d5db;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #e3f3e8;
+  color: #1c6b3a;
+  font-weight: 700;
+}
+.historico {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
   background: #fff;
-  color: #111827;
-  border-radius: var(--r-sm);
-  padding: 8px 14px;
-  font-size: var(--fs-label);
-  font-weight: 600;
-  text-decoration: none;
+}
+.historico summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 700;
   cursor: pointer;
+  list-style: none;
+}
+.historico summary::-webkit-details-marker {
+  display: none;
+}
+.historico summary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 14px;
+}
+.historico .seta {
+  margin-left: auto;
+  transition: rotate 0.2s ease;
+}
+.historico[open] .seta {
+  rotate: 180deg;
+}
+.historico ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 12px 6px;
+  border-top: 1px solid var(--line);
+}
+.vazio {
+  padding: 22px;
+  border: 1px dashed var(--line-2);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 15px;
+}
+.vazio p {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.grupo + .grupo {
+  margin-top: 18px;
+}
+.grupo-tit {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
 }
 </style>

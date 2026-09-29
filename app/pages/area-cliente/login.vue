@@ -5,7 +5,10 @@
  * Sem o middleware `portal`: quem chega aqui normalmente NÃO tem sessão, e
  * proteger a própria tela de login criaria um laço de redirect.
  */
-definePageMeta({ layout: 'portal' })
+// Sem layout: a moldura é o `PortalAuthShell`, a tela dividida que login,
+// recuperar e definir senha compartilham. O topo do layout `portal` (logo e
+// "Sair") não tem o que fazer antes de existir sessão.
+definePageMeta({ layout: false })
 
 const { user, init, signIn, signOut } = usePortalAuth()
 const tenant = useTenant()
@@ -76,112 +79,53 @@ useHead({
 </script>
 
 <template>
-  <div class="entrar-wrap">
-    <form class="entrar-card" @submit.prevent="entrar">
-      <h1>Entrar</h1>
-      <p class="sub">Acesse seus contratos e documentos.</p>
+  <PortalAuthShell>
+    <form @submit.prevent="entrar">
+      <h1>Acesse sua conta</h1>
+      <p class="pa-sub">Bem-vindo de volta! Entre para ver seus contratos e documentos.</p>
 
-      <label class="lbl" for="email">E-mail</label>
-      <input
-        id="email"
-        v-model="email"
-        class="inp"
-        type="email"
-        autocomplete="email"
-        inputmode="email"
-        required
-      >
+      <label class="pa-lbl" for="email">E-mail</label>
+      <div class="pa-campo">
+        <AppIcon name="mail" class="pa-campo-ic" />
+        <input
+          id="email"
+          v-model="email"
+          class="pa-inp"
+          type="email"
+          autocomplete="username"
+          inputmode="email"
+          autocapitalize="off"
+          placeholder="Digite seu e-mail"
+          required
+        >
+      </div>
 
-      <label class="lbl" for="senha">Senha</label>
-      <input
-        id="senha"
-        v-model="password"
-        class="inp"
-        type="password"
-        autocomplete="current-password"
-        required
-      >
+      <label class="pa-lbl" for="senha">Senha</label>
+      <AuthPasswordField id="senha" v-model="password" autocomplete="current-password" placeholder="Digite sua senha" />
 
-      <p v-if="error" class="erro" role="alert">{{ error }}</p>
+      <div class="pa-linha-direita">
+        <NuxtLink to="/area-cliente/recuperar-senha" class="pa-link">Esqueci minha senha</NuxtLink>
+      </div>
 
-      <button class="btn" type="submit" :disabled="loading">
+      <p v-if="error" class="pa-erro" role="alert">{{ error }}</p>
+
+      <button class="pa-btn" type="submit" :disabled="loading">
         {{ loading ? 'Entrando…' : 'Entrar' }}
+        <AppIcon v-if="!loading" name="arrow-right" />
       </button>
 
-      <NuxtLink to="/area-cliente/recuperar-senha" class="link">Esqueci minha senha</NuxtLink>
+      <div class="pa-divisor">Primeiro acesso?</div>
+      <!-- Não existe "criar conta": o acesso nasce do convite que a imobiliária
+           manda ao cadastrar o contrato. O caminho de quem perdeu o convite é o
+           mesmo link de recuperação — o endpoint aceita qualquer cliente ativo
+           da imobiliária, com ou sem senha definida. -->
+      <div class="pa-caixa">
+        <p>
+          O acesso é criado pela {{ tenant?.name || 'imobiliária' }}: abra o link do
+          convite que chegou no seu e-mail para definir sua senha.
+        </p>
+        <NuxtLink to="/area-cliente/recuperar-senha" class="pa-link">Não recebeu ou o link venceu? Peça outro</NuxtLink>
+      </div>
     </form>
-  </div>
+  </PortalAuthShell>
 </template>
-
-<style scoped>
-.entrar-wrap {
-  display: grid;
-  place-items: center;
-  padding: 18px 0 40px;
-}
-.entrar-card {
-  width: 100%;
-  max-width: 380px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--r-md);
-  padding: 22px 20px;
-}
-h1 {
-  font-size: var(--fs-title);
-  margin: 0;
-}
-.sub {
-  margin: 5px 0 18px;
-  font-size: var(--fs-label);
-  color: #6b7280;
-}
-.lbl {
-  display: block;
-  font-size: var(--fs-label);
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-.inp {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: var(--r-sm);
-  /* 16px evita o zoom automático do iOS ao focar o campo — o portal é usado
-     majoritariamente no celular. */
-  font-size: var(--fs-body);
-  padding: 11px 12px;
-  margin-bottom: 14px;
-  background: #fff;
-}
-.inp:focus {
-  outline: 2px solid var(--brand);
-  outline-offset: 1px;
-}
-.erro {
-  color: #b91c1c;
-  font-size: var(--fs-label);
-  margin: 0 0 12px;
-}
-.btn {
-  width: 100%;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: var(--brand);
-  color: #fff;
-  font-size: var(--fs-body);
-  font-weight: 600;
-  padding: 12px;
-  cursor: pointer;
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-.link {
-  display: block;
-  text-align: center;
-  margin-top: 14px;
-  font-size: var(--fs-label);
-  color: #4b5563;
-}
-</style>

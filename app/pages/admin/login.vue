@@ -4,6 +4,9 @@ definePageMeta({ layout: false })
 const { user, init, signIn, signOut } = useAdminAuth()
 const tenant = useTenant()
 const route = useRoute()
+// O painel roda em `painel.<domínio>`, que só serve /admin: o link para a Área
+// do Cliente precisa do host público (ver usePublicSiteUrl).
+const siteUrl = usePublicSiteUrl()
 
 const email = ref('')
 const password = ref('')
@@ -46,74 +49,86 @@ useHead({ title: 'Entrar · Painel' })
 </script>
 
 <template>
-  <div class="login-wrap">
-    <form class="admin-card login-card" @submit.prevent="login">
-      <!-- `sem-logo`: o selo de 140px com ícone branco sobre fundo transparente
-           ficava invisível aqui, o mesmo defeito do cabeçalho do site. -->
-      <div class="brand sem-logo" style="margin-bottom: 6px">
-        <span class="mark"><AppIcon name="home" /></span>
-        <span><b>{{ tenant?.name || 'Painel' }}</b><small>Área administrativa</small></span>
+  <PainelAuthShell>
+    <form @submit.prevent="login">
+      <!-- O rótulo separa esta porta da Área do Cliente, que tem a mesma
+           moldura: um inquilino que caísse aqui precisa perceber antes de
+           digitar a senha. -->
+      <span class="pa-rotulo"><AppIcon name="key" /> Acesso da equipe</span>
+      <h1>Entrar no painel</h1>
+      <p class="pa-sub">Use o e-mail e a senha do seu convite.</p>
+
+      <label class="pa-lbl" for="email">E-mail</label>
+      <div class="pa-campo">
+        <AppIcon name="mail" class="pa-campo-ic" />
+        <input
+          id="email"
+          v-model="email"
+          class="pa-inp"
+          type="email"
+          inputmode="email"
+          autocomplete="username"
+          autocapitalize="off"
+          placeholder="Digite seu e-mail"
+          required
+        >
       </div>
-      <h1 style="font-size: 22px; margin: 22px 0 16px">Entrar no painel</h1>
 
-      <label class="admin-label" for="email">E-mail</label>
-      <input id="email" v-model="email" class="admin-input" type="email" inputmode="email" autocomplete="username" autocapitalize="off" required />
+      <label class="pa-lbl" for="pass">Senha</label>
+      <AuthPasswordField id="pass" v-model="password" autocomplete="current-password" placeholder="Digite sua senha" />
 
-      <label class="admin-label" for="pass" style="margin-top: 12px">Senha</label>
-      <AdminPasswordInput id="pass" v-model="password" autocomplete="current-password" />
+      <div class="pa-linha-direita">
+        <NuxtLink to="/admin/recuperar-senha" class="pa-link">Esqueci minha senha</NuxtLink>
+      </div>
 
-      <!-- role="alert": o erro aparece abaixo do botão que a pessoa acabou de
+      <!-- role="alert": o erro aparece junto do botão que a pessoa acabou de
            apertar, e sem o anúncio o leitor de tela não dizia que falhou. -->
-      <p v-if="error" role="alert" style="color: #b91c1c; font-size: 13px; margin: 10px 0 0">{{ error }}</p>
+      <p v-if="error" class="pa-erro" role="alert">{{ error }}</p>
 
-      <button class="admin-btn" type="submit" style="margin-top: 16px; width: 100%" :disabled="loading">
-        {{ loading ? 'Entrando...' : 'Entrar' }}
+      <button class="pa-btn" type="submit" :disabled="loading">
+        {{ loading ? 'Entrando…' : 'Entrar' }}
+        <AppIcon v-if="!loading" name="arrow-right" />
       </button>
 
-      <NuxtLink to="/admin/recuperar-senha" class="esqueci">Esqueci minha senha</NuxtLink>
+      <!-- Só onde a Área do Cliente existe: o mesmo `portalEnabled` que põe o
+           link no rodapé do site (escolha da imobiliária × flag `portal`, ver
+           `comLinksEfetivos`). Sem isto, toda imobiliária em produção anunciava
+           um recurso que está atrás de flag, e o link levava a um login que
+           recusa todo mundo. -->
+      <template v-if="tenant?.portalEnabled">
+        <div class="pa-divisor">É inquilino ou proprietário?</div>
+        <div class="pa-caixa">
+          <p>Seus contratos e documentos ficam na Área do Cliente.</p>
+          <a :href="`${siteUrl}area-cliente/login`" class="pa-link">Ir para a Área do Cliente</a>
+        </div>
+      </template>
     </form>
 
     <!-- Aqui, e não só na sidebar: esta é a tela em que a pessoa cai ao digitar
          o endereço do painel no celular, e é o momento em que faz sentido pôr o
          atalho na tela inicial. Na sidebar ele só existiria depois do login. -->
-    <div class="login-instalar">
-      <AdminInstallButton />
-    </div>
-  </div>
+    <template #depois>
+      <div class="login-instalar">
+        <AdminInstallButton />
+      </div>
+    </template>
+  </PainelAuthShell>
 </template>
 
 <style scoped>
-.login-wrap {
-  /* Flex em coluna, e não grid com `place-items`: o grid dividia a altura em
-     duas linhas (cartão e "instalar") e o cartão ficava no alto da tela, não
-     no meio. `dvh` para a barra de endereço do celular não empurrar nada. */
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 18px;
-  background: var(--surface);
-}
-.login-card {
-  width: 100%;
-  max-width: 380px;
-}
-.esqueci {
-  display: block;
-  margin-top: 12px;
-  text-align: center;
-  font-size: var(--fs-label);
-  color: var(--ink-soft);
-}
-/* Segunda linha do grid, abaixo do cartão. Discreto de propósito: entrar é o
-   que a pessoa veio fazer; instalar é oferta. */
+/* Discreto de propósito: entrar é o que a pessoa veio fazer; instalar é
+   oferta. */
 .login-instalar {
-  width: 100%;
-  max-width: 380px;
-  margin-top: 14px;
+  margin-top: 10px;
   text-align: center;
-  font-size: var(--fs-label);
-  color: var(--ink-soft);
+  font-size: 13px;
+  color: var(--muted);
+}
+.login-instalar :deep(.instalar) {
+  width: auto;
+  margin: 0 auto;
+  padding: 6px 10px;
+  text-align: center;
+  font-weight: 600;
 }
 </style>
