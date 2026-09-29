@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { Property, PropertyCard, PropertyInput } from '~~/shared/models/property'
-import type { Broker } from '~~/shared/models/broker'
+import type { Broker, ListingBroker, ListingContactSettings } from '~~/shared/models/broker'
 import {
   toPropertyModel,
   toPropertyAdminModel,
@@ -10,7 +10,8 @@ import {
   type PublicPropertyRow,
   type PropertyImageFields,
 } from '~~/server/mappers/property.mapper'
-import { toBrokerModel } from '~~/server/mappers/broker.mapper'
+import { toBrokerModel, toListingBrokerModel } from '~~/server/mappers/broker.mapper'
+import { getListingContactSettings } from '~~/server/repositories/tenant.repository'
 
 type Client = SupabaseClient<Database>
 type PropertyRow = Database['public']['Tables']['properties']['Row']
@@ -52,19 +53,50 @@ async function fetchBrokersById(client: Client, tenantId: string, ids: string[])
 }
 
 /**
- * Telefone do captador para uso PÚBLICO. Corretor inativo não pode seguir
- * recebendo os leads do site: quem saiu da imobiliária é desmarcado no painel,
- * mas os imóveis que captou continuam publicados. Sem telefone aqui, o link do
- * WhatsApp cai no número da imobiliária.
+ * Captador que o SITE pode citar. Corretor inativo não pode seguir recebendo
+ * os leads do site nem aparecer como quem atende: quem saiu da imobiliária é
+ * desmarcado no painel, mas os imóveis que captou continuam publicados.
  *
  * Separado de `fetchBrokersById` de propósito: o painel precisa ver o corretor
  * inativo (é o que desenha o selo "Inativo"), só o site é que não.
  */
-function publicBrokerPhone(brokers: Map<string, Broker>, brokerId: string | null): string | null {
+function activeBroker(brokers: Map<string, Broker>, brokerId: string | null): Broker | null {
   if (!brokerId) return null
   const broker = brokers.get(brokerId)
-  if (!broker?.active) return null
-  return broker.phone ?? null
+  return broker?.active ? broker : null
+}
+
+/**
+ * Telefone do captador para uso PÚBLICO — só existe quando a imobiliária manda
+ * o WhatsApp para o captador (0059). No outro caso o telefone nem sai do
+ * servidor: esconder no navegador deixaria o celular do corretor no JSON da
+ * página, que é justamente o que o cliente pediu para não mostrar.
+ *
+ * Sem telefone aqui, o link do WhatsApp cai no número da imobiliária.
+ */
+function publicBrokerPhone(
+  brokers: Map<string, Broker>,
+  brokerId: string | null,
+  contact: ListingContactSettings,
+): string | null {
+  if (contact.whatsappTarget !== 'captador') return null
+  return activeBroker(brokers, brokerId)?.phone ?? null
+}
+
+/** Nome, foto e CRECI do captador, quando a imobiliária escolheu mostrá-lo. */
+function publicListingBroker(
+  brokers: Map<string, Broker>,
+  brokerId: string | null,
+  contact: ListingContactSettings,
+): ListingBroker | null {
+  if (!contact.showListingBroker) return null
+  const broker = activeBroker(brokers, brokerId)
+  return broker ? toListingBrokerModel(broker) : null
+}
+
+/** A consulta de corretores só é necessária quando alguma das duas opções o usa. */
+function needsBroker(contact: ListingContactSettings): boolean {
+  return contact.showListingBroker || contact.whatsappTarget === 'captador'
 }
 
 /**
@@ -84,21 +116,24 @@ export async function whatsappTargetForCode(
   code: string,
 ): Promise<{ propertyId: string; brokerId: string | null } | null> {
   const safeCode = code.replace(/[\\%_]/g, '\\$&')
-  const { data, error } = await client
-    .from('properties')
-    .select('id, broker_id')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active')
-    .ilike('code', safeCode)
-    .limit(1)
+  const [{ data, error }, contact] = await Promise.all([
+    client
+      .from('properties')
+      .select('id, broker_id')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .ilike('code', safeCode)
+      .limit(1),
+    getListingContactSettings(client, tenantId),
+  ])
   if (error) throw error
   const row = data?.[0]
   if (!row) return null
-  if (!row.broker_id) return { propertyId: row.id, brokerId: null }
+  if (!row.broker_id || contact.whatsappTarget !== 'captador') return { propertyId: row.id, brokerId: null }
   const brokers = await fetchBrokersById(client, tenantId, [row.broker_id])
   return {
     propertyId: row.id,
-    brokerId: publicBrokerPhone(brokers, row.broker_id) ? row.broker_id : null,
+    brokerId: publicBrokerPhone(brokers, row.broker_id, contact) ? row.broker_id : null,
   }
 }
 
@@ -138,7 +173,7 @@ export async function listActiveProperties(client: Client, tenantId: string): Pr
 
 /** Imóveis publicados, modelo enxuto para os cards do catálogo. */
 export async function listActivePropertyCards(client: Client, tenantId: string): Promise<PropertyCard[]> {
-  const { data, error } = await client
+  const cardsQuery = client
     .from('properties')
     .select(`${PUBLIC_CARD_COLUMNS}, ${IMAGES_EMBED}`)
     .eq('tenant_id', tenantId)
@@ -152,15 +187,17 @@ export async function listActivePropertyCards(client: Client, tenantId: string):
     .order('is_cover', { ascending: false, referencedTable: 'property_images' })
     .order('position', { referencedTable: 'property_images' })
     .limit(IMAGES_PER_CARD, { referencedTable: 'property_images' })
+  // O card não mostra o captador — só o WhatsApp dele, quando é para lá que
+  // a imobiliária manda. Por isso o critério aqui é o destino, não `needsBroker`.
+  const [{ data, error }, contact] = await Promise.all([cardsQuery, getListingContactSettings(client, tenantId)])
   if (error) throw error
-  const brokers = await fetchBrokersById(
-    client,
-    tenantId,
-    (data ?? []).map((row) => row.broker_id ?? '').filter(Boolean),
-  )
+  const brokers =
+    contact.whatsappTarget === 'captador'
+      ? await fetchBrokersById(client, tenantId, (data ?? []).map((row) => row.broker_id ?? '').filter(Boolean))
+      : new Map<string, Broker>()
   return (data ?? []).map((row) => {
     const { property_images: images, broker_id, ...rest } = row
-    return toPropertyCardModel(rest, images ?? [], publicBrokerPhone(brokers, broker_id))
+    return toPropertyCardModel(rest, images ?? [], publicBrokerPhone(brokers, broker_id, contact))
   })
 }
 
@@ -193,7 +230,8 @@ export async function getPropertyByCode(client: Client, tenantId: string, code: 
 }
 
 /**
- * Versão do detalhe com telefone do corretor captador (quando existir).
+ * Versão do detalhe com o captador: o telefone (se o WhatsApp vai para ele) e
+ * nome/foto/CRECI (se a imobiliária escolheu mostrá-lo) — ver 0059.
  *
  * Mesma lista de colunas públicas do `getPropertyByCode` + `broker_id`: nada de
  * `select('*')` aqui, que arrastaria as colunas internas (owner_name,
@@ -206,25 +244,31 @@ export async function getPropertyByCodeWithBrokerPhone(
 ): Promise<Property | null> {
   // `%` e `_` são curingas no ilike: sem escapar, /casa-3-quartos-centro/% casaria com tudo.
   const safeCode = code.replace(/[\\%_]/g, '\\$&')
-  const { data, error } = await client
-    .from('properties')
-    .select(`${PUBLIC_PROPERTY_COLUMNS}, broker_id, ${IMAGES_EMBED}`)
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active')
-    .ilike('code', safeCode)
-    .limit(1)
+  // Em paralelo: a configuração é uma linha por tenant, e esperar o imóvel
+  // para só então lê-la somaria um round-trip a toda página de detalhe.
+  const [{ data, error }, contact] = await Promise.all([
+    client
+      .from('properties')
+      .select(`${PUBLIC_PROPERTY_COLUMNS}, broker_id, ${IMAGES_EMBED}`)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active')
+      .ilike('code', safeCode)
+      .limit(1),
+    getListingContactSettings(client, tenantId),
+  ])
   if (error) throw error
   const row = data?.[0]
   if (!row) return null
 
   const { property_images: images, broker_id, ...rest } = row
   const model = toPropertyModel(rest as PublicPropertyRow, images ?? [])
-  if (!broker_id) return model
+  if (!broker_id || !needsBroker(contact)) return model
 
   const brokers = await fetchBrokersById(client, tenantId, [broker_id])
   return {
     ...model,
-    brokerPhone: publicBrokerPhone(brokers, broker_id),
+    brokerPhone: publicBrokerPhone(brokers, broker_id, contact),
+    listingBroker: publicListingBroker(brokers, broker_id, contact),
   }
 }
 

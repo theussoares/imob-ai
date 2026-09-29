@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Broker, BrokerInput } from '~~/shared/models/broker'
+import type { Broker, BrokerInput, ListingContactSettings, WhatsappTarget } from '~~/shared/models/broker'
+import { DEFAULT_LISTING_CONTACT } from '~~/shared/models/broker'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -177,6 +178,36 @@ function waLink(b: Broker) {
   return d ? `https://wa.me/${d}` : ''
 }
 
+// ---- Contato na página do imóvel (0059) ----
+// Fora do `temCrm`: vale para toda imobiliária, com ou sem CRM — é o que o
+// visitante vê no site, não como o painel distribui o lead.
+const { data: contato, refresh: refreshContato } = useLazyAsyncData(
+  'admin:listing-contact',
+  () => adminFetch<ListingContactSettings>('/api/admin/listing-contact'),
+  { server: false, default: () => ({ ...DEFAULT_LISTING_CONTACT }) },
+)
+const salvandoContato = ref(false)
+async function salvarContato(mudanca: Partial<ListingContactSettings>) {
+  if (!contato.value) return
+  const proximo = { ...contato.value, ...mudanca }
+  salvandoContato.value = true
+  try {
+    contato.value = await adminFetch<ListingContactSettings>('/api/admin/listing-contact', { method: 'PUT', body: proximo })
+    // O site tem cache de até 1 minuto por servidor: dizer "já está no ar"
+    // faria o cliente abrir a página, ver o antigo e achar que não salvou.
+    toast.success('Salvo. O site atualiza em até 1 minuto.')
+  } catch {
+    await refreshContato()
+    toast.error('Não foi possível salvar o contato do imóvel.')
+  } finally {
+    salvandoContato.value = false
+  }
+}
+function setDestino(destino: WhatsappTarget) {
+  if (contato.value?.whatsappTarget === destino) return
+  salvarContato({ whatsappTarget: destino })
+}
+
 useHead({ title: 'Corretores · Painel' })
 </script>
 
@@ -186,6 +217,55 @@ useHead({ title: 'Corretores · Painel' })
     <p style="color: var(--ink-soft); margin-bottom: 16px">
       Cadastre os corretores da equipe. Depois você poderá vincular quem captou cada imóvel.
     </p>
+
+    <section class="admin-card roleta" aria-labelledby="contato-t">
+      <header class="roleta-head">
+        <AppIcon name="wa" class="roleta-ico" />
+        <div>
+          <h2 id="contato-t" class="section-t">Contato na página do imóvel</h2>
+          <p class="hint-text">Vale para os imóveis que têm corretor captador vinculado.</p>
+        </div>
+      </header>
+
+      <label class="switch contato-switch">
+        <input
+          type="checkbox"
+          role="switch"
+          :checked="contato?.showListingBroker"
+          :disabled="salvandoContato"
+          @change="salvarContato({ showListingBroker: ($event.target as HTMLInputElement).checked })"
+        />
+        <span class="switch-ui" aria-hidden="true" />
+        <span>Mostrar quem captou o imóvel</span>
+      </label>
+      <p class="hint-text contato-hint">Nome, foto e CRECI do corretor. O telefone dele nunca aparece no site.</p>
+
+      <p id="destino-t" class="contato-sub">O botão de WhatsApp abre a conversa com</p>
+      <div class="modos" role="radiogroup" aria-labelledby="destino-t">
+        <button
+          type="button"
+          role="radio"
+          class="modo"
+          :aria-checked="contato?.whatsappTarget === 'captador'"
+          :disabled="salvandoContato"
+          @click="setDestino('captador')"
+        >
+          <strong>O corretor que captou</strong>
+          <span>No WhatsApp cadastrado para ele. Sem captador ativo com telefone, vai para o número da imobiliária.</span>
+        </button>
+        <button
+          type="button"
+          role="radio"
+          class="modo"
+          :aria-checked="contato?.whatsappTarget === 'imobiliaria'"
+          :disabled="salvandoContato"
+          @click="setDestino('imobiliaria')"
+        >
+          <strong>A imobiliária</strong>
+          <span>Sempre o WhatsApp da imobiliária, em todos os imóveis.</span>
+        </button>
+      </div>
+    </section>
 
     <section v-if="temCrm" class="admin-card roleta" aria-labelledby="roleta-t">
       <header class="roleta-head">
@@ -364,6 +444,15 @@ useHead({ title: 'Corretores · Painel' })
 </template>
 
 <style scoped>
+/* Contato do imóvel — reaproveita o cartão, o switch e os modos da roleta. */
+.contato-hint {
+  margin: 6px 0 0 46px;
+}
+.contato-sub {
+  margin: 18px 0 8px;
+  font-weight: 600;
+  font-size: var(--fs-ui);
+}
 /* Roleta */
 .roleta {
   margin-bottom: 18px;

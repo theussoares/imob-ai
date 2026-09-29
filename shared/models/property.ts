@@ -1,4 +1,4 @@
-import type { Broker } from './broker'
+import type { Broker, ListingBroker } from './broker'
 
 // O tipo de imóvel mora no próprio arquivo, com tudo que se sabe sobre ele
 // (rótulo, plural, slug, se tem quartos, valor do portal). Reexportado aqui para
@@ -68,6 +68,11 @@ export interface Property {
   broker?: Broker | null
   // Telefone do corretor para contato público no detalhe (quando houver captador).
   brokerPhone?: string | null
+  /**
+   * Quem captou, como o site o mostra. Só vem quando a imobiliária escolheu
+   * mostrá-lo (0059) e o corretor está ativo — nunca com telefone ou e-mail.
+   */
+  listingBroker?: ListingBroker | null
   ownerName?: string | null
   ownerPhone?: string | null
 }

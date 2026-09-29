@@ -82,8 +82,12 @@ o `tenant_id` é obrigatório no `where`: aqui não há RLS para te salvar.
 ### 3. Leitura pública não devolve coluna interna
 
 `properties` tem colunas internas — `location`, `broker_id`, `owner_name`,
-`owner_phone`, `updated_by` — que nunca podem sair num payload público. A única
-exceção deliberada é o **telefone** do corretor captador.
+`owner_phone`, `updated_by` — que nunca podem sair num payload público. As
+exceções deliberadas são do corretor captador, e cada uma depende de uma escolha
+da imobiliária (migration 0059, `ListingContactSettings`): o **telefone**, só
+quando o WhatsApp vai para ele; **nome, foto e CRECI**, só quando ela escolhe
+mostrar quem captou. A decisão é do servidor — o que não deve aparecer nem sai
+no JSON.
 
 Historicamente quem barrava isso era o banco (o anon só tem `GRANT SELECT` nas
 colunas públicas, migrations 0005/0011). Como as leituras públicas passaram a

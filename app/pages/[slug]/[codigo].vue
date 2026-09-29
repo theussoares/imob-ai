@@ -269,6 +269,27 @@ useHead(() => ({
 
         <aside class="side">
           <div ref="contactCard" class="admin-card side-card">
+            <!-- Só vem quando a imobiliária escolheu mostrar quem captou
+                 (painel > Corretores). Sem telefone de propósito: para onde
+                 o WhatsApp vai é outra escolha, feita no servidor. -->
+            <div v-if="p.listingBroker" class="side-captador">
+              <span class="side-captador-foto" aria-hidden="true">
+                <img
+                  v-if="p.listingBroker.photoUrl"
+                  :src="supabaseRenderImage(p.listingBroker.photoUrl, { width: 96, height: 192, quality: 75 })"
+                  width="44"
+                  height="44"
+                  alt=""
+                  loading="lazy"
+                />
+                <AppIcon v-else name="user" />
+              </span>
+              <span class="side-captador-txt">
+                <span class="side-captador-rot">Captado por</span>
+                <strong>{{ p.listingBroker.name }}</strong>
+                <span v-if="p.listingBroker.creci" class="side-captador-creci">CRECI {{ p.listingBroker.creci }}</span>
+              </span>
+            </div>
             <a
               class="btn-wa side-wa"
               :href="whatsappLink(p)"
@@ -280,7 +301,7 @@ useHead(() => ({
               <AppIcon name="wa" /> Tenho interesse
             </a>
             <a v-if="tenant?.phone" class="btn-detail" :href="telLink()">
-              <AppIcon name="phone" /> Ligar para o corretor
+              <AppIcon name="phone" /> Ligar para a imobiliária
             </a>
             <hr class="side-sep" />
             <LeadForm
@@ -484,6 +505,48 @@ useHead(() => ({
 .side-wa {
   font-size: var(--fs-body);
   padding: 14px;
+}
+.side-captador {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.side-captador-foto {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--brand-ghost);
+  color: var(--brand);
+}
+.side-captador-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.side-captador-foto :deep(svg) {
+  width: 20px;
+  height: 20px;
+}
+.side-captador-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.side-captador-rot,
+.side-captador-creci {
+  font-size: var(--fs-caption);
+  color: var(--ink-soft);
+}
+.side-captador-txt strong {
+  font-size: var(--fs-ui);
+  overflow-wrap: anywhere;
 }
 .side-sep {
   border: none;

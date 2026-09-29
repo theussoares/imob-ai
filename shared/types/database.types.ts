@@ -1583,6 +1583,7 @@ export type Database = {
           instagram: string | null
           latitude: number | null
           lead_distribution: string
+          listing_broker_visible: boolean
           logo_url: string | null
           longitude: number | null
           name: string
@@ -1597,6 +1598,7 @@ export type Database = {
           website: string | null
           whatsapp: string | null
           whatsapp_button_color: string | null
+          whatsapp_target: string
         }
         Insert: {
           about_content?: Json
@@ -1630,6 +1632,7 @@ export type Database = {
           instagram?: string | null
           latitude?: number | null
           lead_distribution?: string
+          listing_broker_visible?: boolean
           logo_url?: string | null
           longitude?: number | null
           name: string
@@ -1644,6 +1647,7 @@ export type Database = {
           website?: string | null
           whatsapp?: string | null
           whatsapp_button_color?: string | null
+          whatsapp_target?: string
         }
         Update: {
           about_content?: Json
@@ -1677,6 +1681,7 @@ export type Database = {
           instagram?: string | null
           latitude?: number | null
           lead_distribution?: string
+          listing_broker_visible?: boolean
           logo_url?: string | null
           longitude?: number | null
           name?: string
@@ -1691,6 +1696,7 @@ export type Database = {
           website?: string | null
           whatsapp?: string | null
           whatsapp_button_color?: string | null
+          whatsapp_target?: string
         }
         Relationships: []
       }

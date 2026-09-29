@@ -4,6 +4,8 @@ import type { Tenant, TenantSettingsInput } from '~~/shared/models/tenant'
 import type { TenantMember } from '~~/shared/models/member'
 import type { AiTone } from '~~/shared/models/ai-tone'
 import { tomValido } from '~~/shared/models/ai-tone'
+import type { ListingContactSettings } from '~~/shared/models/broker'
+import { toListingContactSettings } from '~~/server/mappers/broker.mapper'
 import {
   TENANT_PUBLIC_SELECT,
   toTenantModel,
@@ -126,5 +128,32 @@ export async function getLeadDistribution(client: Client, tenantId: string): Pro
 
 export async function setLeadDistribution(client: Client, tenantId: string, mode: LeadDistribution): Promise<void> {
   const { error } = await client.from('tenants').update({ lead_distribution: mode }).eq('id', tenantId)
+  if (error) throw error
+}
+
+/**
+ * Como a página do imóvel mostra o contato (0059). Mesma razão de
+ * `getLeadDistribution` para ficar fora de `TENANT_PUBLIC_COLUMNS`: quem aplica
+ * a regra é o servidor, e o navegador recebe só o resultado.
+ */
+export async function getListingContactSettings(client: Client, tenantId: string): Promise<ListingContactSettings> {
+  const { data, error } = await client
+    .from('tenants')
+    .select('listing_broker_visible, whatsapp_target')
+    .eq('id', tenantId)
+    .maybeSingle()
+  if (error) throw error
+  return toListingContactSettings(data)
+}
+
+export async function setListingContactSettings(
+  client: Client,
+  tenantId: string,
+  settings: ListingContactSettings,
+): Promise<void> {
+  const { error } = await client
+    .from('tenants')
+    .update({ listing_broker_visible: settings.showListingBroker, whatsapp_target: settings.whatsappTarget })
+    .eq('id', tenantId)
   if (error) throw error
 }
