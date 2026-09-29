@@ -1122,6 +1122,32 @@ export type Database = {
           },
         ]
       }
+      portal_feeds: {
+        Row: {
+          created_at: string
+          tenant_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          tenant_id: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          tenant_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_feeds_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_users: {
         Row: {
           access_confirmed_at: string | null
@@ -1180,6 +1206,9 @@ export type Database = {
       }
       properties: {
         Row: {
+          address_number: string | null
+          address_street: string | null
+          address_zip: string | null
           area: number
           bathrooms: number
           bedrooms: number
@@ -1209,6 +1238,9 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          address_number?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           area?: number
           bathrooms?: number
           bedrooms?: number
@@ -1238,6 +1270,9 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          address_number?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           area?: number
           bathrooms?: number
           bedrooms?: number

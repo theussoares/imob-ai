@@ -210,6 +210,14 @@ export function assertPropertyInput(input: unknown): asserts input is PropertyIn
   if (p.ownerPhone !== undefined && p.ownerPhone !== null && String(p.ownerPhone).trim() && !isValidWhatsapp(String(p.ownerPhone))) {
     throw createError({ statusCode: 422, statusMessage: 'WhatsApp do proprietário inválido.' })
   }
+  // Opcional (o site não precisa), mas quando vem tem de ser um CEP: o feed
+  // dos portais manda o que estiver aqui, e CEP com 7 dígitos vira anúncio
+  // recusado pelo Canal Pro sem aviso nenhum no nosso painel.
+  if (p.addressZip !== undefined && p.addressZip !== null && String(p.addressZip).trim()) {
+    if (String(p.addressZip).replace(/\D/g, '').length !== 8) {
+      throw createError({ statusCode: 422, statusMessage: 'CEP inválido: use os 8 dígitos (ex.: 79600-000).' })
+    }
+  }
 }
 
 /** Um valor de data opcional precisa ser ISO parseável (ou vazio/null). */

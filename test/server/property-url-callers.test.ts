@@ -12,7 +12,7 @@ const ARQUIVOS = [
   'app/pages/admin/leads/index.vue',
   'app/plugins/webmcp.client.ts',
   'server/routes/sitemap.xml.get.ts',
-  'server/routes/feed/imoveis.xml.get.ts',
+  'server/utils/vrsync-feed.ts',
   'server/utils/markdown.ts',
   'server/middleware/agents.ts',
 ]
