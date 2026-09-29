@@ -58,6 +58,9 @@ const icons: Record<string, string> = {
   atribuicao: 'tabler:user-share',
   inbox: 'tabler:inbox',
   lost: 'tabler:circle-x',
+  // Área do Cliente: copiar Pix/código de barras e baixar documento.
+  copy: 'tabler:copy',
+  download: 'tabler:download',
 }
 
 const icon = computed(() => icons[props.name] ?? '')

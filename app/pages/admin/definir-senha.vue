@@ -115,192 +115,89 @@ async function save() {
 useHead({
   title: "Definir senha do painel",
   // Página de credencial não tem por que ser indexada.
-  meta: [{ name: "robots", content: "noindex, nofollow" }],
+  meta: [
+    { name: "robots", content: "noindex, nofollow" },
+    // O token do convite fica na URL (`?token_hash=`) até o clique em
+    // "Continuar", e esta tela tem link externo (crédito no rodapé). O
+    // Referrer-Policy global já manda só a origem para fora; isto zera o
+    // Referer inteiro aqui, como o OWASP recomenda para telas de redefinição —
+    // defesa que não depende de alguém lembrar do cabeçalho em nuxt.config.
+    { name: "referrer", content: "no-referrer" },
+  ],
 });
 </script>
 
 <template>
-  <div class="wrap">
-    <div class="card">
+  <PainelAuthShell>
+    <div>
       <!--
         Esta tela precisa dizer ONDE a pessoa está, e por um motivo concreto:
         ela é gêmea de `/area-cliente/definir-senha`, e um convite de cliente
         que caísse aqui por engano era indistinguível do certo — foi exatamente
         assim que um bug de redirecionamento passou despercebido, com a pessoa
         preenchendo a senha inteira antes de descobrir que estava no lugar
-        errado.
-
-        O markup é PRÓPRIO, e não a classe `.brand` que o `admin/login.vue`
-        usa: aquela é compartilhada com o header do site público, onde `.mark`
-        virou um espaço de logo de 140×65 (commit e7fe27a) e ficou grande
-        demais para o ícone de 22px que as telas de acesso põem dentro dela —
-        o login está com o bloco desalinhado desde então.
+        errado. Hoje as duas dividem a moldura (`AuthShell`); o que as separa é
+        a foto do painel, o rótulo "Acesso da equipe" e o título.
       -->
-      <div class="quem">
-        <img
-          v-if="tenant?.logoUrl"
-          :src="tenant.logoUrl"
-          :alt="tenant?.name || ''"
-          class="quem-logo"
-        />
-        <span v-else class="quem-icone"><AppIcon name="home" /></span>
-        <span class="quem-txt">
-          <b>{{ tenant?.name || "Painel" }}</b>
-          <small>Área administrativa</small>
-        </span>
-      </div>
-
+      <span class="pa-rotulo"><AppIcon name="key" /> Acesso da equipe</span>
       <h1>Definir sua senha do painel</h1>
 
-      <p v-if="state === 'verificando'" class="muted">Verificando convite...</p>
+      <p v-if="state === 'verificando'" class="pa-sub">Verificando convite…</p>
 
       <!-- MELHORIA 04: dizer POR QUE o link morre e qual é o próximo passo. O
            Supabase não distingue "já usado" de "vencido", então a frase cobre
            os dois sem chutar. -->
       <template v-else-if="state === 'invalido'">
-        <p class="muted">
+        <p class="pa-sub">
           Este link já foi usado ou passou do prazo. Por segurança, cada link
           vale uma vez só e por pouco tempo.
         </p>
-        <p class="muted">
+        <p class="pa-sub">
           Se você já definiu sua senha,
-          <NuxtLink to="/admin/login">entre no painel</NuxtLink>. Se não lembra,
-          <NuxtLink to="/admin/recuperar-senha">peça um link novo</NuxtLink> — ou
+          <NuxtLink to="/admin/login" class="pa-link">entre no painel</NuxtLink>. Se não lembra,
+          <NuxtLink to="/admin/recuperar-senha" class="pa-link">peça um link novo</NuxtLink> — ou
           peça outro convite a quem te convidou.
         </p>
       </template>
 
       <template v-else-if="state === 'confirmar' || state === 'confirmando'">
-        <p class="muted">
+        <p class="pa-sub">
           Você foi convidado para o painel da {{ tenant?.name || "imobiliária" }}.
           Continue para escolher sua senha.
         </p>
-        <button class="admin-btn full" type="button" :disabled="state === 'confirmando'" @click="continuar">
-          {{ state === "confirmando" ? "Conferindo o link..." : "Continuar" }}
+        <button class="pa-btn" type="button" :disabled="state === 'confirmando'" @click="continuar">
+          {{ state === "confirmando" ? "Conferindo o link…" : "Continuar" }}
         </button>
       </template>
 
       <template v-else>
-        <p class="muted">
+        <p class="pa-sub">
           Escolha uma senha para entrar no painel da {{ tenant?.name || "imobiliária" }}.
           Só você vai saber qual é.
         </p>
         <form @submit.prevent="save">
-          <label class="admin-label" for="senha">Nova senha</label>
-          <AdminPasswordInput id="senha" v-model="password" autocomplete="new-password" />
+          <label class="pa-lbl" for="senha">Nova senha</label>
+          <AuthPasswordField id="senha" v-model="password" autocomplete="new-password" />
 
-          <label class="admin-label" for="senha2">Repita a senha</label>
-          <AdminPasswordInput id="senha2" v-model="confirmPassword" autocomplete="new-password" />
+          <label class="pa-lbl" for="senha2">Repita a senha</label>
+          <AuthPasswordField id="senha2" v-model="confirmPassword" autocomplete="new-password" />
 
-          <p v-if="error" class="err" role="alert">{{ error }}</p>
+          <p v-if="error" class="pa-erro" role="alert">{{ error }}</p>
 
           <!-- O rótulo diz para onde leva: é a última chance de perceber que se
                está na tela errada antes de entregar a senha. -->
-          <button
-            class="admin-btn full"
-            type="submit"
-            :disabled="state === 'salvando'"
-          >
-            {{
-              state === "salvando"
-                ? "Salvando..."
-                : "Definir senha e entrar no painel"
-            }}
+          <button class="pa-btn" type="submit" :disabled="state === 'salvando'">
+            {{ state === "salvando" ? "Salvando…" : "Definir senha e entrar no painel" }}
           </button>
         </form>
       </template>
     </div>
-  </div>
+  </PainelAuthShell>
 </template>
 
 <style scoped>
-.wrap {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--surface);
-}
-.card {
-  width: 100%;
-  max-width: 400px;
-  padding: 28px;
-  border-radius: var(--r-md);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
-}
-.quem {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding-bottom: 14px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--line);
-}
-/* Altura fixa e largura livre: a logo de cada imobiliária tem proporção
-   própria, e travar a largura é o que achatou o bloco equivalente do login. */
-.quem-logo {
-  height: 38px;
-  width: auto;
-  max-width: 140px;
-  object-fit: contain;
-  flex: none;
-}
-.quem-icone {
-  width: 38px;
-  height: 38px;
-  flex: none;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-md);
-  background: var(--brand);
-  color: #fff;
-}
-.quem-icone :deep(svg) {
-  width: 20px;
-  height: 20px;
-}
-.quem-txt {
-  min-width: 0;
-}
-.quem-txt b {
-  display: block;
-  font-size: var(--fs-ui);
-  line-height: 1.25;
-}
-.quem-txt small {
-  display: block;
-  font-size: var(--fs-caption);
-  color: var(--ink-soft);
-  letter-spacing: 0.02em;
-}
-h1 {
-  font-family: var(--font-display);
-  font-size: var(--fs-title);
-  margin: 0 0 8px;
-}
-.muted {
-  color: var(--ink-soft);
-  font-size: var(--fs-ui);
+.pa-sub {
+  margin: 8px 0 16px;
   line-height: 1.55;
-  margin: 0 0 14px;
-}
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.admin-label {
-  margin-top: 8px;
-}
-.err {
-  color: #b91c1c;
-  font-size: var(--fs-label);
-  margin: 10px 0 0;
-}
-.full {
-  width: 100%;
-  margin-top: 16px;
 }
 </style>

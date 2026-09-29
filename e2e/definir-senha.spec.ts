@@ -59,6 +59,8 @@ test('a credencial some da barra de endereço', async ({ page }) => {
 
 test('sem token, a tela explica em vez de girar', async ({ page }) => {
   await page.goto(`/area-cliente/definir-senha?tenant=${amb.slug}`)
-  await expect(page.getByText(/não é mais válido/)).toBeVisible()
+  // O texto mudou na MELHORIA 04 ("já foi usado ou passou do prazo", que cobre
+  // os dois casos sem chutar) e este teste tinha ficado para trás.
+  await expect(page.getByText(/já foi usado ou passou do prazo/)).toBeVisible()
   await expect(page.getByRole('link', { name: /Ir para o login/ })).toBeVisible()
 })

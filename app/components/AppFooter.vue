@@ -88,12 +88,8 @@ const isInternal = (href: string) => href.startsWith("/");
 const year = new Date().getFullYear();
 
 const config = useRuntimeConfig();
-const builtByName = config.public.builtByName;
-const builtByLink = computed(() => {
-  const wa = (config.public.builtByWhatsapp || "").replace(/\D/g, "");
-  const msg = `Olá, ${builtByName}! Vi um site que você desenvolveu e gostaria de um orçamento.`;
-  return wa ? `https://wa.me/${wa}?text=${encodeURIComponent(msg)}` : "#";
-});
+const { name: builtByName, link: builtByLinkOrNull } = useBuiltBy();
+const builtByLink = computed(() => builtByLinkOrNull.value || "#");
 </script>
 
 <template>
