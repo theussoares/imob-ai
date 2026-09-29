@@ -492,7 +492,9 @@ onBeforeUnmount(async () => {
 
           <ol ref="listaMsgs" class="msgs" aria-live="polite" aria-relevant="additions">
             <li v-for="m in aberta.mensagens" :key="m.id" class="msg" :class="m.direction">
-              <p class="msg-txt" :class="{ midia: !m.body }">{{ textoDaMensagem(m.type, m.body) }}</p>
+              <AdminWaMidia v-if="m.mediaStatus" :m="m" />
+              <!-- Com arquivo, o texto é só a legenda — o rótulo "Foto" seria redundante com a foto. -->
+              <p v-if="!m.mediaStatus || m.body" class="msg-txt" :class="{ midia: !m.body }">{{ textoDaMensagem(m.type, m.body) }}</p>
               <span class="msg-meta">
                 <time :datetime="m.occurredAt">{{ horaDaMensagem(m.occurredAt) }}</time>
                 <template v-if="m.origin === 'app'"> · pelo celular</template>

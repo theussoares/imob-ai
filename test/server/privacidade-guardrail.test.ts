@@ -145,10 +145,13 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       leads: ['ip_hash', 'lead_type', 'message', 'name', 'phone', 'property_id', 'source', 'tenant_id'].sort(),
       // "Quando você clica para conversar pelo WhatsApp" na política.
       whatsapp_clicks: ['broker_id', 'destination', 'ip_hash', 'origin', 'property_id', 'tenant_id'].sort(),
-      // "Quando você conversa pelo WhatsApp" na política. `body` é o texto;
-      // mídia não é baixada (a política afirma isso — um `media_path` aqui a
-      // tornaria falsa).
-      whatsapp_messages: ['body', 'conversation_id', 'direction', 'occurred_at', 'origin', 'sent_by', 'status', 'tenant_id', 'type', 'wamid'].sort(),
+      // "Quando você conversa pelo WhatsApp" na política: o texto (`body`) e os
+      // arquivos (`media_*`, 0060 — a política diz que ficam guardados, até
+      // 16 MB, pelo prazo da conversa).
+      whatsapp_messages: [
+        'body', 'conversation_id', 'direction', 'media_filename', 'media_id', 'media_mime', 'media_status',
+        'occurred_at', 'origin', 'sent_by', 'status', 'tenant_id', 'type', 'wamid',
+      ].sort(),
     })
   })
 })

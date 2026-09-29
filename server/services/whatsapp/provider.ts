@@ -10,6 +10,14 @@
 
 import type { WhatsappMessageStatus, WhatsappTemplate, WhatsappTemplateCategory } from '~~/shared/models/whatsapp'
 
+/** Arquivo anexado. Só o id: o arquivo em si é baixado à parte (`baixarMidia`). */
+export interface MidiaRecebida {
+  id: string
+  mime: string | null
+  /** Nome que o cliente deu ao documento. Só exibição — nunca vira caminho. */
+  nomeDoArquivo: string | null
+}
+
 /** Mensagem que o CONTATO mandou para o número da imobiliária. */
 export interface MensagemRecebida {
   wamid: string
@@ -18,6 +26,7 @@ export interface MensagemRecebida {
   nomeDoPerfil: string | null
   tipo: string
   texto: string | null
+  midia: MidiaRecebida | null
   /** ISO. */
   quando: string
 }
@@ -33,6 +42,7 @@ export interface MensagemEcoada {
   para: string
   tipo: string
   texto: string | null
+  midia: MidiaRecebida | null
   quando: string
 }
 
@@ -114,4 +124,17 @@ export interface WhatsappProvider {
   enviarModelo(c: Conexao, para: string, modelo: ModeloDaMeta, valores: string[]): Promise<Enviada>
   /** `'ja_existe'` quando a conta já tem um modelo com esse nome e idioma. */
   criarModelo(c: Conexao, modelo: NovoModelo): Promise<'criado' | 'ja_existe'>
+  /**
+   * Baixa o arquivo. Lança `MidiaGrandeDemais` ANTES de baixar quando a Meta
+   * informa um tamanho acima do teto — baixar 100 MB para jogar fora gastaria
+   * o tempo da função inteira.
+   */
+  baixarMidia(c: Conexao, mediaId: string, maxBytes: number, prazoMs: number): Promise<MidiaBaixada>
 }
+
+export interface MidiaBaixada {
+  bytes: Uint8Array
+  mime: string
+}
+
+export class MidiaGrandeDemais extends Error {}

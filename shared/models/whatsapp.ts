@@ -46,6 +46,8 @@ export interface WhatsappConversation {
   createdAt: string
 }
 
+export type WhatsappMediaStatus = 'pendente' | 'salva' | 'falhou' | 'grande_demais'
+
 export interface WhatsappMessage {
   id: string
   direction: WhatsappDirection
@@ -55,6 +57,55 @@ export interface WhatsappMessage {
   status: WhatsappMessageStatus
   error: string | null
   occurredAt: string
+  /** null = mensagem sem mídia. */
+  mediaStatus: WhatsappMediaStatus | null
+  mediaMime: string | null
+  mediaFilename: string | null
+}
+
+/** Tipos de mensagem que carregam arquivo. */
+export const TIPOS_COM_MIDIA = ['image', 'audio', 'video', 'document', 'sticker'] as const
+
+/** Teto do que é guardado — o mesmo `file_size_limit` do bucket (0060). */
+export const WHATSAPP_MIDIA_MAX_BYTES = 16 * 1024 * 1024
+
+/**
+ * Formatos guardados — os mesmos `allowed_mime_types` do bucket (0060). Fora
+ * da lista, o upload seria recusado pelo Storage; melhor saber antes de baixar.
+ */
+export const WHATSAPP_MIDIA_MIMES = [
+  'image/jpeg', 'image/png', 'image/webp',
+  'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/amr',
+  'video/mp4', 'video/3gpp',
+  'application/pdf', 'text/plain',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+]
+
+/**
+ * MIME como o Storage espera. A Meta manda áudio de voz como
+ * `audio/ogg; codecs=opus`, e o `allowed_mime_types` compara o tipo sem
+ * parâmetros.
+ */
+export function mimeBase(mime: string | null | undefined): string {
+  return String(mime ?? '').split(';')[0]!.trim().toLowerCase()
+}
+
+const EXTENSOES: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+  'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac', 'audio/amr': 'amr',
+  'video/mp4': 'mp4', 'video/3gpp': '3gp',
+  'application/pdf': 'pdf', 'text/plain': 'txt',
+}
+
+/**
+ * Caminho no bucket. A pasta de cima é o tenant — é por ela que a policy de
+ * leitura (0060) decide quem vê. Nome do arquivo do CLIENTE nunca entra no
+ * caminho: `../` ou um nome com o CPF dele virariam chave de objeto.
+ */
+export function caminhoDaMidia(tenantId: string, conversationId: string, messageId: string, mime: string): string {
+  return `${tenantId}/${conversationId}/${messageId}.${EXTENSOES[mimeBase(mime)] ?? 'bin'}`
 }
 
 export type WhatsappFiltro = 'todas' | 'sem_resposta' | 'nao_lidas'

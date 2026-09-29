@@ -80,7 +80,7 @@ describe('de quem é a mensagem', () => {
         { data: [{ id: 'c1', lead_id: 'l1', last_inbound_at: null, first_response_at: null, unread_count: 0, wa_id: '5567991234567', account_id: 'a1' }], error: null },
         { data: null, error: null }, // update
       ],
-      whatsapp_messages: { data: null, error: null },
+      whatsapp_messages: { data: { id: 'm1' }, error: null },
     })
     await processarLoteWhatsapp(client, CONTA, lote([msg('wamid.1')]))
     for (const t of ['whatsapp_conversations', 'whatsapp_messages']) expect(hadEq(calls, t, 'tenant_id') || insertLevaTenant(calls, t)).toBe(true)
@@ -90,7 +90,7 @@ describe('de quem é a mensagem', () => {
 })
 
 const CONTA = { id: 'a1', tenantId: 't1', phoneNumberId: '111', wabaId: '222', displayPhone: null, verifiedName: null, accessTokenEnc: 'x', ativo: true }
-const msg = (wamid: string) => ({ wamid, de: '5567991234567', nomeDoPerfil: 'Ana', tipo: 'text', texto: 'Oi', quando: '2026-09-29T12:00:00.000Z' })
+const msg = (wamid: string) => ({ wamid, de: '5567991234567', nomeDoPerfil: 'Ana', tipo: 'text', texto: 'Oi', midia: null, quando: '2026-09-29T12:00:00.000Z' })
 const lote = (recebidas: ReturnType<typeof msg>[]) => ({ phoneNumberId: '111', recebidas, ecos: [], status: [] })
 const insertLevaTenant = (calls: { table: string; method: string; args: unknown[] }[], t: string) =>
   calls.some((c) => c.table === t && (c.method === 'insert' || c.method === 'upsert') && (c.args[0] as { tenant_id?: string })?.tenant_id === 't1')
@@ -124,9 +124,9 @@ describe('reenvio da Meta', () => {
     expect(touched(calls, 'leads')).toBe(false)
   })
 
-  test('insertMessage devolve false no unique e lança nos demais erros', async () => {
+  test('insertMessage devolve null no unique e lança nos demais erros', async () => {
     const dup = fakeSupabase({ whatsapp_messages: { data: null, error: { code: '23505' } } })
-    await expect(insertMessage(dup.client, 't1', ARGS_MSG)).resolves.toBe(false)
+    await expect(insertMessage(dup.client, 't1', ARGS_MSG)).resolves.toBeNull()
     const outro = fakeSupabase({ whatsapp_messages: { data: null, error: { code: '42501', message: 'rls' } } })
     await expect(insertMessage(outro.client, 't1', ARGS_MSG)).rejects.toBeTruthy()
   })
@@ -188,7 +188,7 @@ describe('payload da Meta', () => {
     )
     expect(l!.phoneNumberId).toBe('111')
     expect(l!.recebidas).toEqual([
-      { wamid: 'wamid.A', de: '556791234567', nomeDoPerfil: 'Ana', tipo: 'text', texto: 'Oi', quando: new Date(1790000000 * 1000).toISOString() },
+      { wamid: 'wamid.A', de: '556791234567', nomeDoPerfil: 'Ana', tipo: 'text', texto: 'Oi', midia: null, quando: new Date(1790000000 * 1000).toISOString() },
     ])
   })
 
@@ -201,7 +201,7 @@ describe('payload da Meta', () => {
     const [l] = lotesDoWebhook(
       base('smb_message_echoes', { message_echoes: [{ from: '5567000', to: '556791234567', id: 'wamid.E', timestamp: '1', type: 'text', text: { body: 'Bom dia!' } }] }),
     )
-    expect(l!.ecos).toEqual([{ wamid: 'wamid.E', para: '556791234567', tipo: 'text', texto: 'Bom dia!', quando: new Date(1000).toISOString() }])
+    expect(l!.ecos).toEqual([{ wamid: 'wamid.E', para: '556791234567', tipo: 'text', texto: 'Bom dia!', midia: null, quando: new Date(1000).toISOString() }])
   })
 
   test('status com erro', () => {

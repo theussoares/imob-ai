@@ -3,6 +3,7 @@ import type {
   WhatsappConversation,
   WhatsappDirection,
   WhatsappMessage,
+  WhatsappMediaStatus,
   WhatsappMessageStatus,
   WhatsappOrigin,
 } from '~~/shared/models/whatsapp'
@@ -79,5 +80,8 @@ export function toWhatsappMessageModel(row: MessageRow): WhatsappMessage {
     status: row.status as WhatsappMessageStatus,
     error: row.error,
     occurredAt: row.occurred_at,
+    mediaStatus: (row.media_status as WhatsappMediaStatus | null) ?? null,
+    mediaMime: row.media_mime,
+    mediaFilename: row.media_filename,
   }
 }

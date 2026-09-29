@@ -34,7 +34,7 @@ Verificado no código e no banco em 25/09.
 | Anti-abuso dos formulários | hash do IP com sal (sha256), não o IP | `leads.ip_hash` | junto com o lead |
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |
 | Aviso de lead novo para a imobiliária | nome e telefone do lead | e-mail enviado pela Resend (EUA) | caixa de entrada da imobiliária |
-| Conversas do WhatsApp (0059), só com o número conectado pela API oficial | nome de perfil, número, texto das mensagens, tipo da mídia (o arquivo NÃO é baixado), imóvel de interesse | `whatsapp_conversations` e `whatsapp_messages` (Supabase, São Paulo); entrega pela Meta (EUA e outros) | junto com o lead (24 meses sem andamento); conversa sem lead: **90 dias** da última mensagem, apagada pelo cron diário |
+| Conversas do WhatsApp (0059), só com o número conectado pela API oficial | nome de perfil, número, texto das mensagens, fotos/áudios/vídeos/documentos até 16 MB (0060), imóvel de interesse | `whatsapp_conversations` e `whatsapp_messages`; arquivos no bucket PRIVADO `whatsapp-media`, pasta por tenant, leitura só por membro via URL assinada de 10 min (Supabase, São Paulo); entrega pela Meta (EUA e outros) | junto com o lead (24 meses sem andamento); conversa sem lead: **90 dias** da última mensagem, apagada com os arquivos pelo cron diário |
 | Estatísticas de visita | URL visitada (sem query exceto `utm_*`), país, navegador, dispositivo; visitante identificado por hash do request que **zera todo dia** | Vercel Web Analytics e Speed Insights | conforme a Vercel |
 | Processamento de toda requisição | IP, user-agent, URL | funções da Vercel, região `gru1` (São Paulo) desde 25/09; antes `iad1` (EUA) | logs de runtime da Vercel, retenção curta do plano |
 
@@ -128,8 +128,9 @@ estatísticas anonimizadas) tem fundamento, como descrito acima.
 
 **Conversas do WhatsApp (0059):** a mensagem passa pela Meta fora do Brasil
 por natureza — o titular a enviou pelo aplicativo da Meta. A base é o art. 7º,
-V, e o art. 33, IX a cobre. O que a plataforma guarda fica em São Paulo, e a
-mídia não é baixada no F0, o que reduz o que existe para vazar.
+V, e o art. 33, IX a cobre. O que a plataforma guarda fica em São Paulo, inclusive
+os arquivos (0060), que são baixados da Meta pelo servidor e nunca passam pelo
+navegador com o token.
 
 ### Q4. Registros de acesso (Marco Civil, art. 15)
 

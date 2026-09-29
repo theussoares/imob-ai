@@ -7,6 +7,8 @@ import {
   type LoteDoWebhook,
   type MensagemEcoada,
   type MensagemRecebida,
+  type MidiaRecebida,
+  MidiaGrandeDemais,
   type Enviada,
   type ModeloDaMeta,
   type MudancaDeStatus,
@@ -63,10 +65,13 @@ interface MetaMensagem {
   text?: MetaTexto
   button?: { text?: string }
   interactive?: { button_reply?: { title?: string }; list_reply?: { title?: string } }
-  image?: { caption?: string }
-  video?: { caption?: string }
-  document?: { caption?: string; filename?: string }
+  image?: MetaArquivo
+  video?: MetaArquivo
+  document?: MetaArquivo
+  audio?: MetaArquivo
+  sticker?: MetaArquivo
 }
+interface MetaArquivo { id?: string; mime_type?: string; caption?: string; filename?: string }
 interface MetaStatus {
   id?: string
   status?: string
@@ -101,6 +106,12 @@ function textoDe(m: MetaMensagem): string | null {
     m.document?.caption ??
     null
   return t && t.trim() ? t : null
+}
+
+function midiaDe(m: MetaMensagem): MidiaRecebida | null {
+  const a = m.image ?? m.audio ?? m.video ?? m.document ?? m.sticker
+  if (!a?.id) return null
+  return { id: a.id, mime: a.mime_type ?? null, nomeDoArquivo: a.filename?.slice(0, 200) ?? null }
 }
 
 const STATUS: Record<string, WhatsappMessageStatus> = {
@@ -144,6 +155,7 @@ export function lotesDoWebhook(payload: unknown): LoteDoWebhook[] {
             nomeDoPerfil: nomes.get(m.from) ?? null,
             tipo: m.type ?? 'unknown',
             texto: textoDe(m),
+            midia: midiaDe(m),
             quando: quando(m.timestamp),
           }
           lote(numero).recebidas.push(r)
@@ -162,7 +174,7 @@ export function lotesDoWebhook(payload: unknown): LoteDoWebhook[] {
       } else if (change.field === 'smb_message_echoes') {
         for (const m of v.message_echoes ?? []) {
           if (!m.id || !m.to) continue
-          const eco: MensagemEcoada = { wamid: m.id, para: m.to, tipo: m.type ?? 'unknown', texto: textoDe(m), quando: quando(m.timestamp) }
+          const eco: MensagemEcoada = { wamid: m.id, para: m.to, tipo: m.type ?? 'unknown', texto: textoDe(m), midia: midiaDe(m), quando: quando(m.timestamp) }
           lote(numero).ecos.push(eco)
         }
       }
@@ -257,6 +269,19 @@ async function chamar<T>(f: Fetch, c: Conexao, caminho: string, init: { method: 
   return json
 }
 
+/**
+ * O endereço de download é da Meta? https e host dela. É para esse endereço
+ * que o token da imobiliária vai no cabeçalho.
+ */
+export function urlDaMeta(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && /(^|\.)(fbsbx\.com|facebook\.com|whatsapp\.net)$/.test(u.hostname)
+  } catch {
+    return false
+  }
+}
+
 interface Resposta { messages?: { id?: string }[]; contacts?: { wa_id?: string }[] }
 
 function enviada(r: Resposta): Enviada {
@@ -334,6 +359,28 @@ export function cloudApi(f: Fetch = fetch): WhatsappProvider {
         },
       })
       return enviada(r)
+    },
+
+    async baixarMidia(c, mediaId, maxBytes, prazoMs) {
+      const info = await chamar<{ url?: string; mime_type?: string; file_size?: number }>(f, c, `/${encodeURIComponent(mediaId)}`, { method: 'GET' })
+      if (!info.url || !urlDaMeta(info.url)) throw new ErroDoWhatsapp('A Meta não devolveu um endereço de arquivo válido.')
+      if ((info.file_size ?? 0) > maxBytes) throw new MidiaGrandeDemais()
+
+      let res: Response
+      try {
+        // O token vai junto — por isso o host é conferido acima. Um endereço
+        // que não fosse da Meta receberia o token da imobiliária. (Num
+        // redirect para outro domínio o fetch do Node descarta o
+        // Authorization, como manda a especificação.)
+        res = await f(info.url, { headers: { Authorization: `Bearer ${c.accessToken}` }, signal: AbortSignal.timeout(Math.max(1000, prazoMs)) })
+      } catch (e) {
+        throw new ErroDoWhatsapp(`Não foi possível baixar o arquivo (${errMessage(e)}).`)
+      }
+      if (!res.ok) throw new ErroDoWhatsapp(`A Meta recusou o download do arquivo (HTTP ${res.status}).`, res.status === 401 || res.status === 403)
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      // O tamanho informado pode faltar; o teto vale para o que chegou.
+      if (bytes.byteLength > maxBytes) throw new MidiaGrandeDemais()
+      return { bytes, mime: info.mime_type || res.headers.get('content-type') || 'application/octet-stream' }
     },
 
     async criarModelo(c, m) {

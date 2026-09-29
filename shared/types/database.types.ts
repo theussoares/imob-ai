@@ -1926,6 +1926,12 @@ export type Database = {
           tenant_id: string
           type: string
           wamid: string | null
+          media_filename: string | null
+          media_id: string | null
+          media_mime: string | null
+          media_path: string | null
+          media_size: number | null
+          media_status: string | null
         }
         Insert: {
           body?: string | null
@@ -1941,6 +1947,12 @@ export type Database = {
           tenant_id: string
           type?: string
           wamid?: string | null
+          media_filename?: string | null
+          media_id?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_status?: string | null
         }
         Update: {
           body?: string | null
@@ -1956,6 +1968,12 @@ export type Database = {
           tenant_id?: string
           type?: string
           wamid?: string | null
+          media_filename?: string | null
+          media_id?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_status?: string | null
         }
         Relationships: [
           {

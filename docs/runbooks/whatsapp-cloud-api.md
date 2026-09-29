@@ -66,7 +66,20 @@ ou horas; até lá eles aparecem como "Em análise na Meta".
 Modelos criados direto no painel da Meta também aparecem, desde que tenham
 variáveis só no corpo.
 
-## 5. Conferir
+## 5. Mídia
+
+Precisa da migration **0060** (colunas `media_*` e o bucket privado
+`whatsapp-media`). Foto, áudio, vídeo, figurinha e documento de até 16 MB
+aparecem na conversa. O webhook tenta baixar em até 8s; o que não couber é
+baixado na primeira vez que a bolha aparece na tela.
+
+- `whatsapp.midia_nao_baixada` nos logs: a Meta demorou ou recusou; o painel
+  tenta de novo ao abrir.
+- `whatsapp.midia_formato_fora_da_lista`: chegou um tipo que o bucket não
+  aceita. Se for legítimo, entra em `WHATSAPP_MIDIA_MIMES` e na 0060 juntos
+  (o teste confere que batem).
+
+## 6. Conferir
 
 - Mande uma mensagem para o número: ela aparece em Conversas, e um contato novo
   aparece no funil com o imóvel (se a mensagem veio do botão do site).

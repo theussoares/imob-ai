@@ -46,6 +46,16 @@ resumida na seção 6.
    - botão "Criar modelos sugeridos": dois modelos em português
      (`moradi_primeiro_contato`, utilidade; `moradi_retomar_conversa`,
      marketing) enviados para análise da Meta.
+10. **Mídia recebida** (0060): foto, áudio, vídeo, figurinha e documento de
+    até 16 MB, do cliente e dos ecos do celular.
+    - O webhook baixa dentro de um prazo de 8s, DEPOIS de gravar todas as
+      mensagens; o que não couber fica `pendente` e o painel baixa na primeira
+      vez que a bolha aparece na tela.
+    - Bucket privado `whatsapp-media`, pasta por tenant; o membro lê por URL
+      assinada de 10 min, assinada com o client dele (policy confere a pasta).
+    - O token só vai para host da Meta (`urlDaMeta`); o nome do arquivo do
+      cliente nunca entra no caminho do objeto.
+    - A retenção apaga os arquivos ANTES das linhas.
 
 Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 
@@ -61,9 +71,9 @@ Tudo atrás de `tenant_features.feature = 'whatsapp'`.
 - **Criar modelo livre pelo painel.** Só os dois sugeridos. Modelo escrito à
   mão é recusado com frequência pela Meta, e a recusa chega sem explicação
   útil; quem precisa de outro cria no painel da Meta, e ele aparece aqui.
-- **Mídia.** Foto e áudio chegam como mensagem com o tipo ("Foto", em itálico), sem o
-  arquivo. Baixar exige o token e uma função que caiba no tempo da Vercel;
-  entra junto com o bucket privado na F2.
+- **Enviar mídia pelo painel.** Receber entrou (item 10); mandar foto ou PDF
+  daqui fica para depois — o corretor que precisa manda pelo celular, e o eco
+  do Coexistence já registra.
 - **Histórico importado do Coexistence** (até 6 meses). Traz conversa pessoal
   de quem não é lead, e isso precisa de decisão de LGPD com o cliente antes.
 - **Origem `whatsapp` em `leads.source`.** Mesmo motivo da spec do clique: a
@@ -134,6 +144,10 @@ escreve pelo papel `authenticated` — toda escrita é do servidor, depois de
 | Número do contato sai do lead | Aceitar o número no body | Número do body = mensagem em nome da imobiliária para quem o membro quisesse. |
 | Conversa criada com o `wa_id` que a Meta devolve no envio | O número do formulário | A resposta chega pelo `wa_id` resolvido (nono dígito); com o outro, a mesma pessoa teria duas conversas. |
 | Categorias honestas nos sugeridos | Tudo como utilidade (mais barato) | A Meta reclassifica e cobra; e um modelo "utilidade" que é marketing derruba a qualidade do número. |
+| Baixar a mídia no servidor e guardar | Mostrar direto da Meta | O endereço da Meta expira em minutos e exige o token, que não pode ir ao navegador. |
+| Webhook com prazo + download na primeira visualização | Só no webhook / só sob demanda | Só no webhook perde a foto quando a Meta demora; só sob demanda perde a de quem ninguém abriu a tempo. |
+| Teto de 16 MB | Guardar tudo (documento vai a 100 MB) | É o teto de vídeo e áudio do próprio WhatsApp; PDF gigante fica "abra no celular". |
+| Sem sistema de fila | Fila (Vercel Queue, pg_cron) | Com o download sob demanda, nada se perde sem fila; fila seria infraestrutura nova para um ganho pequeno. |
 | Sem cache da lista de modelos | Cache de minutos | O status muda na Meta, e a tela tem que dizer a verdade na hora do envio. |
 
 ## 6. Pesquisa (resumo)

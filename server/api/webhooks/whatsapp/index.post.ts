@@ -2,6 +2,7 @@ import { assinaturaValida, lotesDoWebhook } from '~~/server/services/whatsapp/cl
 import { getAccountByPhoneNumberId } from '~~/server/repositories/whatsapp.repository'
 import { processarLoteWhatsapp } from '~~/server/utils/whatsapp-inbox'
 import { whatsappAppSecret } from '~~/server/utils/whatsapp-config'
+import { baixarMidiasDoWebhook } from '~~/server/utils/whatsapp-midia'
 
 /**
  * Webhook da Meta: mensagens, ecos do Coexistence e status de entrega, de
@@ -19,7 +20,14 @@ import { whatsappAppSecret } from '~~/server/utils/whatsapp-config'
  *     todas as imobiliárias;
  *   - 500 só quando a gravação falhou: aí o reenvio é desejado.
  */
+/**
+ * Quanto do tempo da requisição a mídia pode usar. A Meta espera a resposta
+ * em segundos; o que não couber fica para o painel baixar ao abrir.
+ */
+const PRAZO_DA_MIDIA_MS = 8000
+
 export default defineEventHandler(async (event) => {
+  const inicio = Date.now()
   const cru = (await readRawBody(event, 'utf8')) ?? ''
   if (!assinaturaValida(cru, getHeader(event, 'x-hub-signature-256'), whatsappAppSecret())) {
     logWarn('whatsapp.webhook_recusado', { reason: 'assinatura' })
@@ -40,12 +48,16 @@ export default defineEventHandler(async (event) => {
       logWarn('whatsapp.webhook_numero_desconhecido', { conectado: Boolean(conta) })
       continue
     }
+    let midias
     try {
-      await processarLoteWhatsapp(service, conta, lote)
+      midias = await processarLoteWhatsapp(service, conta, lote)
     } catch (e) {
       logError('whatsapp.webhook_falhou', { tenant: conta.tenantId, reason: errMessage(e) })
       throw createError({ statusCode: 500, statusMessage: 'Falha ao processar' })
     }
+    // Depois de gravar, e fora do try: a mídia nunca faz o webhook responder
+    // 500 — o reenvio seria ignorado pelo `wamid` e a foto não viria de novo.
+    await baixarMidiasDoWebhook(service, conta, midias, inicio + PRAZO_DA_MIDIA_MS)
   }
   return { ok: true }
 })

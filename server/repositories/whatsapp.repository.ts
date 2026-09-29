@@ -319,13 +319,51 @@ export async function getConversationIdByLead(client: Client, tenantId: string, 
   return data?.[0]?.id ?? null
 }
 
-/** Retenção: conversa sem lead parada há mais do prazo some, com as mensagens (cascade). */
+/**
+ * Retenção: conversa sem lead parada há mais do prazo some, com as mensagens
+ * (cascade) — e com os ARQUIVOS, que o cascade não alcança: objeto no Storage
+ * não é linha com FK. Sem apagar os arquivos antes, a foto ficaria no bucket
+ * para sempre, depois de a política prometer que sumiu.
+ *
+ * Arquivo antes da linha: se a remoção do arquivo falhar, a linha fica e o
+ * cron de amanhã tenta de novo. Ao contrário, a linha sumiria e o arquivo
+ * ficaria órfão, sem nada que aponte para ele.
+ */
 export async function purgeOrphanConversations(service: Client, antesDe: string): Promise<void> {
-  const { error } = await service
+  const { data: conversas, error: e1 } = await service
     .from('whatsapp_conversations')
-    .delete()
+    .select('id')
     .is('lead_id', null)
     .lt('last_message_at', antesDe)
+    .limit(200)
+  if (e1) throw e1
+  const ids = (conversas ?? []).map((c) => c.id)
+  if (!ids.length) return
+
+  // Paginado: o PostgREST corta em `max_rows` (1000 por padrão) sem avisar.
+  // Sem a paginação, um lote com mais arquivos que isso apagaria as conversas
+  // e deixaria o excedente no bucket sem nenhuma linha apontando para ele —
+  // achado da revisão de 29/09.
+  const PAGINA = 1000
+  const caminhos: string[] = []
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await service
+      .from('whatsapp_messages')
+      .select('media_path')
+      .in('conversation_id', ids)
+      .not('media_path', 'is', null)
+      .order('id')
+      .range(de, de + PAGINA - 1)
+    if (error) throw error
+    for (const a of data ?? []) if (a.media_path) caminhos.push(a.media_path)
+    if ((data?.length ?? 0) < PAGINA) break
+  }
+  for (let i = 0; i < caminhos.length; i += 100) {
+    const { error } = await service.storage.from('whatsapp-media').remove(caminhos.slice(i, i + 100))
+    if (error) throw error
+  }
+
+  const { error } = await service.from('whatsapp_conversations').delete().in('id', ids)
   if (error) throw error
 }
 
@@ -343,15 +381,16 @@ export interface InsertMessageArgs {
   status: WhatsappMessageStatus
   sentBy: string | null
   occurredAt: string
+  media?: { id: string; mime: string | null; filename: string | null } | null
 }
 
 /**
- * Grava a mensagem. `false` quando ela JÁ existia (mesmo `wamid`): é o
- * reenvio da Meta, e quem chama não deve contar não lida, criar lead nem
- * avisar de novo.
+ * Grava a mensagem e devolve o id. `null` quando ela JÁ existia (mesmo
+ * `wamid`): é o reenvio da Meta, e quem chama não deve contar não lida, criar
+ * lead, baixar mídia nem avisar de novo.
  */
-export async function insertMessage(service: Client, tenantId: string, a: InsertMessageArgs): Promise<boolean> {
-  const { error } = await service.from('whatsapp_messages').insert({
+export async function insertMessage(service: Client, tenantId: string, a: InsertMessageArgs): Promise<string | null> {
+  const { data, error } = await service.from('whatsapp_messages').insert({
     tenant_id: tenantId,
     conversation_id: a.conversationId,
     wamid: a.wamid,
@@ -362,10 +401,55 @@ export async function insertMessage(service: Client, tenantId: string, a: Insert
     status: a.status,
     sent_by: a.sentBy,
     occurred_at: a.occurredAt,
-  })
-  if (!error) return true
-  if ((error as { code?: string }).code === '23505') return false
+    media_id: a.media?.id ?? null,
+    media_mime: a.media?.mime ?? null,
+    media_filename: a.media?.filename ?? null,
+    media_status: a.media ? 'pendente' : null,
+  }).select('id').single()
+  if (!error) return data.id
+  if ((error as { code?: string }).code === '23505') return null
   throw error
+}
+
+export interface MediaRef {
+  messageId: string
+  conversationId: string
+  mediaId: string
+  mime: string | null
+  status: string | null
+  path: string | null
+  filename: string | null
+}
+
+/** A mídia de uma mensagem, pelo client do membro (RLS) — para abrir no painel. */
+export async function getMessageMedia(client: Client, tenantId: string, messageId: string): Promise<MediaRef | null> {
+  const { data, error } = await client
+    .from('whatsapp_messages')
+    .select('id, conversation_id, media_id, media_mime, media_status, media_path, media_filename')
+    .eq('tenant_id', tenantId)
+    .eq('id', messageId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data?.media_id) return null
+  return {
+    messageId: data.id,
+    conversationId: data.conversation_id,
+    mediaId: data.media_id,
+    mime: data.media_mime,
+    status: data.media_status,
+    path: data.media_path,
+    filename: data.media_filename,
+  }
+}
+
+export async function updateMessageMedia(
+  service: Client,
+  tenantId: string,
+  messageId: string,
+  patch: { media_status: string; media_path?: string; media_size?: number; media_mime?: string },
+): Promise<void> {
+  const { error } = await service.from('whatsapp_messages').update(patch).eq('tenant_id', tenantId).eq('id', messageId)
+  if (error) throw error
 }
 
 /** Estados que um status NOVO pode sobrescrever — o status nunca volta. */
@@ -403,7 +487,7 @@ export async function updateMessageStatus(
 export async function listMessages(client: Client, tenantId: string, conversationId: string): Promise<WhatsappMessage[]> {
   const { data, error } = await client
     .from('whatsapp_messages')
-    .select('id, direction, origin, type, body, status, error, occurred_at, tenant_id, conversation_id, wamid, sent_by, created_at')
+    .select('id, direction, origin, type, body, status, error, occurred_at, tenant_id, conversation_id, wamid, sent_by, created_at, media_id, media_mime, media_filename, media_path, media_size, media_status')
     .eq('tenant_id', tenantId)
     .eq('conversation_id', conversationId)
     .order('occurred_at', { ascending: false })

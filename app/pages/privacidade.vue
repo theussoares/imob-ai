@@ -99,8 +99,9 @@ useHead(() => ({
       trocadas com você ficam registradas no painel dela, junto com o seu nome
       de perfil, o seu número e o imóvel sobre o qual você perguntou. É o que
       permite que outra pessoa da equipe continue o atendimento sem você ter de
-      repetir tudo. Fotos, áudios e documentos que você enviar não são
-      guardados no sistema; fica só o registro de que foram enviados.
+      repetir tudo. Fotos, áudios, vídeos e documentos que você enviar também
+      ficam guardados, em área restrita à equipe de {{ nome }}, junto com a
+      conversa e pelo mesmo prazo. Arquivos acima de 16 MB não são guardados.
     </p>
 
     <h3>Proteção contra abuso</h3>
@@ -264,10 +265,10 @@ useHead(() => ({
       </li>
       <!-- WHATSAPP_CONVERSA_RETENCAO_DIAS, lida direto; a do pedido de contato é a de cima. -->
       <li>
-        <b>Conversas pelo WhatsApp:</b> ficam enquanto existir o seu pedido de
-        contato, e seguem o prazo dele. Conversa que não virou pedido de contato
-        é apagada {{ WHATSAPP_CONVERSA_RETENCAO_DIAS }} dias depois da última
-        mensagem.
+        <b>Conversas pelo WhatsApp, com os arquivos:</b> ficam enquanto existir
+        o seu pedido de contato, e seguem o prazo dele. Conversa que não virou
+        pedido de contato é apagada, com os arquivos,
+        {{ WHATSAPP_CONVERSA_RETENCAO_DIAS }} dias depois da última mensagem.
       </li>
       <li>
         <b>Cadastro e documentos da Área do Cliente:</b> enquanto durar a

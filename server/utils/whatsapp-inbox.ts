@@ -6,6 +6,7 @@ import { codigoDoImovelNaMensagem, previa, telefonesDoWaId } from '~~/shared/mod
 import { formatPropertyCode } from '~~/shared/utils/property-specs'
 import type { WhatsappAccountRecord } from '~~/server/mappers/whatsapp.mapper'
 import type { LoteDoWebhook, MensagemEcoada, MensagemRecebida } from '~~/server/services/whatsapp/provider'
+import type { MidiaPendente } from '~~/server/utils/whatsapp-midia'
 import {
   ensureConversation,
   findConversationByWaIds,
@@ -37,13 +38,26 @@ type Client = SupabaseClient<Database>
  * lança: a mensagem já está salva, e um reenvio por causa do e-mail seria
  * ignorado pelo `wamid` de qualquer jeito.
  */
-export async function processarLoteWhatsapp(service: Client, conta: WhatsappAccountRecord, lote: LoteDoWebhook): Promise<void> {
-  for (const m of lote.recebidas) await registrarRecebida(service, conta, m)
-  for (const e of lote.ecos) await registrarEco(service, conta, e)
+export async function processarLoteWhatsapp(service: Client, conta: WhatsappAccountRecord, lote: LoteDoWebhook): Promise<MidiaPendente[]> {
+  const midias: MidiaPendente[] = []
+  for (const m of lote.recebidas) {
+    const p = await registrarRecebida(service, conta, m)
+    if (p) midias.push(p)
+  }
+  for (const e of lote.ecos) {
+    const p = await registrarEco(service, conta, e)
+    if (p) midias.push(p)
+  }
   for (const s of lote.status) await updateMessageStatus(service, conta.tenantId, s.wamid, s.status, s.erro)
+  // Devolvidas, e não baixadas aqui: o download vem DEPOIS de todas as
+  // mensagens gravadas, para uma foto lenta não atrasar o texto que veio junto.
+  return midias
 }
 
-async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, m: MensagemRecebida): Promise<void> {
+const midiaDoRegistro = (m: { midia: MensagemRecebida['midia'] }) =>
+  m.midia ? { id: m.midia.id, mime: m.midia.mime, filename: m.midia.nomeDoArquivo } : null
+
+async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, m: MensagemRecebida): Promise<MidiaPendente | null> {
   const state = await conversaDoContato(service, conta, m.de, m.nomeDoPerfil)
 
   const nova = await insertMessage(service, conta.tenantId, {
@@ -56,9 +70,10 @@ async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, 
     status: 'recebida',
     sentBy: null,
     occurredAt: m.quando,
+    media: midiaDoRegistro(m),
   })
   // Reenvio da Meta: a mensagem já foi contada, o lead já existe, o aviso já saiu.
-  if (!nova) return
+  if (!nova) return null
 
   const patch: ConversationPatch = {
     last_inbound_at: m.quando,
@@ -72,9 +87,10 @@ async function registrarRecebida(service: Client, conta: WhatsappAccountRecord, 
 
   await updateConversation(service, conta.tenantId, state.id, patch)
   await incrementUnread(service, conta.tenantId, state.id)
+  return m.midia ? { messageId: nova, conversationId: state.id, mediaId: m.midia.id } : null
 }
 
-async function registrarEco(service: Client, conta: WhatsappAccountRecord, e: MensagemEcoada): Promise<void> {
+async function registrarEco(service: Client, conta: WhatsappAccountRecord, e: MensagemEcoada): Promise<MidiaPendente | null> {
   const state = await conversaDoContato(service, conta, e.para, null)
   const nova = await insertMessage(service, conta.tenantId, {
     conversationId: state.id,
@@ -86,9 +102,11 @@ async function registrarEco(service: Client, conta: WhatsappAccountRecord, e: Me
     status: 'enviada',
     sentBy: null,
     occurredAt: e.quando,
+    media: midiaDoRegistro(e),
   })
-  if (!nova) return
+  if (!nova) return null
   await updateConversation(service, conta.tenantId, state.id, respostaPatch(state, e.quando, previa(e.tipo, e.texto)))
+  return e.midia ? { messageId: nova, conversationId: state.id, mediaId: e.midia.id } : null
 }
 
 /**
