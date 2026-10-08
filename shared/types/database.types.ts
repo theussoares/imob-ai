@@ -827,6 +827,7 @@ export type Database = {
           external_id: string | null
           id: string
           outcome: string | null
+          processed_at: string | null
           provider: string
           received_at: string
           tenant_id: string
@@ -837,6 +838,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           outcome?: string | null
+          processed_at?: string | null
           provider: string
           received_at?: string
           tenant_id: string
@@ -847,6 +849,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           outcome?: string | null
+          processed_at?: string | null
           provider?: string
           received_at?: string
           tenant_id?: string
@@ -1467,8 +1470,14 @@ export type Database = {
           account_name: string | null
           api_key_ciphertext: string | null
           api_key_last4: string | null
+          certificate_expires_at: string | null
+          client_id: string | null
           connected_at: string
           connected_by: string | null
+          connection_status: string
+          credentials_ciphertext: string | null
+          credentials_updated_at: string | null
+          last_verified_at: string | null
           environment: string
           external_webhook_id: string | null
           provider: string
@@ -1481,8 +1490,14 @@ export type Database = {
           account_name?: string | null
           api_key_ciphertext?: string | null
           api_key_last4?: string | null
+          certificate_expires_at?: string | null
+          client_id?: string | null
           connected_at?: string
           connected_by?: string | null
+          connection_status?: string
+          credentials_ciphertext?: string | null
+          credentials_updated_at?: string | null
+          last_verified_at?: string | null
           environment: string
           external_webhook_id?: string | null
           provider: string
@@ -1495,8 +1510,14 @@ export type Database = {
           account_name?: string | null
           api_key_ciphertext?: string | null
           api_key_last4?: string | null
+          certificate_expires_at?: string | null
+          client_id?: string | null
           connected_at?: string
           connected_by?: string | null
+          connection_status?: string
+          credentials_ciphertext?: string | null
+          credentials_updated_at?: string | null
+          last_verified_at?: string | null
           environment?: string
           external_webhook_id?: string | null
           provider?: string

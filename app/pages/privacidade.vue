@@ -206,6 +206,16 @@ useHead(() => ({
         nome, o CPF ou CNPJ, o e-mail e o telefone de quem paga o aluguel,
         quando {{ nome }} cobra pelo sistema.
       </li>
+      <!--
+        Cora (0058): mesma lógica do Asaas, quando a imobiliária conecta a conta
+        dela. Recebe nome, CPF/CNPJ e e-mail (o telefone não vai: a Cora não o
+        pede). Ver docs/runbooks/0037-lgpd-area-do-cliente.md.
+      -->
+      <li>
+        <b>Cora:</b> emissão de boletos e Pix do aluguel, no Brasil. Recebe o
+        nome, o CPF ou CNPJ e o e-mail de quem paga o aluguel, quando
+        {{ nome }} cobra pelo sistema por essa conta.
+      </li>
     </ul>
     <!--
       Transferência internacional (LGPD art. 33): as funções rodam em `gru1`

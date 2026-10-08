@@ -45,7 +45,7 @@ function erro(e: unknown): never {
 // ---------------------------------------------------------------------------
 
 const ACCOUNT_SELECT =
-  'tenant_id, provider, environment, api_key_ciphertext, api_key_last4, account_name, webhook_id, webhook_secret_hash, external_webhook_id, connected_at'
+  'tenant_id, provider, environment, api_key_ciphertext, api_key_last4, account_name, webhook_id, webhook_secret_hash, external_webhook_id, connected_at, client_id, credentials_ciphertext, connection_status, credentials_updated_at, last_verified_at, certificate_expires_at'
 
 export async function getPaymentAccount(service: Client, tenantId: string): Promise<PaymentAccountRow | null> {
   const { data, error } = await service.from('tenant_payment_accounts').select(ACCOUNT_SELECT).eq('tenant_id', tenantId).maybeSingle()
@@ -70,6 +70,10 @@ export interface ContaParaGravar {
   webhookSecretHash: string | null
   externalWebhookId: string | null
   connectedBy: string
+  /** Cora. Os demais provedores deixam nulo. */
+  clientId?: string | null
+  credentialsCiphertext?: string | null
+  certificateExpiresAt?: string | null
 }
 
 export async function savePaymentAccount(service: Client, tenantId: string, c: ContaParaGravar): Promise<PaymentAccountRow> {
@@ -87,6 +91,12 @@ export async function savePaymentAccount(service: Client, tenantId: string, c: C
         webhook_id: c.webhookId,
         webhook_secret_hash: c.webhookSecretHash,
         external_webhook_id: c.externalWebhookId,
+        client_id: c.clientId ?? null,
+        credentials_ciphertext: c.credentialsCiphertext ?? null,
+        certificate_expires_at: c.certificateExpiresAt ?? null,
+        connection_status: 'conectada',
+        credentials_updated_at: agora,
+        last_verified_at: agora,
         connected_by: c.connectedBy,
         connected_at: agora,
         updated_at: agora,
@@ -440,7 +450,7 @@ export async function setWebhookOutcome(
 ): Promise<void> {
   await service
     .from('payment_webhook_events')
-    .update({ outcome })
+    .update({ outcome, processed_at: new Date().toISOString() })
     .eq('tenant_id', tenantId)
     .eq('provider', provider)
     .eq('event_id', eventId)

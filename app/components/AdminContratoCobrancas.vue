@@ -12,6 +12,7 @@ import {
   CHARGE_ITEM_LABELS,
   CHARGE_STATUS_LABELS,
   MANUAL_SETTLEMENT_METHODS,
+  PROVIDER_LABELS,
   SETTLEMENT_METHOD_LABELS,
   aMaiorSeMarcarFeito,
   competenciaForaDaVigencia,
@@ -183,13 +184,16 @@ async function emitir(c: Charge) {
   }
 }
 
+/** "Asaas" / "Cora" — o provedor que EMITIU a cobrança, não o da conta atual. */
+const provedorDe = (c: Charge) => (c.provider ? PROVIDER_LABELS[c.provider].split(' (')[0]! : 'provedor')
+
 async function cancelar(c: Charge) {
   // MELHORIA 12: o motivo fica na cobrança (a exclusão pelo Asaas já gravava
   // "Removida no painel do provedor"; o cancelamento daqui não gravava nada).
   const motivo = await askConfirmComTexto({
     title: `Cancelar a cobrança de ${mesExtenso(c.competence)}?`,
     description: c.externalId
-      ? 'O boleto é cancelado no Asaas e deixa de poder ser pago. Não dá para desfazer; se precisar, gere outra cobrança.'
+      ? `O boleto é cancelado ${c.provider === 'cora' ? 'na' : 'no'} ${provedorDe(c)} e deixa de poder ser pago. Não dá para desfazer; se precisar, gere outra cobrança.`
       : 'A cobrança sai do contrato. Não dá para desfazer.',
     input: { label: 'Motivo (opcional)', placeholder: 'Ex.: valor errado, inquilino pagou direto', maxLength: 300 },
     confirmLabel: 'Cancelar cobrança',
@@ -234,7 +238,7 @@ async function simular(c: Charge) {
   try {
     const r = await adminFetch<{ aguardandoWebhook: boolean }>(`/api/admin/cobrancas/${c.id}/simular-pagamento`, { method: 'POST' })
     if (r.aguardandoWebhook) {
-      toast.success('Pagamento confirmado no sandbox do Asaas. A baixa chega em instantes.')
+      toast.success(`Pagamento confirmado no sandbox ${c.provider === 'cora' ? 'da' : 'do'} ${provedorDe(c)}. A baixa chega em instantes.`)
       // Consulta o Asaas em vez de só esperar o webhook: em localhost ele
       // nunca chega, e a cobrança ficava "Em aberto" com o pagamento feito lá.
       // Se o webhook chegar antes, a consulta vira no-op (mesma idempotência).
@@ -257,7 +261,7 @@ async function sincronizar(c: Charge, silencioso = false) {
     const r = await adminFetch<{ mudou: boolean; mensagem: string }>(`/api/admin/cobrancas/${c.id}/sincronizar`, { method: 'POST' })
     if (r.mudou || !silencioso) toast.success(r.mensagem)
   } catch (e) {
-    if (!silencioso) toast.error(msg(e, 'Não foi possível consultar o Asaas.'))
+    if (!silencioso) toast.error(msg(e, 'Não foi possível consultar o provedor.'))
   } finally {
     ocupado.value = null
     await carregar()
@@ -449,7 +453,7 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
           <!-- MELHORIA 12: cobrança paga não se cancela; dizer qual é o caminho
                em vez de só não oferecer o botão. -->
           <p v-if="c.status === 'paga' && c.externalId && c.provider !== 'simulado'" class="hint-text">
-            Para devolver este pagamento, estorne no painel do Asaas. A cobrança volta a ficar em aberto aqui
+            Para devolver este pagamento, estorne no painel {{ c.provider === 'cora' ? 'da' : 'do' }} {{ provedorDe(c) }}. A cobrança volta a ficar em aberto aqui
             e o repasse pendente é cancelado sozinho.
           </p>
 
@@ -486,7 +490,7 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
               <button type="submit" class="admin-btn sm" :disabled="ocupado === c.id">Registrar</button>
               <button type="button" class="admin-btn ghost sm" @click="baixando = null">Voltar</button>
             </div>
-            <p v-if="c.externalId" class="hint-text cob-span">O boleto é baixado no Asaas junto, para não poder ser pago de novo.</p>
+            <p v-if="c.externalId" class="hint-text cob-span">O boleto é {{ c.provider === 'cora' ? 'cancelado na Cora' : 'baixado no Asaas' }} junto, para não poder ser pago de novo.</p>
           </form>
 
           <div v-else class="cob-acoes">
@@ -503,7 +507,7 @@ const estornadoDepois = (p: OwnerPayout) => p.status === 'pago' && aRecuperar.va
               </button>
               <button type="button" class="admin-btn ghost sm" @click="abrirBaixa(c)">Recebi por fora</button>
               <button v-if="c.externalId && c.provider !== 'simulado'" type="button" class="admin-btn ghost sm" :disabled="ocupado === c.id" @click="sincronizar(c)">
-                Consultar no Asaas
+                Consultar {{ c.provider === 'cora' ? 'na' : 'no' }} {{ provedorDe(c) }}
               </button>
               <button v-if="c.status !== 'parcial'" type="button" class="admin-btn danger-ghost sm" :disabled="ocupado === c.id" @click="cancelar(c)">Cancelar</button>
             </template>
