@@ -3,6 +3,7 @@ import {
   resolveFooterPages,
   STATIC_FOOTER_PAGES,
 } from "~~/shared/utils/footer-pages";
+import { hubPath } from "~~/shared/utils/hub-local";
 import {
   formatTenantAddress,
   googleMapsEmbedSrc,
@@ -74,13 +75,18 @@ const profiles = computed(() =>
  * visibilidade que o cliente escolheu — ele não digita caminho, então não há
  * link interno quebrado no rodapé de todas as páginas.
  */
-const pages = computed(() =>
+const pages = computed(() => {
   // `aboutEnabled` aqui já é o valor EFETIVO (recurso × interruptor): o payload
   // público colapsa os dois, então o rodapé continua lendo um campo só.
-  resolveFooterPages(STATIC_FOOTER_PAGES, tenant.value?.footerPages ?? {}, {
+  const fixas = resolveFooterPages(STATIC_FOOTER_PAGES, tenant.value?.footerPages ?? {}, {
     about: tenant.value?.aboutEnabled === true,
-  }),
-);
+  });
+  // O hub local não está no registro: o caminho depende da cidade de cada
+  // tenant, e o registro é de caminhos fixos. Sem cidade não há hub, e o link
+  // não aparece.
+  const hub = hubPath(tenant.value?.city);
+  return hub ? [{ path: hub, label: `Imobiliária em ${tenant.value!.city!.trim()}` }, ...fixas] : fixas;
+});
 
 const links = computed(() => tenant.value?.footerLinks ?? []);
 /** Link interno usa NuxtLink (navegação sem recarregar); externo abre em aba. */

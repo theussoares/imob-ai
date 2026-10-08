@@ -2,6 +2,7 @@ import type { Tenant } from '~~/shared/models/tenant'
 import type { Property } from '~~/shared/models/property'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 import { temQuartos } from '~~/shared/models/property'
+import { hubPath } from '~~/shared/utils/hub-local'
 import { propertyPath } from '~~/shared/utils/property-url'
 
 /**
@@ -128,7 +129,9 @@ export function buildLlmsTxt(tenant: Tenant, properties: Property[], origin: str
   section('Imóveis à venda', venda)
   section('Imóveis para alugar', aluguel)
 
+  const hub = hubPath(tenant.city)
   lines.push(`\n## Recursos`)
+  if (hub) lines.push(`- [Imobiliária em ${local}](${origin}${hub}): quem somos, categorias e bairros`)
   lines.push(`- [Catálogo completo (Markdown)](${origin}/): peça com \`Accept: text/markdown\``)
   lines.push(`- [API de imóveis (JSON)](${origin}/api/properties)`)
   lines.push(`- [Sitemap](${origin}/sitemap.xml)`)

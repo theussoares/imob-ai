@@ -1,6 +1,7 @@
 import { listActiveProperties } from '~~/server/repositories/property.repository'
 import { qualifyingCategories, categorySlug } from '~~/shared/utils/category'
 import { qualifyingNeighborhoods } from '~~/shared/utils/neighborhood'
+import { hubPath } from '~~/shared/utils/hub-local'
 import { propertyPath } from '~~/shared/utils/property-url'
 
 /** Sitemap dinâmico por host (tenant). */
@@ -37,8 +38,14 @@ export default defineEventHandler(async (event) => {
     priority: '0.9',
   }))
 
+  // Hub local ("Imobiliária em <cidade>"): conteúdo próprio, entra sempre que o
+  // tenant tem cidade — sem cidade a rota responde 404, e URL que dá 404 não
+  // entra no sitemap.
+  const hub = hubPath(tenant.city)
+
   const urls: { loc: string; lastmod?: string; priority: string }[] = [
     { loc: `${origin}/`, priority: '1.0' },
+    ...(hub ? [{ loc: `${origin}${hub}`, priority: '0.9' }] : []),
     // Página de conteúdo próprio, não gerada a partir do catálogo: entra sempre,
     // sem piso de conteúdo, porque não depende de haver imóvel cadastrado.
     { loc: `${origin}/quero-vender`, priority: '0.9' },
