@@ -48,11 +48,12 @@ export const SETTLEMENT_METHOD_LABELS: Record<SettlementMethod, string> = {
 /** Baixa manual: o que o painel aceita (boleto e Pix chegam pelo provedor). */
 export const MANUAL_SETTLEMENT_METHODS: SettlementMethod[] = ['pix', 'transferencia', 'dinheiro', 'outro']
 
-export type PaymentProviderName = 'asaas' | 'simulado'
+export type PaymentProviderName = 'asaas' | 'cora' | 'simulado'
 export type PaymentEnvironment = 'sandbox' | 'producao'
 
 export const PROVIDER_LABELS: Record<PaymentProviderName, string> = {
   asaas: 'Asaas',
+  cora: 'Cora',
   simulado: 'Simulado (demonstração)',
 }
 
@@ -161,12 +162,22 @@ export interface PaymentAccountView {
   apiKeyLast4: string | null
   accountName: string | null
   connectedAt: string
+  /** Cora: o `client_id` não é segredo, mas o painel só precisa reconhecê-lo. */
+  clientIdLast4: string | null
+  connectionStatus: 'conectada' | 'credencial_invalida'
+  lastVerifiedAt: string | null
+  /** Cora: validade do certificado mTLS. Nulo nos demais provedores. */
+  certificateExpiresAt: string | null
 }
 
 export interface PaymentAccountInput {
   provider: PaymentProviderName
   environment: PaymentEnvironment
   apiKey?: string
+  /** Cora (Integração Direta). O certificado e a chave são PEM, colados ou lidos de arquivo. */
+  clientId?: string
+  certificatePem?: string
+  privateKeyPem?: string
 }
 
 export interface ChargeCreateInput {

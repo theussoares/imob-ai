@@ -15,6 +15,7 @@ import { toPaymentAccountView } from '~~/server/mappers/cobranca.mapper'
  */
 export default defineEventHandler(async (event) => {
   const { tenant } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   const service = serviceSupabase()
   const conta = await getPaymentAccount(service, tenant.id)
   if (!conta) return { conta: null, ultimoAviso: null }

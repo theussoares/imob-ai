@@ -42,10 +42,15 @@ supabase/migrations/ schema, RLS, storage — numeradas, idempotentes
 test/                unidade em Node puro
 ```
 
-Tabelas financeiras (0041 + 0042, uma unidade só) existem VAZIAS e sem lógica:
-cobrança, liquidação, repasse e destino de pagamento. Ver a spec antes de
-escrever a primeira query — `competence` é mês de ocupação, não de vencimento, e
-as linhas de valor são append-only.
+Cobrança de aluguel (0041, 0042, 0050, 0051, 0055, 0058) existe de ponta a
+ponta atrás da flag `cobranca` em `tenant_features`: rascunho, emissão de
+boleto + Pix, webhook, baixa manual, estorno e repasse manual. Cada imobiliária
+conecta a PRÓPRIA conta, no Asaas (chave de API) ou na Cora (client_id +
+certificado mTLS), atrás da porta `PaymentProvider`
+(`server/services/payments/`). Ver a spec antes de mexer: `competence` é mês de
+ocupação, não de vencimento, e as linhas de valor são append-only. Provedor novo
+= um adaptador + o CHECK de `provider` (por extenso, nas quatro tabelas) +
+`provedorDaConta`; nome de status do provedor nunca sai do adaptador.
 
 **Repository nunca devolve row cru.** Ele devolve modelo de `shared/models/*`,
 convertido pelo mapper. O schema do Postgres não vaza para a UI. Um endpoint que

@@ -7,12 +7,13 @@ import { deletePaymentAccount, getPaymentAccount } from '~~/server/repositories/
  */
 export default defineEventHandler(async (event) => {
   const { tenant, membership } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   if (membership.role !== 'owner') {
     throw createError({ statusCode: 403, statusMessage: 'Só o responsável pela conta da imobiliária pode desconectar a cobrança.' })
   }
   const service = serviceSupabase()
   const conta = await getPaymentAccount(service, tenant.id)
-  if (conta?.provider === 'asaas' && conta.external_webhook_id) {
+  if (conta && conta.provider !== 'simulado' && conta.external_webhook_id) {
     try {
       await provedorDaConta(conta).removerWebhook(conta.external_webhook_id)
     } catch (e) {

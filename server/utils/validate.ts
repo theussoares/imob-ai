@@ -770,10 +770,27 @@ export function assertManualSettlementInput(input: unknown): asserts input is Ma
 
 export function assertPaymentAccountInput(input: unknown): asserts input is PaymentAccountInput {
   const b = (input ?? {}) as Record<string, unknown>
-  if (b.provider !== 'asaas' && b.provider !== 'simulado') throw createError({ statusCode: 422, statusMessage: 'Provedor inválido.' })
+  if (b.provider !== 'asaas' && b.provider !== 'cora' && b.provider !== 'simulado') {
+    throw createError({ statusCode: 422, statusMessage: 'Provedor inválido.' })
+  }
   if (b.environment !== 'sandbox' && b.environment !== 'producao') throw createError({ statusCode: 422, statusMessage: 'Ambiente inválido.' })
   if (b.provider === 'simulado' && b.environment !== 'sandbox') {
     throw createError({ statusCode: 422, statusMessage: 'O provedor simulado só existe como demonstração (sandbox).' })
+  }
+  if (b.provider === 'cora') {
+    const clientId = String(b.clientId ?? '').trim()
+    if (clientId.length < 8 || clientId.length > 200 || /\s/.test(clientId)) {
+      throw createError({ statusCode: 422, statusMessage: 'Informe o client_id da Cora (gerado junto com o certificado).' })
+    }
+    // Tamanho máximo: um upload de 5 MB aqui vira linha de banco e corpo de log.
+    const cert = String(b.certificatePem ?? '')
+    const chave = String(b.privateKeyPem ?? '')
+    if (!cert.includes('BEGIN CERTIFICATE') || cert.length > 20_000) {
+      throw createError({ statusCode: 422, statusMessage: 'Envie o certificado da Cora (arquivo .pem).' })
+    }
+    if (!/BEGIN [A-Z ]*PRIVATE KEY/.test(chave) || chave.length > 20_000) {
+      throw createError({ statusCode: 422, statusMessage: 'Envie a chave privada da Cora (arquivo .key).' })
+    }
   }
   if (b.provider === 'asaas') {
     const chave = String(b.apiKey ?? '').trim()
