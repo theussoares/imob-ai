@@ -1,5 +1,5 @@
 import type { Tenant } from '~~/shared/models/tenant'
-import { hasStructuredAddress, tenantCoordinates } from '~~/shared/utils/address'
+import { googleMapsLink, hasStructuredAddress, tenantCoordinates } from '~~/shared/utils/address'
 
 type CamposDaImobiliaria = Pick<
   Tenant,
@@ -43,7 +43,9 @@ export function realEstateAgentJsonLd(t: CamposDaImobiliaria, origin: string) {
     description: t.heroSubtitle || undefined,
     telephone: t.phone || undefined,
     email: t.email || undefined,
-    areaServed: t.city || undefined,
+    // `City`, e não a string: é o tipo que o schema.org pede para área de
+    // atuação, e deixa o buscador ligar o nome à cidade em vez de ler texto solto.
+    areaServed: t.city ? { '@type': 'City', name: t.city } : undefined,
     url: origin,
     logo: t.logoUrl || undefined,
     image: t.logoUrl || undefined,
@@ -69,6 +71,9 @@ export function realEstateAgentJsonLd(t: CamposDaImobiliaria, origin: string) {
           addressCountry: 'BR',
         }
       : undefined,
+    // Só com coordenadas ou endereço estruturado: link de mapa para "Três Lagoas"
+    // apontaria para o centro da cidade, não para a imobiliária.
+    hasMap: coords || hasStructuredAddress(t) ? (googleMapsLink(t) ?? undefined) : undefined,
     geo: coords ? { '@type': 'GeoCoordinates', latitude: coords.lat, longitude: coords.lng } : undefined,
   }
 }

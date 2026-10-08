@@ -3,6 +3,7 @@ import type { PropertyCard, PropertyPurpose, PropertyType } from '~~/shared/mode
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~~/shared/models/property'
 import { buildOwnerLeadMessage, offeringTypeFor } from '~~/shared/utils/owner-lead'
 import { isValidBrPhone } from '~~/shared/utils/phone'
+import { realEstateAgentJsonLd } from '~~/shared/utils/tenant-jsonld'
 
 const tenant = useTenant()
 const url = useRequestURL({ xForwardedHost: true, xForwardedProto: true })
@@ -102,14 +103,9 @@ useHead(() => ({
             ],
           },
           {
-            '@type': 'RealEstateAgent',
-            name: tenant.value?.name,
-            url: url.origin,
-            // Só campos que o tenant realmente preencheu — dado estruturado
-            // inventado é pior que dado estruturado ausente.
-            ...(tenant.value?.city ? { areaServed: { '@type': 'City', name: tenant.value.city } } : {}),
-            ...(tenant.value?.phone ? { telephone: tenant.value.phone } : {}),
-            ...(tenant.value?.email ? { email: tenant.value.email } : {}),
+            // A mesma entidade da home (`@id` = origem): antes esta cópia ia sem
+            // `@id`, sem endereço e sem CRECI, e o buscador não a ligava à empresa.
+            ...(tenant.value ? realEstateAgentJsonLd(tenant.value, url.origin) : { '@type': 'RealEstateAgent', url: url.origin }),
             makesOffer: {
               '@type': 'Offer',
               itemOffered: {
