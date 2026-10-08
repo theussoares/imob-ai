@@ -57,5 +57,11 @@ describe('realEstateAgentJsonLd', () => {
     expect(ld.sameAs).toEqual(['https://instagram.com/aurora'])
     expect(ld.address).toMatchObject({ streetAddress: 'Rua A, 10', addressLocality: 'Três Lagoas', addressRegion: 'MS' })
     expect(ld.geo).toEqual({ '@type': 'GeoCoordinates', latitude: -20.75, longitude: -51.68 })
+    expect(ld.areaServed).toEqual({ '@type': 'City', name: 'Três Lagoas' })
+    expect(ld.hasMap).toContain('google.com/maps')
+  })
+
+  test('hasMap só com coordenadas ou endereço: link para a cidade inteira não é o mapa da imobiliária', () => {
+    expect(realEstateAgentJsonLd({ ...base, city: 'Três Lagoas', state: 'MS' }, 'https://a.com').hasMap).toBeUndefined()
   })
 })
