@@ -15,6 +15,7 @@ import {
 } from "~~/shared/utils/category";
 import { qualifyingNeighborhoods } from "~~/shared/utils/neighborhood";
 import { realEstateAgentJsonLd } from "~~/shared/utils/tenant-jsonld";
+import { hubPath } from "~~/shared/utils/hub-local";
 import { loteDoCatalogo } from "~~/shared/utils/catalog-lote";
 import {
   CATALOG_QUERY_KEYS,
@@ -135,7 +136,15 @@ const catLinks = computed(() => {
       href: `/imoveis/${categorySlug(c)}`,
       label: `${categoryLabel(c)}${tenant.value?.city ? " em " + tenant.value.city : ""}`,
     }));
-  return [...pretensoes, ...tipos];
+  // O hub local vai primeiro: é a página que responde "imobiliária em <cidade>",
+  // e sem link daqui ela existiria sem que ninguém, nem o rastreador, chegasse
+  // a ela. Some sozinho para o tenant sem cidade (não há hub).
+  const hub = hubPath(tenant.value?.city);
+  return [
+    ...(hub ? [{ href: hub, label: `Imobiliária em ${tenant.value!.city!.trim()}` }] : []),
+    ...pretensoes,
+    ...tipos,
+  ];
 });
 
 // Bairros com inventário suficiente viram link aqui, pelo mesmo motivo das
