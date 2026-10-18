@@ -162,9 +162,15 @@ export interface PaymentAccountRow {
   webhook_secret_hash: string | null
   external_webhook_id: string | null
   connected_at: string
+  client_id: string | null
+  credentials_ciphertext: string | null
+  connection_status: string
+  credentials_updated_at: string | null
+  last_verified_at: string | null
+  certificate_expires_at: string | null
 }
 
-/** Sem a chave, sem o hash, sem o id do webhook: o navegador não precisa de nenhum. */
+/** Sem a chave, sem o certificado, sem o hash, sem o id do webhook: o navegador não precisa de nenhum. */
 export function toPaymentAccountView(r: PaymentAccountRow): PaymentAccountView {
   return {
     provider: r.provider as PaymentProviderName,
@@ -172,5 +178,9 @@ export function toPaymentAccountView(r: PaymentAccountRow): PaymentAccountView {
     apiKeyLast4: r.api_key_last4,
     accountName: r.account_name,
     connectedAt: r.connected_at,
+    clientIdLast4: r.client_id ? r.client_id.slice(-4) : null,
+    connectionStatus: r.connection_status === 'credencial_invalida' ? 'credencial_invalida' : 'conectada',
+    lastVerifiedAt: r.last_verified_at,
+    certificateExpiresAt: r.certificate_expires_at,
   }
 }

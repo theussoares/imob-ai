@@ -120,3 +120,23 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<seu-domínio>/api/webh
       verdade e confira a baixa automática e o repasse.
 - [ ] Estorne esse pagamento pelo Asaas e confira os itens 6.1 e 6.2.
 - [ ] "Simular pagamento" **não** aparece para cobrança de produção.
+
+## 10. Cora (Integração Direta)
+
+Mesmos fluxos das seções 1 a 9, com as diferenças da Cora. Pré-requisito: conta
+PJ na Cora com **Integração direta** habilitada (client_id, certificado `.pem` e
+chave `.key` de **stage**). Spec: `docs/superpowers/specs/2026-10-06-cora-design.md`.
+
+| # | Faça | Tem de acontecer |
+|---|---|---|
+| 10.1 | Conectar com os arquivos de **outro** par (certificado de um, chave de outro) | Recusa: "A chave privada não corresponde a este certificado" |
+| 10.2 | Conectar com o par certo em Sandbox | Painel mostra "client_id terminando em ••••", a validade do certificado, e nada mais; a resposta de rede não traz PEM |
+| 10.3 | Na Cora, conferir os webhooks | Três endpoints (`invoice.paid`, `invoice.canceled`, `invoice.overdue`) apontando para `/api/webhooks/cora/<uuid>` |
+| 10.4 | Emitir um boleto | Boleto com Pix, valor, vencimento, multa e juros do contrato. Confirmar que a Cora aceita sem endereço (opcional na doc) |
+| 10.5 | Emitir sem e-mail no cadastro do inquilino | Recusa antes de chamar a Cora, pedindo o e-mail |
+| 10.6 | Pagar o boleto por **outra** conta Cora de teste | Em segundos a cobrança vira paga aqui. Pagar pela mesma conta dá `REC-0007` |
+| 10.7 | Em boleto emitido, "Recebi por fora" com o valor cheio | O boleto fica cancelado na Cora e a cobrança, paga aqui com o autor da baixa |
+| 10.8 | Pagar um boleto na Cora e, **antes** do webhook, tentar "Recebi por fora" | Aviso de que a Cora já registrava o pagamento; nada liquidado em dobro |
+| 10.9 | `curl -X POST` na URL do webhook com cabeçalhos `webhook-*` de um boleto em aberto | 200 `ignorado`; nada baixa (a reconsulta manda) |
+| 10.10 | Trocar o certificado (reconectar) | Webhooks antigos removidos na Cora; o primeiro boleto novo sai com o certificado novo |
+| 10.11 | Emitir R$ 100,00 com multa 2% e juros 1%, pagar com atraso | O valor cobrado confirma que `interest.rate` é ao mês (pendência 3 da spec) |

@@ -156,8 +156,26 @@ describe('toPaymentAccountView — o que o navegador vê da conta', () => {
       webhook_secret_hash: 'hash',
       external_webhook_id: 'wh_1',
       connected_at: '2026-09-25T00:00:00Z',
+      client_id: 'int-abcdef123456',
+      credentials_ciphertext: 'v1:iv:tag:certificado-e-chave',
+      connection_status: 'conectada',
+      credentials_updated_at: null,
+      last_verified_at: null,
+      certificate_expires_at: '2027-03-12T00:00:00Z',
     })
-    expect(v).toEqual({ provider: 'asaas', environment: 'producao', apiKeyLast4: 'ab12', accountName: 'Imobiliária Olmi', connectedAt: '2026-09-25T00:00:00Z' })
+    // Lista branca: nem o certificado/chave cifrados, nem o client_id inteiro.
+    expect(v).toEqual({
+      provider: 'asaas',
+      environment: 'producao',
+      apiKeyLast4: 'ab12',
+      accountName: 'Imobiliária Olmi',
+      connectedAt: '2026-09-25T00:00:00Z',
+      clientIdLast4: '3456',
+      connectionStatus: 'conectada',
+      lastVerifiedAt: null,
+      certificateExpiresAt: '2027-03-12T00:00:00Z',
+    })
+    expect(JSON.stringify(v)).not.toMatch(/certificado-e-chave|int-abcdef/)
   })
 })
 

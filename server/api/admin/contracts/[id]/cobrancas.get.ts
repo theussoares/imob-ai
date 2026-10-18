@@ -9,6 +9,7 @@ import { toPaymentAccountView } from '~~/server/mappers/cobranca.mapper'
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   const id = idDeRota(getRouterParam(event, 'id'))
   const contrato = await getContract(client, tenant.id, id)
   if (!contrato) throw createError({ statusCode: 404, statusMessage: 'Contrato não encontrado.' })

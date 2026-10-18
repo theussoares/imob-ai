@@ -232,7 +232,7 @@ describe('emitirCobranca', () => {
   const contrato = { id: 'c1', tenant_id: 't1', code: 'LOC-2026-001', property_id: null, address_label: 'Rua A', status: 'ativo', started_on: '2026-10-01', ends_on: null, rent_amount: 2400, due_day: 10, adjustment_index: null, term_months: null, guarantee_type: null, source: 'manual', created_at: '', updated_at: '' }
   const parte = { id: 'p1', role: 'inquilino', portal_user_id: 'pu1', portal_users: { name: 'Helena', email: null, active: true, doc: '52998224725', phone: null, user_id: null, tenant_id: 't1' } }
   const rascunho = chargeRow({ issued_amount: null, issued_at: null, provider: null, provider_environment: null, external_id: null })
-  const conta = { tenant_id: 't1', provider: 'simulado', environment: 'sandbox', api_key_ciphertext: null, api_key_last4: null, account_name: null, webhook_id: 'w', webhook_secret_hash: null, external_webhook_id: null, connected_at: '' }
+  const conta = { tenant_id: 't1', provider: 'simulado', environment: 'sandbox', api_key_ciphertext: null, api_key_last4: null, account_name: null, webhook_id: 'w', webhook_secret_hash: null, external_webhook_id: null, connected_at: '', client_id: null, credentials_ciphertext: null, connection_status: 'conectada', credentials_updated_at: null, last_verified_at: null, certificate_expires_at: null }
   const tenant = { id: 't1', slug: 'olmi' } as never
 
   function membro() {
@@ -315,7 +315,7 @@ describe('webhook: autenticação', () => {
   async function handler(header: string | undefined, hookId = conta.webhook_id, contaAchada: unknown = conta) {
     const processar = vi.fn(async () => 'liquidada')
     vi.stubGlobal('defineEventHandler', (h: unknown) => h)
-    vi.stubGlobal('getRouterParam', () => hookId)
+    vi.stubGlobal('getRouterParam', (_e: unknown, n: string) => (n === 'provider' ? 'asaas' : hookId))
     vi.stubGlobal('getHeader', (_e: unknown, n: string) => (n === 'asaas-access-token' ? header : undefined))
     vi.stubGlobal('readBody', async () => ({ id: 'evt_1', event: 'PAYMENT_RECEIVED', payment: { id: 'pay_1', value: 10, billingType: 'PIX' } }))
     vi.stubGlobal('mesmoSegredo', mesmoSegredo)
@@ -323,7 +323,7 @@ describe('webhook: autenticação', () => {
     vi.stubGlobal('processarEventoDePagamento', processar)
     const service = fakeSupabase({ tenant_payment_accounts: { data: contaAchada, error: null } })
     vi.stubGlobal('serviceSupabase', () => service.client)
-    const h = (await import('~~/server/api/webhooks/asaas/[hookId].post')).default as unknown as (e: unknown) => Promise<unknown>
+    const h = (await import('~~/server/api/webhooks/[provider]/[hookId].post')).default as unknown as (e: unknown) => Promise<unknown>
     return { run: () => h({}), processar, service }
   }
 
@@ -396,7 +396,7 @@ describe('estorno → repasse', () => {
     expect(await processarEventoDePagamento(client, 't1', 'asaas', estorno)).toBe('estornada_repasse_ja_pago')
     expect(cancelamentos(calls)).toHaveLength(0)
     const outcome = calls.find((c) => c.table === 'payment_webhook_events' && c.method === 'update')!.args[0]
-    expect(outcome).toEqual({ outcome: 'estornada_repasse_ja_pago' })
+    expect(outcome).toEqual({ outcome: 'estornada_repasse_ja_pago', processed_at: expect.any(String) })
   })
 
   test('"Marcar como pago" entre a leitura e o cancelamento: conta como já pago', async () => {

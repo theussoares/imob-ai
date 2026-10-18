@@ -35,6 +35,8 @@ import {
   unlockChargeIssue,
 } from '~~/server/repositories/cobranca.repository'
 import { criarAsaas } from '~~/server/services/payments/asaas'
+import { criarCora } from '~~/server/services/payments/cora'
+import { criarTransporteCora } from '~~/server/services/payments/cora-transporte'
 import { criarSimulado } from '~~/server/services/payments/simulado'
 import type { CobrancaEmitida, EventoDePagamento, PaymentProvider, ResultadoDaConsulta, SituacaoNoProvedor } from '~~/server/services/payments/provider'
 import { ErroDoProvedor } from '~~/server/services/payments/provider'
@@ -57,6 +59,14 @@ type Client = SupabaseClient<Database>
 export function provedorDaConta(conta: PaymentAccountRow): PaymentProvider {
   const ambiente = conta.environment === 'producao' ? 'producao' : 'sandbox'
   if (conta.provider === 'simulado') return criarSimulado(ambiente)
+  if (conta.provider === 'cora') {
+    // Credenciais decifradas só aqui, em memória, e o transporte é isolado por
+    // tenant: o agente mTLS e o token em cache são desta conta e de mais nenhuma.
+    return criarCora({
+      ambiente,
+      transporte: criarTransporteCora({ tenantId: conta.tenant_id, credenciais: obterCredenciaisCora(conta), ambiente }),
+    })
+  }
   if (!conta.api_key_ciphertext) throw createError({ statusCode: 409, statusMessage: 'Reconecte a conta do Asaas.' })
   return criarAsaas({ apiKey: decifrar(conta.api_key_ciphertext), ambiente })
 }
@@ -155,6 +165,13 @@ export async function emitirCobranca(client: Client, tenant: Tenant, chargeId: s
     const juros = interno?.interestMonthlyPercent ?? null
     emitida = await provedor.emitir({
       clienteExterno,
+      pagador: {
+        nome: inquilino!.nome,
+        documento: inquilino!.doc!,
+        email: inquilino!.email,
+        telefone: inquilino!.telefone,
+        referencia: inquilino!.portalUserId,
+      },
       valor: charge.total,
       vencimento: charge.dueOn,
       descricao: [
@@ -215,7 +232,7 @@ export async function cancelarCobranca(
       // O painel não registra estorno: ele vem do provedor. Mandar "registrar
       // um estorno" deixava a pessoa procurando um botão que não existe.
       statusMessage: charge.externalId
-        ? `Esta cobrança já recebeu pagamento e não pode ser cancelada. Para devolver, estorne ${charge.provider === 'asaas' ? 'no painel do Asaas' : 'no provedor'}: a cobrança e o repasse se ajustam sozinhos aqui.`
+        ? `Esta cobrança já recebeu pagamento e não pode ser cancelada. Para devolver, estorne ${charge.provider === 'asaas' ? 'no painel do Asaas' : charge.provider === 'cora' ? 'no app da Cora' : 'no provedor'}: a cobrança e o repasse se ajustam sozinhos aqui.`
         : 'Esta cobrança já recebeu pagamento e não pode ser cancelada. O acerto do valor recebido é feito direto com o inquilino.',
     })
   }

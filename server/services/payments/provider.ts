@@ -22,6 +22,11 @@ export interface Pagador {
 
 export interface CobrancaParaEmitir {
   clienteExterno: string
+  /**
+   * Os dados do pagador, para provedor sem cadastro de cliente (Cora): o boleto
+   * leva nome e documento inline. O Asaas ignora — usa `clienteExterno`.
+   */
+  pagador?: Pagador
   valor: number
   vencimento: string
   descricao: string

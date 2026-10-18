@@ -109,6 +109,10 @@ describe('privacidade: o que a política afirma continua verdade', () => {
         'api.asaas.com',
         // Resend — "Resend" na política (e-mail de aviso de lead, EUA).
         'api.resend.com',
+        // Cora — "Cora" na política (boleto e Pix do aluguel, no Brasil),
+        // produção e sandbox. Integração Direta (mTLS).
+        'matls-clients.api.cora.com.br',
+        'matls-clients.api.stage.cora.com.br',
       ],
       sdks: [
         // Descrição por IA: recebe só dados do imóvel, nunca do visitante —

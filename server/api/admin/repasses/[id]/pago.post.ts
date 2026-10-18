@@ -7,6 +7,7 @@ import { markPayoutPaid } from '~~/server/repositories/cobranca.repository'
  */
 export default defineEventHandler(async (event) => {
   const { tenant } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   const id = idDeRota(getRouterParam(event, 'id'))
   // Service_role com o tenant da sessão no filtro: a 0042 revogou o update
   // do membro, e o `eq('tenant_id')` é o que prende o id da URL a esta

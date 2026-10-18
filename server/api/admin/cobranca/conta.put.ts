@@ -3,6 +3,8 @@ import type { PaymentAccountInput } from '~~/shared/models/cobranca'
 import { getPaymentAccount, savePaymentAccount } from '~~/server/repositories/cobranca.repository'
 import { toPaymentAccountView } from '~~/server/mappers/cobranca.mapper'
 import { criarAsaas } from '~~/server/services/payments/asaas'
+import { criarCora } from '~~/server/services/payments/cora'
+import { criarTransporteCora } from '~~/server/services/payments/cora-transporte'
 import { ErroDoProvedor } from '~~/server/services/payments/provider'
 
 /**
@@ -42,6 +44,51 @@ export default defineEventHandler(async (event) => {
       webhookSecretHash: null,
       externalWebhookId: null,
       connectedBy: user.id,
+    })
+    return { conta: toPaymentAccountView(salva) }
+  }
+
+  if (body.provider === 'cora') {
+    const clientId = body.clientId!.trim()
+    const certificatePem = body.certificatePem!.trim()
+    const privateKeyPem = body.privateKeyPem!.trim()
+    // Par conferido ANTES de cifrar e de falar com a Cora: PEM trocado vira
+    // uma frase em português, não um erro de handshake.
+    const { validoAte } = validarCertificado(certificatePem, privateKeyPem)
+    const cifradas = cifrarCredenciaisCora({ certificatePem, privateKeyPem })
+    const cora = criarCora({
+      ambiente: body.environment,
+      transporte: criarTransporteCora({
+        tenantId: tenant.id,
+        credenciais: { clientId, certificatePem, privateKeyPem },
+        ambiente: body.environment,
+      }),
+    })
+    // A URL leva o `webhook_id` novo: é ele o segredo (a Cora não assina).
+    const host = getRequestURL(event, { xForwardedHost: true }).host
+    const url = `https://${host}/api/webhooks/cora/${webhookId}`
+    let externalWebhookId: string | null
+    try {
+      await cora.verificarConta()
+      externalWebhookId = (await cora.registrarWebhook(url, '', tenant.email ?? null)).externalId
+    } catch (e) {
+      if (e instanceof ErroDoProvedor) throw createError({ statusCode: 422, statusMessage: e.message })
+      throw e
+    }
+    await removerWebhookAnterior(anterior, tenant.slug)
+    const salva = await savePaymentAccount(service, tenant.id, {
+      provider: 'cora',
+      environment: body.environment,
+      apiKeyCiphertext: null,
+      apiKeyLast4: null,
+      accountName: null,
+      webhookId,
+      webhookSecretHash: null,
+      externalWebhookId,
+      connectedBy: user.id,
+      clientId,
+      credentialsCiphertext: cifradas,
+      certificateExpiresAt: validoAte.toISOString(),
     })
     return { conta: toPaymentAccountView(salva) }
   }
@@ -88,7 +135,7 @@ async function removerWebhookAnterior(
   anterior: Awaited<ReturnType<typeof getPaymentAccount>>,
   tenantSlug: string,
 ): Promise<void> {
-  if (!anterior || anterior.provider !== 'asaas' || !anterior.external_webhook_id) return
+  if (!anterior || anterior.provider === 'simulado' || !anterior.external_webhook_id) return
   try {
     await provedorDaConta(anterior).removerWebhook(anterior.external_webhook_id)
   } catch (e) {

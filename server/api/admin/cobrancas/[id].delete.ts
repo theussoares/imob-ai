@@ -7,6 +7,7 @@ import { deleteChargeDraft, getCharge } from '~~/server/repositories/cobranca.re
  */
 export default defineEventHandler(async (event) => {
   const { client, tenant } = await requireTenantMember(event)
+  await exigirCobranca(tenant.id)
   const id = idDeRota(getRouterParam(event, 'id'))
   const charge = await getCharge(client, tenant.id, id)
   if (!charge) throw createError({ statusCode: 404, statusMessage: 'Cobrança não encontrada.' })

@@ -59,3 +59,28 @@ export function hashDeSegredo(segredo: string): string {
 export function novoSegredoDeWebhook(): string {
   return randomBytes(48).toString('base64url')
 }
+
+/**
+ * Credenciais da Cora (Integração Direta). O `clientId` mora em coluna normal;
+ * certificado e chave privada vão cifrados juntos. Quem precisa delas chama
+ * `obterCredenciaisCora` — nenhum endpoint sabe como estão guardadas, e a view
+ * da conta (`toPaymentAccountView`) é lista branca que não as inclui.
+ */
+export interface CoraCredentials {
+  clientId: string
+  certificatePem: string
+  privateKeyPem: string
+}
+
+export function cifrarCredenciaisCora(c: Pick<CoraCredentials, 'certificatePem' | 'privateKeyPem'>): string {
+  return cifrar(JSON.stringify({ certificatePem: c.certificatePem, privateKeyPem: c.privateKeyPem }))
+}
+
+export function obterCredenciaisCora(conta: { client_id: string | null; credentials_ciphertext: string | null }): CoraCredentials {
+  if (!conta.client_id || !conta.credentials_ciphertext) {
+    throw createError({ statusCode: 409, statusMessage: 'Reconecte a conta da Cora.' })
+  }
+  const { certificatePem, privateKeyPem } = JSON.parse(decifrar(conta.credentials_ciphertext)) as Partial<CoraCredentials>
+  if (!certificatePem || !privateKeyPem) throw createError({ statusCode: 409, statusMessage: 'Reconecte a conta da Cora.' })
+  return { clientId: conta.client_id, certificatePem, privateKeyPem }
+}
