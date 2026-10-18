@@ -37,7 +37,11 @@ function ler(caminho: string): string {
 }
 
 function semComentarios(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '')
+  // `(?<!\/)`: o "/*" de "https://*.supabase.co" não abre comentário. Sem isso,
+  // bastava um "*/" DEPOIS da CSP no nuxt.config (um JSDoc qualquer) para a
+  // regex engolir a CSP inteira, e o teste abaixo passaria a ler uma lista
+  // vazia — foi o que aconteceu quando a CSP subiu para o topo do arquivo.
+  return src.replace(/(?<!\/)\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '')
 }
 
 describe('privacidade: o que a política afirma continua verdade', () => {
@@ -109,6 +113,8 @@ describe('privacidade: o que a política afirma continua verdade', () => {
         'api.asaas.com',
         // Resend — "Resend" na política (e-mail de aviso de lead, EUA).
         'api.resend.com',
+        // Meta — "Meta (WhatsApp)" na política (conversas do WhatsApp, 0059).
+        'graph.facebook.com',
       ],
       sdks: [
         // Descrição por IA: recebe só dados do imóvel, nunca do visitante —
@@ -134,6 +140,7 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       {
         leads: colunas('server/repositories/lead.repository.ts', 'leads'),
         whatsapp_clicks: colunas('server/repositories/whatsapp-click.repository.ts', 'whatsapp_clicks'),
+        whatsapp_messages: colunas('server/repositories/whatsapp.repository.ts', 'whatsapp_messages'),
       },
       `Campo novo coletado do visitante. Atualize "Neste site" em ${POLITICA} e a tabela ` +
         `"O que o site público trata" em ${PARECER}.`,
@@ -142,6 +149,13 @@ describe('privacidade: o que a política afirma continua verdade', () => {
       leads: ['ip_hash', 'lead_type', 'message', 'name', 'phone', 'property_id', 'source', 'tenant_id'].sort(),
       // "Quando você clica para conversar pelo WhatsApp" na política.
       whatsapp_clicks: ['broker_id', 'destination', 'ip_hash', 'origin', 'property_id', 'tenant_id'].sort(),
+      // "Quando você conversa pelo WhatsApp" na política: o texto (`body`) e os
+      // arquivos (`media_*`, 0060 — a política diz que ficam guardados, até
+      // 16 MB, pelo prazo da conversa).
+      whatsapp_messages: [
+        'body', 'conversation_id', 'direction', 'media_filename', 'media_id', 'media_mime', 'media_path', 'media_size', 'media_status',
+        'imported', 'occurred_at', 'origin', 'sent_by', 'status', 'tenant_id', 'type', 'wamid',
+      ].sort(),
     })
   })
 })

@@ -1,3 +1,4 @@
+import { WHATSAPP_TEXTO_MAX, type WhatsappAccountInput, type WhatsappTemplateSendInput } from '~~/shared/models/whatsapp'
 import { HEADER_STYLES, SITE_THEMES } from '~~/shared/models/site-theme'
 import type { PropertyInput, PropertyPurpose } from '~~/shared/models/property'
 import { areaRangeError, priceRangeError, roomsRangeError } from '~~/shared/utils/property-limits'
@@ -790,5 +791,42 @@ export function assertPaymentAccountInput(input: unknown): asserts input is Paym
     if (b.environment === 'sandbox' && chave.includes('_prod_')) {
       throw createError({ statusCode: 422, statusMessage: 'Esta é uma chave de PRODUÇÃO. Escolha o ambiente "Produção" ou cole a chave do sandbox.' })
     }
+  }
+}
+
+/**
+ * Número do WhatsApp a conectar (0059). Os ids da Meta são só dígitos; o
+ * formato é conferido aqui porque eles entram no CAMINHO da URL da Graph API —
+ * um `../` colado no campo mudaria para onde vai a chamada com o token.
+ */
+export function assertWhatsappAccountInput(input: unknown): asserts input is WhatsappAccountInput {
+  const b = (input ?? {}) as Record<string, unknown>
+  const id = String(b.phoneNumberId ?? '').trim()
+  const waba = String(b.wabaId ?? '').trim()
+  const token = String(b.accessToken ?? '').trim()
+  if (!/^\d{5,30}$/.test(id)) throw createError({ statusCode: 422, statusMessage: 'Identificação do número inválida (só dígitos, como aparece no painel da Meta).' })
+  if (!/^\d{5,30}$/.test(waba)) throw createError({ statusCode: 422, statusMessage: 'Identificação da conta do WhatsApp Business inválida (só dígitos).' })
+  if (token.length < 30 || token.length > 1000 || /\s/.test(token)) {
+    throw createError({ statusCode: 422, statusMessage: 'Cole o token de acesso completo, sem espaços.' })
+  }
+}
+
+/** Texto enviado pelo painel. */
+export function assertWhatsappTexto(input: unknown): asserts input is { text: string } {
+  const t = String((input as { text?: unknown } | null)?.text ?? '').trim()
+  if (!t) throw createError({ statusCode: 422, statusMessage: 'Escreva a mensagem.' })
+  if (t.length > WHATSAPP_TEXTO_MAX) throw createError({ statusCode: 422, statusMessage: `A mensagem passa de ${WHATSAPP_TEXTO_MAX} caracteres.` })
+}
+
+/**
+ * Envio de modelo. Só a forma: se o modelo existe, está aprovado e quantas
+ * variáveis tem, quem decide é a Meta, relida em `modeloParaEnviar`.
+ */
+export function assertWhatsappTemplateSend(input: unknown): asserts input is WhatsappTemplateSendInput {
+  const b = (input ?? {}) as Record<string, unknown>
+  if (typeof b.name !== 'string' || !/^[a-z0-9_]{1,512}$/.test(b.name)) throw createError({ statusCode: 422, statusMessage: 'Modelo inválido.' })
+  if (typeof b.language !== 'string' || !/^[a-z]{2,3}(_[A-Z]{2})?$/.test(b.language)) throw createError({ statusCode: 422, statusMessage: 'Idioma do modelo inválido.' })
+  if (!Array.isArray(b.values) || b.values.length > 20 || b.values.some((v) => typeof v !== 'string')) {
+    throw createError({ statusCode: 422, statusMessage: 'Campos do modelo inválidos.' })
   }
 }

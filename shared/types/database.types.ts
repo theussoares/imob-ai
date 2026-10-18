@@ -1122,21 +1122,51 @@ export type Database = {
           },
         ]
       }
+      portal_lead_receipts: {
+        Row: {
+          lead_id: string | null
+          origin_lead_id: string
+          received_at: string
+          tenant_id: string
+          whatsapp_enviado: boolean
+        }
+        Insert: {
+          lead_id?: string | null
+          origin_lead_id: string
+          received_at?: string
+          tenant_id: string
+          whatsapp_enviado?: boolean
+        }
+        Update: {
+          lead_id?: string | null
+          origin_lead_id?: string
+          received_at?: string
+          tenant_id?: string
+          whatsapp_enviado?: boolean
+        }
+        Relationships: []
+      }
       portal_feeds: {
         Row: {
           created_at: string
           tenant_id: string
           token: string
+          leads_auto_whatsapp: boolean
+          leads_token: string | null
         }
         Insert: {
           created_at?: string
           tenant_id: string
           token: string
+          leads_auto_whatsapp?: boolean
+          leads_token?: string | null
         }
         Update: {
           created_at?: string
           tenant_id?: string
           token?: string
+          leads_auto_whatsapp?: boolean
+          leads_token?: string | null
         }
         Relationships: [
           {
@@ -1694,6 +1724,83 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_accounts: {
+        Row: {
+          access_token_enc: string | null
+          created_at: string
+          created_by: string | null
+          display_phone: string | null
+          id: string
+          phone_number_id: string
+          provider: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          verified_name: string | null
+          waba_id: string
+          coexistence: boolean
+          connected_at: string | null
+          history_consent_at: string | null
+          history_consent_by: string | null
+          history_mode: string | null
+          history_requested_at: string | null
+          history_status: string | null
+          triagem: string
+        }
+        Insert: {
+          access_token_enc?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_phone?: string | null
+          id?: string
+          phone_number_id: string
+          provider?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          verified_name?: string | null
+          waba_id: string
+          coexistence?: boolean
+          connected_at?: string | null
+          history_consent_at?: string | null
+          history_consent_by?: string | null
+          history_mode?: string | null
+          history_requested_at?: string | null
+          history_status?: string | null
+          triagem?: string
+        }
+        Update: {
+          access_token_enc?: string | null
+          created_at?: string
+          created_by?: string | null
+          display_phone?: string | null
+          id?: string
+          phone_number_id?: string
+          provider?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          verified_name?: string | null
+          waba_id?: string
+          coexistence?: boolean
+          connected_at?: string | null
+          history_consent_at?: string | null
+          history_consent_by?: string | null
+          history_mode?: string | null
+          history_requested_at?: string | null
+          history_status?: string | null
+          triagem?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_clicks: {
         Row: {
           broker_id: string | null
@@ -1765,11 +1872,210 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversations: {
+        Row: {
+          account_id: string
+          contact_name: string | null
+          created_at: string
+          first_response_at: string | null
+          id: string
+          last_direction: string | null
+          last_inbound_at: string | null
+          last_message_at: string
+          last_message_preview: string | null
+          lead_id: string | null
+          property_id: string | null
+          tenant_id: string
+          unread_count: number
+          updated_at: string
+          wa_id: string
+          whatsapp_click_id: string | null
+          first_inbound_at: string | null
+          triagem_em: string | null
+          triagem_faixa: string | null
+          triagem_passo: string | null
+          triagem_tentativas: number
+          triagem_tipo: string | null
+        }
+        Insert: {
+          account_id: string
+          contact_name?: string | null
+          created_at?: string
+          first_response_at?: string | null
+          id?: string
+          last_direction?: string | null
+          last_inbound_at?: string | null
+          last_message_at?: string
+          last_message_preview?: string | null
+          lead_id?: string | null
+          property_id?: string | null
+          tenant_id: string
+          unread_count?: number
+          updated_at?: string
+          wa_id: string
+          whatsapp_click_id?: string | null
+          first_inbound_at?: string | null
+          triagem_em?: string | null
+          triagem_faixa?: string | null
+          triagem_passo?: string | null
+          triagem_tentativas?: number
+          triagem_tipo?: string | null
+        }
+        Update: {
+          account_id?: string
+          contact_name?: string | null
+          created_at?: string
+          first_response_at?: string | null
+          id?: string
+          last_direction?: string | null
+          last_inbound_at?: string | null
+          last_message_at?: string
+          last_message_preview?: string | null
+          lead_id?: string | null
+          property_id?: string | null
+          tenant_id?: string
+          unread_count?: number
+          updated_at?: string
+          wa_id?: string
+          whatsapp_click_id?: string | null
+          first_inbound_at?: string | null
+          triagem_em?: string | null
+          triagem_faixa?: string | null
+          triagem_passo?: string | null
+          triagem_tentativas?: number
+          triagem_tipo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_whatsapp_click_id_fkey"
+            columns: ["whatsapp_click_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_clicks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_messages: {
+        Row: {
+          body: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          error: string | null
+          id: string
+          occurred_at: string
+          origin: string
+          sent_by: string | null
+          status: string
+          tenant_id: string
+          type: string
+          wamid: string | null
+          media_filename: string | null
+          media_id: string | null
+          media_mime: string | null
+          media_path: string | null
+          media_size: number | null
+          media_status: string | null
+          imported: boolean
+        }
+        Insert: {
+          body?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          error?: string | null
+          id?: string
+          occurred_at?: string
+          origin: string
+          sent_by?: string | null
+          status?: string
+          tenant_id: string
+          type?: string
+          wamid?: string | null
+          media_filename?: string | null
+          media_id?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_status?: string | null
+          imported?: boolean
+        }
+        Update: {
+          body?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          error?: string | null
+          id?: string
+          occurred_at?: string
+          origin?: string
+          sent_by?: string | null
+          status?: string
+          tenant_id?: string
+          type?: string
+          wamid?: string | null
+          media_filename?: string | null
+          media_id?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_status?: string | null
+          imported?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      whatsapp_conversa_nao_lida: {
+        Args: { p_tenant_id: string; p_conversation_id: string }
+        Returns: undefined
+      }
       proximo_corretor_da_roleta: {
         Args: { p_tenant_id: string }
         Returns: string | null

@@ -4,7 +4,7 @@ const { signOut } = useAdminAuth();
 const route = useRoute();
 const siteUrl = usePublicSiteUrl();
 
-const { areaCliente, quemSomos, crm, carregar } = useAdminFeatures();
+const { areaCliente, quemSomos, crm, whatsapp, carregar } = useAdminFeatures();
 onMounted(carregar);
 
 interface NavItem {
@@ -24,6 +24,8 @@ const TODOS: NavItem[] = [
   // Logo abaixo de Contatos: é a tela que o corretor abre de manhã, e a
   // agenda sem o funil ao lado vira lista solta.
   { to: "/admin/agenda", label: "Agenda", exact: false, icon: "calendar", recurso: "crm" },
+  // Junto de Contatos e Agenda: as três são o atendimento do dia.
+  { to: "/admin/conversas", label: "Conversas", exact: false, icon: "wa", recurso: "whatsapp" },
   { to: "/admin/corretores", label: "Corretores", exact: false, icon: "users" },
   // Contratos e Clientes são a Área do Cliente vista do lado da imobiliária, e
   // ficam juntos: cadastrar um contrato sem ter os clientes é meio caminho.
@@ -53,6 +55,7 @@ const RECURSOS = computed<Record<string, boolean>>(() => ({
   areaCliente: areaCliente.value,
   quemSomos: quemSomos.value,
   crm: crm.value,
+  whatsapp: whatsapp.value,
 }));
 
 const links = computed(() => TODOS.filter((l) => !l.recurso || RECURSOS.value[l.recurso] === true));

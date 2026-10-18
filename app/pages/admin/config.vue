@@ -18,7 +18,7 @@ const { form, alternateNamesText, saving, saved, error, save } =
     "portalEnabled",
   ]);
 
-const { areaCliente, cobranca, descricaoIa, carregar } = useAdminFeatures();
+const { areaCliente, cobranca, descricaoIa, crm, carregar } = useAdminFeatures();
 onMounted(carregar);
 
 /*
@@ -325,6 +325,7 @@ useHead({ title: "Configurações · Painel" });
           <code>/feed/imoveis.xml</code>), troque por este no Canal Pro.
         </p>
       </template>
+      <AdminLeadsDoPortal v-if="crm" />
 
       <p v-if="error" role="alert" style="color: #b91c1c; margin-top: 14px">{{ error }}</p>
       <p

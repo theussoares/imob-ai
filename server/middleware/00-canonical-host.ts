@@ -19,6 +19,9 @@ export default defineEventHandler(async (event) => {
   // O cron da Vercel não segue redirect: um 301 aqui faria o lembrete diário
   // parar de sair, com o cron marcado como "executado" no painel da Vercel.
   if ((event.path || '').startsWith('/api/cron/')) return
+  // Mesmo motivo para a verificação do webhook da Meta (GET com `hub.challenge`):
+  // um 301 faria o cadastro do webhook falhar no painel da Meta sem dizer por quê.
+  if ((event.path || '').startsWith('/api/webhooks/')) return
 
   const hostname = getHostname(event)
 

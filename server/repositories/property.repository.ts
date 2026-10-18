@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { Property, PropertyCard, PropertyInput } from '~~/shared/models/property'
 import type { Broker } from '~~/shared/models/broker'
+import { formatPropertyCode } from '~~/shared/utils/property-specs'
 import {
   toPropertyModel,
   toPropertyAdminModel,
@@ -406,4 +407,35 @@ export async function updatePropertyFeatured(
     .eq('id', id)
   if (error) throw error
   return (await getPropertyById(client, tenantId, id))!
+}
+
+/**
+ * Imóvel ativo cujo código, NORMALIZADO, é este — para casar a mensagem de
+ * WhatsApp ("Tenho interesse no imóvel VD-0010") com o imóvel.
+ *
+ * Não dá para usar `getPropertyByCode`: o texto do `wa.me` leva o código na
+ * forma que a tela mostra (`formatPropertyCode`), e o banco guarda o que a
+ * imobiliária digitou ("V.D- 0010"). O `ilike` pelos dígitos estreita no banco
+ * e a comparação normalizada decide aqui.
+ *
+ * Só o que o webhook usa — nada disto vai para payload público.
+ */
+export async function findPropertyByDisplayCode(
+  service: Client,
+  tenantId: string,
+  displayCode: string,
+): Promise<{ id: string; code: string; title: string; purpose: 'venda' | 'aluguel'; brokerId: string | null } | null> {
+  const digitos = displayCode.match(/(\d+)$/)?.[1]
+  if (!digitos) return null
+  const { data, error } = await service
+    .from('properties')
+    .select('id, code, title, purpose, broker_id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .ilike('code', `%${digitos}`)
+    .limit(20)
+  if (error) throw error
+  const alvo = formatPropertyCode(displayCode)
+  const row = (data ?? []).find((p) => formatPropertyCode(p.code) === alvo)
+  return row ? { id: row.id, code: row.code, title: row.title, purpose: row.purpose as 'venda' | 'aluguel', brokerId: row.broker_id } : null
 }
