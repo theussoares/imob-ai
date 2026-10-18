@@ -20,7 +20,8 @@ entrada e responda para ela. Num remetente global isso é impossível.
 
 Por isso o código usa `generateLink` (que gera o link e **não envia nada**) e
 manda pelo `server/utils/mailer.ts`, com `From: <nome da imobiliária>
-<nao-responda@usemoradi.com.br>` e `Reply-To: <e-mail da imobiliária>`.
+<nao-responda@dominio-da-imobiliaria>` (ou `@usemoradi.com.br`, quando ela não
+tem domínio próprio — ver abaixo) e `Reply-To: <e-mail da imobiliária>`.
 
 > Consequência prática: **não é preciso configurar Custom SMTP no Supabase**
 > para esta feature. Se um dia outro fluxo de auth do Supabase precisar enviar
@@ -55,9 +56,56 @@ marca. O custo dele é setup, não dinheiro. Trocar mexe só em `mailer.ts`.
 
 ## Verificar o domínio: o que cada registro faz
 
-O envio sai de `usemoradi.com.br` (domínio da plataforma), **não** do domínio de
-cada imobiliária — decisão já registrada no plano: um domínio só se configura
-uma vez, e cliente novo custa zero rodada de DNS.
+**Decisão revista em 24/09.** A primeira versão deste runbook mandava tudo sair
+de `usemoradi.com.br`, para nunca haver rodada de DNS por cliente. O que vale
+agora:
+
+- **a imobiliária que tem domínio próprio** (o domínio comprado para o site) tem
+  esse domínio verificado no Resend, e ele vira o remetente;
+- **a que não tem** sai de `usemoradi.com.br`, que continua sendo o fallback de
+  todos e por isso é o primeiro a ser verificado.
+
+O motivo da troca: o e-mail que "vem da imobiliária" com `@usemoradi.com.br` no
+endereço é o ponto em que o white-label vaza. O custo é uma rodada de DNS por
+cliente com domínio — opcional, porque sem ela o envio segue pela plataforma.
+
+O código já está pronto para isso: `server/utils/mail-sender.ts` lê
+`tenant_mail_sender.from_address` (migration 0038) e cai para `MAIL_FROM` quando
+não há linha.
+
+### Domínio da imobiliária, passo a passo
+
+1. No Resend, **Domains → Add domain** com o domínio da imobiliária.
+2. Criar no DNS dela os registros que o Resend mostrar (SPF, DKIM e, opcional,
+   DMARC — a mesma lógica das seções abaixo, trocando `usemoradi.com.br` pelo
+   domínio dela). Normalmente quem mexe é quem registrou o domínio.
+3. Esperar o Resend marcar **Verified**.
+4. **Só então** inserir a linha, pela service role (o painel não escreve nessa
+   tabela, de propósito):
+
+   ```sql
+   insert into public.tenant_mail_sender (tenant_id, from_address, notes)
+   values ('<tenant_id>', 'nao-responda@<dominio>', 'verificado no Resend em AAAA-MM-DD')
+   on conflict (tenant_id) do update set from_address = excluded.from_address;
+   ```
+
+5. Conferir que `tenants.email` está preenchido — é o `Reply-To`. Sem ele, quem
+   responde manda para o apex do domínio, que costuma não ter MX, e a resposta
+   volta sem ninguém saber (o log avisa com `remetente.dedicado_sem_reply_to`).
+
+⚠️ **A ordem dos passos 3 e 4 não é detalhe.** O fallback para a plataforma só
+acontece quando **não há linha**. Linha com domínio que o Resend ainda não
+verificou faz o envio **falhar** (502, `mail.falhou` no log) — o convite não sai
+por nenhum dos dois caminhos.
+
+⚠️ **O plano gratuito do Resend tem 1 domínio, e a conta aqui é 4:**
+`usemoradi.com.br` (fallback, obrigatório) mais `olmiimoveis.com.br`,
+`tpimobiliaria.com.br` e `imoveis3lagoas.com.br` — os domínios de `tenant_domains`
+(o `www.` é do site e não conta para envio). O plano pago entra já no primeiro
+cliente com domínio próprio. Confira na página de preços quantos domínios o
+plano cobre e o custo mensal — e que cada imobiliária nova com domínio soma um.
+
+### O domínio da plataforma
 
 São três registros TXT. Sem eles o e-mail vai para spam, porque o provedor de
 quem recebe não tem como saber se você pode enviar por aquele domínio.
@@ -140,7 +188,10 @@ ser o número de clientes reais, não infinito.
 
 ## Conferir que funcionou
 
-- [ ] Os três registros aparecem como verificados no painel do provedor
+- [ ] Os três registros aparecem como verificados no painel do provedor — para
+      `usemoradi.com.br` **e** para cada domínio de imobiliária cadastrado
+- [ ] Teste pelos dois caminhos: um tenant com linha em `tenant_mail_sender` e um
+      sem (tem que sair por `MAIL_FROM`)
 - [ ] E-mail de teste chega na **caixa de entrada** do Gmail e do Outlook, não no
       spam
 - [ ] No Gmail, "Mostrar original" indica `SPF: PASS`, `DKIM: PASS`, `DMARC: PASS`
