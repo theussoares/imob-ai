@@ -466,8 +466,6 @@ summary,
 }
 .brand .mark {
   width: 140px;
-  height: 65px;
-  border-radius: var(--r-md);
   flex: none;
   display: grid;
   place-items: center;
