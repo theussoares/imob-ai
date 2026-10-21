@@ -333,13 +333,7 @@
 :is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand small {
   color: rgba(255, 255, 255, 0.78);
 }
-/* Logo com traço escuro e fundo transparente sumiria no fundo escuro: ganha a
-   mesma caixa clara que o rodapé já dá à logo. Sem logo, o selo com a inicial
-   era da cor da marca — invisível no cabeçalho "marca". */
-:is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand .mark:has(img) {
-  background: #fff;
-  padding: 4px 8px;
-}
+
 :is([data-cabecalho="marca"], [data-cabecalho="escuro"]) .bar .brand.sem-logo .mark {
   background: rgba(255, 255, 255, 0.16);
 }
