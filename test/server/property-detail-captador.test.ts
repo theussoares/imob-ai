@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { getPropertyByCodeWithBrokerPhone } from '~~/server/repositories/property.repository'
+import { getPropertyByCodeWithCaptador } from '~~/server/repositories/property.repository'
 import { fakeSupabase, touched } from '../helpers/fake-supabase'
 
 function propertyRow(over: Record<string, unknown> = {}) {
@@ -35,34 +35,39 @@ function propertyRow(over: Record<string, unknown> = {}) {
  }
 }
 
-describe('getPropertyByCodeWithBrokerPhone', () => {
- test('retorna brokerPhone quando o imóvel tem corretor vinculado com telefone', async () => {
+describe('getPropertyByCodeWithCaptador', () => {
+ // O WhatsApp do site é sempre o da imobiliária: o captador é só apresentação,
+ // então nem telefone nem e-mail dele podem estar no payload.
+ test('expõe o captador sem telefone nem e-mail', async () => {
   const { client } = fakeSupabase({
    properties: { data: [propertyRow({ broker_id: 'b1' })], error: null },
    brokers: {
-    data: [{ id: 'b1', tenant_id: 't1', name: 'Ana', phone: '55 67 99999-1111', email: null, creci: null, active: true }],
+    data: [{ id: 'b1', name: 'Ana', phone: '55 67 99999-1111', email: 'ana@exemplo.com', creci: '12345', photo_url: 'https://x/ana.jpg', bio: 'Corretora', active: true }],
     error: null,
    },
   })
 
-  const property = await getPropertyByCodeWithBrokerPhone(client, 't1', 'NC-0231')
+  const property = await getPropertyByCodeWithCaptador(client, 't1', 'NC-0231')
 
-  expect(property?.code).toBe('NC-0231')
-  expect(property?.brokerPhone).toBe('55 67 99999-1111')
+  expect(property?.capturedBy).toEqual({ id: 'b1', name: 'Ana', photoUrl: 'https://x/ana.jpg', bio: 'Corretora', creci: '12345' })
+  const json = JSON.stringify(property)
+  expect(json).not.toContain('99999-1111')
+  expect(json).not.toContain('ana@exemplo.com')
  })
 
- test('ignora telefone de corretor inativo', async () => {
-  const { client } = fakeSupabase({
+ test('consulta o corretor escopado por tenant e só ativo', async () => {
+  const { client, calls } = fakeSupabase({
    properties: { data: [propertyRow({ broker_id: 'b1' })], error: null },
-   brokers: {
-    data: [{ id: 'b1', tenant_id: 't1', name: 'Ana', phone: '55 67 99999-1111', email: null, creci: null, active: false }],
-    error: null,
-   },
+   brokers: { data: [], error: null },
   })
 
-  const property = await getPropertyByCodeWithBrokerPhone(client, 't1', 'NC-0231')
+  const property = await getPropertyByCodeWithCaptador(client, 't1', 'NC-0231')
 
-  expect(property?.brokerPhone).toBeNull()
+  // Corretor inativo (ou de outro tenant) não chega: a query o filtra.
+  expect(property?.capturedBy).toBeNull()
+  const eqs = calls.filter((c) => c.table === 'brokers' && c.method === 'eq').map((c) => c.args.join('='))
+  expect(eqs).toContain('tenant_id=t1')
+  expect(eqs).toContain('active=true')
  })
 
  // A row do fake traz todas as colunas da tabela, inclusive as internas — é
@@ -75,7 +80,7 @@ describe('getPropertyByCodeWithBrokerPhone', () => {
    },
   })
 
-  const property = await getPropertyByCodeWithBrokerPhone(client, 't1', 'NC-0231')
+  const property = await getPropertyByCodeWithCaptador(client, 't1', 'NC-0231')
 
   expect(Object.keys(property ?? {})).not.toContain('updatedBy')
   expect(property?.location).toBeUndefined()
@@ -87,7 +92,7 @@ describe('getPropertyByCodeWithBrokerPhone', () => {
    properties: { data: [propertyRow()], error: null },
   })
 
-  await getPropertyByCodeWithBrokerPhone(client, 't1', 'NC-0231')
+  await getPropertyByCodeWithCaptador(client, 't1', 'NC-0231')
 
   const select = calls.find((c) => c.table === 'properties' && c.method === 'select')
   expect(String(select?.args[0])).not.toMatch(/^\*|\B\*/)
@@ -98,9 +103,9 @@ describe('getPropertyByCodeWithBrokerPhone', () => {
    properties: { data: [propertyRow()], error: null },
   })
 
-  const property = await getPropertyByCodeWithBrokerPhone(client, 't1', 'NC-0231')
+  const property = await getPropertyByCodeWithCaptador(client, 't1', 'NC-0231')
 
-  expect(property?.brokerPhone).toBeUndefined()
+  expect(property?.capturedBy).toBeUndefined()
   expect(touched(calls, 'brokers')).toBe(false)
  })
 })

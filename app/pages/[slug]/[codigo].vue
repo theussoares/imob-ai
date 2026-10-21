@@ -269,6 +269,7 @@ useHead(() => ({
 
         <aside class="side">
           <div ref="contactCard" class="admin-card side-card">
+            <PropertyCaptador v-if="p.capturedBy" :broker="p.capturedBy" />
             <a
               class="btn-wa side-wa"
               :href="whatsappLink(p)"
@@ -280,7 +281,7 @@ useHead(() => ({
               <AppIcon name="wa" /> Tenho interesse
             </a>
             <a v-if="tenant?.phone" class="btn-detail" :href="telLink()">
-              <AppIcon name="phone" /> Ligar para o corretor
+              <AppIcon name="phone" /> Ligar para a imobiliária
             </a>
             <hr class="side-sep" />
             <LeadForm

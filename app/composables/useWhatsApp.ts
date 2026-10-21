@@ -9,9 +9,10 @@ export function useContact() {
   // Aceita o modelo completo (página de detalhe) ou o enxuto do card — a mensagem
   // usa só campos que os dois têm.
   function whatsappLink(property?: Property | PropertyCard | null): string {
-    const prop = property as Property | undefined
-    const brokerWa = onlyDigits(prop?.brokerPhone || prop?.broker?.phone || '')
-    const wa = brokerWa || onlyDigits(tenant.value?.whatsapp)
+    // Sempre o número da imobiliária: o corretor captador aparece na página
+    // do imóvel, mas a conversa é intermediada pela imobiliária. Mandar para o
+    // telefone pessoal dele tirava o lead do histórico e da roleta do painel.
+    const wa = onlyDigits(tenant.value?.whatsapp)
     let msg: string
     if (property) {
       const price = formatBRL(property.price) + (property.purpose === 'aluguel' ? '/mês' : '')

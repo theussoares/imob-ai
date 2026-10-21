@@ -83,12 +83,6 @@ describe('recordWhatsappClick', () => {
 })
 
 describe('whatsappTargetForCode', () => {
-  const broker = (over: Record<string, unknown>) => ({
-    id: 'b1', tenant_id: 't1', name: 'Ana', phone: '5567999990000', active: true,
-    bio: null, creci: null, email: null, photo_url: null, public_visible: true,
-    created_at: '', updated_at: '', ...over,
-  })
-
   test('só imóvel ativo deste tenant', async () => {
     const { client, calls } = fakeSupabase({ properties: { data: [], error: null } })
     expect(await whatsappTargetForCode(client, 't1', 'VD-0010')).toBeNull()
@@ -96,20 +90,11 @@ describe('whatsappTargetForCode', () => {
     expect(calls.find((c) => c.method === 'eq' && c.args[0] === 'status')?.args[1]).toBe('active')
   })
 
-  test('corretor ativo com telefone: a conversa foi para ele', async () => {
+  test('o clique vai para a imobiliária: sem corretor, mesmo com captador ativo', async () => {
+    // O link do site usa sempre o número da imobiliária. Se o painel atribuísse
+    // o clique ao captador, afirmaria uma conversa que nunca foi com ele.
     const { client } = fakeSupabase({
-      properties: { data: [{ id: 'p1', broker_id: 'b1' }], error: null },
-      brokers: { data: [broker({})], error: null },
-    })
-    expect(await whatsappTargetForCode(client, 't1', 'VD-0010')).toEqual({ propertyId: 'p1', brokerId: 'b1' })
-  })
-
-  test('corretor inativo: o site manda para a imobiliária, e o painel tem que dizer o mesmo', async () => {
-    // Mesma regra de `publicBrokerPhone`. Se divergissem, o painel diria "foi
-    // para o corretor" sobre uma conversa que caiu no número da imobiliária.
-    const { client } = fakeSupabase({
-      properties: { data: [{ id: 'p1', broker_id: 'b1' }], error: null },
-      brokers: { data: [broker({ active: false })], error: null },
+      properties: { data: [{ id: 'p1' }], error: null },
     })
     expect(await whatsappTargetForCode(client, 't1', 'VD-0010')).toEqual({ propertyId: 'p1', brokerId: null })
   })
