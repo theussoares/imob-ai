@@ -50,7 +50,7 @@ export function similarProperties(
  * catálogo em cache mas não o imóvel inteiro.
  *
  * O código compara sem caixa porque a página de detalhe busca o imóvel com
- * `ilike` (`getPropertyByCodeWithBrokerPhone`): `/nc-0258` abre o NC-0258, e
+ * `ilike` (`getPropertyByCodeWithCaptador`): `/nc-0258` abre o NC-0258, e
  * os semelhantes precisam achar o mesmo imóvel pela mesma URL. Imóvel fora do
  * catálogo (rascunho aberto pelo painel, código que não existe) dá lista
  * vazia, e a página só não mostra a seção.

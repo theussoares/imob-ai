@@ -1,4 +1,4 @@
-import type { Broker } from './broker'
+import type { Broker, PublicBroker } from './broker'
 
 // O tipo de imóvel mora no próprio arquivo, com tudo que se sabe sobre ele
 // (rótulo, plural, slug, se tem quartos, valor do portal). Reexportado aqui para
@@ -66,8 +66,11 @@ export interface Property {
   addressNumber?: string | null
   brokerId?: string | null
   broker?: Broker | null
-  // Telefone do corretor para contato público no detalhe (quando houver captador).
-  brokerPhone?: string | null
+  /**
+   * Captador para a página do imóvel — só o recorte público (sem telefone nem
+   * e-mail). Só o detalhe preenche; o WhatsApp do site é sempre o da imobiliária.
+   */
+  capturedBy?: PublicBroker | null
   ownerName?: string | null
   ownerPhone?: string | null
 }
@@ -104,7 +107,6 @@ export interface PropertyCard {
    * não traz `created_at`; por ora só o mock preenche.
    */
   createdAt?: string
-  brokerPhone?: string | null
   /**
    * Até 5 fotos (capa sempre em [0]) para o carrossel do card — ver
    * `IMAGES_PER_CARD`. `CardPhoto`, não `PropertyImage`: o endpoint entrega a

@@ -66,36 +66,22 @@ describe('useContact.whatsappLink', () => {
   tenantState.value.whatsapp = '55 (67) 99888-7777'
  })
 
- test('prioriza o WhatsApp do corretor quando brokerPhone está preenchido', () => {
+ // O captador aparece na página do imóvel, mas a conversa é com a imobiliária.
+ test('detalhe: vai para o WhatsApp da imobiliária, mesmo com captador', () => {
   const { whatsappLink } = useContact()
-  const p = makeProperty({ brokerPhone: '55 (67) 99999-1111' })
+  const p = makeProperty({ capturedBy: { id: 'b1', name: 'Ana', photoUrl: null, bio: null, creci: null } })
 
-  const link = whatsappLink(p)
-  const url = new URL(link)
-
-  expect(url.host).toBe('wa.me')
-  expect(url.pathname).toBe('/5567999991111')
- })
-
- test('faz fallback para WhatsApp da imobiliária quando não há telefone do corretor', () => {
-  const { whatsappLink } = useContact()
-  const p = makeProperty({ brokerPhone: null })
-
-  const link = whatsappLink(p)
-  const url = new URL(link)
+  const url = new URL(whatsappLink(p))
 
   expect(url.host).toBe('wa.me')
   expect(url.pathname).toBe('/5567998887777')
  })
 
- test('na listagem (PropertyCard), prioriza o WhatsApp do corretor', () => {
+ test('card: vai para o WhatsApp da imobiliária', () => {
   const { whatsappLink } = useContact()
-  const p = makeCard({ brokerPhone: '55 (67) 97777-6666' })
 
-  const link = whatsappLink(p)
-  const url = new URL(link)
+  const url = new URL(whatsappLink(makeCard()))
 
-  expect(url.host).toBe('wa.me')
-  expect(url.pathname).toBe('/5567977776666')
+  expect(url.pathname).toBe('/5567998887777')
  })
 })

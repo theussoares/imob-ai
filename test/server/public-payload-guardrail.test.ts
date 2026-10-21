@@ -5,7 +5,7 @@ import {
   listActiveProperties,
   listActivePropertyCards,
   getPropertyByCode,
-  getPropertyByCodeWithBrokerPhone,
+  getPropertyByCodeWithCaptador,
 } from '~~/server/repositories/property.repository'
 import { getTenantBySlug } from '~~/server/repositories/tenant.repository'
 import { fakeSupabase } from '../helpers/fake-supabase'
@@ -106,7 +106,7 @@ const PUBLIC_PROPERTY_READS: { name: string; run: (client: never) => Promise<unk
   { name: 'listActiveProperties', run: (c) => listActiveProperties(c, 't1') },
   { name: 'listActivePropertyCards', run: (c) => listActivePropertyCards(c, 't1') },
   { name: 'getPropertyByCode', run: (c) => getPropertyByCode(c, 't1', 'NC-0231') },
-  { name: 'getPropertyByCodeWithBrokerPhone', run: (c) => getPropertyByCodeWithBrokerPhone(c, 't1', 'NC-0231') },
+  { name: 'getPropertyByCodeWithCaptador', run: (c) => getPropertyByCodeWithCaptador(c, 't1', 'NC-0231') },
 ]
 
 describe('payload público de imóvel', () => {
@@ -129,9 +129,9 @@ describe('payload público de imóvel', () => {
     })
   }
 
-  // O telefone do captador é a única exceção deliberada: é dado interno que o
-  // site publica de propósito, e só o telefone — nunca o resto do cadastro.
-  test('brokerPhone é a única informação de corretor que chega ao site', async () => {
+  // Antes o telefone do captador era a exceção deliberada. Agora o WhatsApp do
+  // site é o da imobiliária, e do corretor só chega o recorte de PublicBroker.
+  test('card não carrega nada de corretor', async () => {
     const { client } = fakeSupabase({
       properties: { data: [fullPropertyRow()], error: null },
       brokers: { data: [brokerRow], error: null },
@@ -139,9 +139,25 @@ describe('payload público de imóvel', () => {
 
     const [card] = await listActivePropertyCards(client, 't1')
 
-    expect(card?.brokerPhone).toBe('5567999991111')
-    expect(JSON.stringify(card)).not.toContain('ana@exemplo.com')
-    expect(JSON.stringify(card)).not.toContain('12345')
+    const json = JSON.stringify(card)
+    expect(json).not.toContain('5567999991111')
+    expect(json).not.toContain('ana@exemplo.com')
+    expect(json).not.toContain('12345')
+    expect(Object.keys(card ?? {})).not.toContain('brokerPhone')
+  })
+
+  test('detalhe só mostra nome, foto, minibio e CRECI do captador', async () => {
+    const { client } = fakeSupabase({
+      properties: { data: [fullPropertyRow()], error: null },
+      brokers: { data: [brokerRow], error: null },
+    })
+
+    const detalhe = await getPropertyByCodeWithCaptador(client, 't1', 'NC-0231')
+
+    const json = JSON.stringify(detalhe)
+    expect(json).not.toContain('5567999991111')
+    expect(json).not.toContain('ana@exemplo.com')
+    expect(Object.keys(detalhe?.capturedBy ?? {}).sort()).toEqual(['bio', 'creci', 'id', 'name', 'photoUrl'])
   })
 })
 
@@ -205,9 +221,8 @@ const SELECT_ALL_PERMITIDO: Record<string, string> = {
   // Cron de lembrete de leads: não há requisição pública, e o tenant vira
   // só nome e e-mail dentro de um aviso para a própria imobiliária.
   getTenantById: 'cron interno, sem payload público',
-  // Compartilhada entre site e painel: o site só lê `.phone` do resultado, e o
-  // teste comportamental acima prova que o resto não chega ao payload.
-  fetchBrokersById: 'helper compartilhado, coberto pelo teste de payload',
+  // Só o painel a usa (modelo admin). O site lê o captador por fetchPublicCaptador.
+  fetchBrokersById: 'helper do painel (modelo admin); o site usa fetchPublicCaptador, com colunas explícitas',
 }
 
 /** Nomes das funções do arquivo que chamam `.select('*')` / `.select(`*, ...`)`. */

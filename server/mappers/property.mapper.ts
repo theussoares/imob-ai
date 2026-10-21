@@ -119,7 +119,6 @@ export type PublicPropertyCardRow = Pick<
 export function toPropertyCardModel(
   row: PublicPropertyCardRow,
   imageRows: PropertyImageFields[] = [],
-  brokerPhone: string | null = null,
 ): PropertyCard {
   // A query já entrega ordenado (capa primeiro, depois posição) e limitado a
   // `IMAGES_PER_CARD` — o sort aqui é só uma rede de segurança para quem
@@ -146,7 +145,6 @@ export function toPropertyCardModel(
     area: Number(row.area),
     highStandard: row.high_standard,
     featured: row.featured,
-    brokerPhone,
     images,
   }
 }

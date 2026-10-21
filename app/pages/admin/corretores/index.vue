@@ -184,7 +184,7 @@ useHead({ title: 'Corretores · Painel' })
   <div>
     <h1>Corretores</h1>
     <p style="color: var(--ink-soft); margin-bottom: 16px">
-      Cadastre os corretores da equipe. Depois você poderá vincular quem captou cada imóvel.
+      Cadastre os corretores da equipe. Vincule o corretor que captou cada imóvel: nome, foto e CRECI aparecem na página do imóvel.
     </p>
 
     <section v-if="temCrm" class="admin-card roleta" aria-labelledby="roleta-t">
@@ -286,8 +286,10 @@ useHead({ title: 'Corretores · Painel' })
 
         <div class="broker-public" style="grid-column: 1 / -1">
           <h4 class="section-t sub">
-            Vitrine pública <span class="section-hint">(carrossel de corretores em "Quem somos")</span>
+            Foto e minibio <span class="section-hint">(aparecem na página dos imóveis que ele captou)</span>
           </h4>
+          <!-- TODO: reativar quando a página "Quem somos" com o carrossel de corretores for para produção.
+               Sem o checkbox, `publicVisible` segue sendo enviado com o valor já salvo (padrão: não).
           <label class="check">
             <input v-model="form.publicVisible" type="checkbox" /> Mostrar este corretor no site
           </label>
@@ -295,6 +297,7 @@ useHead({ title: 'Corretores · Painel' })
             Sem isto marcado, o corretor continua só no seu painel — nunca aparece pra quem visita o site, mesmo com
             foto e minibio preenchidas.
           </p>
+          -->
 
           <div class="form-grid" style="margin-top: 10px">
             <div>
@@ -343,7 +346,9 @@ useHead({ title: 'Corretores · Painel' })
           <div class="broker-info">
             <strong>{{ b.name }}</strong>
             <span v-if="!b.active" class="pill muted">Inativo</span>
+            <!-- TODO: reativar junto com o checkbox "Quem somos".
             <span v-if="b.publicVisible" class="pill">No site</span>
+            -->
             <div class="broker-meta">
               <template v-if="b.creci">CRECI {{ b.creci }}</template>
               <template v-if="b.phone"> · {{ b.phone }}</template>
