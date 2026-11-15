@@ -2,15 +2,18 @@
 import {
   brl,
   FORMAS_PAGAMENTO,
+  OPCOES_GANHO,
   itensChecklist,
   type DadosFinanceiros,
   type DadosImovel,
   type DadosPessoa,
 } from '../../domain/acoes-processo'
+import type { DadosAbertura } from '../../domain/acoes-ciclo'
 import { conferirFontes } from '../../domain/commission'
+import { CORRETORES } from '../../domain/seed'
 import { requisitosDaEtapa, type Requisito } from '../../domain/requisitos'
 import { ETAPAS_VENDA } from '../../domain/status'
-import type { ConferenciaFinal, Documento, FormaPagamento, Processo } from '../../domain/types'
+import type { ConferenciaFinal, Documento, FormaPagamento, GanhoCapital, Processo } from '../../domain/types'
 
 const props = defineProps<{
   processo: Processo
@@ -30,6 +33,8 @@ const props = defineProps<{
   podeConferir: boolean
   /** modo demonstração: libera «Anexar exemplo» */
   demo?: boolean
+  /** perfil pode arquivar e o processo já está encerrado */
+  podeArquivar?: boolean
 }>()
 const emit = defineEmits<{
   salvarFinanceiro: [dados: DadosFinanceiros]
@@ -37,6 +42,10 @@ const emit = defineEmits<{
   salvarImovel: [dados: DadosImovel]
   salvarConferencia: [dados: ConferenciaFinal]
   concluirVenda: []
+  cancelarVenda: []
+  arquivar: []
+  salvarAbertura: [dados: DadosAbertura]
+  salvarObservacao: [texto: string]
   enviarRequisito: [requisito: Requisito, arquivo: { name: string; size: number }]
   trocarArquivo: [doc: Documento, arquivo: { name: string; size: number }]
   conferirDoc: [doc: Documento]
@@ -57,7 +66,7 @@ const entrada = ref(props.processo.fin.entrada)
 const fgts = ref(props.processo.fin.fgts)
 const proprios = ref(props.processo.fin.proprios)
 const avaliacao = ref(props.processo.fin.avaliacao ?? 0)
-const ganhoCapital = ref(props.processo.fin.ganhoCapital ?? 0)
+const ganho = ref<GanhoCapital>(props.processo.fin.ganho ?? 'Ainda não analisado')
 const bem = ref(props.processo.fin.bem ?? '')
 const valorBem = ref(props.processo.fin.valorBem ?? 0)
 
@@ -67,6 +76,26 @@ const cpf = ref('')
 const telefone = ref('')
 const email = ref('')
 const matriculaMae = ref(false)
+
+// Etapa 1: rascunho dos dados de abertura e do contrato preliminar (opcional).
+const vNome = ref('')
+const vCpf = ref('')
+const cNome = ref('')
+const cCpf = ref('')
+const imovel = ref('')
+const corretorId = ref('')
+const captadorId = ref('')
+const prelimExiste = ref(false)
+const prelimArquivo = ref<string | null>(null)
+// Corretor é sempre o vendedor dos próprios processos: o campo trava (protótipo).
+const corretorTravado = computed(() => sessao.value?.perfil === 'corretor')
+const obs = ref('')
+
+function escolherPrelim(e: Event) {
+  const input = e.target as HTMLInputElement
+  prelimArquivo.value = input.files?.[0]?.name ?? null
+  input.value = ''
+}
 const valorVenal = ref(0)
 
 // Conferência final: responsável nasce preenchido com quem está logado.
@@ -89,7 +118,17 @@ function ressincronizar() {
   fgts.value = p.fin.fgts
   proprios.value = p.fin.proprios
   avaliacao.value = p.fin.avaliacao ?? 0
-  ganhoCapital.value = p.fin.ganhoCapital ?? 0
+  ganho.value = p.fin.ganho ?? 'Ainda não analisado'
+  vNome.value = p.vendedor.nome
+  vCpf.value = p.vendedor.cpf
+  cNome.value = p.comprador.nome
+  cCpf.value = p.comprador.cpf
+  imovel.value = p.imovel
+  corretorId.value = p.corretorId
+  captadorId.value = p.captadorId
+  prelimExiste.value = !!p.preliminar?.existe
+  prelimArquivo.value = p.preliminar?.arquivo ?? null
+  obs.value = p.obs
   bem.value = p.fin.bem ?? ''
   valorBem.value = p.fin.valorBem ?? 0
   const parte = p[quemPessoa.value]
@@ -122,7 +161,7 @@ const dadosForm = computed<DadosFinanceiros>(() => ({
     fgts: n(fgts.value),
     proprios: n(proprios.value),
     avaliacao: n(avaliacao.value),
-    ganhoCapital: n(ganhoCapital.value),
+    ganho: ganho.value,
     bem: bem.value.trim(),
     valorBem: n(valorBem.value),
   },
@@ -152,19 +191,82 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
       Etapa {{ etapa }} · {{ ETAPAS_VENDA[etapa - 1] }}
     </h2>
 
-    <!-- 1 · Abertura -->
-    <dl v-if="etapa === 1" class="m-0 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-      <div v-for="[rot, val] in [
-        ['Imóvel', processo.imovel],
-        ['Vendedor', `${processo.vendedor.nome}${processo.vendedor.cpf ? ' · CPF ' + processo.vendedor.cpf : ''}`],
-        ['Comprador', `${processo.comprador.nome}${processo.comprador.cpf ? ' · CPF ' + processo.comprador.cpf : ''}`],
-        ['Última atualização', processo.updated],
-        ['Observações', processo.obs || '—'],
-      ]" :key="rot">
-        <dt class="text-[length:var(--fs-label)] font-bold text-[var(--ink-soft)]">{{ rot }}</dt>
-        <dd class="m-0">{{ val }}</dd>
+    <!-- 1 · Abertura (editável, como no protótipo) -->
+    <form
+      v-if="etapa === 1"
+      class="flex flex-col gap-3"
+      novalidate
+      @submit.prevent="emit('salvarAbertura', {
+        vendedor: { nome: vNome, cpf: vCpf },
+        comprador: { nome: cNome, cpf: cCpf },
+        imovel,
+        corretorId,
+        captadorId,
+        preliminar: { existe: prelimExiste, arquivo: prelimArquivo },
+      })"
+    >
+      <p class="m-0 text-[var(--ink-soft)]">Dados básicos da negociação. O contrato preliminar é opcional.</p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label :class="rotuloCampo">
+          Nome do vendedor
+          <input v-model="vNome" type="text" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="abertura-vendedor" />
+        </label>
+        <label :class="rotuloCampo">
+          CPF ou CNPJ do vendedor
+          <input v-model="vCpf" type="text" inputmode="numeric" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="abertura-vendedor-cpf" />
+        </label>
+        <label :class="rotuloCampo">
+          Nome do comprador
+          <input v-model="cNome" type="text" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="abertura-comprador" />
+        </label>
+        <label :class="rotuloCampo">
+          CPF ou CNPJ do comprador
+          <input v-model="cCpf" type="text" inputmode="numeric" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="abertura-comprador-cpf" />
+        </label>
+        <label :class="rotuloCampo">
+          Imóvel
+          <input v-model="imovel" type="text" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="abertura-imovel" />
+        </label>
+        <label :class="rotuloCampo">
+          Corretor vendedor
+          <select v-model="corretorId" :disabled="!podeEditar || corretorTravado" :class="campo" data-testid="abertura-corretor">
+            <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+          </select>
+          <span v-if="corretorTravado" class="font-normal text-[var(--ink-soft)]">Como corretor, você é sempre o vendedor dos seus processos.</span>
+        </label>
+        <label :class="rotuloCampo">
+          Corretor captador
+          <select v-model="captadorId" :disabled="!podeEditar" :class="campo" data-testid="abertura-captador">
+            <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+          </select>
+        </label>
       </div>
-    </dl>
+      <label :class="linhaCheck">
+        <input v-model="prelimExiste" type="checkbox" class="size-5 accent-[var(--brand)]" :disabled="!podeEditar" data-testid="abertura-preliminar" />
+        <span>Existe contrato preliminar (opcional)</span>
+      </label>
+      <div v-if="prelimExiste" class="flex flex-wrap items-center gap-2" data-testid="abertura-preliminar-arquivo">
+        <span class="inline-flex min-h-7 items-center rounded-full bg-[var(--surface)] px-2.5 text-[length:var(--fs-caption)] font-bold">
+          {{ prelimArquivo ?? 'Nenhum arquivo anexado' }}
+        </span>
+        <label v-if="podeEditar" :class="btnSec + ' inline-flex items-center'">
+          Escolher PDF
+          <input type="file" accept=".pdf" class="sr-only" @change="escolherPrelim" />
+        </label>
+        <button v-if="podeEditar && demo" type="button" :class="btnSec" data-testid="abertura-preliminar-exemplo" @click="prelimArquivo = 'contrato-preliminar-exemplo.pdf'">
+          Anexar PDF de exemplo
+        </button>
+      </div>
+      <div v-if="podeEditar">
+        <button
+          type="submit"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          data-testid="abertura-salvar"
+        >
+          Salvar abertura
+        </button>
+      </div>
+    </form>
 
     <!-- 2 · 3 · 4 · Cadastro, checklist e documentos -->
     <div v-else-if="etapa >= 2 && etapa <= 4" class="flex flex-col gap-4">
@@ -296,8 +398,10 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           <input v-model.number="proprios" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-proprios" />
         </label>
         <label :class="rotuloCampo">
-          Ganho de capital, se houver (R$)
-          <input v-model.number="ganhoCapital" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-ganho-capital" />
+          Ganho de capital do vendedor
+          <select v-model="ganho" :disabled="!podeEditar" :class="campo" data-testid="fin-ganho-capital">
+            <option v-for="o in OPCOES_GANHO" :key="o" :value="o">{{ o }}</option>
+          </select>
         </label>
         <label :class="rotuloCampo">
           Bem na entrada (casa, carro…)
@@ -334,6 +438,13 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <template v-else-if="conferencia.diferenca > 0">⚠ Faltam {{ brl(conferencia.diferenca) }} para fechar o valor da venda.</template>
         <template v-else-if="conferencia.diferenca < 0">⚠ As fontes passam {{ brl(-conferencia.diferenca) }} do valor da venda.</template>
         <template v-else>⚠ Informe o valor da venda.</template>
+      </p>
+      <p
+        v-if="ganho === 'Há ganho de capital'"
+        class="m-0 rounded-[10px] bg-[#fef3c7] px-3 py-2 font-bold text-[#78350f]"
+        data-testid="fin-ganho-aviso"
+      >
+        ⚠ Atenção: há imposto de ganho de capital a recolher pelo vendedor.
       </p>
       <div>
         <button
@@ -379,6 +490,20 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         />
         <span>{{ item }}</span>
       </label>
+      <form
+        v-if="etapa === 7"
+        class="mt-2 flex flex-col gap-2"
+        novalidate
+        @submit.prevent="emit('salvarObservacao', obs)"
+      >
+        <label :class="rotuloCampo">
+          Observações do jurídico
+          <textarea v-model="obs" rows="4" maxlength="2000" :disabled="!podeChecklist || !podeEditar" :class="campo + ' py-2'" data-testid="obs-juridico" />
+        </label>
+        <div v-if="podeChecklist && podeEditar">
+          <button type="submit" :class="btnSec" data-testid="obs-salvar">Salvar observações</button>
+        </div>
+      </form>
     </div>
 
     <!-- 8 · Conferência final + conclusão -->
@@ -425,7 +550,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
       <p class="m-0 text-[var(--ink-soft)]">
         Concluir a venda encerra o processo: ele passa a aceitar só consulta.
       </p>
-      <div>
+      <div class="flex flex-wrap gap-2">
         <button
           type="button"
           class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -434,6 +559,18 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           @click="emit('concluirVenda')"
         >
           Concluir venda
+        </button>
+        <button
+          type="button"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[#991b1b] bg-[var(--paper)] px-4 font-bold text-[#991b1b] hover:bg-[#fee2e2] disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!podeConcluirVenda"
+          data-testid="cancelar-venda"
+          @click="emit('cancelarVenda')"
+        >
+          Cancelar venda
+        </button>
+        <button v-if="podeArquivar" type="button" :class="btnSec" data-testid="arquivar-contrato" @click="emit('arquivar')">
+          Arquivar contrato
         </button>
       </div>
     </div>

@@ -38,6 +38,8 @@ export interface Pessoa {
   email?: string
 }
 
+export type GanhoCapital = 'Isento' | 'Há ganho de capital' | 'Ainda não analisado'
+
 export type FormaPagamento = 'À vista' | 'Financiamento' | 'Misto'
 
 export interface FontesPagamento {
@@ -48,8 +50,8 @@ export interface FontesPagamento {
   proprios: number
   /** Valor de avaliação do imóvel (checklist da Olmi). */
   avaliacao?: number
-  /** Ganho de capital, quando houver. */
-  ganhoCapital?: number
+  /** Ganho de capital do vendedor (imposto a recolher por ele). Ausente = ainda não analisado. */
+  ganho?: GanhoCapital
   /** Bem dado na entrada (casa, carro…): descrição e valor abatido. */
   bem?: string
   valorBem?: number
@@ -118,6 +120,8 @@ export interface Processo {
   /** Valor venal do imóvel (IPTU), preenchido na etapa 4. */
   valorVenal?: number
   conferenciaFinal?: ConferenciaFinal
+  /** Contrato preliminar (opcional): existe ou não e o nome do PDF anexado. */
+  preliminar?: { existe: boolean; arquivo: string | null }
   arquivado: boolean
 }
 

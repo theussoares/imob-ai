@@ -155,11 +155,11 @@ describe('adiantamento: momento, pago e comprovante', () => {
 })
 
 describe('salvarFinanceiro: campos da Olmi', () => {
-  const fin = { forma: 'Misto' as const, financiado: 300000, entrada: 100000, fgts: 0, proprios: 50000, avaliacao: 520000, ganhoCapital: 12000, bem: 'Carro Onix 2020', valorBem: 50000 }
+  const fin = { forma: 'Misto' as const, financiado: 300000, entrada: 100000, fgts: 0, proprios: 50000, avaliacao: 520000, ganho: 'Há ganho de capital' as const, bem: 'Carro Onix 2020', valorBem: 50000 }
 
   it('grava avaliação, ganho de capital e bem', () => {
     const p = proc(ok(salvarFinanceiro(novo(), ABERTO, { valor: 500000, fin }, ator, quando)), ABERTO)
-    expect(p.fin).toMatchObject({ avaliacao: 520000, ganhoCapital: 12000, bem: 'Carro Onix 2020', valorBem: 50000 })
+    expect(p.fin).toMatchObject({ avaliacao: 520000, ganho: 'Há ganho de capital' as const, bem: 'Carro Onix 2020', valorBem: 50000 })
   })
 
   it('recusa valor de bem sem descrição e negativos nos campos novos', () => {

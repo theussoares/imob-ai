@@ -162,10 +162,27 @@ Como dono, em `/gestao/vendas/V-2026-0155` (etapa 1). Botão `requisito-exemplo`
    diferença; «As fontes de pagamento fecham com o valor da venda.»; a lista «Itens para conferir»
    tem Proposta (Enviado), Simulação (Enviado) e Comprovante da entrada (Pendente, com
    `requisito-enviar`). Enviar o que falta e `concluir-etapa` conclui.
-7. Mudar a forma para «À vista» e salvar: a lista fica só com a proposta.
+7. Mudar a forma para «À vista», ZERAR a entrada e o FGTS e salvar: a lista fica só com a proposta (com entrada maior que zero o comprovante da entrada continua sendo exigido: é regra, não defeito).
 8. `requisito-conferir` aparece só para recepção e dono (permissão conferir), nunca para corretor.
 9. Corretor sem permissão de envio não vê `requisito-enviar`; processo encerrado não mostra
    nenhum botão de envio ou conferência.
+
+## F13 — Abertura editável, ganho de capital, observações, cancelar e arquivar
+
+1. Como dono, em `/gestao/vendas/V-2026-0155`, etapa 1 (clicar a 1ª do stepper): campos `abertura-*`
+   preenchidos. Trocar `abertura-imovel`, marcar `abertura-preliminar` → aparece
+   `abertura-preliminar-arquivo`; `abertura-preliminar-exemplo` anexa o PDF; `abertura-salvar` →
+   título da página vira o novo imóvel e o histórico ganha «Atualizou os dados da abertura».
+   Como corretor, `abertura-corretor` vem travado com a frase «você é sempre o vendedor».
+2. Etapa 5: `fin-ganho-capital` é uma lista (Isento / Há ganho de capital / Ainda não analisado);
+   com «Há ganho de capital» aparece `fin-ganho-aviso`.
+3. Etapa 7 (jurídico ou dono): `obs-juridico` + `obs-salvar` gravam e registram no histórico;
+   recepção e corretor veem o campo desabilitado e sem botão.
+4. Etapa 8: `cancelar-venda` pede confirmação; confirmar → «Venda cancelada», somente consulta.
+5. Em processo encerrado (ex.: V-2026-0133) como jurídico ou dono, `arquivar-contrato` pede
+   confirmação, volta à lista e o card some. Recepção e corretor não veem o botão.
+6. «Arquivados» (menu, só jurídico e dono): lista o contrato com `restaurar-contrato`; restaurar
+   devolve o card à lista. Sem arquivados: `arquivados-vazio`.
 
 ## Formato do relatório
 

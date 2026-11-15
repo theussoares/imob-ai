@@ -121,6 +121,6 @@ Cruzadas com o protótipo e com o checklist impresso da Olmi.
 | Documentos das pessoas: RG ou CNH, certidão de nascimento ou casamento, comprovante de residência; CPF vira campo | CPF como arquivo | Pedido do cliente: não se pede o papel do CPF |
 | Aba «Comissão» some para quem não tem `valores` | Aba com cadeado | Não precisa avisar que existe algo escondido |
 
-Divergências do protótipo ainda abertas (não pedidas ainda): etapa 1 editável com contrato preliminar,
-«Ganho de capital» como lista (Isento / Há ganho / Ainda não analisado), observações do jurídico na
-etapa 7, arquivar contrato e tela «Arquivados», cancelar venda como botão na etapa 8.
+Divergências do protótipo fechadas no mesmo dia: etapa 1 editável com contrato preliminar, «Ganho de
+capital» como lista, observações do jurídico (etapa 7), cancelar venda na etapa 8 e arquivar contrato
+com a tela «Arquivados» (restaurar devolve o contrato; arquivar só vale para contrato encerrado).

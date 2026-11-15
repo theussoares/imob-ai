@@ -1,7 +1,7 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes'
 import { validarAdiantamento } from './commission'
 import { statusFinal } from './status'
-import type { ConferenciaFinal, FontesPagamento, FormaPagamento, Pessoa, Processo, ResponsavelAdiantamento } from './types'
+import type { ConferenciaFinal, FontesPagamento, FormaPagamento, GanhoCapital, Pessoa, Processo, ResponsavelAdiantamento } from './types'
 
 /**
  * Transições da tela do processo (adiantamentos e checklist comercial).
@@ -29,7 +29,7 @@ export const brl = (n: number): string =>
  * Aplica `fn` ao processo e registra o evento no histórico. Centraliza a regra
  * «processo final é só leitura» para que nenhuma ação nova esqueça dela.
  */
-function alterar(
+export function alterar(
   estado: Estado,
   id: string,
   ator: Ator,
@@ -128,6 +128,7 @@ export function removerAdiantamento(
 }
 
 export const FORMAS_PAGAMENTO: FormaPagamento[] = ['À vista', 'Financiamento', 'Misto']
+export const OPCOES_GANHO: GanhoCapital[] = ['Isento', 'Há ganho de capital', 'Ainda não analisado']
 
 export interface DadosFinanceiros {
   valor: number
@@ -151,9 +152,10 @@ export function salvarFinanceiro(
 ): Resultado {
   return alterar(estado, id, ator, quando, (p) => {
     const { valor, fin } = dados
-    const nums = [valor, fin.financiado, fin.entrada, fin.fgts, fin.proprios, fin.avaliacao ?? 0, fin.ganhoCapital ?? 0, fin.valorBem ?? 0]
+    const nums = [valor, fin.financiado, fin.entrada, fin.fgts, fin.proprios, fin.avaliacao ?? 0, fin.valorBem ?? 0]
     if (nums.some((n) => !Number.isFinite(n) || n < 0)) return { ok: false, erro: 'Os valores não podem ser negativos.' }
     if (!FORMAS_PAGAMENTO.includes(fin.forma)) return { ok: false, erro: 'Escolha a forma de pagamento.' }
+    if (fin.ganho && !OPCOES_GANHO.includes(fin.ganho)) return { ok: false, erro: 'Ganho de capital inválido.' }
     if (valor <= 0) return { ok: false, erro: 'Informe o valor da venda.' }
     // Valor de bem sem dizer qual é (casa? carro?) não dá para conferir depois.
     if ((fin.valorBem ?? 0) > 0 && !fin.bem?.trim()) return { ok: false, erro: 'Descreva o bem dado na entrada.' }

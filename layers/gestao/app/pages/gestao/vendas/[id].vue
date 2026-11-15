@@ -12,6 +12,7 @@ import {
   salvarImovel,
   salvarPessoa,
 } from '../../../../domain/acoes-processo'
+import { arquivarProcesso, type DadosAbertura, salvarAbertura, salvarObservacao } from '../../../../domain/acoes-ciclo'
 import { conferirDocumento, enviarDocumento, substituirDocumento } from '../../../../domain/acoes'
 import { validarArquivo } from '../../../../domain/documentos'
 import { pendenciasEtapa, type Requisito } from '../../../../domain/requisitos'
@@ -130,6 +131,41 @@ function salvarDadosImovel(dados: DadosImovel) {
 function salvarConferencia(dados: ConferenciaFinal) {
   const p = processo.value
   if (p) executar((s, a) => salvarConferenciaFinal(s, p.id, dados, a), 'Conferência final salva.')
+}
+
+function salvarDadosAbertura(dados: DadosAbertura) {
+  const p = processo.value
+  if (p) executar((s, a) => salvarAbertura(s, p.id, dados, a), 'Abertura salva.')
+}
+
+function salvarObs(texto: string) {
+  const p = processo.value
+  if (p) executar((s, a) => salvarObservacao(s, p.id, texto, a), 'Observações salvas.')
+}
+
+async function cancelarVenda() {
+  const p = processo.value
+  if (!p) return
+  const ok = await askConfirm({
+    title: `Cancelar a venda ${p.id}?`,
+    description: 'O processo passa a aceitar só consulta e não poderá ser reaberto nesta demonstração.',
+    confirmLabel: 'Cancelar venda',
+    cancelLabel: 'Voltar',
+    danger: true,
+  })
+  if (ok) executar((s, a) => store.acoes.mudarStatus(s, p.id, 'Venda cancelada', a), 'Venda cancelada.')
+}
+
+async function arquivar() {
+  const p = processo.value
+  if (!p) return
+  const ok = await askConfirm({
+    title: 'Arquivar este contrato?',
+    description: 'Ele sai da lista de contratos e vai para «Arquivados». Pode ser restaurado depois.',
+    confirmLabel: 'Arquivar contrato',
+    cancelLabel: 'Voltar',
+  })
+  if (ok && executar((s, a) => arquivarProcesso(s, p.id, a), 'Contrato arquivado.')) await navigateTo('/gestao/vendas')
 }
 
 async function concluirVenda() {
@@ -317,7 +353,12 @@ const aba_ = (ativa: boolean) =>
             @salvar-pessoa="salvarParte"
             @salvar-imovel="salvarDadosImovel"
             @salvar-conferencia="salvarConferencia"
+            :pode-arquivar="final && !!caps?.arquivar"
             @concluir-venda="concluirVenda"
+            @cancelar-venda="cancelarVenda"
+            @arquivar="arquivar"
+            @salvar-abertura="salvarDadosAbertura"
+            @salvar-observacao="salvarObs"
             @enviar-requisito="enviarArquivo"
             @trocar-arquivo="trocarArquivo"
             @conferir-doc="conferirArquivo"

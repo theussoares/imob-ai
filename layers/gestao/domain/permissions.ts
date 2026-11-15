@@ -139,7 +139,7 @@ export const MENU: { chave: ChaveMenu; rotulo: string; rota: string; pronto: boo
   { chave: 'locacao', rotulo: 'Contratos de locação', rota: '/gestao/locacao', pronto: false },
   { chave: 'financeiro', rotulo: 'Financeiro', rota: '/gestao/financeiro', pronto: false },
   { chave: 'consulta', rotulo: 'Consulta cadastral', rota: '/gestao/consulta', pronto: false },
-  { chave: 'arquivados', rotulo: 'Arquivados', rota: '/gestao/arquivados', pronto: false },
+  { chave: 'arquivados', rotulo: 'Arquivados', rota: '/gestao/arquivados', pronto: true },
   { chave: 'auditoria', rotulo: 'Histórico de alterações', rota: '/gestao/auditoria', pronto: false },
   { chave: 'usuarios', rotulo: 'Usuários e permissões', rota: '/gestao/usuarios', pronto: false },
   { chave: 'config', rotulo: 'Configurações', rota: '/gestao/config', pronto: false },
