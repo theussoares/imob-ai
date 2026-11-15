@@ -15,7 +15,8 @@ import { fileURLToPath } from 'node:url'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['test/**/*.test.ts'],
+    // `layers/*/test` junto: cada layer carrega os próprios testes de unidade.
+    include: ['test/**/*.test.ts', 'layers/*/test/**/*.test.ts'],
     setupFiles: ['test/setup.ts'],
   },
   resolve: {

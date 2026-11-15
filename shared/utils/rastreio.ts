@@ -16,7 +16,7 @@
  *
  * Devolve a URL limpa, ou `null` para descartar o evento.
  */
-export const PREFIXOS_PRIVADOS = ['/admin', '/area-cliente'] as const
+export const PREFIXOS_PRIVADOS = ['/admin', '/area-cliente', '/gestao'] as const
 
 export function urlRastreavel(url: string): string | null {
   let u: URL

@@ -15,6 +15,8 @@ describe('urlRastreavel', () => {
     expect(urlRastreavel('https://www.olmiimoveis.com.br/admin')).toBeNull()
     expect(urlRastreavel('https://www.olmiimoveis.com.br/admin/imoveis/1')).toBeNull()
     expect(urlRastreavel('https://www.olmiimoveis.com.br/area-cliente')).toBeNull()
+    // Painel de gestão: a URL carrega o id do contrato (V-2026-0142).
+    expect(urlRastreavel('https://www.olmiimoveis.com.br/gestao/vendas/V-2026-0142')).toBeNull()
     expect(urlRastreavel('https://www.olmiimoveis.com.br/area-cliente/contratos/7b1f3c1e-0000-4000-8000-000000000000')).toBeNull()
     expect(urlRastreavel('https://www.olmiimoveis.com.br/area-cliente/redefinir?token=segredo')).toBeNull()
   })
