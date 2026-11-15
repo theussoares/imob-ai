@@ -313,7 +313,14 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         @submit.prevent="emit('salvarImovel', { matriculaMae, valorVenal: n(valorVenal) })"
       >
         <label :class="linhaCheck">
-          <input v-model="matriculaMae" type="checkbox" class="size-5 accent-[var(--brand)]" :disabled="!podeEditar" data-testid="matricula-mae" />
+          <input
+            v-model="matriculaMae"
+            type="checkbox"
+            class="size-5 accent-[var(--brand)]"
+            :disabled="!podeEditar"
+            data-testid="matricula-mae"
+            @change="emit('salvarImovel', { matriculaMae, valorVenal: n(valorVenal) })"
+          />
           <span>A matrícula é a matrícula-mãe (exige também o projeto/prancha do imóvel)</span>
         </label>
         <label :class="[rotuloCampo, 'sm:max-w-xs']">
@@ -336,7 +343,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           {{ etapa === 4 ? 'Documentos do imóvel' : `Documentos do ${quemPessoa}` }}
         </h3>
         <p v-if="etapa === 4" class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
-          Marcar a matrícula-mãe troca a lista abaixo depois de salvar os dados do imóvel.
+          Marcar a matrícula-mãe já troca a lista abaixo (a escolha é salva na hora).
         </p>
         <GestaoRequisitos
           :requisitos="requisitos"
