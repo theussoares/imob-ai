@@ -91,11 +91,22 @@ describe('mudar status e concluir etapa', () => {
   })
 
   it('conclui só a etapa atual e avança; pular etapa é recusado', () => {
-    const e = ok(concluirEtapa(novo(), 'V-2026-0151', 3, ator))
-    const p = e.processos.find((x) => x.id === 'V-2026-0151')!
-    expect(p.concluidas[2]).toBe(true)
-    expect(p.etapa).toBe(4)
-    expect(concluirEtapa(novo(), 'V-2026-0151', 5, ator).ok).toBe(false)
+    // 0155 está na etapa 1 e já tem vendedor, comprador e imóvel: nada trava.
+    const e = ok(concluirEtapa(novo(), 'V-2026-0155', 1, ator))
+    const p = e.processos.find((x) => x.id === 'V-2026-0155')!
+    expect(p.concluidas[0]).toBe(true)
+    expect(p.etapa).toBe(2)
+    expect(concluirEtapa(novo(), 'V-2026-0155', 5, ator).ok).toBe(false)
+  })
+
+  it('etapa 3 não conclui sem contato nem documentos do comprador, e diz o que falta', () => {
+    const r = concluirEtapa(novo(), 'V-2026-0151', 3, ator)
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.erro).toContain('telefone do comprador') // o CPF existe; faltam telefone e e-mail
+      expect(r.erro).toContain('e-mail do comprador')
+      expect(r.erro).toContain('Certidão de nascimento ou de casamento')
+    }
   })
 
   it('processo inexistente devolve erro, não exceção', () => {

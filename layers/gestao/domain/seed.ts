@@ -1,4 +1,6 @@
-import type { Corretor, Documento, Processo, StatusVenda, UsuarioGestao } from './types'
+// `.ts` explícito: o mock (mocker-nuxt) carrega este arquivo em Node puro, que não resolve import sem extensão.
+import { requisitoPorChave } from './requisitos.ts'
+import type { Corretor, Documento, Pessoa, Processo, StatusVenda, UsuarioGestao } from './types'
 
 /** Dados de exemplo do protótipo. Tudo fictício (nomes e CPFs de exemplo). */
 
@@ -16,6 +18,15 @@ export const USUARIOS: UsuarioGestao[] = [
   { nome: 'Paulo Ribeiro', mail: 'paulo@olmi.exemplo', perfil: 'juridico' },
   { nome: 'Helena Duarte', mail: 'helena@olmi.exemplo', perfil: 'dono' },
 ]
+
+const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+/** Pessoa de exemplo já com contato: as etapas 2 e 3 só fecham com telefone e e-mail. */
+const pessoa = (nome: string, cpf: string, n: number): Pessoa => ({
+  nome,
+  cpf,
+  telefone: `(11) 9${String(1000 + n * 137).slice(0, 4)}-${String(2000 + n * 311).slice(0, 4)}`,
+  email: `${semAcento(nome).toLowerCase().replace(/[^a-z]+/g, '.').replace(/^\.|\.$/g, '')}@exemplo.com`,
+})
 
 const feitas = (n: number) => Array.from({ length: 8 }, (_, i) => i < n)
 const fin = (forma: 'À vista' | 'Financiamento' | 'Misto', financiado = 0, entrada = 0, fgts = 0, proprios = 0) => ({
@@ -48,8 +59,8 @@ export function processosSeed(): Processo[] {
   return [
     proc({
       id: 'V-2026-0142',
-      vendedor: { nome: 'Marta Lopes', cpf: '214.568.730-12' },
-      comprador: { nome: 'Daniel Reis', cpf: '398.115.204-77' },
+      vendedor: pessoa('Marta Lopes', '214.568.730-12', 1),
+      comprador: pessoa('Daniel Reis', '398.115.204-77', 2),
       imovel: 'Apto 302 · Ed. Solar · Rua das Palmeiras, 410',
       corretorId: 'c1',
       status: 'Aguardando registro',
@@ -58,6 +69,7 @@ export function processosSeed(): Processo[] {
       fin: fin('Financiamento', 70000, 20000, 10000, 0),
       etapa: 8,
       concluidas: feitas(7),
+      valorVenal: 92000,
       pdf: true,
       obs: 'Matrícula sem ônus. Contrato revisado.',
       adiantamentos: [
@@ -73,7 +85,7 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0151',
-      vendedor: { nome: 'Roberto Neves', cpf: '102.744.386-50' },
+      vendedor: pessoa('Roberto Neves', '102.744.386-50', 3),
       comprador: { nome: 'Camila Farias', cpf: '445.902.118-03' },
       imovel: 'Casa 3 quartos · Jd. das Acácias',
       corretorId: 'c2',
@@ -104,8 +116,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0158',
-      vendedor: { nome: 'Sônia Barros', cpf: '330.912.685-40' },
-      comprador: { nome: 'Empresa Alfa Ltda', cpf: '12.345.678/0001-90' },
+      vendedor: pessoa('Sônia Barros', '330.912.685-40', 7),
+      comprador: pessoa('Empresa Alfa Ltda', '12.345.678/0001-90', 8),
       imovel: 'Sala comercial 41 m² · Centro',
       corretorId: 'c3',
       captadorId: 'c3',
@@ -115,6 +127,7 @@ export function processosSeed(): Processo[] {
       fin: fin('Financiamento', 256000, 64000, 0, 0),
       etapa: 5,
       concluidas: feitas(4),
+      valorVenal: 301000,
       hist: [
         { acao: 'Mudou o status para Em análise de financiamento', quem: 'Rafael Teixeira', quando: '12/11/2026 10:30' },
         { acao: 'Abriu o processo', quem: 'Rafael Teixeira', quando: '02/11/2026 09:00' },
@@ -122,8 +135,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0133',
-      vendedor: { nome: 'Irene Matos', cpf: '445.118.902-61' },
-      comprador: { nome: 'Fábio Siqueira', cpf: '519.220.007-18' },
+      vendedor: pessoa('Irene Matos', '445.118.902-61', 9),
+      comprador: pessoa('Fábio Siqueira', '519.220.007-18', 10),
       imovel: 'Casa 2 quartos · Jd. Primavera',
       corretorId: 'c3',
       captadorId: 'c3',
@@ -132,6 +145,7 @@ export function processosSeed(): Processo[] {
       valor: 275000,
       etapa: 8,
       concluidas: feitas(8),
+      valorVenal: 260000,
       pdf: true,
       hist: [
         { acao: 'Mudou o status para Venda concluída', quem: 'Paulo Ribeiro', quando: '03/11/2026 14:00' },
@@ -140,8 +154,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0147',
-      vendedor: { nome: 'Gustavo Pires', cpf: '602.331.874-09' },
-      comprador: { nome: 'Patrícia Lemos', cpf: '730.446.118-25' },
+      vendedor: pessoa('Gustavo Pires', '602.331.874-09', 11),
+      comprador: pessoa('Patrícia Lemos', '730.446.118-25', 12),
       imovel: 'Sobrado · Rua das Orquídeas, 88',
       corretorId: 'c2',
       captadorId: 'c2',
@@ -162,15 +176,26 @@ function doc(o: Pick<Documento, 'id' | 'nome' | 'categoria' | 'processoId'> & Pa
   return { estado: 'enviado', tamanho: 524288, versoes: 1, enviadoPor: 'Carlos Mendes', apagado: null, ...o }
 }
 
+/** Um arquivo por item de checklist, para os processos de exemplo que já passaram da etapa. */
+function porRequisito(processoId: string, chaves: string[], enviadoPor: string, estado: Documento['estado'] = 'conferido'): Documento[] {
+  return chaves.map((chave) => {
+    const r = requisitoPorChave(chave)!
+    return doc({ id: `r${processoId.slice(-4)}-${chave.replace(':', '-')}`, nome: `${r.nome}.pdf`, categoria: r.categoria, processoId, requisito: chave, estado, enviadoPor })
+  })
+}
+
+const DOCS_VENDEDOR = ['vendedor:rg-cnh', 'vendedor:certidao', 'vendedor:residencia']
+const DOCS_COMPRADOR = ['comprador:rg-cnh', 'comprador:certidao', 'comprador:residencia']
+
 export function documentosSeed(): Documento[] {
   return [
-    doc({ id: 'd1', nome: 'RG do vendedor.pdf', categoria: 'pessoas', processoId: 'V-2026-0142', estado: 'conferido', tamanho: 812000 }),
-    doc({ id: 'd2', nome: 'Matrícula atualizada.pdf', categoria: 'imoveis', processoId: 'V-2026-0142', estado: 'conferido', tamanho: 2400000 }),
+    doc({ id: 'd1', nome: 'RG do vendedor.pdf', categoria: 'pessoas', processoId: 'V-2026-0142', estado: 'conferido', tamanho: 812000, requisito: 'vendedor:rg-cnh' }),
+    doc({ id: 'd2', nome: 'Matrícula atualizada.pdf', categoria: 'imoveis', processoId: 'V-2026-0142', estado: 'conferido', tamanho: 2400000, requisito: 'imovel:matricula' }),
     doc({ id: 'd3', nome: 'Contrato de compra e venda.pdf', categoria: 'venda', processoId: 'V-2026-0142', estado: 'conferido', versoes: 2, enviadoPor: 'Paulo Ribeiro' }),
     doc({ id: 'd4', nome: 'Aditivo 01 - prazo de registro.pdf', categoria: 'venda', processoId: 'V-2026-0142', enviadoPor: 'Paulo Ribeiro' }),
     doc({ id: 'd5', nome: 'Comprovante de renda do comprador.pdf', categoria: 'pessoas', processoId: 'V-2026-0151', enviadoPor: 'Juliana Prado' }),
     doc({ id: 'd6', nome: 'Foto da fachada.jpg', categoria: 'imoveis', processoId: 'V-2026-0151', enviadoPor: 'Juliana Prado', tamanho: 3100000 }),
-    doc({ id: 'd7', nome: 'Simulação de financiamento.pdf', categoria: 'financeiro', processoId: 'V-2026-0158', enviadoPor: 'Rafael Teixeira' }),
+    doc({ id: 'd7', nome: 'Simulação de financiamento.pdf', categoria: 'financeiro', processoId: 'V-2026-0158', enviadoPor: 'Rafael Teixeira', requisito: 'fin:simulacao' }),
     doc({
       id: 'd8',
       nome: 'Recibo de adiantamento.pdf',
@@ -181,5 +206,25 @@ export function documentosSeed(): Documento[] {
     }),
   ]
 }
+
+/**
+ * Arquivos dos itens de checklist dos processos de exemplo. Separados dos avulsos
+ * acima de propósito: o demo carrega os dois (`documentosSeedCompleto`), mas os
+ * testes de filtro/contagem da tela de documentos usam só os avulsos — senão cada
+ * item novo de checklist mudaria os números esperados de testes que nada têm a ver.
+ */
+export function documentosRequisitosSeed(): Documento[] {
+  return [
+    ...porRequisito('V-2026-0142', [...DOCS_VENDEDOR.slice(1), ...DOCS_COMPRADOR, 'imovel:venal', 'imovel:agua-luz', 'fin:proposta', 'fin:simulacao', 'fin:fgts', 'fin:entrada'], 'Carlos Mendes'),
+    ...porRequisito('V-2026-0151', DOCS_VENDEDOR, 'Juliana Prado'),
+    ...porRequisito('V-2026-0151', ['comprador:rg-cnh'], 'Juliana Prado', 'enviado'),
+    ...porRequisito('V-2026-0158', [...DOCS_VENDEDOR, ...DOCS_COMPRADOR, 'imovel:matricula', 'imovel:venal', 'imovel:agua-luz'], 'Rafael Teixeira'),
+    ...porRequisito('V-2026-0158', ['fin:proposta'], 'Rafael Teixeira', 'enviado'),
+    ...porRequisito('V-2026-0133', [...DOCS_VENDEDOR, ...DOCS_COMPRADOR, 'imovel:matricula', 'imovel:venal', 'imovel:agua-luz', 'fin:proposta'], 'Rafael Teixeira'),
+    ...porRequisito('V-2026-0147', DOCS_VENDEDOR, 'Juliana Prado', 'enviado'),
+  ]
+}
+
+export const documentosSeedCompleto = (): Documento[] => [...documentosSeed(), ...documentosRequisitosSeed()]
 
 export const STATUS_INICIAL: StatusVenda = 'Em negociação'

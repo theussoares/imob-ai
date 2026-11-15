@@ -1,10 +1,11 @@
 import { agora, type Estado, type Resultado } from '../../domain/acoes'
 import * as acoes from '../../domain/acoes'
 import { capacidades, matrizPadrao, processosVisiveis } from '../../domain/permissions'
-import { documentosSeed, processosSeed } from '../../domain/seed'
+import { documentosSeedCompleto, processosSeed } from '../../domain/seed'
 import type { MatrizPermissoes, Documento, Processo } from '../../domain/types'
 
-const CHAVE = 'gestao-demo-v1'
+// v2: documentos ganharam `requisito` e o seed mudou; o v1 guardado deixaria a tela sem arquivos nos itens.
+const CHAVE = 'gestao-demo-v2'
 
 interface Guardado extends Estado {
   matriz: MatrizPermissoes
@@ -63,7 +64,7 @@ export function useGestaoStore() {
       matriz.value = m.data
     } catch {
       console.warn('[gestao] mock indisponível (suba com `pnpm dev:gestao`); usando o seed local.')
-      estado.value = { processos: processosSeed(), documentos: documentosSeed() }
+      estado.value = { processos: processosSeed(), documentos: documentosSeedCompleto() }
       matriz.value = matrizPadrao()
     }
     carregado.value = true

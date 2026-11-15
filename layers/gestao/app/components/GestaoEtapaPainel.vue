@@ -6,11 +6,11 @@ import {
   type DadosFinanceiros,
   type DadosImovel,
   type DadosPessoa,
-  type ProcessoComVenal,
 } from '../../domain/acoes-processo'
 import { conferirFontes } from '../../domain/commission'
+import { requisitosDaEtapa, type Requisito } from '../../domain/requisitos'
 import { ETAPAS_VENDA } from '../../domain/status'
-import type { CategoriaDocumento, ConferenciaFinal, Documento, FormaPagamento, Processo } from '../../domain/types'
+import type { ConferenciaFinal, Documento, FormaPagamento, Processo } from '../../domain/types'
 
 const props = defineProps<{
   processo: Processo
@@ -24,6 +24,12 @@ const props = defineProps<{
   podeChecklist: boolean
   /** pode concluir a venda na etapa 8 */
   podeConcluirVenda: boolean
+  /** pode enviar/trocar arquivo dos itens (permissão enviarDocs e processo aberto) */
+  podeEnviar: boolean
+  /** pode conferir os arquivos enviados (permissão conferir e processo aberto) */
+  podeConferir: boolean
+  /** modo demonstração: libera «Anexar exemplo» */
+  demo?: boolean
 }>()
 const emit = defineEmits<{
   salvarFinanceiro: [dados: DadosFinanceiros]
@@ -31,19 +37,15 @@ const emit = defineEmits<{
   salvarImovel: [dados: DadosImovel]
   salvarConferencia: [dados: ConferenciaFinal]
   concluirVenda: []
+  enviarRequisito: [requisito: Requisito, arquivo: { name: string; size: number }]
+  trocarArquivo: [doc: Documento, arquivo: { name: string; size: number }]
+  conferirDoc: [doc: Documento]
 }>()
 
 const { sessao } = useGestaoSessao()
 
-const CATEGORIA_ETAPA: Record<number, CategoriaDocumento> = { 2: 'pessoas', 3: 'pessoas', 4: 'imoveis' }
-const ROTULO_ESTADO = { pendente: 'pendente', enviado: 'enviado', conferido: 'conferido' } as const
-
-const docsDaEtapa = computed(() =>
-  props.documentos.filter((d) => d.categoria === CATEGORIA_ETAPA[props.etapa]),
-)
-
 // Checklists das etapas 6 e 7 são só marcação de tela: a demonstração não
-// persiste «conferido item a item» (o dado real é o estado de cada documento).
+// persiste a marcação item a item (o que vale é o estado de cada documento).
 const marcados = ref<Record<string, boolean>>({})
 
 // Rascunho local do checklist comercial. Edita-se uma cópia e só «Salvar»
@@ -95,7 +97,7 @@ function ressincronizar() {
   telefone.value = parte.telefone ?? ''
   email.value = parte.email ?? ''
   matriculaMae.value = !!p.matriculaMae
-  valorVenal.value = (p as ProcessoComVenal).valorVenal ?? 0
+  valorVenal.value = p.valorVenal ?? 0
   Object.assign(conf, {
     documentacao: false,
     valores: false,
@@ -126,7 +128,9 @@ const dadosForm = computed<DadosFinanceiros>(() => ({
   },
 }))
 const conferencia = computed(() => conferirFontes(dadosForm.value))
-const itens = computed(() => itensChecklist(props.etapa, { matriculaMae: matriculaMae.value }))
+const itens = computed(() => itensChecklist(props.etapa))
+// Itens com arquivo (etapas 2 a 5): vêm dos dados SALVOS do processo, não do rascunho.
+const requisitos = computed(() => requisitosDaEtapa(props.processo, props.etapa))
 // Documentação do proprietário = a do vendedor: já vem da etapa 2.
 const proprietarioOk = computed(() => !!props.processo.concluidas[1])
 
@@ -225,16 +229,28 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         </div>
       </form>
 
-      <fieldset class="m-0 flex flex-col gap-1 border-0 p-0">
-        <legend class="mb-1 p-0 text-[length:var(--fs-body)] font-bold">Checklist</legend>
-        <label v-for="item in itens" :key="item" :class="linhaCheck">
-          <input v-model="marcados[`${etapa}:${item}`]" type="checkbox" class="size-5 accent-[var(--brand)]" :disabled="!podeEditar" />
-          <span>{{ item }}</span>
-        </label>
+      <div class="flex flex-col gap-2">
+        <h3 class="m-0 text-[length:var(--fs-body)] font-bold">
+          {{ etapa === 4 ? 'Documentos do imóvel' : `Documentos do ${quemPessoa}` }}
+        </h3>
+        <p v-if="etapa === 4" class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
+          Marcar a matrícula-mãe troca a lista abaixo depois de salvar os dados do imóvel.
+        </p>
+        <GestaoRequisitos
+          :requisitos="requisitos"
+          :documentos="documentos"
+          :processo-id="processo.id"
+          :pode-enviar="podeEnviar"
+          :pode-conferir="podeConferir"
+          :demo="demo"
+          @enviar="(r, a) => emit('enviarRequisito', r, a)"
+          @trocar="(d, a) => emit('trocarArquivo', d, a)"
+          @conferir="(d) => emit('conferirDoc', d)"
+        />
         <!-- O proprietário costuma ser o vendedor: não se pede o mesmo papel duas vezes. -->
         <p
           v-if="etapa === 4"
-          class="m-0 flex min-h-11 items-center gap-3 rounded-[10px] bg-[var(--surface)] px-2"
+          class="m-0 flex min-h-11 items-center gap-3 rounded-[10px] bg-[var(--surface)] px-3"
           data-testid="doc-proprietario"
         >
           <span aria-hidden="true">{{ proprietarioOk ? '✓' : '○' }}</span>
@@ -243,23 +259,6 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
             <strong>{{ proprietarioOk ? 'atendida pela etapa 2' : 'pendente: depende da etapa 2' }}</strong>
           </span>
         </p>
-      </fieldset>
-
-      <div>
-        <h3 class="m-0 mb-1 text-[length:var(--fs-body)] font-bold">Documentos enviados</h3>
-        <p v-if="!docsDaEtapa.length" class="m-0 text-[var(--ink-soft)]">Nenhum documento enviado nesta etapa.</p>
-        <ul v-else class="m-0 flex list-none flex-col gap-1 p-0">
-          <li
-            v-for="d in docsDaEtapa"
-            :key="d.id"
-            class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] py-2 last:border-b-0"
-          >
-            <span>{{ d.nome }}</span>
-            <span class="rounded-full bg-[var(--surface)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold">
-              {{ ROTULO_ESTADO[d.estado] }}
-            </span>
-          </li>
-        </ul>
       </div>
     </div>
 
@@ -309,16 +308,32 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           <input v-model.number="valorBem" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-valor-bem" />
         </label>
       </div>
+      <!-- Resumo (protótipo): soma das fontes × valor da venda, sempre visível. -->
+      <dl class="m-0 flex flex-col gap-1 rounded-xl bg-[var(--surface)] px-4 py-3" data-testid="fin-resumo">
+        <div class="flex justify-between gap-3">
+          <dt>Valor da venda</dt>
+          <dd class="m-0 font-bold" data-testid="fin-resumo-valor">{{ brl(n(valor)) }}</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt>Soma das fontes (financiamento + entrada + FGTS + recursos próprios<template v-if="n(valorBem) > 0"> + bem</template>)</dt>
+          <dd class="m-0 font-bold" data-testid="fin-resumo-soma">{{ brl(n(valor) - conferencia.diferenca) }}</dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt>{{ conferencia.diferenca > 0 ? 'Ainda falta' : conferencia.diferenca < 0 ? 'Passou do valor' : 'Diferença' }}</dt>
+          <dd class="m-0 font-bold" data-testid="fin-resumo-diferenca">{{ brl(Math.abs(conferencia.diferenca)) }}</dd>
+        </div>
+      </dl>
       <!-- Texto + ícone: «Fecha» e «Faltam» não podem depender só de cor. -->
       <p
         class="m-0 rounded-[10px] px-3 py-2 font-bold"
-        :class="conferencia.fecha ? 'bg-[#d1fae5] text-[#064e3b]' : 'bg-[#fef3c7] text-[#78350f]'"
+        :class="conferencia.fecha && n(valor) > 0 ? 'bg-[#d1fae5] text-[#064e3b]' : 'bg-[#fef3c7] text-[#78350f]'"
         role="status"
         data-testid="fin-conferencia"
       >
-        <template v-if="conferencia.fecha">✓ Fecha: as fontes somam o valor da venda.</template>
-        <template v-else-if="conferencia.diferenca > 0">⚠ Faltam {{ brl(conferencia.diferenca) }} para fechar o valor.</template>
-        <template v-else>⚠ As fontes passam {{ brl(-conferencia.diferenca) }} do valor da venda.</template>
+        <template v-if="conferencia.fecha && n(valor) > 0">✓ As fontes de pagamento fecham com o valor da venda.</template>
+        <template v-else-if="conferencia.diferenca > 0">⚠ Faltam {{ brl(conferencia.diferenca) }} para fechar o valor da venda.</template>
+        <template v-else-if="conferencia.diferenca < 0">⚠ As fontes passam {{ brl(-conferencia.diferenca) }} do valor da venda.</template>
+        <template v-else>⚠ Informe o valor da venda.</template>
       </p>
       <div>
         <button
@@ -329,6 +344,24 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         >
           Salvar checklist comercial
         </button>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <h3 class="m-0 text-[length:var(--fs-body)] font-bold">Itens para conferir</h3>
+        <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
+          A lista acompanha as fontes salvas: simulação só se há financiamento, extrato só se há FGTS, comprovante só se há entrada.
+        </p>
+        <GestaoRequisitos
+          :requisitos="requisitos"
+          :documentos="documentos"
+          :processo-id="processo.id"
+          :pode-enviar="podeEnviar"
+          :pode-conferir="podeConferir"
+          :demo="demo"
+          @enviar="(r, a) => emit('enviarRequisito', r, a)"
+          @trocar="(d, a) => emit('trocarArquivo', d, a)"
+          @conferir="(d) => emit('conferirDoc', d)"
+        />
       </div>
     </form>
 

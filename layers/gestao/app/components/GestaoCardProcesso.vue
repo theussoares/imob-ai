@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { statusFinal } from '../../domain/status'
 import type { Processo } from '../../domain/types'
 
 const props = defineProps<{
@@ -8,6 +9,7 @@ const props = defineProps<{
 }>()
 
 // Cancelada não precisa mais de contrato: o selo viraria ruído num card encerrado.
+const final = computed(() => statusFinal(props.processo.status))
 const semContrato = computed(() => !props.processo.pdf && props.processo.status !== 'Venda cancelada')
 </script>
 
@@ -22,7 +24,9 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
       <GestaoStatusChip :status="processo.status" />
     </header>
 
-    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold">Vendedor e comprador</h2>
+    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold" data-testid="card-titulo">
+      {{ processo.vendedor.nome }} e {{ processo.comprador.nome }}
+    </h2>
 
     <dl class="[display:grid] grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1.5 text-[length:var(--fs-ui)]">
       <dt class="text-[var(--ink-soft)]">Vendedor</dt>
@@ -45,6 +49,13 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
     >
       {{ pendencias }} {{ pendencias === 1 ? 'pendência documental' : 'pendências documentais' }}
     </p>
+    <p
+      v-else-if="!final"
+      class="rounded-lg bg-[#d1fae5] px-3 py-2 text-[length:var(--fs-caption)] font-bold text-[#064e3b]"
+      data-testid="sem-pendencias"
+    >
+      Sem pendências documentais
+    </p>
 
     <p
       v-if="semContrato"
@@ -56,7 +67,7 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
 
     <NuxtLink
       :to="`/gestao/vendas/${processo.id}`"
-      class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+      class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white! no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
     >
       Abrir processo
     </NuxtLink>

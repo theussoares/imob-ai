@@ -1,4 +1,5 @@
 import { statusFinal, TOTAL_ETAPAS } from './status'
+import { requisitoPorChave, pendenciasEtapa } from './requisitos'
 import { STATUS_INICIAL } from './seed'
 import type { Documento, CategoriaDocumento, Processo, StatusVenda } from './types'
 
@@ -105,6 +106,10 @@ export function concluirEtapa(estado: Estado, id: string, etapa: number, ator: A
   if (statusFinal(p.status)) return { ok: false, erro: 'Este processo está encerrado e só aceita consulta.' }
   if (etapa !== p.etapa) return { ok: false, erro: 'Conclua as etapas em ordem.' }
   if (etapa >= TOTAL_ETAPAS) return { ok: false, erro: 'A última etapa se conclui concluindo a venda.' }
+  // Etapa só conclui com dados e arquivos de fato: foi o defeito da 1ª versão
+  // (etapa 2 concluída sem CPF, telefone, e-mail nem documento).
+  const faltam = pendenciasEtapa(p, estado.documentos, etapa)
+  if (faltam.length) return { ok: false, erro: `Ainda falta: ${faltam.join(' ')}` }
   const next = atualiza(estado, id, (x) => {
     const concluidas = x.concluidas.map((c, i) => (i === etapa - 1 ? true : c))
     return comEvento({ ...x, concluidas, etapa: etapa + 1 }, `Concluiu a etapa ${etapa}`, ator, quando)
@@ -114,18 +119,24 @@ export function concluirEtapa(estado: Estado, id: string, etapa: number, ator: A
 
 export function enviarDocumento(
   estado: Estado,
-  dados: { nome: string; categoria: CategoriaDocumento; processoId: string; tamanho: number },
+  dados: { nome: string; categoria: CategoriaDocumento; processoId: string; tamanho: number; requisito?: string },
   ator: Ator,
+  quando = agora(),
 ): Resultado {
   if (!dados.nome.trim()) return { ok: false, erro: 'Escolha um arquivo.' }
   if (!/\.(pdf|jpe?g|png|webp)$/i.test(dados.nome)) return { ok: false, erro: 'Use PDF, JPG, PNG ou WEBP.' }
   if (dados.tamanho > 20 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 20 MB.' }
   if (!estado.processos.some((p) => p.id === dados.processoId)) return { ok: false, erro: 'Escolha o processo do documento.' }
+  const req = dados.requisito ? requisitoPorChave(dados.requisito) : undefined
+  if (dados.requisito && !req) return { ok: false, erro: 'Item de checklist desconhecido.' }
   const id = `d${estado.documentos.length + 1}-${Date.now().toString(36)}`
   const documento: Documento = {
     id,
     nome: dados.nome.trim(),
-    categoria: dados.categoria,
+    // O item manda na categoria: o arquivo do RG tem de aparecer em «Pessoas» mesmo
+    // que quem enviou não tenha escolhido nada.
+    categoria: req?.categoria ?? dados.categoria,
+    ...(req && { requisito: req.chave }),
     processoId: dados.processoId,
     estado: 'enviado',
     tamanho: dados.tamanho,
@@ -133,7 +144,10 @@ export function enviarDocumento(
     enviadoPor: ator.nome,
     apagado: null,
   }
-  return { ok: true, estado: { ...estado, documentos: [documento, ...estado.documentos] } }
+  const comHistorico = atualiza(estado, dados.processoId, (p) =>
+    comEvento(p, `Enviou o documento: ${req?.nome ?? documento.nome}`, ator, quando),
+  )
+  return { ok: true, estado: { ...comHistorico, documentos: [documento, ...estado.documentos] } }
 }
 
 export function substituirDocumento(estado: Estado, docId: string, tamanho: number): Resultado {

@@ -171,22 +171,11 @@ export function salvarFinanceiro(
 }
 
 /**
- * Itens esperados por etapa de checklist (mock da demonstração). Função, e não
- * tabela, porque a etapa 4 muda com a matrícula: matrícula-mãe exige também o
- * projeto/prancha do imóvel (reunião com o cliente).
+ * Itens das etapas 6 e 7 (mock da demonstração). Os documentos das etapas 2 a 5
+ * vivem em `requisitos.ts`, porque lá cada item tem arquivo e estado.
  */
-export function itensChecklist(etapa: number, opts: { matriculaMae?: boolean } = {}): string[] {
+export function itensChecklist(etapa: number): string[] {
   switch (etapa) {
-    case 2:
-    case 3:
-      return ['RG', 'CPF', 'CNH (vale no lugar do RG)', 'Certidão de casamento ou de nascimento', 'Comprovante de residência']
-    case 4:
-      return [
-        opts.matriculaMae ? 'Matrícula-mãe' : 'Matrícula atualizada',
-        ...(opts.matriculaMae ? ['Projeto/prancha do imóvel'] : []),
-        'Valor venal',
-        'Comprovante de água e luz',
-      ]
     case 6:
       return ['Documentos conferidos com os originais', 'Dados do contrato batem com o cadastro', 'Fontes de pagamento fecham com o valor']
     case 7:
@@ -221,7 +210,7 @@ export function salvarPessoa(
     const cpf = dados.cpf.trim()
     const tel = dados.telefone.trim()
     const mail = dados.email.trim()
-    if (cpf && SO_DIGITOS(cpf).length !== 11) return { ok: false, erro: 'CPF deve ter 11 dígitos.' }
+    if (cpf && ![11, 14].includes(SO_DIGITOS(cpf).length)) return { ok: false, erro: 'CPF deve ter 11 dígitos (ou CNPJ, 14).' }
     if (tel && ![10, 11].includes(SO_DIGITOS(tel).length)) return { ok: false, erro: 'Telefone deve ter DDD e 8 ou 9 dígitos.' }
     if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return { ok: false, erro: 'E-mail inválido.' }
     const atual: Pessoa = p[quem]
@@ -238,13 +227,11 @@ export interface DadosImovel {
   valorVenal: number
 }
 
-/** Processo com o valor venal, que `types.ts` ainda não declara (ver relatório). */
-export type ProcessoComVenal = Processo & { valorVenal?: number }
 
 export function salvarImovel(estado: Estado, id: string, dados: DadosImovel, ator: Ator, quando = agora()): Resultado {
   return alterar(estado, id, ator, quando, (p) => {
     if (!Number.isFinite(dados.valorVenal) || dados.valorVenal < 0) return { ok: false, erro: 'O valor venal não pode ser negativo.' }
-    const novo: ProcessoComVenal = { ...p, matriculaMae: dados.matriculaMae, valorVenal: dados.valorVenal }
+    const novo: Processo = { ...p, matriculaMae: dados.matriculaMae, valorVenal: dados.valorVenal }
     return { ok: true, acao: 'Atualizou os dados do imóvel', processo: novo }
   })
 }

@@ -196,19 +196,10 @@ describe('salvarPessoa', () => {
 })
 
 describe('imóvel e checklist da etapa 4', () => {
-  it('matrícula-mãe adiciona o projeto/prancha; matrícula comum não', () => {
-    expect(itensChecklist(4)).toContain('Matrícula atualizada')
-    expect(itensChecklist(4)).not.toContain('Projeto/prancha do imóvel')
-    const mae = itensChecklist(4, { matriculaMae: true })
-    expect(mae).toContain('Matrícula-mãe')
-    expect(mae).toContain('Projeto/prancha do imóvel')
-    expect(mae).not.toContain('Matrícula atualizada')
-    expect(mae).toContain('Comprovante de água e luz')
-  })
-
-  it('etapas 2 e 3 trazem RG, CPF, CNH, certidão e residência', () => {
-    expect(itensChecklist(2)).toHaveLength(5)
-    expect(itensChecklist(3)).toEqual(itensChecklist(2))
+  it('itens das etapas 6 e 7 são só marcação de tela', () => {
+    expect(itensChecklist(6)).toHaveLength(3)
+    expect(itensChecklist(7)).toHaveLength(3)
+    expect(itensChecklist(2)).toEqual([]) // 2 a 5 têm arquivo: ver requisitos.test.ts
   })
 
   it('salvarImovel grava matrícula-mãe e valor venal; recusa venal negativo', () => {

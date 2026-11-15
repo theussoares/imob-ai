@@ -115,6 +115,8 @@ export interface Processo {
   pdf: boolean
   /** Matrícula-mãe: exige projeto/prancha do imóvel (anotação da reunião). */
   matriculaMae?: boolean
+  /** Valor venal do imóvel (IPTU), preenchido na etapa 4. */
+  valorVenal?: number
   conferenciaFinal?: ConferenciaFinal
   arquivado: boolean
 }
@@ -150,6 +152,11 @@ export interface Documento {
   tamanho: number
   versoes: number
   enviadoPor: string
+  /**
+   * Chave do item de checklist que este arquivo atende (ver `requisitos.ts`).
+   * Ausente = documento avulso, enviado pela tela de documentos.
+   */
+  requisito?: string
   /** preenchido quando foi para a lixeira */
   apagado: { quem: string; quando: string } | null
 }

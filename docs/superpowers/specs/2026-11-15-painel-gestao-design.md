@@ -111,3 +111,16 @@ Cruzadas com o protótipo e com o checklist impresso da Olmi.
 | Menu lateral com uma aba por tipo de contrato, card com nome e status | Já é assim (venda hoje, locação em breve) |
 | Busca SPC/Serasa dentro do sistema | Fora de hoje: tela «em breve», permissão `consulta` já modelada; exige contrato com o provedor |
 | Inspirações: Mobz, Azana, Imoviu | Sem acesso a esses produtos aqui; a UI segue o protótipo aprovado |
+
+## Ajustes pós-revisão (15/11)
+
+| Decisão | Alternativa descartada | Motivo |
+| --- | --- | --- |
+| Etapas 1 a 5 só concluem com dados e arquivos (`pendenciasEtapa`); telefone e e-mail seguem opcionais **na abertura** e obrigatórios para concluir as etapas 2 e 3 | Tornar os dois obrigatórios no «Novo processo» | O corretor abre o processo na hora da proposta, ainda sem o contato; a exigência cai onde o contato é necessário |
+| Estado do item de documento derivado do arquivo (`Documento.requisito`) | Checkbox por item | Checkbox sem arquivo era afirmação sem prova: a etapa 2 foi concluída vazia |
+| Documentos das pessoas: RG ou CNH, certidão de nascimento ou casamento, comprovante de residência; CPF vira campo | CPF como arquivo | Pedido do cliente: não se pede o papel do CPF |
+| Aba «Comissão» some para quem não tem `valores` | Aba com cadeado | Não precisa avisar que existe algo escondido |
+
+Divergências do protótipo ainda abertas (não pedidas ainda): etapa 1 editável com contrato preliminar,
+«Ganho de capital» como lista (Isento / Há ganho / Ainda não analisado), observações do jurídico na
+etapa 7, arquivar contrato e tela «Arquivados», cancelar venda como botão na etapa 8.

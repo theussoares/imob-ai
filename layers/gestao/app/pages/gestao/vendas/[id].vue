@@ -12,15 +12,19 @@ import {
   salvarImovel,
   salvarPessoa,
 } from '../../../../domain/acoes-processo'
+import { conferirDocumento, enviarDocumento, substituirDocumento } from '../../../../domain/acoes'
+import { validarArquivo } from '../../../../domain/documentos'
+import { pendenciasEtapa, type Requisito } from '../../../../domain/requisitos'
 import { ETAPAS_VENDA, progresso, STATUS_VENDA, statusFinal, TOTAL_ETAPAS } from '../../../../domain/status'
 import { CORRETORES } from '../../../../domain/seed'
-import type { ConferenciaFinal, StatusVenda } from '../../../../domain/types'
+import type { ConferenciaFinal, Documento, StatusVenda } from '../../../../domain/types'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
 const route = useRoute()
 const store = useGestaoStore()
 const toast = useToast()
+const demo = !!useRuntimeConfig().public.gestaoDemo
 const { askConfirm } = useConfirm()
 
 await store.carregar()
@@ -49,6 +53,13 @@ const podeNaEtapa = (etapa: number) => {
   if (etapa === 7) return c.juridico
   return c.editar
 }
+// Pendências da etapa em exibição: a mesma função que `concluirEtapa` usa para recusar.
+const pendencias = computed(() =>
+  processo.value && !final.value ? pendenciasEtapa(processo.value, docs.value, etapaVista.value) : [],
+)
+const podeEnviarArquivo = computed(() => !final.value && !!caps.value?.enviarDocs)
+const podeConferirArquivo = computed(() => !final.value && !!caps.value?.conferir)
+
 const podeMudarStatus = computed(() => !final.value && !!(caps.value?.editar || caps.value?.juridico))
 
 /** Executa uma ação do store e avisa o resultado; devolve se deu certo. */
@@ -130,6 +141,29 @@ async function concluirVenda() {
     confirmLabel: 'Concluir venda',
   })
   if (ok) executar((s, a) => store.acoes.mudarStatus(s, p.id, 'Venda concluída', a), 'Venda concluída.')
+}
+
+// Arquivos dos itens do checklist. O demo guarda só nome e tamanho (sem binário),
+// mas a validação de tipo e tamanho é a de verdade: a mesma da tela de documentos.
+function enviarArquivo(r: Requisito, arq: { name: string; size: number }) {
+  const p = processo.value
+  if (!p) return
+  const erro = validarArquivo(arq.name, arq.size)
+  if (erro) return void toast.error(erro)
+  executar(
+    (s, a) => enviarDocumento(s, { nome: arq.name, categoria: r.categoria, processoId: p.id, tamanho: arq.size, requisito: r.chave }, a),
+    'Documento enviado.',
+  )
+}
+
+function trocarArquivo(d: Documento, arq: { name: string; size: number }) {
+  const erro = validarArquivo(arq.name, arq.size)
+  if (erro) return void toast.error(erro)
+  executar((s) => substituirDocumento(s, d.id, arq.size), 'Arquivo trocado.')
+}
+
+function conferirArquivo(d: Documento) {
+  executar((s) => conferirDocumento(s, d.id), 'Documento conferido.')
 }
 
 function registrar(dados: NovoAdiantamento) {
@@ -235,7 +269,8 @@ const aba_ = (ativa: boolean) =>
 
     <GestaoStepper :vista="etapaVista" :atual="processo.etapa" :concluidas="processo.concluidas" @ir="etapaVista = $event" />
 
-    <!-- Abas: Etapas | Comissão (trancada sem `valores`) -->
+    <!-- Abas: Etapas | Comissão. Sem `valores` a aba nem existe: avisar que algo está
+         escondido só convida a pedir acesso, e o perfil não precisa saber que há comissão. -->
     <div class="flex gap-1 border-b border-[var(--line-2)]" role="tablist" aria-label="Seções do processo">
       <button type="button" role="tab" :aria-selected="aba === 'etapas'" :class="aba_(aba === 'etapas')" data-testid="aba-etapas" @click="aba = 'etapas'">
         Etapas
@@ -251,15 +286,6 @@ const aba_ = (ativa: boolean) =>
       >
         Comissão
       </button>
-      <span
-        v-else
-        role="tab"
-        aria-disabled="true"
-        class="inline-flex min-h-11 items-center px-4 font-bold text-[var(--ink-soft)]"
-        data-testid="aba-comissao"
-      >
-        🔒 Comissão · Só jurídico e dono
-      </span>
       <!-- Fora do painel de etapa de propósito: vale em qualquer etapa, perfil e
            status — processo encerrado é só leitura, mas consultar documento não. -->
       <NuxtLink
@@ -284,12 +310,32 @@ const aba_ = (ativa: boolean) =>
             :pode-editar="podeNaEtapa(etapaVista)"
             :pode-checklist="etapaVista === 6 ? !!caps?.conferir : !!caps?.juridico"
             :pode-concluir-venda="!final && !!(caps?.editar || caps?.juridico)"
+            :pode-enviar="podeEnviarArquivo"
+            :pode-conferir="podeConferirArquivo"
+            :demo="demo"
             @salvar-financeiro="salvarFin"
             @salvar-pessoa="salvarParte"
             @salvar-imovel="salvarDadosImovel"
             @salvar-conferencia="salvarConferencia"
             @concluir-venda="concluirVenda"
+            @enviar-requisito="enviarArquivo"
+            @trocar-arquivo="trocarArquivo"
+            @conferir-doc="conferirArquivo"
           />
+
+          <!-- O que falta para concluir: o botão só habilita sem pendências. -->
+          <div
+            v-if="pendencias.length && etapaVista === processo.etapa && etapaVista < TOTAL_ETAPAS"
+            id="pendencias-etapa"
+            class="rounded-[10px] bg-[#fef3c7] px-3 py-2 text-[#78350f]"
+            role="note"
+            data-testid="pendencias-etapa"
+          >
+            <strong class="block">Para concluir a etapa {{ etapaVista }}:</strong>
+            <ul class="m-0 list-disc pl-5">
+              <li v-for="m in pendencias" :key="m">{{ m }}</li>
+            </ul>
+          </div>
 
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" :class="btn" :disabled="etapaVista <= 1" @click="etapaVista--">← Etapa anterior</button>
@@ -297,7 +343,8 @@ const aba_ = (ativa: boolean) =>
               v-if="etapaVista === processo.etapa && etapaVista < TOTAL_ETAPAS && !final"
               type="button"
               class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              :disabled="!podeNaEtapa(etapaVista)"
+              :disabled="!podeNaEtapa(etapaVista) || pendencias.length > 0"
+              :aria-describedby="pendencias.length ? 'pendencias-etapa' : undefined"
               data-testid="concluir-etapa"
               @click="concluirEtapa"
             >

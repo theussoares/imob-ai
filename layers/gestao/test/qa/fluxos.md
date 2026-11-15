@@ -59,8 +59,8 @@ PASSOU/FALHOU por passo, com o texto observado quando falhar.
 
 1. Como dono, abrir `/gestao/vendas/V-2026-0151`. `stepper` mostra 8 etapas; etapa 3
    é a atual; texto «2 de 8 etapas concluídas».
-2. Clicar `concluir-etapa` → «3 de 8», etapa atual vira 4, histórico ganha
-   «Concluiu a etapa 3».
+2. `concluir-etapa` está DESABILITADO e `pendencias-etapa` lista o que falta (telefone e
+   e-mail da compradora, 2 documentos). Para concluir de verdade, ver o F12.
 3. Trocar `select-status` para «Proposta aprovada» → chip muda; histórico registra.
 4. Em **V-2026-0158** (não use o 0151: o F6 precisa dele ativo), selecionar «Venda cancelada» →
    abre confirmação; cancelar o diálogo → status não muda; repetir e confirmar → chip «Venda
@@ -77,7 +77,7 @@ PASSOU/FALHOU por passo, com o texto observado quando falhar.
    «não pode passar do que resta»; nada é gravado.
 4. Registrar R$ 1.000,00 ao captador → aparece na lista; restante do total diminui 1.000.
 5. Remover o adiantamento → pede confirmação; confirmar → some.
-6. Como recepção e corretor: aba de comissão trancada, texto «Só jurídico e dono»;
+6. Como recepção e corretor: NÃO existe `aba-comissao` nem texto sobre comissão (nem cadeado);
    nenhum valor de comissão no HTML (`get_page_text` não contém «R$ 24.000,00»).
 
 ## F7 — Isolamento do corretor
@@ -89,9 +89,10 @@ PASSOU/FALHOU por passo, com o texto observado quando falhar.
 ## F8 — Documentos
 
 1. Como dono, `/gestao/documentos`: abas `aba-documentos`, `aba-lixeira`, `aba-sem-pdf`.
-   `documento-item` com os 7 documentos ativos; lixeira com 1 («Recibo de adiantamento»).
+   `documento-item` com os documentos ativos (os 7 avulsos mais os arquivos dos itens de checklist
+   dos processos de exemplo); lixeira com 1 («Recibo de adiantamento»).
 2. Chip `chip-categoria` «Venda» → só documentos de categoria venda. «Todas» volta.
-3. Busca «matrícula» em `busca-documento` → 1 item.
+3. Busca «matrícula» em `busca-documento` → só itens cujo nome ou processo contém «matrícula».
 4. `apagar` em «RG do vendedor.pdf» → confirmação; confirmar → sai de Documentos,
    aparece na Lixeira com «Helena Duarte» e a data.
 5. Na Lixeira, `restaurar` → volta para Documentos.
@@ -140,6 +141,31 @@ Pré-condição: login com o atalho de demonstração como `perfil-dono` ou `per
    5 erros → bloqueado. Código certo (em nova tentativa) → entra em `/gestao/vendas` com o nome
    do usuário no topo. `reenviar` fica desabilitado por ~60 s.
 9. Recarregar a página logado → continua logado. «Trocar perfil» → volta ao login.
+
+## F12 — Etapas 2 a 5: dados, arquivos e conclusão
+
+Como dono, em `/gestao/vendas/V-2026-0155` (etapa 1). Botão `requisito-exemplo` = «Anexar exemplo»
+(só no modo demonstração, equivale a enviar um PDF).
+
+1. `concluir-etapa` na etapa 1 → vai à etapa 2. `concluir-etapa` fica desabilitado e
+   `pendencias-etapa` cita telefone, e-mail e «Faltam 3 documentos».
+2. A lista `requisitos` tem exatamente: RG ou CNH, Certidão de nascimento ou de casamento,
+   Comprovante de residência (NÃO há CPF como arquivo), cada um «Pendente», com `requisito-enviar`.
+3. Preencher `pessoa-telefone` «(11) 98765-4321» e `pessoa-email`, `pessoa-salvar` → some a
+   pendência de contato; botão continua desabilitado (faltam arquivos).
+4. `requisito-exemplo` nos três itens → todos «Enviado»; `concluir-etapa` habilita; clicar →
+   etapa 3, progresso «2 de 8», histórico com «Enviou o documento: …» (3x) e «Concluiu a etapa 2».
+5. Etapa 3: mesma exigência para o comprador. Etapa 4: `valor-venal` e a lista (Matrícula atualizada,
+   Comprovante do valor venal, Comprovante de água e luz); marcar `matricula-mae` e salvar troca a
+   matrícula por «Matrícula-mãe» + «Projeto/prancha do imóvel».
+6. Em `/gestao/vendas/V-2026-0158` (etapa 5): `fin-resumo` mostra valor da venda, soma das fontes e
+   diferença; «As fontes de pagamento fecham com o valor da venda.»; a lista «Itens para conferir»
+   tem Proposta (Enviado), Simulação (Enviado) e Comprovante da entrada (Pendente, com
+   `requisito-enviar`). Enviar o que falta e `concluir-etapa` conclui.
+7. Mudar a forma para «À vista» e salvar: a lista fica só com a proposta.
+8. `requisito-conferir` aparece só para recepção e dono (permissão conferir), nunca para corretor.
+9. Corretor sem permissão de envio não vê `requisito-enviar`; processo encerrado não mostra
+   nenhum botão de envio ou conferência.
 
 ## Formato do relatório
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { filtrarProcessos } from '../../../../domain/filtro'
+import { documentosPendentes } from '../../../../domain/requisitos'
 import { CORRETORES } from '../../../../domain/seed'
 import { STATUS_VENDA } from '../../../../domain/status'
 import type { StatusVenda } from '../../../../domain/types'
@@ -33,14 +34,11 @@ const filtrados = computed(() =>
 
 const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
 
-// Pendência = documento ainda sem envio; os da lixeira não contam, senão
-// apagar um documento deixaria um aviso sem nada a resolver.
+// Pendência = item de documento (etapas 2 a 4) ainda sem arquivo. Os da lixeira
+// não contam como enviados: apagar o arquivo reabre a pendência.
 const pendencias = computed(() => {
-  const m = new Map<string, number>()
-  for (const d of store.documentos.value) {
-    if (d.estado === 'pendente' && !d.apagado) m.set(d.processoId, (m.get(d.processoId) ?? 0) + 1)
-  }
-  return m
+  const docs = store.documentos.value
+  return new Map(store.visiveis.value.map((p) => [p.id, documentosPendentes(p, docs)]))
 })
 
 function limpar() {
