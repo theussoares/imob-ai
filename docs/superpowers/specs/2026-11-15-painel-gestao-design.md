@@ -101,7 +101,7 @@ Cruzadas com o protótipo e com o checklist impresso da Olmi.
 |---|---|
 | Corretor vê só o seu; recepção e jurídico veem os próprios acessos e os de todos os corretores; dono vê tudo | Já na matriz de permissões (`verTodos`) |
 | Corretor preenche o formulário primeiro e pode anexar o contrato (opcional) | Entra hoje: modal «Novo processo» com telefone, e-mail e PDF opcional |
-| Recepção vê e edita; jurídico arquiva; dono tudo | Já na matriz. **«Deletar» contratos pelo jurídico não existe**: hoje só arquiva (decisão a confirmar; excluir de verdade perde histórico) |
+| Recepção vê e edita; jurídico arquiva; dono tudo | Já na matriz. **Jurídico só arquiva, não deleta** (decidido em 15/11: excluir de verdade perderia histórico e auditoria; a nota «arquivar/deletar» da reunião fica como arquivar) |
 | Docs do vendedor/comprador: RG, CPF, CNH, telefone, e-mail, certidão de casamento ou nascimento, comprovante de residência | Entra hoje (etapas 2 e 3, com cadastro de CPF/telefone/e-mail) |
 | Imóvel: matrícula atualizada ou matrícula-mãe (exige projeto/prancha), valor venal, docs do proprietário (= vendedor), água e luz | Entra hoje (etapa 4, `matriculaMae`) |
 | Checklist: valor de venda, de avaliação, financiado, ganho de capital, entrada (FGTS, recurso próprio, bem) | Entra hoje (`avaliacao`, `ganhoCapital`, `bem`/`valorBem`) |
