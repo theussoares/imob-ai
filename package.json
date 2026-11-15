@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:css-inline": "NITRO_PRESET=node-server nuxt build && node scripts/css-inline.mjs",
-    "dev:gestao": "NUXT_MOCKER_SERVER_ENABLED=true NUXT_PUBLIC_GESTAO_ENABLED=true nuxt dev"
+    "dev:gestao": "NUXT_MOCKER_SERVER_ENABLED=true NUXT_PUBLIC_GESTAO_ENABLED=true NUXT_PUBLIC_GESTAO_DEMO=true nuxt dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

@@ -19,6 +19,7 @@ export type PermChave =
   | 'valores'
   | 'consulta'
   | 'auditoria'
+  | 'convidar'
   | 'admin'
 
 export type MatrizPermissoes = Record<PermChave, Record<Perfil, PermValor>>
@@ -33,6 +34,8 @@ export interface Sessao {
 export interface Pessoa {
   nome: string
   cpf: string
+  telefone?: string
+  email?: string
 }
 
 export type FormaPagamento = 'À vista' | 'Financiamento' | 'Misto'
@@ -43,6 +46,13 @@ export interface FontesPagamento {
   entrada: number
   fgts: number
   proprios: number
+  /** Valor de avaliação do imóvel (checklist da Olmi). */
+  avaliacao?: number
+  /** Ganho de capital, quando houver. */
+  ganhoCapital?: number
+  /** Bem dado na entrada (casa, carro…): descrição e valor abatido. */
+  bem?: string
+  valorBem?: number
 }
 
 export type ResponsavelAdiantamento = 'vendedor' | 'captador' | 'imob'
@@ -54,6 +64,23 @@ export interface Adiantamento {
   /** ISO yyyy-mm-dd */
   data: string
   quem: string
+  /** «adiantamento» (durante a venda) ou «fim-contrato» (acerto na conclusão). Ausente = adiantamento. */
+  momento?: 'adiantamento' | 'fim-contrato'
+  /** Checkbox de pagamento: só vale como pago com comprovante anexado. */
+  pago?: boolean
+  /** Nome do arquivo do comprovante. */
+  comprovante?: string | null
+}
+
+/** Conferência final do checklist da Olmi: quatro caixas, responsável e data. */
+export interface ConferenciaFinal {
+  documentacao: boolean
+  valores: boolean
+  comissao: boolean
+  encaminhado: boolean
+  responsavel: string
+  /** ISO yyyy-mm-dd */
+  data: string
 }
 
 export interface EventoHistorico {
@@ -86,6 +113,9 @@ export interface Processo {
   obs: string
   /** contrato PDF anexado (some do aviso «contratos sem PDF») */
   pdf: boolean
+  /** Matrícula-mãe: exige projeto/prancha do imóvel (anotação da reunião). */
+  matriculaMae?: boolean
+  conferenciaFinal?: ConferenciaFinal
   arquivado: boolean
 }
 

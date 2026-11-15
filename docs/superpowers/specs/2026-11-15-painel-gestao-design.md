@@ -13,7 +13,8 @@ funcionando sobre dados de exemplo — não um backend.
 
 ## Escopo (fatia de hoje)
 
-1. Login por seletor de perfil (Corretor, Recepção, Jurídico e financeiro, Dono).
+1. Acesso por convite (ver «Acesso e segurança»). O seletor de perfil sobrevive só como
+   «Acesso rápido de demonstração», ligado por `NUXT_PUBLIC_GESTAO_DEMO`.
 2. Layout: topo + menu lateral (mobile: menu horizontal), itens visíveis por permissão.
 3. Lista de contratos de venda: cards, busca, filtro dos 13 status, "Novo processo".
 4. Processo de venda: stepper de 8 etapas, mudança de status, aba de comissão
@@ -26,7 +27,7 @@ funcionando sobre dados de exemplo — não um backend.
 
 - Persistência real (Supabase), RLS, Storage, e-mail/WhatsApp, SPC/Serasa.
 - Locação (8 etapas próprias) e alertas 30/60/90.
-- Integração do login com `tenant_members`: o perfil do demo é escolhido na tela.
+- Backend real do acesso (Supabase Auth, tabela de OTP, envio de e-mail, Turnstile de verdade): hoje o fluxo é completo na tela, em modo demonstração.
 - Flag por tenant em `tenant_features` (exige migration): hoje o gate é
   `runtimeConfig.public.gestaoEnabled` (env `NUXT_PUBLIC_GESTAO_ENABLED`).
   Ligar à `tenant_features` é o primeiro item pós-demo.
@@ -68,3 +69,44 @@ layers/gestao/
     pages/gestao/**
   test/                 vitest (unidade) + qa/ (fluxos de QA no navegador)
 ```
+
+## Acesso e segurança (pedido de 15/11)
+
+Fluxo: **Dono ou Jurídico/financeiro convida por e-mail → convidado cria senha forte
+(com captcha) → no login, e-mail + senha (com captcha) → código de 6 dígitos por e-mail
+(2º fator) → sessão.** Nova permissão `convidar` (dono e jurídico); jurídico vê
+«Usuários e permissões» mas não «Configurações».
+
+| Decisão | Alternativa descartada | Motivo |
+|---|---|---|
+| Convite com token de uso único, validade 72 h, perfil fixado no convite | Dono cria a conta já com senha | A senha nasceria conhecida por terceiro (spec de convite de 18/08); foi o caso da conta demo |
+| Senha: ≥ 12 caracteres, maiúscula, minúscula, número, símbolo, sem e-mail/nome, fora de lista de senhas comuns; medidor de força | Só tamanho mínimo | Tamanho sozinho aceita `Senha123456` |
+| Captcha atrás de um componente `GestaoCaptcha` (token por `v-model`); real = Cloudflare Turnstile | Chamar o provedor direto nas telas | Provedor trocável; no demo é um desafio simulado, sem script de terceiro. Turnstile real é script de terceiro: exige revisar `privacidade.vue` (CLAUDE.md, seção LGPD) |
+| 2º fator por código de 6 dígitos no e-mail: validade 10 min, 5 tentativas, reenvio após 60 s, uso único, guardado só como hash | TOTP (app autenticador) | Pedido do cliente: e-mail. TOTP fica como evolução (Supabase MFA já suporta) |
+| Mensagens de erro genéricas no login («e-mail ou senha incorretos») | Dizer qual campo errou | Não revela se o e-mail tem conta |
+| No demo o código aparece numa faixa «Demonstração» | Enviar e-mail de verdade | Não há provedor de e-mail no demo; a faixa só existe com `GESTAO_DEMO` |
+
+Backend real (pós-demo, nada disto existe hoje): reaproveitar `server/api/admin/members.post.ts`
+(convite via `auth.admin.generateLink`), `server/utils/mailer.ts` (envio do código) e
+`server/utils/rate-limit.ts` (limite por IP e por conta). Tabela `gestao_otp` com
+`user_id`, `code_hash`, `expires_at`, `attempts`, RLS fechada e `revoke all from anon`;
+comparação do hash em tempo constante; tudo escopado por `tenant_id` do servidor.
+
+## Anotações da reunião com o cliente (15/11)
+
+Cruzadas com o protótipo e com o checklist impresso da Olmi.
+
+| Anotação | Situação |
+|---|---|
+| Corretor vê só o seu; recepção e jurídico veem os próprios acessos e os de todos os corretores; dono vê tudo | Já na matriz de permissões (`verTodos`) |
+| Corretor preenche o formulário primeiro e pode anexar o contrato (opcional) | Entra hoje: modal «Novo processo» com telefone, e-mail e PDF opcional |
+| Recepção vê e edita; jurídico arquiva; dono tudo | Já na matriz. **«Deletar» contratos pelo jurídico não existe**: hoje só arquiva (decisão a confirmar; excluir de verdade perde histórico) |
+| Docs do vendedor/comprador: RG, CPF, CNH, telefone, e-mail, certidão de casamento ou nascimento, comprovante de residência | Entra hoje (etapas 2 e 3, com cadastro de CPF/telefone/e-mail) |
+| Imóvel: matrícula atualizada ou matrícula-mãe (exige projeto/prancha), valor venal, docs do proprietário (= vendedor), água e luz | Entra hoje (etapa 4, `matriculaMae`) |
+| Checklist: valor de venda, de avaliação, financiado, ganho de capital, entrada (FGTS, recurso próprio, bem) | Entra hoje (`avaliacao`, `ganhoCapital`, `bem`/`valorBem`) |
+| Comissão 5% = 40/10/50, adiantamento «ou ao fim de contrato», checkbox de pagamento com comprovante, comissão final a receber | Entra hoje (`momento`, `pago`, `comprovante`; pago exige comprovante) |
+| Conferência final: 4 caixas, responsável e data | Entra hoje (`ConferenciaFinal`) |
+| Locação: aviso de fim de contrato e de aluguel, garantias, laudos de entrada/saída, repasse | Fora do MVP de hoje (menu «em breve»); primeiro item depois do demo |
+| Menu lateral com uma aba por tipo de contrato, card com nome e status | Já é assim (venda hoje, locação em breve) |
+| Busca SPC/Serasa dentro do sistema | Fora de hoje: tela «em breve», permissão `consulta` já modelada; exige contrato com o provedor |
+| Inspirações: Mobz, Azana, Imoviu | Sem acesso a esses produtos aqui; a UI segue o protótipo aprovado |

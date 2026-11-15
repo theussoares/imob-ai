@@ -50,7 +50,16 @@ describe('permissões do painel de gestão', () => {
     expect(vis('recepcao')).toContain('arquivados')
     expect(vis('juridico')).toContain('financeiro')
     expect(vis('juridico')).not.toContain('config')
+    expect(vis('juridico')).toContain('usuarios') // convida, mas não administra
+    expect(vis('recepcao')).not.toContain('usuarios')
     expect(vis('dono')).toHaveLength(MENU.length)
+  })
+
+  it('só dono e jurídico podem convidar usuários', () => {
+    expect(capacidades(matriz, sessaoDoPerfil('corretor')).convidar).toBe(false)
+    expect(capacidades(matriz, sessaoDoPerfil('recepcao')).convidar).toBe(false)
+    expect(capacidades(matriz, sessaoDoPerfil('juridico')).convidar).toBe(true)
+    expect(capacidades(matriz, sessaoDoPerfil('dono')).convidar).toBe(true)
   })
 
   it('matrizPadrao devolve cópia: editar uma não suja a próxima', () => {

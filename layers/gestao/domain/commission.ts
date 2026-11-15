@@ -66,7 +66,7 @@ export function validarAdiantamento(
 
 /** Soma das fontes de pagamento × valor da venda: «Faltam R$ …» ou «Fecha». */
 export function conferirFontes(p: Pick<Processo, 'valor' | 'fin'>): { fecha: boolean; diferenca: number } {
-  const soma = p.fin.financiado + p.fin.entrada + p.fin.fgts + p.fin.proprios
+  const soma = p.fin.financiado + p.fin.entrada + p.fin.fgts + p.fin.proprios + (p.fin.valorBem ?? 0)
   const diferenca = centavos(p.valor - soma)
   return { fecha: diferenca === 0, diferenca }
 }

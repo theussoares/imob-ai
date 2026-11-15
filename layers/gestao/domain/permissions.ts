@@ -46,6 +46,7 @@ export const DEFINICOES_PERMISSAO: { chave: PermChave; rotulo: string; estados: 
   { chave: 'valores', rotulo: 'Ver valores, comissões, pagamentos e repasses', estados: ['sim', 'nao'] },
   { chave: 'consulta', rotulo: 'Fazer consulta cadastral (SPC/Serasa)', estados: ['sim', 'nao'] },
   { chave: 'auditoria', rotulo: 'Ver o histórico de alterações (auditoria)', estados: ['sim', 'nao'] },
+  { chave: 'convidar', rotulo: 'Convidar usuários por e-mail', estados: ['sim', 'nao'] },
   { chave: 'admin', rotulo: 'Usuários, permissões e configurações', estados: ['sim', 'nao'] },
 ]
 
@@ -70,6 +71,7 @@ export function matrizPadrao(): MatrizPermissoes {
     valores: linha('nao', 'nao', 'sim', 'sim'),
     consulta: linha('nao', 'sim', 'sim', 'sim'),
     auditoria: linha('nao', 'nao', 'sim', 'sim'),
+    convidar: linha('nao', 'nao', 'sim', 'sim'),
     admin: linha('nao', 'nao', 'nao', 'sim'),
   }
 }
@@ -86,6 +88,7 @@ export interface Capacidades {
   apagarDocs: boolean
   consulta: boolean
   auditoria: boolean
+  convidar: boolean
   admin: boolean
 }
 
@@ -112,6 +115,7 @@ export function capacidades(matriz: MatrizPermissoes, sessao: Sessao, processo: 
     apagarDocs: v('apagarDocs') === 'sim',
     consulta: v('consulta') === 'sim',
     auditoria: v('auditoria') === 'sim',
+    convidar: v('convidar') === 'sim',
     admin: v('admin') === 'sim',
   }
 }
@@ -154,6 +158,8 @@ export function menuVisivel(matriz: MatrizPermissoes, perfil: Perfil, chave: Cha
     case 'auditoria':
       return v('auditoria')
     case 'usuarios':
+      // Jurídico convida mas não administra: vê a tela de usuários, não as configurações.
+      return v('admin') || v('convidar')
     case 'config':
       return v('admin')
     default:

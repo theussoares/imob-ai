@@ -28,6 +28,10 @@ export default defineNuxtConfig({
     public: {
       // Gate do MVP. Vira `tenant_features` depois do demo (spec, "Fora do escopo").
       gestaoEnabled: false,
+      // Modo demonstração: liga o «Acesso rápido» (pula senha e 2º fator), as contas de
+      // exemplo e a faixa com o código do 2º fator. NUNCA ligar fora do demo.
+      // env NUXT_PUBLIC_GESTAO_DEMO.
+      gestaoDemo: false,
     },
   },
 
