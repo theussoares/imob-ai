@@ -181,7 +181,7 @@ Como dono, em `/gestao/vendas/V-2026-0155` (etapa 1). Botão `requisito-exemplo`
 4. Etapa 8: `cancelar-venda` pede confirmação; confirmar → «Venda cancelada», somente consulta.
 5. Em processo encerrado (ex.: V-2026-0133) como jurídico ou dono, `arquivar-contrato` pede
    confirmação, volta à lista e o card some. Recepção e corretor não veem o botão.
-6. «Arquivados» (menu, só jurídico e dono): lista o contrato com `restaurar-contrato`; restaurar
+6. «Arquivados» (menu: jurídico, dono e recepção, como no protótipo; corretor não vê): só jurídico e dono têm `restaurar-contrato`; restaurar
    devolve o card à lista. Sem arquivados: `arquivados-vazio`.
 
 ## Formato do relatório
