@@ -333,7 +333,7 @@ const aba_ = (ativa: boolean) =>
       </NuxtLink>
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
+    <div class="[display:grid] gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
       <div class="flex min-w-0 flex-col gap-3">
         <template v-if="aba === 'comissao' && podeValores">
           <GestaoComissao :processo="processo" :editavel="!final" @registrar="registrar" @remover="remover" />

@@ -64,7 +64,7 @@ const status = computed(() =>
       role="checkbox"
       :aria-checked="resolvido"
       :disabled="verificando"
-      class="grid size-11 flex-none cursor-pointer place-items-center rounded-lg border-2 bg-[var(--paper)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] disabled:cursor-progress"
+      class="[display:grid] size-11 flex-none cursor-pointer place-items-center rounded-lg border-2 bg-[var(--paper)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] disabled:cursor-progress"
       :class="resolvido ? 'border-[var(--ok)] text-[var(--ok)]' : 'border-[var(--ink-soft)]'"
       aria-label="Não sou um robô"
       data-testid="captcha-caixa"

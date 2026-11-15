@@ -108,7 +108,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
 
       <label :class="rotulo">
         Imóvel
-        <input v-model="imovel" :class="campo" type="text" autocomplete="off" autofocus placeholder="Ex.: Apto 302 — Ed. Aurora" />
+        <input v-model="imovel" :class="campo" type="text" autocomplete="off" autofocus placeholder="Ex.: Apartamento 302 — Edifício Aurora" />
       </label>
       <label :class="rotulo">
         Vendedor

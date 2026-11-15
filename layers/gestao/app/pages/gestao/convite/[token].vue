@@ -48,7 +48,7 @@ const campo =
 </script>
 
 <template>
-  <main class="grid min-h-dvh place-items-center bg-[var(--surface)] p-4">
+  <main class="[display:grid] min-h-dvh place-items-center bg-[var(--surface)] p-4">
     <div
       class="flex w-full max-w-130 flex-col gap-4 rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow)] sm:p-7"
     >
@@ -62,7 +62,7 @@ const campo =
         </p>
         <NuxtLink
           to="/gestao/login"
-          class="grid min-h-12 place-items-center rounded-xl border-[1.5px] border-[var(--brand)] font-extrabold text-[var(--brand)] no-underline hover:bg-[var(--brand-ghost)]"
+          class="[display:grid] min-h-12 place-items-center rounded-xl border-[1.5px] border-[var(--brand)] font-extrabold text-[var(--brand)] no-underline hover:bg-[var(--brand-ghost)]"
         >
           Ir para o login
         </NuxtLink>
@@ -71,7 +71,7 @@ const campo =
       <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="criar">
         <h1 class="m-0 text-[length:var(--fs-title-lg)] font-extrabold">Crie seu acesso</h1>
 
-        <dl class="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl bg-[var(--surface)] p-3.5">
+        <dl class="m-0 [display:grid] grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl bg-[var(--surface)] p-3.5">
           <dt class="text-[var(--ink-soft)]">E-mail</dt>
           <dd class="m-0 font-bold break-all" data-testid="aceite-email">{{ consulta.convite.email }}</dd>
           <dt class="text-[var(--ink-soft)]">Perfil</dt>

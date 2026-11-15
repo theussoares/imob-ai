@@ -175,7 +175,8 @@ const proprietarioOk = computed(() => !!props.processo.concluidas[1])
 
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-body)] text-[var(--ink)] disabled:bg-[var(--surface)] disabled:text-[var(--ink-soft)]'
-const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold'
+// justify-end: com rótulos de uma e de duas linhas na mesma fileira, os campos ficam alinhados pela base.
+const rotuloCampo = 'flex flex-col justify-end gap-1 text-[length:var(--fs-label)] font-bold'
 const btnSec =
   'min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]'
 const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] px-2 hover:bg-[var(--surface)]'
@@ -206,7 +207,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
       })"
     >
       <p class="m-0 text-[var(--ink-soft)]">Dados básicos da negociação. O contrato preliminar é opcional.</p>
-      <div class="grid gap-3 sm:grid-cols-2">
+      <div class="[display:grid] gap-3 sm:grid-cols-2">
         <label :class="rotuloCampo">
           Nome do vendedor
           <input v-model="vNome" type="text" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="abertura-vendedor" />
@@ -232,7 +233,6 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           <select v-model="corretorId" :disabled="!podeEditar || corretorTravado" :class="campo" data-testid="abertura-corretor">
             <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
-          <span v-if="corretorTravado" class="font-normal text-[var(--ink-soft)]">Como corretor, você é sempre o vendedor dos seus processos.</span>
         </label>
         <label :class="rotuloCampo">
           Corretor captador
@@ -241,6 +241,9 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           </select>
         </label>
       </div>
+      <p v-if="corretorTravado" class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
+        Como corretor, você é sempre o vendedor dos seus processos.
+      </p>
       <label :class="linhaCheck">
         <input v-model="prelimExiste" type="checkbox" class="size-5 accent-[var(--brand)]" :disabled="!podeEditar" data-testid="abertura-preliminar" />
         <span>Existe contrato preliminar (opcional)</span>
@@ -280,7 +283,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <h3 class="m-0 text-[length:var(--fs-body)] font-bold">
           Cadastro do {{ quemPessoa }}: {{ processo[quemPessoa].nome }}
         </h3>
-        <div class="grid gap-3 sm:grid-cols-3">
+        <div class="[display:grid] gap-3 sm:grid-cols-3">
           <label :class="rotuloCampo">
             CPF
             <input v-model="cpf" type="text" inputmode="numeric" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="pessoa-cpf" />
@@ -373,7 +376,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
 
     <!-- 5 · Checklist comercial -->
     <form v-else-if="etapa === 5" class="flex flex-col gap-4" novalidate @submit.prevent="emit('salvarFinanceiro', dadosForm)">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="[display:grid] gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label :class="rotuloCampo">
           Valor da venda (R$)
           <input v-model.number="valor" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-valor" />
@@ -539,7 +542,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
             <span>Processo encaminhado para finalização</span>
           </label>
         </fieldset>
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="[display:grid] gap-3 sm:grid-cols-2">
           <label :class="rotuloCampo">
             Responsável pela conferência
             <input v-model="conf.responsavel" type="text" :disabled="!podeConcluirVenda" :class="campo" data-testid="conf-responsavel" />

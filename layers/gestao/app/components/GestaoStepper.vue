@@ -14,16 +14,18 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
 <template>
   <!--
     Rolável no mobile: 8 etapas não cabem em 375px e quebrar em várias linhas
-    esconderia a ordem. `min-w-max` mantém o passo com largura própria.
+    esconderia a ordem. `min-w-max` mantém o passo com largura própria. No desktop
+    há espaço: 8 colunas iguais, e o nome da etapa quebra em duas linhas em vez de
+    abreviar («Documentos», nunca «Docs»).
   -->
   <nav aria-label="Etapas do processo" class="overflow-x-auto pb-1" data-testid="stepper">
-    <ol class="m-0 flex min-w-max list-none gap-2 p-0">
-      <li v-for="(nome, i) in ETAPAS_VENDA" :key="nome">
+    <ol class="m-0 flex min-w-max list-none gap-2 p-0 lg:min-w-0 lg:[display:grid] lg:grid-cols-8">
+      <li v-for="(nome, i) in ETAPAS_VENDA" :key="nome" class="lg:min-w-0">
         <button
           type="button"
           :data-testid="`etapa-${i + 1}`"
           :aria-current="vista === i + 1 ? 'step' : undefined"
-          class="flex min-h-11 min-w-32 cursor-pointer flex-col items-start justify-center rounded-[10px] border px-3 py-1.5 text-left"
+          class="flex min-h-11 min-w-32 cursor-pointer lg:h-full lg:w-full lg:min-w-0 flex-col items-start justify-center rounded-[10px] border px-3 py-1.5 text-left"
           :class="
             vista === i + 1
               ? 'border-[var(--ink)] bg-[var(--ink)] text-white'

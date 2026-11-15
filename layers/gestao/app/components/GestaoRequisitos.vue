@@ -80,7 +80,7 @@ const botao =
       <div class="min-w-0 flex-1">
         <strong class="block">{{ r.nome }}</strong>
         <small class="text-[var(--ink-soft)]" data-testid="requisito-arquivo">
-          <template v-if="doc">{{ doc.nome }} · {{ formatarTamanho(doc.tamanho) }}<template v-if="doc.versoes > 1"> · v{{ doc.versoes }}</template></template>
+          <template v-if="doc">{{ doc.nome }} · {{ formatarTamanho(doc.tamanho) }}<template v-if="doc.versoes > 1"> · versão {{ doc.versoes }}</template></template>
           <template v-else>Sem arquivo</template>
         </small>
       </div>

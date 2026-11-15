@@ -44,7 +44,7 @@ const btn =
     >
       <div class="flex items-center gap-2.5 font-extrabold">
         <span
-          class="grid size-8 place-items-center rounded-lg bg-[var(--brand)] text-white"
+          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] text-white"
           aria-hidden="true"
         >
           {{ (tenant?.name || 'G').slice(0, 1) }}

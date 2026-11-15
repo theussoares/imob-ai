@@ -39,9 +39,9 @@ export function statusFinal(s: StatusVenda): boolean {
 
 export const ETAPAS_VENDA = [
   'Abertura',
-  'Docs do vendedor',
-  'Docs do comprador',
-  'Docs do imóvel',
+  'Documentos do vendedor',
+  'Documentos do comprador',
+  'Documentos do imóvel',
   'Checklist comercial',
   'Conferência da recepção',
   'Análise jurídica',

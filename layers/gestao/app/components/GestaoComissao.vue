@@ -84,7 +84,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
       </p>
     </div>
 
-    <ul class="m-0 grid list-none gap-3 p-0 sm:grid-cols-3">
+    <ul class="m-0 [display:grid] list-none gap-3 p-0 sm:grid-cols-3">
       <li
         v-for="p in comissao.partes"
         :key="p.resp"
@@ -133,7 +133,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
         </li>
       </ul>
 
-      <form v-if="editavel" class="mt-4 grid gap-3 sm:grid-cols-3 sm:items-end" novalidate @submit.prevent="registrar">
+      <form v-if="editavel" class="mt-4 [display:grid] gap-3 sm:grid-cols-3 sm:items-end" novalidate @submit.prevent="registrar">
         <label :class="rotuloCampo">
           Responsável
           <select v-model="resp" :class="campo" data-testid="adiantamento-resp">

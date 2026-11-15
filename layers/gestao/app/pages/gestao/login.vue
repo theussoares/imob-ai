@@ -51,7 +51,7 @@ const campo =
 </script>
 
 <template>
-  <main class="grid min-h-dvh place-items-center bg-[var(--surface)] p-4">
+  <main class="[display:grid] min-h-dvh place-items-center bg-[var(--surface)] p-4">
     <div class="flex w-full max-w-120 flex-col gap-4">
       <form
         class="flex flex-col gap-4 rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow)] sm:p-7"
@@ -133,7 +133,7 @@ const campo =
           <code class="font-bold" data-testid="demo-senha">{{ auth.senhaDemo.value }}</code>.
         </p>
         <form class="flex flex-col gap-3" @submit.prevent="confirmarAtalho">
-          <fieldset class="grid grid-cols-1 gap-2.5 border-0 p-0 sm:grid-cols-2">
+          <fieldset class="[display:grid] grid-cols-1 gap-2.5 border-0 p-0 sm:grid-cols-2">
             <legend class="sr-only">Perfil de acesso</legend>
             <label
               v-for="p in ORDEM_PERFIS"

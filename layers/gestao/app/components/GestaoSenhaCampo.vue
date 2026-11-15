@@ -85,7 +85,7 @@ const idErro = computed(() => `${props.id}-erro`)
           Força: {{ ROTULOS[resultado.forca] }}
         </span>
       </div>
-      <ul class="m-0 grid list-none grid-cols-1 gap-x-4 gap-y-0.5 p-0 text-[length:var(--fs-label)] sm:grid-cols-2">
+      <ul class="m-0 [display:grid] list-none grid-cols-1 gap-x-4 gap-y-0.5 p-0 text-[length:var(--fs-label)] sm:grid-cols-2">
         <li v-for="i in itens" :key="i.id" class="flex items-start gap-1.5" :data-ok="i.ok">
           <span :class="i.ok ? 'text-[var(--ok)]' : 'text-[var(--ink-soft)]'" aria-hidden="true">{{ i.ok ? '✓' : '○' }}</span>
           <span :class="i.ok ? 'text-[var(--ink)]' : 'text-[var(--ink-soft)]'">

@@ -111,7 +111,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
           numa janela anônima para aceitar o convite.
         </p>
 
-        <form class="grid grid-cols-1 gap-3 md:grid-cols-[1fr_14rem_auto] md:items-end" novalidate @submit.prevent="criar">
+        <form class="[display:grid] grid-cols-1 gap-3 md:grid-cols-[1fr_14rem_auto] md:items-end" novalidate @submit.prevent="criar">
           <div class="flex flex-col gap-1.5">
             <label for="convite-email" class="font-bold">E-mail</label>
             <input

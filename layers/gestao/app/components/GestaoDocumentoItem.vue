@@ -64,7 +64,7 @@ const acao =
   >
     <div class="flex min-w-0 items-start gap-3">
       <span
-        class="grid size-11 flex-none place-items-center rounded-[10px] text-[length:var(--fs-caption)] font-extrabold"
+        class="[display:grid] size-11 flex-none place-items-center rounded-[10px] text-[length:var(--fs-caption)] font-extrabold"
         :class="ICONE[tipoArquivo(doc.nome)]"
         aria-hidden="true"
       >
@@ -93,10 +93,10 @@ const acao =
       </div>
     </div>
 
-    <div v-if="lixeira" class="grid grid-cols-2 gap-2 md:flex md:flex-none">
+    <div v-if="lixeira" class="[display:grid] grid-cols-2 gap-2 md:flex md:flex-none">
       <button type="button" :class="acao" data-testid="restaurar" @click="emit('restaurar')">Restaurar</button>
     </div>
-    <div v-else class="grid grid-cols-2 gap-2 md:flex md:flex-none md:flex-wrap md:justify-end">
+    <div v-else class="[display:grid] grid-cols-2 gap-2 md:flex md:flex-none md:flex-wrap md:justify-end">
       <button type="button" :class="acao" :aria-label="`Ver ${doc.nome}`" @click="emit('ver')">Ver</button>
       <button type="button" :class="acao" :aria-label="`Baixar ${doc.nome}`" @click="emit('baixar')">Baixar</button>
       <template v-if="podeSubstituir">
