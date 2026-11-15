@@ -60,7 +60,7 @@ const idErro = computed(() => `${props.id}-erro`)
       />
       <button
         type="button"
-        class="absolute top-1 right-1 min-h-10 min-w-20 cursor-pointer rounded-lg px-3 font-bold text-[var(--brand)] hover:bg-[var(--brand-ghost)] focus-visible:outline-3 focus-visible:outline-[var(--brand)]"
+        class="absolute top-0.5 right-0.5 min-h-11 min-w-20 cursor-pointer rounded-lg px-3 font-bold text-[var(--brand)] hover:bg-[var(--brand-ghost)] focus-visible:outline-3 focus-visible:outline-[var(--brand)]"
         :aria-pressed="visivel"
         :aria-controls="id"
         @click="visivel = !visivel"

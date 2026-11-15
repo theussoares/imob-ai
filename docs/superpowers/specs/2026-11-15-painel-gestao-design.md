@@ -83,6 +83,7 @@ Fluxo: **Dono ou Jurídico/financeiro convida por e-mail → convidado cria senh
 | Senha: ≥ 12 caracteres, maiúscula, minúscula, número, símbolo, sem e-mail/nome, fora de lista de senhas comuns; medidor de força | Só tamanho mínimo | Tamanho sozinho aceita `Senha123456` |
 | Captcha atrás de um componente `GestaoCaptcha` (token por `v-model`); real = Cloudflare Turnstile | Chamar o provedor direto nas telas | Provedor trocável; no demo é um desafio simulado, sem script de terceiro. Turnstile real é script de terceiro: exige revisar `privacidade.vue` (CLAUDE.md, seção LGPD) |
 | 2º fator por código de 6 dígitos no e-mail: validade 10 min, 5 tentativas, reenvio após 60 s, uso único, guardado só como hash | TOTP (app autenticador) | Pedido do cliente: e-mail. TOTP fica como evolução (Supabase MFA já suporta) |
+| Bloqueio por 5 códigos errados expira sozinho: 15 min (produção) e 5 min no demo (`public.gestaoDemo`); a mensagem diz em quantos minutos tentar; ao vencer, as tentativas zeram; código certo também zera | Bloqueio sem prazo, ou o mesmo 15 min no demo | Sem prazo trava a conta para sempre; 15 min num QA/apresentação impede testar o código certo (visto no QA de 15/11) |
 | Mensagens de erro genéricas no login («e-mail ou senha incorretos») | Dizer qual campo errou | Não revela se o e-mail tem conta |
 | No demo o código aparece numa faixa «Demonstração» | Enviar e-mail de verdade | Não há provedor de e-mail no demo; a faixa só existe com `GESTAO_DEMO` |
 

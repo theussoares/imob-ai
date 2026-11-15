@@ -25,6 +25,16 @@ export const CODIGO_REENVIO_MS = 60 * 1000
  * outro código a cada minuto e ganharia 5 palpites novos (1 milhão de combinações).
  */
 export const CODIGO_BLOQUEIO_MS = 15 * 60 * 1000
+/**
+ * No demo o bloqueio dura 5 min (`public.gestaoDemo`): numa apresentação ou num QA
+ * quem erra 5 vezes não pode ficar 15 min sem conseguir testar o código certo.
+ * Quem escolhe é o chamador (`Deps.bloqueioMs`); fora do demo vale o de 15 min.
+ */
+export const CODIGO_BLOQUEIO_DEMO_MS = 5 * 60 * 1000
+
+const minutos = (ms: number) => Math.max(1, Math.ceil(ms / 60_000))
+const msgBloqueio = (ms: number) =>
+  `Muitas tentativas. Tente de novo em ${minutos(ms)} ${minutos(ms) === 1 ? 'minuto' : 'minutos'}.`
 
 /** Mensagem única de falha no login: não revela se o e-mail tem conta. */
 export const ERRO_LOGIN = 'E-mail ou senha incorretos'
@@ -88,6 +98,8 @@ export interface Deps {
   agora: number
   rng: Sorteio
   hash: Hasher
+  /** Duração do bloqueio por tentativas; o demo usa `CODIGO_BLOQUEIO_DEMO_MS`. */
+  bloqueioMs: number
 }
 
 /**
@@ -104,8 +116,12 @@ export const sha256Hex: Hasher = async (texto) => {
 /** `Math.random` é previsível; token e código vêm do gerador criptográfico. */
 export const sorteioSeguro: Sorteio = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n))
 
+/** `{ bloqueioMs: undefined }` não pode apagar o padrão: um bloqueio de NaN ms não bloquearia nada. */
+const semIndefinidos = <T extends object>(o: T): T =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T
+
 function deps(parcial: Partial<Deps> = {}): Deps {
-  return { agora: Date.now(), rng: sorteioSeguro, hash: sha256Hex, ...parcial }
+  return { agora: Date.now(), rng: sorteioSeguro, hash: sha256Hex, bloqueioMs: CODIGO_BLOQUEIO_MS, ...semIndefinidos(parcial) }
 }
 
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
@@ -406,11 +422,13 @@ export async function emitirCodigo(
   const alvo = normalizarEmail(email)
   const atual = estado.codigos.find((c) => c.email === alvo)
   if (atual?.bloqueadoAte && d.agora < atual.bloqueadoAte)
-    return falha(estado, 'bloqueado', 'Muitas tentativas. Aguarde alguns minutos para pedir outro código.', {
+    return falha(estado, 'bloqueado', msgBloqueio(atual.bloqueadoAte - d.agora), {
       segundos: Math.ceil((atual.bloqueadoAte - d.agora) / 1000),
     })
   const espera = segundosParaReenvio(estado, alvo, d.agora)
-  if (atual && espera > 0)
+  // Código já consumido não segura o próximo: sem isso, entrar, sair e entrar de novo
+  // em menos de 60 s reaproveitaria um código usado e o login ficaria sem saída.
+  if (atual && !atual.usado && espera > 0)
     return falha(estado, 'aguarde', `Aguarde ${espera} s para pedir outro código.`, { segundos: espera })
 
   const codigo = gerarCodigo(d.rng)
@@ -438,14 +456,20 @@ export async function verificarCodigo(
 ): Promise<ResultadoAuth<{ conta: ContaPublica }>> {
   const d = deps(parcial)
   const alvo = normalizarEmail(email)
-  const c = estado.codigos.find((x) => x.email === alvo)
+  const original = estado.codigos.find((x) => x.email === alvo)
   const conta = estado.contas.find((x) => x.email === alvo)
+  // Bloqueio vencido: o relógio zera as tentativas. Sem isso o contador ficaria em 5
+  // e o PRIMEIRO erro depois do prazo bloquearia de novo, sem chance de digitar o certo.
+  const c =
+    original && original.bloqueadoAte !== null && d.agora >= original.bloqueadoAte
+      ? { ...original, tentativas: 0, bloqueadoAte: null }
+      : original
   if (!c || c.usado || !conta) return falha(estado, 'inexistente', 'Código inválido ou expirado. Peça um novo.')
 
   // Bloqueio vem ANTES da comparação: com o código certo digitado depois da 5ª
   // falha a resposta tem que ser a mesma — senão o bloqueio vira um oráculo.
   if (c.bloqueadoAte && d.agora < c.bloqueadoAte)
-    return falha(estado, 'bloqueado', 'Muitas tentativas. Aguarde alguns minutos e peça um novo código.', {
+    return falha(estado, 'bloqueado', msgBloqueio(c.bloqueadoAte - d.agora), {
       segundos: Math.ceil((c.bloqueadoAte - d.agora) / 1000),
     })
   if (d.agora >= c.expiraEm) return falha(estado, 'expirado', 'Este código expirou. Peça um novo.')
@@ -455,17 +479,17 @@ export async function verificarCodigo(
     return {
       ok: true,
       conta: { email: conta.email, nome: conta.nome, perfil: conta.perfil },
-      estado: { ...estado, codigos: estado.codigos.map((x) => (x === c ? { ...x, usado: true } : x)) },
+      estado: { ...estado, codigos: estado.codigos.map((x) => (x === original ? { ...c, usado: true, tentativas: 0 } : x)) },
     }
   }
 
   const tentativas = c.tentativas + 1
   const bloqueia = tentativas >= CODIGO_MAX_TENTATIVAS
-  const atualizado: CodigoPendente = { ...c, tentativas, bloqueadoAte: bloqueia ? d.agora + CODIGO_BLOQUEIO_MS : null }
-  const novo = { ...estado, codigos: estado.codigos.map((x) => (x === c ? atualizado : x)) }
+  const atualizado: CodigoPendente = { ...c, tentativas, bloqueadoAte: bloqueia ? d.agora + d.bloqueioMs : null }
+  const novo = { ...estado, codigos: estado.codigos.map((x) => (x === original ? atualizado : x)) }
   return bloqueia
-    ? falha(novo, 'bloqueado', 'Muitas tentativas. Aguarde alguns minutos e peça um novo código.', {
-        segundos: CODIGO_BLOQUEIO_MS / 1000,
+    ? falha(novo, 'bloqueado', msgBloqueio(d.bloqueioMs), {
+        segundos: d.bloqueioMs / 1000,
         restantes: 0,
       })
     : falha(novo, 'invalido', ERRO_CODIGO_INVALIDO, { restantes: CODIGO_MAX_TENTATIVAS - tentativas })

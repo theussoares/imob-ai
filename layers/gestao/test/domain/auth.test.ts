@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   aceitarConvite,
   autenticar,
+  CODIGO_BLOQUEIO_DEMO_MS,
   CODIGO_BLOQUEIO_MS,
   CODIGO_REENVIO_MS,
   CODIGO_VALIDADE_MS,
@@ -363,6 +364,14 @@ describe('código de 2º fator', () => {
     expect(ok.ok).toBe(true)
   })
 
+  it('código já usado não impõe espera: novo login logo depois emite outro', async () => {
+    const r = await emitir()
+    const v = await verificarCodigo(r.estado, email, r.codigo, { agora: T0 + 1000 })
+    if (!v.ok) throw new Error()
+    const novo = await emitirCodigo(v.estado, email, { agora: T0 + 2000, rng: rngFixo(9) })
+    expect(novo.ok).toBe(true)
+  })
+
   it('o código novo invalida o anterior', async () => {
     const a = await emitir(T0)
     const b = await emitirCodigo(a.estado, email, { agora: T0 + CODIGO_REENVIO_MS, rng: rngFixo(77) })
@@ -389,5 +398,68 @@ describe('código de 2º fator', () => {
     await autenticar(e, email, 'x')
     expect(e.codigos).toHaveLength(0)
     expect(r.estado.codigos[0]!.tentativas).toBe(0)
+  })
+
+  describe('bloqueio por tentativas', () => {
+    const bloquear = async (bloqueioMs?: number) => {
+      let { estado, codigo } = await emitir()
+      let ultimo
+      for (let i = 0; i < 5; i++) {
+        ultimo = await verificarCodigo(estado, email, errado(codigo), { agora: T0 + 1000, bloqueioMs })
+        estado = ultimo.estado
+      }
+      return { estado, codigo, ultimo: ultimo! }
+    }
+
+    it('a mensagem diz em quantos minutos tentar de novo (15 fora do demo)', async () => {
+      const { ultimo } = await bloquear()
+      expect(ultimo.ok).toBe(false)
+      if (!ultimo.ok) expect(ultimo.erro).toContain('Tente de novo em 15 minutos')
+    })
+
+    it('no demo o bloqueio é de 5 minutos', async () => {
+      const { estado, codigo, ultimo } = await bloquear(CODIGO_BLOQUEIO_DEMO_MS)
+      if (!ultimo.ok) expect(ultimo.erro).toContain('em 5 minutos')
+      // 1 min depois: ainda dentro do prazo, e o código certo continua recusado
+      const dentro = await verificarCodigo(estado, email, codigo, { agora: T0 + 1000 + 60_000, bloqueioMs: CODIGO_BLOQUEIO_DEMO_MS })
+      expect(dentro.ok).toBe(false)
+      if (!dentro.ok) {
+        expect(dentro.motivo).toBe('bloqueado')
+        expect(dentro.erro).toContain('em 4 minutos')
+      }
+    })
+
+    it('expirado o prazo, o código certo entra (se o código ainda vale)', async () => {
+      const { estado, codigo } = await bloquear(CODIGO_BLOQUEIO_DEMO_MS)
+      const v = await verificarCodigo(estado, email, codigo, { agora: T0 + 1000 + CODIGO_BLOQUEIO_DEMO_MS, bloqueioMs: CODIGO_BLOQUEIO_DEMO_MS })
+      expect(v.ok).toBe(true)
+      if (v.ok) expect(v.estado.codigos[0]!.tentativas).toBe(0)
+    })
+
+    it('expirado o prazo, um erro NÃO bloqueia de novo na hora (tentativas zeradas)', async () => {
+      const { estado, codigo } = await bloquear(CODIGO_BLOQUEIO_DEMO_MS)
+      const v = await verificarCodigo(estado, email, errado(codigo), { agora: T0 + 1000 + CODIGO_BLOQUEIO_DEMO_MS, bloqueioMs: CODIGO_BLOQUEIO_DEMO_MS })
+      expect(v.ok).toBe(false)
+      if (!v.ok) {
+        expect(v.motivo).toBe('invalido')
+        expect(v.restantes).toBe(4)
+      }
+    })
+
+    it('código certo zera as tentativas anteriores', async () => {
+      const r = await emitir()
+      const e1 = await verificarCodigo(r.estado, email, errado(r.codigo), { agora: T0 + 1 })
+      const ok = await verificarCodigo(e1.estado, email, r.codigo, { agora: T0 + 2 })
+      expect(ok.ok).toBe(true)
+      expect(ok.estado.codigos[0]!.tentativas).toBe(0)
+    })
+
+    it('novo código só sai depois do prazo; então um código novo entra', async () => {
+      const { estado } = await bloquear(CODIGO_BLOQUEIO_DEMO_MS)
+      const cedo = await emitirCodigo(estado, email, { agora: T0 + 1000 + 120_000, rng: rngFixo(8), bloqueioMs: CODIGO_BLOQUEIO_DEMO_MS })
+      expect(cedo.ok).toBe(false)
+      const tarde = await emitirCodigo(estado, email, { agora: T0 + 1000 + CODIGO_BLOQUEIO_DEMO_MS, rng: rngFixo(8) })
+      expect(tarde.ok).toBe(true)
+    })
   })
 })

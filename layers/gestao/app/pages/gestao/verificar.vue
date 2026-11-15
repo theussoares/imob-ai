@@ -35,6 +35,19 @@ function iniciarContagem() {
 onMounted(iniciarContagem)
 onBeforeUnmount(() => clearInterval(timer))
 
+let destrava: ReturnType<typeof setTimeout> | undefined
+/** O bloqueio expira sozinho: a tela reabilita o campo no prazo, sem exigir recarregar. */
+function bloquear(ativo: boolean, segundos = 0) {
+  clearTimeout(destrava)
+  bloqueado.value = ativo
+  if (ativo && segundos > 0)
+    destrava = setTimeout(() => {
+      bloqueado.value = false
+      erro.value = ''
+    }, segundos * 1000)
+}
+onBeforeUnmount(() => clearTimeout(destrava))
+
 async function enviar() {
   if (!podeEnviar.value) return
   enviando.value = true
@@ -44,7 +57,7 @@ async function enviar() {
   if (!r.ok) {
     enviando.value = false
     erro.value = r.erro
-    bloqueado.value = r.motivo === 'bloqueado'
+    bloquear(r.motivo === 'bloqueado', r.segundos)
     codigo.value = ''
     return
   }
@@ -59,7 +72,7 @@ async function reenviar() {
   const r = await auth.reenviar()
   if (!r.ok) {
     erro.value = r.erro
-    bloqueado.value = !!r.erro && /Muitas tentativas/.test(r.erro)
+    bloquear(/Muitas tentativas/.test(r.erro), r.segundos)
     return
   }
   codigo.value = ''

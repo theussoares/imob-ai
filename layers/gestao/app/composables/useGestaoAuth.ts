@@ -1,6 +1,7 @@
 import {
   aceitarConvite,
   autenticar,
+  CODIGO_BLOQUEIO_DEMO_MS,
   criarConvite,
   consultarConvite,
   emitirCodigo,
@@ -16,6 +17,9 @@ import type { Perfil } from '../../domain/types'
 
 const CHAVE = 'gestao-auth-v1'
 const CHAVE_PENDENTE = 'gestao-2fa-pendente'
+
+// Bloqueio por tentativas: 5 min no demo, 15 fora (ver `CODIGO_BLOQUEIO_DEMO_MS`).
+const bloqueio = (demo: boolean) => (demo ? { bloqueioMs: CODIGO_BLOQUEIO_DEMO_MS } : {})
 
 const ERRO_CAPTCHA = 'Confirme que você não é um robô.'
 
@@ -114,7 +118,7 @@ export function useGestaoAuth() {
     if (!r.ok) return { ok: false as const, erro: r.erro }
     // Reaproveitamos o código vivo se o último saiu há menos de 60 s (`aguarde`):
     // quem erra a senha e tenta de novo não ganha 5 palpites novos nem spam de e-mail.
-    const c = await emitirCodigo(e, r.conta.email)
+    const c = await emitirCodigo(e, r.conta.email, bloqueio(demo))
     if (c.ok) {
       gravar(c.estado)
       definirPendente(r.conta.email, c.codigo)
@@ -129,22 +133,22 @@ export function useGestaoAuth() {
   async function reenviar() {
     if (!pendente.value) return { ok: false as const, erro: 'Volte ao login.', segundos: 0 }
     const e = await ler()
-    const c = await emitirCodigo(e, pendente.value)
+    const c = await emitirCodigo(e, pendente.value, bloqueio(demo))
     if (!c.ok) return { ok: false as const, erro: c.erro, segundos: c.segundos ?? 0 }
     gravar(c.estado)
     definirPendente(pendente.value, c.codigo)
     return { ok: true as const }
   }
 
-  async function verificar(codigo: string): Promise<{ ok: true; conta: ContaPublica } | { ok: false; erro: string; motivo: string }> {
+  async function verificar(codigo: string): Promise<{ ok: true; conta: ContaPublica } | { ok: false; erro: string; motivo: string; segundos?: number }> {
     if (!pendente.value) return { ok: false, erro: 'Volte ao login.', motivo: 'sem-pendente' }
     const e = await ler()
-    const r = await verificarCodigo(e, pendente.value, codigo)
+    const r = await verificarCodigo(e, pendente.value, codigo, bloqueio(demo))
     // Grava também na falha: é onde o contador de tentativas anda.
     gravar(r.estado)
     if (!r.ok) {
       const resto = r.restantes !== undefined && r.motivo === 'invalido' ? ` Restam ${r.restantes} tentativas.` : ''
-      return { ok: false, erro: r.erro + resto, motivo: r.motivo }
+      return { ok: false, erro: r.erro + resto, motivo: r.motivo, segundos: r.segundos }
     }
     definirPendente(null)
     return { ok: true, conta: r.conta }
