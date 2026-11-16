@@ -62,7 +62,7 @@ function registrarCliqueWhatsapp(link: HTMLAnchorElement) {
   // No host `painel.` este plugin nem roda; o prefixo cobre o `/admin` servido
   // no mesmo host do site (dev, `?tenant=`), onde o clique do corretor viraria
   // "visitante chamou no WhatsApp".
-  if (/^\/(admin|area-cliente)(\/|$)/.test(window.location.pathname)) return
+  if (/^\/(admin|area-cliente|gestao)(\/|$)/.test(window.location.pathname)) return
   try {
     const corpo = JSON.stringify({
       propertyCode: link.dataset.imovel || null,
