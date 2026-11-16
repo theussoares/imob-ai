@@ -2,6 +2,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
+  // Painel de gestão de contratos. Ver docs/superpowers/specs/2026-11-15-painel-gestao-design.md
+  extends: ['./layers/gestao'],
   compatibilityDate: '2025-01-01',
   future: { compatibilityVersion: 4 },
   devtools: { enabled: true },

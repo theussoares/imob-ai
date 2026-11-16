@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Layers do Nuxt ficam fora de `app/`: sem isto o Tailwind não varre as classes
+   de `layers/gestao` e o painel sai sem estilo. */
+@source "../../../layers";
 
 /* ============================================================
    Design tokens (marca dirigida por tenant)
