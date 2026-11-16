@@ -1,96 +1,73 @@
-# imob-ai — Plataforma imobiliária multitenant
+# Moradi: Multi-tenant Real Estate Platform
 
-Site para corretores/imobiliárias: catálogo de imóveis com busca, página de detalhe
-otimizada para SEO (Google + IA), contato via WhatsApp/lead e um **painel administrativo**
-para gerenciar imóveis e configurar a marca. **Multitenant** — uma mesma implantação
-atende vários clientes, resolvidos pelo domínio. O primeiro tenant é a **Imóveis Três Lagoas**.
+A website platform for real estate agents and agencies: searchable property catalog, SEO-optimized listing pages (Google + AI), WhatsApp/lead contact, and an **admin panel** to manage listings and configure branding. **Multi-tenant**: a single deployment serves many clients, resolved by domain. The first tenant is **Imóveis Três Lagoas**.
 
 ## Stack
 
-- **Nuxt 4** (SSR) + **Nitro** (fullstack; preset **Vercel**)
-- **Tailwind CSS v4** + design tokens por tenant (CSS vars)
-- **Supabase** (Postgres + Auth + Storage), acesso via `@supabase/supabase-js`
-- **Supabase Auth** carregado sob demanda apenas no painel `/admin` (SPA), mantendo
-  o client do Supabase fora do bundle das páginas públicas
+- **Nuxt 4** (SSR) + **Nitro** (fullstack, **Vercel** preset)
+- **Tailwind CSS v4** + per-tenant design tokens (CSS vars)
+- **Supabase** (Postgres + Auth + Storage) via `@supabase/supabase-js`
+- **Supabase Auth** loaded on demand only in the `/admin` SPA, keeping the Supabase client out of the public pages' bundle
 - TypeScript, `@vueuse/nuxt`
 
-## Arquitetura
+## Architecture
 
 ```
-app/            # Frontend SSR (páginas públicas + painel /admin)
-  components/    # UI pública + components/admin
-  composables/   # useTenant, useCatalog (filtro em memória), useContact, useFavorites
-  pages/         # index, [slug]/[codigo], admin/*
+app/            # SSR frontend (public pages + /admin panel)
+  components/    # public UI + components/admin
+  composables/   # useTenant, useCatalog (in-memory filtering), useContact, useFavorites
+  pages/         # index, [slug]/[code], admin/*
 server/
-  models/  →  (em shared/models) modelos de domínio camelCase
-  mappers/       # row do banco  <->  modelo de domínio (snake_case <-> camelCase)
-  repositories/  # acesso a dados, SEMPRE escopado por tenant_id
-  api/           # endpoints públicos (cache 10min) + admin (protegidos)
-  middleware/    # resolve o tenant pelo Host
+  mappers/       # DB row <-> domain model (snake_case <-> camelCase)
+  repositories/  # data access, ALWAYS scoped by tenant_id
+  api/           # public endpoints (10-min cache) + protected admin endpoints
+  middleware/    # resolves the tenant from the Host header
   utils/         # supabase (anon), auth (requireTenantMember), cache, tenant
-shared/          # modelos e tipos compartilhados client/servidor
+shared/          # domain models and types shared by client and server
 supabase/migrations/  # schema, RLS, storage, seed
 ```
 
-### Padrão models + mappers
-Repositories retornam **modelos de domínio** (`shared/models/*`), nunca linhas cruas do banco.
-Os **mappers** (`server/mappers/*`) convertem `snake_case` do Postgres para o `camelCase` do
-domínio e vice-versa, isolando o schema da UI.
+### Models + mappers pattern
+Repositories return **domain models** (`shared/models/*`), never raw database rows. **Mappers** (`server/mappers/*`) convert Postgres `snake_case` to domain `camelCase` and back, isolating the database schema from the UI.
 
-### Multitenancy
-O catálogo é a **home (`/`)** e cada tenant é um **domínio** — não há prefixo de rota.
-`server/middleware/tenant.ts` resolve o tenant por requisição, nesta ordem:
+### Multi-tenancy
+The catalog is the **home page (`/`)** and each tenant is a **domain**, with no route prefix. `server/middleware/tenant.ts` resolves the tenant per request, in this order:
 
-1. **Domínio próprio** cadastrado em `tenant_domains` (ex.: `imoveis3lagoas.com.br`).
-2. **Subdomínio da plataforma**: `<slug>.<NUXT_PLATFORM_DOMAIN>` (ex.:
-   `vitrine-imoveis.suaplataforma.com.br`) resolve pelo `slug` do tenant. Sem
-   `NUXT_PLATFORM_DOMAIN`, o 1º rótulo de um host com subdomínio é usado como slug.
-3. **Fallback** `NUXT_DEFAULT_TENANT` (dev / domínio não cadastrado).
+1. **Custom domain** registered in `tenant_domains` (e.g. `imoveis3lagoas.com.br`).
+2. **Platform subdomain**: `<slug>.<NUXT_PLATFORM_DOMAIN>` resolves by the tenant `slug`. Without `NUXT_PLATFORM_DOMAIN`, the first label of a subdomain host is used as the slug.
+3. **Fallback** `NUXT_DEFAULT_TENANT` (dev / unregistered domain).
 
-O resultado vai para `event.context.tenant`; toda query é escopada por `tenant_id`.
-As cores da marca (`brand_primary` / `brand_accent`) são injetadas como CSS vars no SSR —
-trocar de tenant muda o tema sem rebuild. A resolução é cacheada 10 min em memória.
+The result is stored in `event.context.tenant` and every query is scoped by `tenant_id`. Brand colors (`brand_primary` / `brand_accent`) are injected as CSS vars during SSR, so switching tenants changes the theme without a rebuild. Resolution is cached in memory for 10 minutes.
 
-**Atalho de desenvolvimento:** em `pnpm dev`, `http://localhost:3000/?tenant=<slug>` troca o
-tenant e grava um cookie (`?tenant=` vazio limpa). Desativado em produção.
+**Dev shortcut:** with `pnpm dev`, `http://localhost:3000/?tenant=<slug>` switches the tenant and stores a cookie (an empty `?tenant=` clears it). Disabled in production.
 
-### Cache (poucas requisições)
-- **Servidor:** `/api/tenant` e `/api/properties*` são cacheados por **10 min** (TTL) com chave
-  por tenant. Após expirar, a próxima requisição refaz a chamada e atualiza. O painel **invalida**
-  o cache do tenant ao salvar.
-- **Cliente:** a lista completa de imóveis ativos é carregada uma vez; busca, filtros e ordenação
-  rodam **em memória** (`useCatalog`) — nenhuma requisição extra ao interagir.
+### Caching (fewer requests)
+- **Server:** `/api/tenant` and `/api/properties*` are cached for **10 min** (TTL), keyed per tenant. The admin panel **invalidates** the tenant cache on save.
+- **Client:** the full list of active properties is loaded once; search, filters, and sorting run **in memory** (`useCatalog`), so interacting triggers no extra requests.
 
-### SEO (Google + IA)
-SSR nativo, `useSeoMeta` dinâmico, **JSON-LD** (`RealEstateAgent` na home; `Product`+`Offer` e
-`BreadcrumbList` no detalhe), `sitemap.xml` e `robots.txt` dinâmicos por host, canonical por
-domínio, headings semânticos e imagens com `alt`.
+### SEO (Google + AI)
+Native SSR, dynamic `useSeoMeta`, **JSON-LD** (`RealEstateAgent` on home; `Product` + `Offer` and `BreadcrumbList` on listing pages), dynamic per-host `sitemap.xml` and `robots.txt`, per-domain canonical URLs, semantic headings, and images with `alt` text.
 
-## Configuração
+## Setup
 
-1. **Variáveis de ambiente** — copie `.env.example` para `.env` e preencha:
+1. **Environment variables**: copy `.env.example` to `.env` and fill it in:
    ```bash
    cp .env.example .env
    ```
-   `SUPABASE_URL` e `SUPABASE_KEY` são públicas/anon — seguras no client.
-   `SUPABASE_SERVICE_ROLE_KEY` ignora a RLS, fica só no servidor e é obrigatória:
-   sem ela o formulário de contato para de gravar lead. O próprio `.env.example`
-   comenta o que quebra ao deixar cada variável em branco.
+   `SUPABASE_URL` and `SUPABASE_KEY` are public/anon keys, safe on the client. `SUPABASE_SERVICE_ROLE_KEY` bypasses RLS, stays server-side only, and is required: without it the contact form stops saving leads. `.env.example` documents what breaks when each variable is left blank.
 
-2. **Instalar e rodar:**
+2. **Install and run:**
    ```bash
    pnpm install
-   pnpm dev            # http://localhost:3000  (site)  |  /admin  (painel)
+   pnpm dev            # http://localhost:3000 (site)  |  /admin (panel)
    ```
 
-## Banco de dados (Supabase)
+## Database (Supabase)
 
-O projeto Supabase `imob-ai` já está provisionado com o schema, RLS, buckets de storage e o
-seed do tenant Três Lagoas (12 imóveis). As migrations estão em `supabase/migrations/` e podem
-ser reaplicadas em um novo projeto com a Supabase CLI (`supabase db push`) ou pelo SQL Editor.
+Migrations live in `supabase/migrations/` (schema, RLS, storage buckets, and a seed tenant with sample listings). Apply them to a new project with the Supabase CLI (`supabase db push`) or the SQL Editor.
 
-### Usuário administrador (criar/rotacionar)
-O usuário admin **não** é versionado. Para criar um (ajuste e-mail/senha), rode no SQL Editor:
+### Admin user (create / rotate)
+Admin users are **not** versioned. To create one (adjust email/password), run in the SQL Editor:
 
 ```sql
 do $$
@@ -101,69 +78,47 @@ begin
     email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
     confirmation_token, recovery_token, email_change, email_change_token_new)
   values ('00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated',
-    'admin@imoveis3lagoas.com.br', extensions.crypt('TROQUE_ESTA_SENHA', extensions.gen_salt('bf')),
+    'admin@example.com', extensions.crypt('CHANGE_THIS_PASSWORD', extensions.gen_salt('bf')),
     now(), now(), now(), '{"provider":"email","providers":["email"]}', '{}', '', '', '', '');
   insert into auth.identities (id, user_id, provider_id, identity_data, provider,
     last_sign_in_at, created_at, updated_at)
   values (gen_random_uuid(), uid, uid::text,
-    json_build_object('sub', uid::text, 'email', 'admin@imoveis3lagoas.com.br'),
+    json_build_object('sub', uid::text, 'email', 'admin@example.com'),
     'email', now(), now(), now());
   insert into public.tenant_members (tenant_id, user_id, role) values (tid, uid, 'owner');
 end $$;
 ```
 
-> **Credenciais de demonstração já criadas:** `admin@imoveis3lagoas.com.br` / `Imoveis@2026`
-> — **troque a senha** em produção (Supabase → Authentication → Users).
+## Admin panel (`/admin`)
 
-## Painel administrativo (`/admin`)
+- **Login** with Supabase Auth (email/password).
+- **Dashboard** with catalog counters.
+- **Properties**: full CRUD, status, featured flag, highlights, and **image upload/ordering** (Supabase Storage) with cover selection.
+- **Settings**: name, tagline, **brand colors** (live preview), logo, hero texts, and contacts (WhatsApp, phone, email, license number, city/state). Everything is reflected on the public site.
 
-- **Login** com Supabase Auth (email/senha).
-- **Dashboard** com contadores do catálogo.
-- **Imóveis**: CRUD completo, status, destaque, diferenciais e **upload/ordenação de imagens**
-  (Supabase Storage), com definição de capa.
-- **Configurações**: nome, tagline, **cores da marca** (com preview ao vivo), logo, textos do hero
-  e contatos (WhatsApp, telefone, e-mail, CRECI, cidade/UF). Tudo reflete no site público.
+Access is scoped to the tenant of the current domain (an admin can only see and edit their own agency's data), enforced by `requireTenantMember` on the server plus RLS in the database.
 
-O acesso é escopado ao tenant do domínio (um admin só enxerga/edita os dados da própria
-imobiliária), garantido por `requireTenantMember` no servidor + RLS no banco.
+## Agent-readiness (AI discovery)
 
-## Agent-readiness (descoberta por IA / agentes)
+Beyond traditional SEO, the site exposes metadata for AI agents:
 
-Além do SEO tradicional, o site expõe metadados para agentes de IA:
-
-- **Link headers (RFC 8288)** na home e nas páginas de imóvel, apontando para o
-  `api-catalog` e o `sitemap.xml` (`server/middleware/agents.ts`).
-- **Markdown for Agents**: requisições com `Accept: text/markdown` em `/` e
-  `/{slug}/{codigo}` recebem uma versão em Markdown (HTML segue padrão para navegadores).
-- **API catalog (RFC 9727)** em `/.well-known/api-catalog` (`application/linkset+json`)
-  descrevendo os endpoints públicos.
-- **Content Signals** no `robots.txt`: `search=yes, ai-input=yes, ai-train=no`.
-- **`/llms.txt`** (llmstxt.org): índice do site em Markdown por tenant, listando os
-  imóveis e recursos, para os LLMs entenderem o conteúdo.
-- **WebMCP** (progressive enhancement): expõe a ferramenta `buscar_imoveis` a agentes
-  no navegador via `navigator.modelContext`, quando suportado (`app/plugins/webmcp.client.ts`).
-
-Não implementados por não se aplicarem a este site (catálogo público, sem APIs
-protegidas por OAuth e sem servidor MCP próprio) ou por exigirem domínio/DNS ainda não
-adquiridos: **DNS-AID** (precisa de domínio + DNSSEC), **OAuth/OIDC discovery**,
-**OAuth Protected Resource**, **auth.md** e **MCP Server Card**. Podem ser adicionados
-quando houver domínio próprio e/ou APIs autenticadas para agentes.
+- **Link headers (RFC 8288)** on home and listing pages, pointing to the `api-catalog` and `sitemap.xml`.
+- **Markdown for Agents**: requests with `Accept: text/markdown` on `/` and `/{slug}/{code}` receive a Markdown version (HTML remains the default for browsers).
+- **API catalog (RFC 9727)** at `/.well-known/api-catalog` (`application/linkset+json`) describing the public endpoints.
+- **Content Signals** in `robots.txt`: `search=yes, ai-input=yes, ai-train=no`.
+- **`/llms.txt`** (llmstxt.org): per-tenant Markdown index of the site and its listings for LLMs.
+- **WebMCP** (progressive enhancement): exposes a `search_properties` tool to in-browser agents via `navigator.modelContext`, when supported.
 
 ## Deploy (Vercel)
 
-O Nitro já usa o preset `vercel`. Configure no projeto da Vercel: `SUPABASE_URL`,
-`SUPABASE_KEY` e `SUPABASE_SERVICE_ROLE_KEY` (obrigatórias), mais `RATE_LIMIT_IP_SALT` —
-sem esta última a trava por IP do formulário público não roda, e o único sinal é um aviso
-no log. Opcionais: `NUXT_DEFAULT_TENANT` e `NUXT_PLATFORM_DOMAIN`. Para cada novo
-tenant/cliente, cadastre o domínio na Vercel e adicione a linha correspondente em
-`tenant_domains`.
+Nitro already uses the `vercel` preset. Set `SUPABASE_URL`, `SUPABASE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` (required), plus `RATE_LIMIT_IP_SALT`: without it, the per-IP throttle on the public form does not run and the only signal is a log warning. Optional: `NUXT_DEFAULT_TENANT` and `NUXT_PLATFORM_DOMAIN`. For each new tenant, add the domain in Vercel and insert the matching row in `tenant_domains`.
 
-## Adicionar um novo tenant
+## Adding a new tenant
 
 ```sql
 insert into public.tenants (slug, name, whatsapp, email, city, state, brand_primary, brand_accent)
-values ('novo-cliente', 'Imobiliária X', '55...', 'contato@x.com', 'Cidade', 'UF', '#123456', '#abcdef');
+values ('new-client', 'Agency X', '55...', 'contact@x.com', 'City', 'ST', '#123456', '#abcdef');
 insert into public.tenant_domains (tenant_id, domain, is_primary)
-values ((select id from tenants where slug='novo-cliente'), 'www.imobiliariax.com.br', true);
+values ((select id from tenants where slug='new-client'), 'www.agencyx.com', true);
 ```
-Depois crie um usuário admin (SQL acima) vinculado a esse tenant.
+Then create an admin user (SQL above) linked to that tenant.

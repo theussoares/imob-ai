@@ -33,7 +33,7 @@ describe('complemento do novo processo', () => {
   })
 
   it('completa o processo recém-criado sem tocar nos outros', () => {
-    const estado = { processos: processosSeed(), documentos: [] }
+    const estado = { processos: processosSeed(), documentos: [], locacoes: [] }
     const r = abrirProcesso(estado, { imovel: 'Apto', vendedor: 'A', comprador: 'B', corretorId: 'c1' }, { nome: 'T' })
     if (!r.ok) throw new Error('setup')
     const novo = r.estado.processos[0]!
@@ -51,6 +51,6 @@ describe('complemento do novo processo', () => {
   })
 
   it('id inexistente é erro', () => {
-    expect(completarProcesso({ processos: [], documentos: [] }, 'x', { vendedor: vazio, comprador: vazio, pdf: false }).ok).toBe(false)
+    expect(completarProcesso({ processos: [], documentos: [], locacoes: [] }, 'x', { vendedor: vazio, comprador: vazio, pdf: false }).ok).toBe(false)
   })
 })

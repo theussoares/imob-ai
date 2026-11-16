@@ -5,7 +5,7 @@ import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao }
 import { documentosSeedCompleto, processosSeed } from '../../domain/seed'
 
 const ator = { nome: 'Paulo Ribeiro' }
-const novo = (): Estado => ({ processos: processosSeed(), documentos: documentosSeedCompleto() })
+const novo = (): Estado => ({ processos: processosSeed(), documentos: documentosSeedCompleto(), locacoes: [] })
 const ok = (r: { ok: boolean; estado?: Estado; erro?: string }) => {
   if (!r.ok) throw new Error(r.erro)
   return r.estado!

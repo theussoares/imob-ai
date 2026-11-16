@@ -175,3 +175,80 @@ export interface UsuarioGestao {
   mail: string
   perfil: Perfil
 }
+
+// ---- Locação ---------------------------------------------------------------
+// Tipo próprio, e não `Processo` com `tipo`: `Processo` está acoplado a comissão e
+// fontes de pagamento da venda; misturar quebraria o fluxo que o cliente já aprovou.
+
+export type StatusLocacao =
+  | 'Em abertura'
+  | 'Aguardando documentação'
+  | 'Aguardando garantia'
+  | 'Aguardando vistoria de entrada'
+  | 'Contrato e aluguel'
+  | 'Ativa'
+  | 'Encerrada'
+
+export type TipoGarantia = 'Caução' | 'Seguro-fiança' | 'Fiador' | 'Título de capitalização' | 'Outra'
+
+export interface Vistoria {
+  /** ISO yyyy-mm-dd */
+  data: string
+  responsavel: string
+  /** nomes dos arquivos de foto */
+  fotos: string[]
+  observacao: string
+}
+
+export interface ContratoLocacao {
+  valor: number
+  /** 1..28: dia 29 a 31 não existe em todo mês. */
+  diaVencimento: number
+  /** ISO yyyy-mm-dd */
+  inicio: string
+  fim: string
+  reajuste: 'IGP-M' | 'IPCA' | 'Outro'
+  /** taxa da imobiliária sobre o aluguel, 0..100 */
+  taxaPct: number
+}
+
+export interface Repasse {
+  valor: number
+  feito: boolean
+  data?: string
+  comprovante?: string | null
+}
+
+export interface Cobranca {
+  id: string
+  /** mês de ocupação, AAAA-MM */
+  competencia: string
+  valor: number
+  /** ISO yyyy-mm-dd */
+  vencimento: string
+  pago?: { data: string; comprovante: string }
+  repasse?: Repasse
+}
+
+export interface Locacao {
+  id: string
+  tipo: 'locacao'
+  locador: Pessoa
+  locatario: Pessoa
+  imovelId: string
+  imovel: string
+  corretorId: string
+  status: StatusLocacao
+  updated: string
+  /** etapa em que a locação está, 1..8 */
+  etapa: number
+  concluidas: boolean[]
+  garantia?: { tipo: TipoGarantia; detalhe: string }
+  vistoriaEntrada?: Vistoria
+  vistoriaSaida?: Vistoria
+  contrato?: ContratoLocacao
+  cobrancas: Cobranca[]
+  hist: EventoHistorico[]
+  obs: string
+  arquivado: boolean
+}

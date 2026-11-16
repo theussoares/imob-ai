@@ -1,4 +1,4 @@
-import type { MatrizPermissoes, PermChave, PermValor, Perfil, Processo, Sessao } from './types'
+import type { Locacao, MatrizPermissoes, PermChave, PermValor, Perfil, Processo, Sessao } from './types'
 
 export const PERFIS: Record<Perfil, { nome: string; usuario: string; corretorId: string | null; descricao: string }> = {
   corretor: {
@@ -136,7 +136,7 @@ export const MENU: { chave: ChaveMenu; rotulo: string; rota: string; pronto: boo
   { chave: 'dashboard', rotulo: 'Dashboard', rota: '/gestao', pronto: false },
   { chave: 'imoveis', rotulo: 'Imóveis', rota: '/gestao/imoveis', pronto: false },
   { chave: 'vendas', rotulo: 'Contratos de venda', rota: '/gestao/vendas', pronto: true },
-  { chave: 'locacao', rotulo: 'Contratos de locação', rota: '/gestao/locacao', pronto: false },
+  { chave: 'locacao', rotulo: 'Contratos de locação', rota: '/gestao/locacao', pronto: true },
   { chave: 'financeiro', rotulo: 'Financeiro', rota: '/gestao/financeiro', pronto: false },
   { chave: 'consulta', rotulo: 'Consulta cadastral', rota: '/gestao/consulta', pronto: false },
   { chave: 'arquivados', rotulo: 'Arquivados', rota: '/gestao/arquivados', pronto: true },
@@ -171,4 +171,10 @@ export function menuVisivel(matriz: MatrizPermissoes, perfil: Perfil, chave: Cha
 export function processosVisiveis(matriz: MatrizPermissoes, sessao: Sessao, processos: Processo[]): Processo[] {
   const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
   return processos.filter((p) => !p.arquivado && (todos || p.corretorId === sessao.corretorId))
+}
+
+/** Locações que a sessão enxerga: mesma regra dos processos de venda. */
+export function locacoesVisiveis(matriz: MatrizPermissoes, sessao: Sessao, locacoes: Locacao[]): Locacao[] {
+  const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
+  return locacoes.filter((l) => !l.arquivado && (todos || l.corretorId === sessao.corretorId))
 }

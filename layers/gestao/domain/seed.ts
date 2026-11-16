@@ -1,5 +1,6 @@
 // `.ts` explícito: o mock (mocker-nuxt) carrega este arquivo em Node puro, que não resolve import sem extensão.
 import { requisitoPorChave } from './requisitos.ts'
+import { documentosLocacaoSeed } from './locacao-seed.ts'
 import type { Corretor, Documento, Pessoa, Processo, StatusVenda, UsuarioGestao } from './types'
 
 /** Dados de exemplo do protótipo. Tudo fictício (nomes e CPFs de exemplo). */
@@ -225,6 +226,6 @@ export function documentosRequisitosSeed(): Documento[] {
   ]
 }
 
-export const documentosSeedCompleto = (): Documento[] => [...documentosSeed(), ...documentosRequisitosSeed()]
+export const documentosSeedCompleto = (): Documento[] => [...documentosSeed(), ...documentosRequisitosSeed(), ...documentosLocacaoSeed()]
 
 export const STATUS_INICIAL: StatusVenda = 'Em negociação'

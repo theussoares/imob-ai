@@ -1,7 +1,7 @@
 import { statusFinal, TOTAL_ETAPAS } from './status'
 import { requisitoPorChave, pendenciasEtapa } from './requisitos'
 import { STATUS_INICIAL } from './seed'
-import type { Documento, CategoriaDocumento, Processo, StatusVenda } from './types'
+import type { Documento, CategoriaDocumento, Locacao, Processo, StatusVenda } from './types'
 
 /**
  * Transições de estado do painel, como funções PURAS: recebem o estado e
@@ -15,6 +15,7 @@ import type { Documento, CategoriaDocumento, Processo, StatusVenda } from './typ
 export interface Estado {
   processos: Processo[]
   documentos: Documento[]
+  locacoes: Locacao[]
 }
 
 export interface Ator {
