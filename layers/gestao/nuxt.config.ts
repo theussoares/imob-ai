@@ -4,21 +4,31 @@ import { fileURLToPath } from 'node:url'
  * Layer `gestao`: painel de contratos (venda hoje, locação depois).
  * Spec: docs/superpowers/specs/2026-11-15-painel-gestao-design.md
  */
-export default defineNuxtConfig({
-  modules: ['mocker-nuxt'],
+// O mocker-nuxt só entra quando o mock é pedido (script `dev:gestao`). Registrado sempre,
+// ele empacota no build de produção um import com o caminho ABSOLUTO de
+// `mocks/gestao.mock.ts` da máquina de build: na Vercel o arquivo não existe, a função
+// cai com ERR_MODULE_NOT_FOUND e o site inteiro (não só /gestao) responde 500. Foi o que
+// derrubou a develop no primeiro deploy do painel. Sem o módulo, o store cai no seed local.
+const comMocks = process.env.NUXT_MOCKER_SERVER_ENABLED === 'true'
 
-  mockerServer: {
-    // Só `/api/gestao`. Com `/api` inteiro o gateway interceptaria também
-    // /api/admin, /api/leads e o resto do app real, que não têm mock.
-    basePath: '/api/gestao',
-    directory: fileURLToPath(new URL('./mocks', import.meta.url)),
-    // `error` (e não `proxy`): não há API real para repassar; mock faltando tem
-    // que aparecer como 404 no teste, não como um proxy para lugar nenhum.
-    fallback: 'error',
-    // Nunca em produção pública (README do módulo): produção só liga com
-    // `allowProduction`, que este layer não liga.
-    allowProduction: false,
-  },
+const mockerServer = {
+  // Só `/api/gestao`. Com `/api` inteiro o gateway interceptaria também
+  // /api/admin, /api/leads e o resto do app real, que não têm mock.
+  basePath: '/api/gestao',
+  directory: fileURLToPath(new URL('./mocks', import.meta.url)),
+  // `error` (e não `proxy`): não há API real para repassar; mock faltando tem
+  // que aparecer como 404 no teste, não como um proxy para lugar nenhum.
+  fallback: 'error',
+  // Nunca em produção pública (README do módulo): produção só liga com
+  // `allowProduction`, que este layer não liga.
+  allowProduction: false,
+}
+
+export default defineNuxtConfig({
+  modules: comMocks ? ['mocker-nuxt'] : [],
+
+  // Chave do mocker-nuxt, só existe (e só é tipada) com o módulo registrado.
+  ...(comMocks ? ({ mockerServer } as Record<string, unknown>) : {}),
 
   runtimeConfig: {
     // NUXT_MOCKER_SERVER_ENABLED=true liga os mocks (script `dev:gestao`). O README
