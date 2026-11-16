@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { capacidades, matrizPadrao, menuVisivel, MENU, processosVisiveis, sessaoDoPerfil } from '../../domain/permissions'
+import { capacidades, locacoesVisiveis, matrizPadrao, menuVisivel, MENU, processosVisiveis, sessaoDoPerfil } from '../../domain/permissions'
+import { locacoesSeed } from '../../domain/locacao-seed'
 import { processosSeed } from '../../domain/seed'
 
 describe('permissões do painel de gestão', () => {
@@ -71,5 +72,18 @@ describe('permissões do painel de gestão', () => {
   it('chave ausente na matriz vira "nao" (lado seguro), não erro', () => {
     const quebrada = { ...matrizPadrao(), admin: undefined } as unknown as ReturnType<typeof matrizPadrao>
     expect(capacidades(quebrada, sessaoDoPerfil('dono')).admin).toBe(false)
+  })
+})
+
+describe('locacoesVisiveis', () => {
+  const sessao = (perfil: 'corretor' | 'recepcao', corretorId: string | null) => ({ perfil, nome: 'x', corretorId })
+  it('corretor vê só as suas, recepção vê todas, arquivada some', () => {
+    const todas = locacoesSeed()
+    const arquivada = { ...todas[0]!, id: 'L-X', arquivado: true }
+    const m = matrizPadrao()
+    const c1 = locacoesVisiveis(m, sessao('corretor', 'c1'), [...todas, arquivada])
+    expect(c1.length).toBeGreaterThan(0)
+    expect(c1.every((l) => l.corretorId === 'c1' && !l.arquivado)).toBe(true)
+    expect(locacoesVisiveis(m, sessao('recepcao', null), [...todas, arquivada])).toHaveLength(todas.length)
   })
 })

@@ -1,5 +1,6 @@
 import { defineMock } from 'mocker-nuxt/utils'
 import { CORRETORES, documentosSeedCompleto, processosSeed, USUARIOS } from '../domain/seed.ts'
+import { locacoesSeed } from '../domain/locacao-seed.ts'
 import { matrizPadrao } from '../domain/permissions.ts'
 
 /**
@@ -12,6 +13,7 @@ const get = (name: string, route: string, body: unknown) =>
 
 export default [
   get('gestao.processos', '/api/gestao/processos', { data: processosSeed() }),
+  get('gestao.locacoes', '/api/gestao/locacoes', { data: locacoesSeed() }),
   get('gestao.documentos', '/api/gestao/documentos', { data: documentosSeedCompleto() }),
   get('gestao.corretores', '/api/gestao/corretores', { data: CORRETORES }),
   get('gestao.usuarios', '/api/gestao/usuarios', { data: USUARIOS }),

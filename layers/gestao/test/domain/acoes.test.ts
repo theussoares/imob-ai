@@ -14,7 +14,7 @@ import { documentosSeed, processosSeed } from '../../domain/seed'
 import { progresso, STATUS_VENDA, statusFinal } from '../../domain/status'
 
 const ator = { nome: 'Marina Alves' }
-const novo = (): Estado => ({ processos: processosSeed(), documentos: documentosSeed() })
+const novo = (): Estado => ({ processos: processosSeed(), documentos: documentosSeed(), locacoes: [] })
 const ok = (r: ReturnType<typeof abrirProcesso>) => {
   if (!r.ok) throw new Error(r.erro)
   return r.estado
