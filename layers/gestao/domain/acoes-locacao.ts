@@ -127,13 +127,15 @@ export function salvarVistoria(estado: Estado, id: string, quando: 'entrada' | '
 
 export function salvarContrato(estado: Estado, id: string, d: ContratoLocacao, ator: Ator, quando = agora()): Resultado {
   return alterar(estado, id, ator, quando, (l) => {
-    if (!(d.valor > 0)) return { ok: false, erro: 'Informe o valor do aluguel.' }
-    if (!Number.isInteger(d.diaVencimento) || d.diaVencimento < 1 || d.diaVencimento > 28) {
+    // `v-model.number` entrega '' (ou null) com o campo apagado, e '' passa em `>= 0`: a taxa viraria 0%.
+    const numero = (n: unknown) => typeof n === 'number' && Number.isFinite(n)
+    if (!numero(d.valor) || !(d.valor > 0)) return { ok: false, erro: 'Informe o valor do aluguel.' }
+    if (!numero(d.diaVencimento) || !Number.isInteger(d.diaVencimento) || d.diaVencimento < 1 || d.diaVencimento > 28) {
       return { ok: false, erro: 'O dia de vencimento deve ficar entre 1 e 28.' }
     }
     if (!ISO.test(d.inicio) || !ISO.test(d.fim)) return { ok: false, erro: 'Informe o início e o fim do contrato.' }
     if (d.fim <= d.inicio) return { ok: false, erro: 'O fim do contrato deve ser depois do início.' }
-    if (!(d.taxaPct >= 0 && d.taxaPct <= 100)) return { ok: false, erro: 'A taxa da imobiliária deve ficar entre 0 e 100%.' }
+    if (!numero(d.taxaPct) || !(d.taxaPct >= 0 && d.taxaPct <= 100)) return { ok: false, erro: 'A taxa da imobiliária deve ficar entre 0 e 100%.' }
     return { ok: true, acao: 'Salvou os dados do contrato', locacao: { ...l, contrato: d } }
   })
 }

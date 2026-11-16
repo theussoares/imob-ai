@@ -15,6 +15,7 @@ const store = useGestaoStore()
 const toast = useToast()
 const demo = !!useRuntimeConfig().public.gestaoDemo
 const { askConfirm } = useConfirm()
+const { sessao } = useGestaoSessao()
 
 await store.carregar()
 
@@ -131,7 +132,7 @@ const btn =
       <div class="flex min-w-0 flex-col gap-3">
         <h2 class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Etapa {{ etapaVista }}: {{ ETAPAS_LOCACAO[etapaVista - 1] }}</h2>
 
-        <GestaoLocacaoAbertura v-if="etapaVista === 1" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" @salvar="(d) => executar((s, a) => acao.salvarAberturaLocacao(s, id(), d, a), 'Abertura salva.')" />
+        <GestaoLocacaoAbertura v-if="etapaVista === 1" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" :corretor-travado="sessao?.perfil === 'corretor'" @salvar="(d) => executar((s, a) => acao.salvarAberturaLocacao(s, id(), d, a), 'Abertura salva.')" />
         <GestaoLocacaoPessoa v-else-if="etapaVista === 2" :key="locacao.updated" titulo="Cadastro do locatário" :pessoa="locacao.locatario" :pode-editar="podeEditar" @salvar="salvarPessoa('locatario', $event)" />
         <GestaoLocacaoPessoa v-else-if="etapaVista === 3" :key="locacao.updated" titulo="Cadastro do locador" :pessoa="locacao.locador" :pode-editar="podeEditar" @salvar="salvarPessoa('locador', $event)" />
         <GestaoLocacaoGarantia v-else-if="etapaVista === 5" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" @salvar="(d) => executar((s, a) => acao.salvarGarantia(s, id(), d, a), 'Garantia salva.')" />

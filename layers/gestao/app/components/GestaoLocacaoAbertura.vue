@@ -4,7 +4,7 @@ import { IMOVEIS_EXEMPLO } from '../../domain/locacao-seed'
 import { CORRETORES } from '../../domain/seed'
 import type { Locacao } from '../../domain/types'
 
-const props = defineProps<{ locacao: Locacao; podeEditar: boolean }>()
+const props = defineProps<{ locacao: Locacao; podeEditar: boolean; corretorTravado?: boolean }>()
 const emit = defineEmits<{ salvar: [dados: DadosAberturaLocacao] }>()
 
 const locador = reactive({ ...props.locacao.locador })
@@ -40,7 +40,7 @@ const botao =
       </label>
       <label :class="rotulo">
         Corretor
-        <select v-model="corretorId" :class="campo" :disabled="!podeEditar">
+        <select v-model="corretorId" :class="campo" :disabled="!podeEditar || corretorTravado" data-testid="abertura-corretor">
           <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </label>

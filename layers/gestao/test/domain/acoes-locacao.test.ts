@@ -46,6 +46,11 @@ describe('contrato e cobranças', () => {
       expect(erro(a.salvarContrato(novo(), ATIVA, { ...contrato, ...ruim }, ator))).toBeTruthy()
     }
   })
+  it('recusa valor, taxa e dia vazios ou não numéricos (campo apagado na tela)', () => {
+    for (const ruim of [{ taxaPct: '' }, { taxaPct: null }, { valor: '' }, { valor: NaN }, { diaVencimento: '' }]) {
+      expect(erro(a.salvarContrato(novo(), ATIVA, { ...contrato, ...ruim } as unknown as typeof contrato, ator))).toBeTruthy()
+    }
+  })
   it('salva contrato válido', () => {
     expect(loc(ok(a.salvarContrato(novo(), ATIVA, contrato, ator, Q)), ATIVA).contrato).toEqual(contrato)
   })

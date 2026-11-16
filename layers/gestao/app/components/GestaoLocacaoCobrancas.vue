@@ -16,7 +16,9 @@ function comprovante(e: Event, acao: 'pagar' | 'repassar', id: string) {
   const input = e.target as HTMLInputElement
   const nome = input.files?.[0]?.name ?? ''
   input.value = ''
-  if (nome) emit(acao, id, nome)
+  if (!nome) return
+  if (acao === 'pagar') emit('pagar', id, nome)
+  else emit('repassar', id, nome)
 }
 
 const botao =
