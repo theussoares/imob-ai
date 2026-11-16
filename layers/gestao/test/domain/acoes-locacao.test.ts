@@ -136,3 +136,19 @@ describe('acompanhamento', () => {
     expect(erro(a.renovarLocacao(novo(), 'nao-existe', ator))).toBe('Locação não encontrada.')
   })
 })
+
+describe('documentos da locação', () => {
+  const dados = { nome: 'rg.pdf', categoria: 'pessoas' as const, processoId: GARANTIA, tamanho: 1000, requisito: 'locatario:rg-cnh' }
+  it('envia arquivo ligado ao item e registra no histórico', () => {
+    const e = ok(a.enviarDocumentoLocacao(novo(), dados, ator, Q))
+    expect(e.documentos[0]).toMatchObject({ processoId: GARANTIA, requisito: 'locatario:rg-cnh', estado: 'enviado', categoria: 'pessoas' })
+    expect(loc(e, GARANTIA).hist[0]!.acao).toBe('Enviou o documento: RG ou CNH')
+  })
+  it('recusa extensão, tamanho, item desconhecido, locação inexistente e encerrada', () => {
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, nome: 'x.exe' }, ator))).toBe('Use PDF, JPG, PNG ou WEBP.')
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, tamanho: 21 * 1024 * 1024 }, ator))).toBe('O arquivo passa de 20 MB.')
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, requisito: 'x:y' }, ator))).toBe('Item de checklist desconhecido.')
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, processoId: 'nada' }, ator))).toBe('Locação não encontrada.')
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, processoId: ENCERRADA }, ator))).toBe('Esta locação está encerrada e só aceita consulta.')
+  })
+})

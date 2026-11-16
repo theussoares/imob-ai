@@ -26,7 +26,7 @@ funcionando sobre dados de exemplo — não um backend.
 ## Fora do escopo por decisão
 
 - Persistência real (Supabase), RLS, Storage, e-mail/WhatsApp, SPC/Serasa.
-- Locação (8 etapas próprias) e alertas 30/60/90.
+- Alertas 30/60/90 de fim de contrato. (A Locação de 8 etapas entrou em 16/11: ver `2026-11-16-gestao-locacao-design.md`.)
 - Backend real do acesso (Supabase Auth, tabela de OTP, envio de e-mail, Turnstile de verdade): hoje o fluxo é completo na tela, em modo demonstração.
 - Flag por tenant em `tenant_features` (exige migration): hoje o gate é
   `runtimeConfig.public.gestaoEnabled` (env `NUXT_PUBLIC_GESTAO_ENABLED`).

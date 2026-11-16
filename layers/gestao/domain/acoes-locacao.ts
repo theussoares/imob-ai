@@ -1,7 +1,8 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes.ts'
 import { pendenciasEtapaLocacao } from './locacao-requisitos.ts'
 import { locacaoFinal, statusPorEtapa, TOTAL_ETAPAS_LOCACAO } from './locacao-status.ts'
-import type { Cobranca, ContratoLocacao, Locacao, Pessoa, TipoGarantia, Vistoria } from './types'
+import { requisitoPorChave } from './requisitos.ts'
+import type { CategoriaDocumento, Cobranca, ContratoLocacao, Documento, Locacao, Pessoa, TipoGarantia, Vistoria } from './types'
 
 /**
  * Transições da locação, puras como as da venda (`acoes.ts`): recebem o estado e
@@ -264,3 +265,39 @@ function trocarArquivada(estado: Estado, id: string, arquivado: boolean, ator: A
 
 export const arquivarLocacao = (e: Estado, id: string, a: Ator, q = agora()) => trocarArquivada(e, id, true, a, q)
 export const restaurarLocacao = (e: Estado, id: string, a: Ator, q = agora()) => trocarArquivada(e, id, false, a, q)
+
+/**
+ * `acoes.enviarDocumento` exige um processo de venda; a locação tem a sua porta.
+ * Conferir e substituir arquivo não dependem do processo e são reaproveitados.
+ */
+export function enviarDocumentoLocacao(
+  estado: Estado,
+  dados: { nome: string; categoria: CategoriaDocumento; processoId: string; tamanho: number; requisito?: string },
+  ator: Ator,
+  quando = agora(),
+): Resultado {
+  if (!/\.(pdf|jpe?g|png|webp)$/i.test(dados.nome.trim())) return { ok: false, erro: 'Use PDF, JPG, PNG ou WEBP.' }
+  if (dados.tamanho > 20 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 20 MB.' }
+  const req = dados.requisito ? requisitoPorChave(dados.requisito) : undefined
+  if (dados.requisito && !req) return { ok: false, erro: 'Item de checklist desconhecido.' }
+  const r = alterar(estado, dados.processoId, ator, quando, (l) => ({
+    ok: true,
+    acao: `Enviou o documento: ${req?.nome ?? dados.nome.trim()}`,
+    locacao: l,
+  }))
+  if (!r.ok) return r
+  const documento: Documento = {
+    id: `d${estado.documentos.length + 1}-${Date.now().toString(36)}`,
+    nome: dados.nome.trim(),
+    // O item manda na categoria: o RG aparece em «Pessoas» mesmo que quem enviou não tenha escolhido.
+    categoria: req?.categoria ?? dados.categoria,
+    ...(req && { requisito: req.chave }),
+    processoId: dados.processoId,
+    estado: 'enviado',
+    tamanho: dados.tamanho,
+    versoes: 1,
+    enviadoPor: ator.nome,
+    apagado: null,
+  }
+  return { ok: true, estado: { ...r.estado, documentos: [documento, ...r.estado.documentos] } }
+}

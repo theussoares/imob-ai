@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ETAPAS_VENDA } from '../../domain/status'
 
-defineProps<{
+const props = defineProps<{
+  /** nomes das etapas; sem isto, as 8 da venda */
+  nomes?: readonly string[]
   /** etapa que o usuário está olhando (1..8) */
   vista: number
   /** etapa em que o processo está de fato */
@@ -20,7 +22,7 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
   -->
   <nav aria-label="Etapas do processo" class="overflow-x-auto pb-1" data-testid="stepper">
     <ol class="m-0 flex min-w-max list-none gap-2 p-0 lg:min-w-0 lg:[display:grid] lg:grid-cols-8">
-      <li v-for="(nome, i) in ETAPAS_VENDA" :key="nome" class="lg:min-w-0">
+      <li v-for="(nome, i) in props.nomes ?? ETAPAS_VENDA" :key="nome" class="lg:min-w-0">
         <button
           type="button"
           :data-testid="`etapa-${i + 1}`"
@@ -36,7 +38,7 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
           <span class="text-[length:var(--fs-caption)] font-bold">
             <span v-if="concluidas[i]" aria-hidden="true">✓ </span>Etapa {{ i + 1 }}
           </span>
-          <span class="text-[length:var(--fs-ui)] font-semibold leading-tight">{{ nome }}</span>
+          <span class="max-w-full text-[length:var(--fs-ui)] font-semibold leading-tight break-words">{{ nome }}</span>
           <!-- Estado em texto: cor/ícone sozinhos não bastam (daltonismo, leitor de tela). -->
           <span
             class="text-[length:var(--fs-caption)]"

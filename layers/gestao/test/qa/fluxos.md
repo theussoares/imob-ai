@@ -184,6 +184,30 @@ Como dono, em `/gestao/vendas/V-2026-0155` (etapa 1). Botão `requisito-exemplo`
 6. «Arquivados» (menu: jurídico, dono e recepção, como no protótipo; corretor não vê): só jurídico e dono têm `restaurar-contrato`; restaurar
    devolve o card à lista. Sem arquivados: `arquivados-vazio`.
 
+## F14 — Contratos de locação (8 etapas)
+
+Dados: 4 locações. Do Carlos (c1): L-2026-0004 (Em abertura) e L-2026-0001 (Ativa, contrato
+R$ 2.500, taxa 10%, cobrança 2026-10 paga com repasse pendente). L-2026-0003 (c2, etapa 5) e
+L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`.
+
+1. Corretor em `/gestao/locacao`: `card-locacao` = 2. Abrir direto `/gestao/locacao/L-2026-0003`
+   → `nao-encontrado`. Recepção vê 4 cards.
+2. `nova-locacao`: sem locador → erro «Informe o locador.»; preenchido abre `/gestao/locacao/L-AAAA-0005`
+   na etapa 1; o corretor logado fica travado no select.
+3. Dono em L-2026-0003 (etapa 5): `concluir-etapa` desabilitado e `pendencias-etapa` pede garantia e
+   arquivo. Salvar garantia + `requisito-exemplo` → habilita; concluir → etapa 6.
+4. Etapa 6: data, responsável, `vistoria-exemplo`, salvar; concluir → etapa 7.
+5. Etapa 7: valor 3000, início e fim (fim depois do início), salvar; concluir → etapa 8, status «Ativa».
+   Dia de vencimento 29 → toast «O dia de vencimento deve ficar entre 1 e 28.»
+6. Voltar à etapa 7: gerar cobrança da mesma competência duas vezes → segunda recusada.
+   `pagar-exemplo` → «Paga» e «Repasse R$ 2.700,00 · pendente»; `repassar-exemplo` → «feito».
+7. Etapa 8: `encerrar` com repasse pendente ou sem vistoria de saída → recusa; com tudo certo →
+   `aviso-final` e nenhum campo editável. `renovar` antes de encerrar: `fim` +12 meses.
+8. Dono/jurídico: `arquivar` só em locação encerrada; ela sai da lista e aparece em «Arquivados»
+   (com «Restaurar contrato»).
+9. Recepção na etapa 7 de L-2026-0001: `etapa-sem-valores` e nenhum «R$» na tela.
+10. Stepper mostra os nomes da locação (Garantia, Vistoria, Contrato e financeiro…).
+
 ## Formato do relatório
 
 Tabela `Fluxo | Passo | PASSOU/FALHOU | Observado (só se falhou)` + lista final
