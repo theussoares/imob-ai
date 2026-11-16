@@ -39,6 +39,18 @@ const CATALOGO: Requisito[] = [
   { chave: 'fin:simulacao', nome: 'Simulação de financiamento', categoria: 'financeiro' },
   { chave: 'fin:fgts', nome: 'Extrato do FGTS', categoria: 'financeiro' },
   { chave: 'fin:entrada', nome: 'Comprovante da entrada', categoria: 'financeiro' },
+  // Locação (ver `locacao-requisitos.ts`).
+  ...(['locatario', 'locador'] as const).flatMap((quem): Requisito[] => [
+    { chave: `${quem}:rg-cnh`, nome: 'RG ou CNH', categoria: 'pessoas' },
+    quem === 'locatario'
+      ? { chave: 'locatario:renda', nome: 'Comprovante de renda', categoria: 'pessoas' }
+      : { chave: 'locador:certidao', nome: 'Certidão de nascimento ou de casamento', categoria: 'pessoas' },
+    { chave: `${quem}:residencia`, nome: 'Comprovante de residência', categoria: 'pessoas' },
+  ]),
+  { chave: 'locimovel:matricula', nome: 'Matrícula atualizada', categoria: 'imoveis' },
+  { chave: 'locimovel:iptu', nome: 'IPTU', categoria: 'imoveis' },
+  { chave: 'locimovel:agua-luz', nome: 'Comprovante de água e luz', categoria: 'imoveis' },
+  { chave: 'locacao:garantia', nome: 'Comprovante da garantia', categoria: 'locacao' },
 ]
 
 const POR_CHAVE = new Map(CATALOGO.map((r) => [r.chave, r]))

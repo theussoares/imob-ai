@@ -15,7 +15,7 @@ import { documentosSeed, processosSeed } from '../../domain/seed'
 
 const ator = { nome: 'Paulo Ribeiro' }
 const quando = '15/11/2026 10:00'
-const novo = (): Estado => ({ processos: processosSeed(), documentos: documentosSeed() })
+const novo = (): Estado => ({ processos: processosSeed(), documentos: documentosSeed(), locacoes: [] })
 const proc = (e: Estado, id: string) => e.processos.find((p) => p.id === id)!
 
 // V-0151: R$ 480.000 a 5% → comissão 24.000; vendedor 9.600, já adiantou 6.000 (resta 3.600).

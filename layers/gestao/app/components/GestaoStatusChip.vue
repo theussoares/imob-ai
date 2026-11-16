@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { TOM_STATUS_LOCACAO } from '../../domain/locacao-status'
 import { TOM_STATUS } from '../../domain/status'
-import type { StatusVenda, TomStatus } from '../../domain/types'
+import type { StatusLocacao, StatusVenda, TomStatus } from '../../domain/types'
 
-const props = defineProps<{ status: StatusVenda }>()
-const tom = computed<TomStatus>(() => TOM_STATUS[props.status] ?? 'neutral')
+const props = defineProps<{ status: StatusVenda | StatusLocacao }>()
+const tom = computed<TomStatus>(
+  () => TOM_STATUS[props.status as StatusVenda] ?? TOM_STATUS_LOCACAO[props.status as StatusLocacao] ?? 'neutral',
+)
 
 // Pares texto/fundo escolhidos para ≥ 4,5:1 (WCAG AA). Classes completas, não
 // montadas por string: o Tailwind só gera o que aparece escrito no arquivo.
