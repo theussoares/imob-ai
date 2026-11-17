@@ -20,7 +20,7 @@ módulo puro de `layers/gestao/domain`, testada em Node.
 | 5 | Usuários e permissões | Editar a matriz de permissões por perfil (a de convites já existe) |
 | 6 | Configurações | Dados da imobiliária e parâmetros padrão (% de comissão, taxa da locação); só `admin` |
 | 7 | Consulta cadastral | Formulário e resultado simulado de SPC/Serasa; só `consulta` |
-| 8 | Imóveis | Lista e cadastro de exemplo; decisão de reaproveitar o CRUD real do `/admin` fica para a fase de backend |
+| 8 | Imóveis | **Feito (18/11):** espelho do catálogo em mock, com cadastro completo, status, fotos e permissão por corretor; o CRUD real do `/admin` entra na fase de backend. Ver `2026-11-17-gestao-imoveis-espelho-design.md` |
 
 ## Fora do escopo por decisão
 

@@ -3,13 +3,18 @@ import * as acoes from '../../domain/acoes'
 import { proximoIdConsulta, realizarConsulta, type ConsultaFeita, type EntradaConsulta, type ResultadoConsulta } from '../../domain/consulta'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { capacidades, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosVisiveis } from '../../domain/permissions'
-import { cadastrarImovel, imoveisSeed, type ImovelGestao, type NovoImovel, type ResultadoImovel } from '../../domain/imoveis'
+import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
+import { imoveisVisiveis as filtrarImoveisVisiveis, permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
+import type { FotoNova } from '../../domain/imoveis-fotos'
+import type { PropertyStatus } from '../../../../shared/models/property'
+import { MockImoveisRepository } from '../services/MockImoveisRepository'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { documentosSeedCompleto, processosSeed } from '../../domain/seed'
 import type { Documento, Locacao, MatrizPermissoes, Processo } from '../../domain/types'
 
-// v4: o seed da locação passou a ser ancorado em «hoje» (avisos); o v3 guardado traria as datas fixas.
-const CHAVE = 'gestao-demo-v4'
+// v5: o imóvel ganhou os campos do catálogo (preço, bairro, fotos, corretor vendedor…); o v4 guardado
+// traria o cadastro de 6 campos. (v4: o seed da locação passou a ser ancorado em «hoje».)
+const CHAVE = 'gestao-demo-v5'
 
 interface Guardado extends Estado {
   matriz: MatrizPermissoes
@@ -40,14 +45,32 @@ export function useGestaoStore() {
   const carregado = useState<boolean>('gestao:carregado', () => false)
   const { sessao } = useGestaoSessao()
 
-  function persistir() {
-    if (!import.meta.client) return
+  /** `false` quando não coube (localStorage cheio): quem guarda foto precisa saber, senão ela some no recarregar. */
+  function persistir(): boolean {
+    if (!import.meta.client) return true
     try {
       localStorage.setItem(CHAVE, JSON.stringify({ ...estado.value, matriz: matriz.value, config: config.value, consultas: consultas.value, imoveis: imoveis.value } satisfies Guardado))
+      return true
     } catch {
       /* sem persistência: o demo segue em memória */
+      return false
     }
   }
+
+  const imoveisRepo = new MockImoveisRepository(
+    {
+      ler: () => imoveis.value,
+      gravar(lista) {
+        const antes = imoveis.value
+        imoveis.value = lista
+        if (persistir()) return true
+        imoveis.value = antes
+        return false
+      },
+    },
+    () => new Date().toISOString(),
+    () => `ft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  )
 
   async function carregar(forcar = false) {
     if (carregado.value && !forcar) return
@@ -124,14 +147,45 @@ export function useGestaoStore() {
     return r
   }
 
-  /** Cadastra um imóvel (validação e id são do domínio) e guarda. */
-  function cadastrarImovelNovo(dados: NovoImovel): ResultadoImovel {
-    const r = cadastrarImovel(imoveis.value, dados)
-    if (r.ok) {
-      imoveis.value = [r.imovel, ...imoveis.value]
-      persistir()
-    }
-    return r
+  const NEGADO = { ok: false, erro: 'Você não pode alterar este imóvel.' } as const
+
+  const permissoesDoImovel = (imovel: ImovelGestao | null): PermissoesImovel =>
+    sessao.value
+      ? permissoesImovel(matriz.value, sessao.value, imovel)
+      : { ver: false, criar: false, editar: false, excluir: false, trocarCorretor: false }
+
+  /** Checa a permissão no domínio e só então chama o repositório (o servidor repete a checagem). */
+  function comPermissao<T>(id: string, chave: 'editar', fazer: () => Promise<T>): Promise<T | typeof NEGADO> {
+    const imovel = imoveis.value.find((i) => i.id === id) ?? null
+    return imovel && !permissoesDoImovel(imovel)[chave] ? Promise.resolve(NEGADO) : fazer()
+  }
+
+  async function cadastrarImovel(dados: NovoImovel): Promise<ResultadoImovel> {
+    if (!permissoesDoImovel(null).criar) return { ok: false, erro: 'Você não pode cadastrar imóveis.' }
+    // Corretor só cadastra para si; trocar o vendedor é de quem vê todos.
+    const brokerId = permissoesDoImovel(null).trocarCorretor ? dados.brokerId : (sessao.value?.corretorId ?? dados.brokerId)
+    return imoveisRepo.criar({ ...dados, brokerId })
+  }
+
+  const atualizarImovel = (id: string, dados: NovoImovel) =>
+    comPermissao(id, 'editar', () => {
+      const atual = imoveis.value.find((i) => i.id === id)
+      const brokerId = permissoesDoImovel(atual ?? null).trocarCorretor ? dados.brokerId : (atual?.brokerId ?? dados.brokerId)
+      return imoveisRepo.atualizar(id, { ...dados, brokerId })
+    })
+
+  const mudarStatusImovel = (id: string, status: PropertyStatus) => comPermissao(id, 'editar', () => imoveisRepo.mudarStatus(id, status))
+  const definirDestaqueImovel = (id: string, featured: boolean) => comPermissao(id, 'editar', () => imoveisRepo.definirDestaque(id, featured))
+  const adicionarFotosImovel = (id: string, novas: FotoNova[]) => comPermissao(id, 'editar', () => imoveisRepo.adicionarFotos(id, novas))
+  const definirCapaImovel = (id: string, fotoId: string) => comPermissao(id, 'editar', () => imoveisRepo.definirCapa(id, fotoId))
+  const moverFotoImovel = (id: string, fotoId: string, dir: 'cima' | 'baixo') => comPermissao(id, 'editar', () => imoveisRepo.moverFoto(id, fotoId, dir))
+  const removerFotoImovel = (id: string, fotoId: string) => comPermissao(id, 'editar', () => imoveisRepo.removerFoto(id, fotoId))
+
+  async function excluirImovel(id: string): Promise<{ ok: true } | { ok: false; erro: string }> {
+    const imovel = imoveis.value.find((i) => i.id === id)
+    if (!imovel || !sessao.value) return { ok: false, erro: 'Imóvel não encontrado.' }
+    const pode = podeExcluirImovel(imovel, sessao.value, matriz.value, estado.value.locacoes)
+    return pode.ok ? imoveisRepo.excluir(id) : pode
   }
 
   /** Guarda as configurações já validadas por `validarConfiguracoes`. */
@@ -188,7 +242,17 @@ export function useGestaoStore() {
     consultar,
     consultas: computed(() => consultas.value),
     imoveis: computed(() => imoveis.value),
-    cadastrarImovel: cadastrarImovelNovo,
+    imoveisVisiveis: computed(() => (sessao.value ? filtrarImoveisVisiveis(matriz.value, sessao.value, imoveis.value) : [])),
+    permissoesDoImovel,
+    cadastrarImovel,
+    atualizarImovel,
+    mudarStatusImovel,
+    definirDestaqueImovel,
+    excluirImovel,
+    adicionarFotosImovel,
+    definirCapaImovel,
+    moverFotoImovel,
+    removerFotoImovel,
     definirMatriz,
     config,
     definirConfig,

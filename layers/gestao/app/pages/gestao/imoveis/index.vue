@@ -1,0 +1,99 @@
+<script setup lang="ts">
+import {
+  FILTRO_IMOVEIS_VAZIO,
+  ROTULO_FINALIDADE,
+  ROTULO_SITUACAO_IMOVEL,
+  ROTULO_STATUS_IMOVEL,
+  STATUS_IMOVEL,
+  filtrarImoveis,
+  rotuloTipoImovel,
+  situacaoImovel,
+  type FiltroImoveis,
+} from '../../../../domain/imoveis'
+import { CORRETORES } from '../../../../domain/seed'
+
+// A guarda do middleware já barra quem não tem acesso à seção `imoveis`.
+definePageMeta({ layout: 'gestao', middleware: 'gestao' })
+useHead({ title: 'Imóveis · Gestão' })
+
+const store = useGestaoStore()
+await store.carregar()
+
+const filtro = reactive<FiltroImoveis>({ ...FILTRO_IMOVEIS_VAZIO })
+const lista = computed(() => filtrarImoveis(store.imoveisVisiveis.value, store.locacoes.value, filtro))
+const podeCriar = computed(() => store.permissoesDoImovel(null).criar)
+
+const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
+const preco = (valor: number, finalidade: 'venda' | 'aluguel') =>
+  `${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}${finalidade === 'aluguel' ? '/mês' : ''}`
+const capa = (fotos: { url: string; urlSm: string | null; isCover: boolean }[]) => { const c = fotos.find((f) => f.isCover) ?? fotos[0]; return c ? (c.urlSm ?? c.url) : null }
+
+const campo =
+  'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
+const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
+const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] shadow-[var(--shadow)]'
+</script>
+
+<template>
+  <div class="mx-auto flex max-w-5xl flex-col gap-4">
+    <header class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Imóveis</h1>
+        <p class="mt-1 text-[var(--ink-soft)]">O que você cadastra aqui é o que aparece no site da imobiliária.</p>
+      </div>
+      <NuxtLink v-if="podeCriar" to="/gestao/imoveis/novo" class="inline-flex min-h-11 items-center rounded-[10px] bg-[var(--brand)] px-5 font-bold text-white no-underline hover:opacity-90" data-testid="imovel-novo">
+        Cadastrar imóvel
+      </NuxtLink>
+    </header>
+
+    <div :class="card" class="[display:grid] gap-3 p-4 md:grid-cols-[1fr_10rem_10rem_10rem] md:p-5">
+      <label :class="rotulo">Buscar
+        <input v-model="filtro.busca" :class="campo" type="search" autocomplete="off" placeholder="Título, bairro ou proprietário" data-testid="imovel-busca" />
+      </label>
+      <label :class="rotulo">Anúncio
+        <select v-model="filtro.status" :class="campo" data-testid="imovel-filtro-status">
+          <option value="">Todos</option>
+          <option v-for="s in STATUS_IMOVEL" :key="s" :value="s">{{ ROTULO_STATUS_IMOVEL[s] }}</option>
+        </select>
+      </label>
+      <label :class="rotulo">Situação
+        <select v-model="filtro.situacao" :class="campo" data-testid="imovel-filtro-situacao">
+          <option value="">Todas</option>
+          <option v-for="(r, k) in ROTULO_SITUACAO_IMOVEL" :key="k" :value="k">{{ r }}</option>
+        </select>
+      </label>
+      <label :class="rotulo">Finalidade
+        <select v-model="filtro.purpose" :class="campo" data-testid="imovel-filtro-finalidade">
+          <option value="">Todas</option>
+          <option v-for="(r, k) in ROTULO_FINALIDADE" :key="k" :value="k">{{ r }}</option>
+        </select>
+      </label>
+    </div>
+
+    <p v-if="!lista.length" class="m-0 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 text-[var(--ink-soft)]" data-testid="imovel-vazio">
+      Nenhum imóvel encontrado com esse filtro.
+    </p>
+    <ul v-else class="m-0 list-none [display:grid] gap-3 p-0 md:grid-cols-2" data-testid="imovel-lista">
+      <li v-for="i in lista" :key="i.id" :class="card" class="overflow-hidden" data-testid="imovel-card">
+        <NuxtLink :to="`/gestao/imoveis/${i.id}`" class="flex gap-3 p-3 text-inherit no-underline hover:bg-[var(--paper-2)]">
+          <img v-if="capa(i.images)" :src="capa(i.images)!" :alt="`Capa de ${i.title}`" class="size-24 shrink-0 rounded-lg object-cover" />
+          <span v-else class="flex size-24 shrink-0 items-center justify-center rounded-lg bg-[var(--paper-2)] text-[length:var(--fs-caption)] text-[var(--ink-soft)]">Sem foto</span>
+          <span class="flex min-w-0 flex-col gap-1">
+            <strong class="truncate text-[length:var(--fs-body)]">{{ i.title }}</strong>
+            <span class="text-[var(--ink-soft)]">{{ i.neighborhood }} · {{ rotuloTipoImovel(i.type) }} · {{ ROTULO_FINALIDADE[i.purpose] }}</span>
+            <span class="font-bold">{{ preco(i.price, i.purpose) }}</span>
+            <span class="flex flex-wrap gap-1.5 text-[length:var(--fs-caption)] font-bold">
+              <span class="rounded-full bg-[var(--paper-2)] px-2.5 py-1" data-testid="imovel-status-selo">{{ ROTULO_STATUS_IMOVEL[i.status] }}</span>
+              <span
+                class="rounded-full px-2.5 py-1"
+                :class="situacaoImovel(i.id, store.locacoes.value) === 'em-locacao' ? 'bg-[#dbeafe] text-[#1e3a8a]' : 'bg-[#d1fae5] text-[#064e3b]'"
+                data-testid="imovel-situacao"
+              >{{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(i.id, store.locacoes.value)] }}</span>
+            </span>
+            <span class="text-[length:var(--fs-label)] text-[var(--ink-soft)]">Corretor: {{ nomeCorretor(i.brokerId) }}</span>
+          </span>
+        </NuxtLink>
+      </li>
+    </ul>
+  </div>
+</template>
