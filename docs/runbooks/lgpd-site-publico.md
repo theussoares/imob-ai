@@ -219,6 +219,28 @@ persistente. Nesse dia o banner é obrigatório, e precisa **bloquear o script
 até o aceite**, não só avisar. Um banner que avisa mas carrega o pixel antes do
 clique é pior que nenhum, porque documenta a violação.
 
+## Painel de gestão: documentos das partes (fora do site público)
+
+Entrou em 17/11 com a F3 do backend do `/gestao`
+(`supabase/migrations/0061_gestao_documentos.sql`). **Não é tratamento do site
+público** e `app/pages/privacidade.vue` NÃO foi alterada: aquela página fala com
+o visitante do site e com o cliente da Área do Cliente, e as pessoas aqui são
+outras — vendedor, comprador, locador e locatário de um negócio em andamento,
+cujos papéis a imobiliária junta no atendimento. Nenhuma frase da política
+passou a ser falsa: nada de cookie, de terceiro novo ou de campo em formulário
+público.
+
+| Dado | Onde fica | Por quanto tempo | Quem acessa |
+|---|---|---|---|
+| RG/CNH, certidões, comprovantes de renda e de residência, matrícula, IPTU, comprovantes de pagamento (PDF/imagem, até 15 MB) | bucket **privado** `gestao-docs` (Supabase, São Paulo) + metadados em `gestao_documentos` | **Sem prazo automático.** «Apagar» manda para a lixeira (não exclui o arquivo) | membros do painel com a permissão da matriz; corretor só vê os do próprio processo; download por URL assinada de 60 s, com registro em `gestao_eventos` |
+
+Base legal provável: art. 7º, V (procedimento preliminar/execução de contrato a
+pedido do titular) e II (obrigação legal de guarda, no caso de contrato).
+**Ainda precisa de decisão da imobiliária (controladora):** prazo de retenção e
+expurgo definitivo da lixeira, e se o titular dessas partes recebe um aviso por
+outro canal (o contrato, por exemplo). Se ela decidir publicar isso na política,
+a seção entra em `privacidade.vue` no mesmo PR da decisão.
+
 ## Ações, por dono
 
 | # | Ação | Dono | Prioridade |

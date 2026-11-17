@@ -1,0 +1,209 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { CategoriaDocumento } from '~~/layers/gestao/domain/types'
+import {
+  COLUNAS_COM_CAMINHO,
+  COLUNAS_DOCUMENTO,
+  toDocumentoGestao,
+  type DocumentoGestao,
+  type GestaoDocumentoRow,
+} from '~~/server/mappers/gestao-documento'
+import type { AlvoTipo } from '~~/server/utils/gestao-documento-regras'
+
+/**
+ * Acesso a `gestao_documentos`. Toda query leva `tenant_id`: a service_role
+ * ignora RLS, então o filtro é a única barreira entre as imobiliárias.
+ *
+ * Linha `pendente` (upload não confirmado) NUNCA aparece nas listas: o
+ * navegador pode abandonar o envio no meio, e um item fantasma na tela de
+ * documentos seria pior do que nenhum.
+ */
+
+/** Limite de lista da fase (plano): 200, mais recentes primeiro. */
+export const LIMITE_LISTA = 200
+
+export interface DocumentoComCaminho {
+  doc: DocumentoGestao
+  /** Interno: nunca vai para a resposta. */
+  storagePath: string | null
+  mime: string | null
+}
+
+export async function listarDocumentosDoAlvo(
+  db: SupabaseClient,
+  tenantId: string,
+  alvo: { tipo: AlvoTipo; id: string },
+  opcoes: { lixeira?: boolean } = {},
+): Promise<DocumentoGestao[]> {
+  let q = db
+    .from('gestao_documentos')
+    .select(COLUNAS_DOCUMENTO)
+    .eq('tenant_id', tenantId)
+    .eq('alvo_tipo', alvo.tipo)
+    .eq('alvo_id', alvo.id)
+    .not('estado', 'eq', 'pendente')
+  q = opcoes.lixeira ? q.not('apagado_em', 'is', null) : q.is('apagado_em', null)
+  const { data, error } = await q.order('updated_at', { ascending: false }).limit(LIMITE_LISTA)
+  if (error) throw error
+  return ((data ?? []) as unknown as GestaoDocumentoRow[]).map(toDocumentoGestao)
+}
+
+/**
+ * Lixeira do tenant. `alvos` = ids visíveis a quem pergunta, por tipo; `null`
+ * = vê tudo (perfil com `verTodos`). Lista vazia devolve vazio SEM ir ao banco —
+ * `.in('alvo_id', [])` não é consulta que valha confiar.
+ */
+export async function listarLixeira(
+  db: SupabaseClient,
+  tenantId: string,
+  alvos: { venda: string[]; locacao: string[] } | null,
+): Promise<DocumentoGestao[]> {
+  const base = () =>
+    db
+      .from('gestao_documentos')
+      .select(COLUNAS_DOCUMENTO)
+      .eq('tenant_id', tenantId)
+      .not('estado', 'eq', 'pendente')
+      .not('apagado_em', 'is', null)
+
+  const consultas: { tipo: AlvoTipo | null; ids: string[] | null }[] = alvos
+    ? (['venda', 'locacao'] as const).filter((t) => alvos[t].length).map((t) => ({ tipo: t, ids: alvos[t] }))
+    : [{ tipo: null, ids: null }]
+
+  const linhas: GestaoDocumentoRow[] = []
+  for (const c of consultas) {
+    let q = base()
+    if (c.tipo) q = q.eq('alvo_tipo', c.tipo)
+    if (c.ids) q = q.in('alvo_id', c.ids)
+    const { data, error } = await q.order('updated_at', { ascending: false }).limit(LIMITE_LISTA)
+    if (error) throw error
+    linhas.push(...((data ?? []) as unknown as GestaoDocumentoRow[]))
+  }
+  return linhas
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, LIMITE_LISTA)
+    .map(toDocumentoGestao)
+}
+
+/** Uma linha por id, com o caminho — para confirmar, baixar, conferir e apagar. Inclui `pendente`. */
+export async function obterDocumento(
+  db: SupabaseClient,
+  tenantId: string,
+  id: string,
+): Promise<DocumentoComCaminho | null> {
+  const { data, error } = await db
+    .from('gestao_documentos')
+    .select(COLUNAS_COM_CAMINHO)
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  const row = data as unknown as GestaoDocumentoRow
+  return { doc: toDocumentoGestao(row), storagePath: row.storage_path, mime: row.mime }
+}
+
+export async function criarDocumentoPendente(
+  db: SupabaseClient,
+  tenantId: string,
+  novo: {
+    alvoTipo: AlvoTipo
+    alvoId: string
+    nome: string
+    categoria: CategoriaDocumento
+    requisito: string | null
+    enviadoPor: string
+  },
+): Promise<string> {
+  const { data, error } = await db
+    .from('gestao_documentos')
+    .insert({
+      tenant_id: tenantId,
+      alvo_tipo: novo.alvoTipo,
+      alvo_id: novo.alvoId,
+      nome: novo.nome,
+      categoria: novo.categoria,
+      requisito: novo.requisito,
+      enviado_por: novo.enviadoPor,
+      estado: 'pendente',
+      versao: 0,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return (data as { id: string }).id
+}
+
+/** Remove a linha de um envio que nunca virou documento (versão 0). Nunca toca em documento confirmado. */
+export async function descartarPendente(db: SupabaseClient, tenantId: string, id: string): Promise<void> {
+  const { error } = await db
+    .from('gestao_documentos')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+    .eq('estado', 'pendente')
+    .eq('versao', 0)
+  if (error) throw error
+}
+
+/**
+ * Grava a versão confirmada. `versao = versaoAnterior` no where é a concorrência
+ * otimista: duas abas confirmando a mesma troca → a segunda não acerta linha e
+ * recebe `conflito`. Substituir volta o estado para `enviado` (conferência
+ * anterior era de outro arquivo), como `substituirDocumento` do domínio.
+ */
+export async function confirmarVersao(
+  db: SupabaseClient,
+  tenantId: string,
+  id: string,
+  versaoAnterior: number,
+  v: { tamanho: number; mime: string; storagePath: string },
+): Promise<'ok' | 'conflito'> {
+  const { data, error } = await db
+    .from('gestao_documentos')
+    .update({
+      versao: versaoAnterior + 1,
+      tamanho: v.tamanho,
+      mime: v.mime,
+      storage_path: v.storagePath,
+      estado: 'enviado',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+    .eq('versao', versaoAnterior)
+    .select('id')
+    .maybeSingle()
+  if (error) throw error
+  return data ? 'ok' : 'conflito'
+}
+
+async function atualizar(
+  db: SupabaseClient,
+  tenantId: string,
+  id: string,
+  campos: Record<string, unknown>,
+  condicao: (q: any) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
+): Promise<DocumentoGestao | null> {
+  const q = db
+    .from('gestao_documentos')
+    .update({ ...campos, updated_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+    .not('estado', 'eq', 'pendente')
+  // `maybeSingle`: zero linhas é 404 para o chamador, não 500 (ver portal-document.repository).
+  const { data, error } = await condicao(q).select(COLUNAS_DOCUMENTO).maybeSingle()
+  if (error) throw error
+  return data ? toDocumentoGestao(data as unknown as GestaoDocumentoRow) : null
+}
+
+/** Só marca conferido o que está `enviado` e fora da lixeira. */
+export const marcarConferido = (db: SupabaseClient, tenantId: string, id: string) =>
+  atualizar(db, tenantId, id, { estado: 'conferido' }, (q) => q.eq('estado', 'enviado').is('apagado_em', null))
+
+export const enviarParaLixeira = (db: SupabaseClient, tenantId: string, id: string, quem: string) =>
+  atualizar(db, tenantId, id, { apagado_por: quem, apagado_em: new Date().toISOString() }, (q) =>
+    q.is('apagado_em', null),
+  )
+
+export const restaurarDaLixeira = (db: SupabaseClient, tenantId: string, id: string) =>
+  atualizar(db, tenantId, id, { apagado_por: null, apagado_em: null }, (q) => q.not('apagado_em', 'is', null))
