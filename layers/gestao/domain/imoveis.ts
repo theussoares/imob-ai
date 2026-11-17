@@ -25,6 +25,11 @@ type CamposDoCatalogo = Pick<
 
 export interface ImovelGestao extends CamposDoCatalogo {
   id: string
+  /**
+   * Código do catálogo (`properties.code`). Gerado pelo servidor; o formulário não o pede, e o mock
+   * (seed `im-101…`) não tem. Opcional por isso.
+   */
+  code?: string
   /** Corretor vendedor (quem cadastrou). No site só aparece se o corretor estiver configurado para isso. */
   brokerId: string
   /** Dado interno: nunca vai para o site. */
