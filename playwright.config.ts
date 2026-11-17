@@ -42,5 +42,10 @@ export default defineConfig({
     // da suíte.
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // Painel de gestão em modo demo, só para o servidor que o Playwright sobe: o
+    // acesso rápido pula senha e 2º fator e o seed mora no localStorage. Não vale
+    // para um dev server já aberto (`reuseExistingServer`): quem roda local sem
+    // `pnpm dev:gestao` cai no 404 do `/gestao`.
+    env: { NUXT_PUBLIC_GESTAO_ENABLED: 'true', NUXT_PUBLIC_GESTAO_DEMO: 'true' },
   },
 })
