@@ -253,6 +253,74 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
 10. Nova locação e Abertura da locação listam só imóveis de aluguel (im-102 de venda não aparece na Nova locação).
 11. Tudo persiste ao recarregar; «Restaurar demonstração» volta aos 5 imóveis de exemplo.
 
+## H — Roteiro em `http` (backend real)
+
+Só roda com a migration 0059–0063 JÁ aplicada no banco de teste **por quem é dono do projeto**
+(este roteiro não aplica nada) e um tenant com o recurso `gestao` ligado. O mock NÃO serve aqui: sem
+`pnpm dev:gestao`. Subir com:
+
+```
+NUXT_PUBLIC_GESTAO_BACKEND=http NUXT_GESTAO_OTP_PEPPER=<32+ caracteres> pnpm dev
+```
+
+`NUXT_PUBLIC_GESTAO_DEMO` fica **desligado**: sem «Acesso rápido», sem contas de exemplo, sem código na
+tela. O código do 2º fator chega por e-mail (ou, em dev sem provedor, no log do servidor).
+Nada de `localStorage.clear()` para recomeçar: o token vive só em memória — **recarregar a página
+sai da sessão** (esperado, ver H8). Primeiro Dono: linha em `gestao_members` inserida à mão (PR da F1).
+
+**H1 — Entrada em duas etapas.**
+1. `/gestao/login`: não há `faixa-demo` nem botões de perfil.
+2. E-mail do Dono + senha errada → mensagem única «E-mail ou senha incorretos» (a mesma para e-mail
+   inexistente). Após 5 falhas seguidas → bloqueio com tempo; a mensagem não diz se a conta existe.
+3. Senha certa → `/gestao/verificar` (sem `codigo-demo`). Código errado → «Restam N tentativas».
+   6º erro → bloqueio de 15 min **mesmo digitando o código certo** (campo desabilitado com contagem).
+4. Código certo → `/gestao/vendas`; topo com o nome e o perfil vindos do servidor; **sem** botão
+   «Restaurar dados» e sem selo «Demonstração»; o botão do topo diz «Sair».
+5. DevTools → Application: `localStorage`, `sessionStorage` e cookies **sem** nenhum token
+   (`access_token`, `refresh_token`, `sb-…`). Só `gestao-2fa-pendente` (e-mail, sem segredo) pode existir.
+6. Aba Network: toda chamada a `/api/gestao/*` (exceto `auth/login`, `auth/aceitar`, `auth/convite/*`)
+   leva `Authorization: Bearer …`.
+
+**H2 — Convite.** Como Dono, em Usuários: convidar um e-mail como **Corretor** → o campo «Corretor
+cadastrado» aparece e é obrigatório. Depois de criar: a tela diz «Convite enviado por e-mail» e **não
+mostra link** (o link só vai por e-mail). Abrir o link numa janela anônima → `aceite-email` correto e
+perfil Corretor; criar senha → `/gestao/login?conta=criada`. «Cancelar» o convite pendente o remove.
+
+**H3 — Escopo do corretor.** Entrar como esse corretor: só vê os contratos dele. Colar na barra o id
+de um contrato de outro corretor (`/gestao/vendas/V-…`) → «não encontrado» (mesma tela de id
+inexistente). Na aba Network, o `GET` correspondente devolve 404, não 403.
+
+**H4 — Ações no servidor.** Como Dono, abrir um contrato de venda: mudar status, concluir etapa 1,
+salvar cadastro. Cada ação é um `POST /api/gestao/vendas/:id/acoes` com `{ acao, dados, versao }`
+e responde 200. «Concluir etapa» sem o checklist → toast com a frase do domínio (422), nada muda.
+Ator e data do histórico são os do servidor (conferir o nome do logado e o horário de Brasília).
+
+**H5 — Duas abas (409).** Abrir a mesma **locação** em duas abas do mesmo usuário. Na aba A: salvar a
+garantia. Na aba B (sem recarregar): salvar a garantia de novo → toast «…alterado por outra pessoa.
+Recarregue.», e a aba B passa a mostrar o que a A gravou. Salvar de novo na B vale (200).
+(Venda: o servidor ainda só confere a versão dentro da própria requisição — ver relatório da F7.)
+
+**H6 — Documentos.** Na etapa 2 do contrato, «Enviar arquivo» com um PDF real: aparece «Documento
+enviado» e o item vira «Enviado». Na aba Network, nesta ordem: `POST documentos/upload` → `PUT` para
+`…supabase.co/storage/…` → `POST documentos/:id/confirmar`. Um `.exe` renomeado para `.pdf` → toast de
+recusa (o servidor confere os primeiros bytes) e nada aparece na lista. «Baixar» na tela Documentos abre
+uma URL assinada (`…/object/sign/…?token=`) e a chamada `GET documentos/:id/download` precede a URL.
+Apagar → vai para a Lixeira; Restaurar → volta. Não há botão «Anexar exemplo».
+
+**H7 — Imóveis e fotos.** Cadastrar um imóvel; enviar 5 fotos de uma vez (as requisições vão de 4 em 4);
+definir capa, mover, remover. O imóvel aparece no site público do tenant (cache de 60 s).
+
+**H8 — Sessão só em memória.** Recarregar qualquer página de `/gestao` → volta a `/gestao/login`
+(esperado). Em `/gestao/verificar`, recarregar → volta ao login também. Abrir em duas abas: cada aba
+pede o próprio login. Remover o membro em Usuários (ou desligar o recurso) com a sessão aberta → a
+próxima ação devolve 401 e a tela cai no login.
+
+**H9 — Troca de usuário no mesmo navegador.** Sair (botão «Sair») e entrar como outro perfil: a lista
+de contratos e o menu são os do novo perfil; nada do usuário anterior aparece (nem por um instante).
+
+**H10 — Mock continua igual.** Subir com `pnpm dev:gestao` (sem `NUXT_PUBLIC_GESTAO_BACKEND`) e repetir
+F1–F17: nenhum passo muda.
+
 ## Formato do relatório
 
 Tabela `Fluxo | Passo | PASSOU/FALHOU | Observado (só se falhou)` + lista final
