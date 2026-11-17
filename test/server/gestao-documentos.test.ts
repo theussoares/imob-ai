@@ -297,3 +297,21 @@ describe('toda query de documentos leva tenant_id', () => {
     expect(m.tabelas.gestao_documentos![0]!.tenant_id).toBe(TA)
   })
 })
+
+describe('concorrência (revisão de segurança)', () => {
+  test('conferir não vale para uma versão que o conferente não viu', async () => {
+    const { doc } = await enviar(dono())
+    const { marcarConferido, confirmarVersao } = await import('~~/server/repositories/gestao-documento.repository')
+    // outra aba confirma a v2 depois que o conferente leu a v1
+    await confirmarVersao(m.db, TA, doc.id, 1, { tamanho: 1, mime: 'application/pdf', storagePath: `${TA}/venda/V-2026-0001/${doc.id}/2` })
+    expect(await marcarConferido(m.db, TA, doc.id, 1)).toBeNull()
+    expect(m.tabelas.gestao_documentos![0]!.estado).toBe('enviado')
+  })
+
+  test('confirmar versão não acerta documento que foi para a lixeira no meio', async () => {
+    const { doc } = await enviar(dono())
+    await apagarDocumentoGestao(dono(), doc.id)
+    const r = await confirmarVersao(m.db, TA, doc.id, 1, { tamanho: 1, mime: 'application/pdf', storagePath: 'x' })
+    expect(r).toBe('conflito')
+  })
+})

@@ -171,6 +171,8 @@ export async function confirmarVersao(
     .eq('tenant_id', tenantId)
     .eq('id', id)
     .eq('versao', versaoAnterior)
+    // Documento apagado entre a leitura e a gravação não ganha versão nova.
+    .is('apagado_em', null)
     .select('id')
     .maybeSingle()
   if (error) throw error
@@ -181,6 +183,7 @@ async function atualizar(
   db: SupabaseClient,
   tenantId: string,
   id: string,
+  versao: number,
   campos: Record<string, unknown>,
   condicao: (q: any) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
 ): Promise<DocumentoGestao | null> {
@@ -189,6 +192,8 @@ async function atualizar(
     .update({ ...campos, updated_at: new Date().toISOString() })
     .eq('tenant_id', tenantId)
     .eq('id', id)
+    // A versão lida pelo chamador: se outra aba trocou o arquivo no meio, não acerta linha (conflito).
+    .eq('versao', versao)
     .not('estado', 'eq', 'pendente')
   // `maybeSingle`: zero linhas é 404 para o chamador, não 500 (ver portal-document.repository).
   const { data, error } = await condicao(q).select(COLUNAS_DOCUMENTO).maybeSingle()
@@ -197,13 +202,13 @@ async function atualizar(
 }
 
 /** Só marca conferido o que está `enviado` e fora da lixeira. */
-export const marcarConferido = (db: SupabaseClient, tenantId: string, id: string) =>
-  atualizar(db, tenantId, id, { estado: 'conferido' }, (q) => q.eq('estado', 'enviado').is('apagado_em', null))
+export const marcarConferido = (db: SupabaseClient, tenantId: string, id: string, versao: number) =>
+  atualizar(db, tenantId, id, versao, { estado: 'conferido' }, (q) => q.eq('estado', 'enviado').is('apagado_em', null))
 
-export const enviarParaLixeira = (db: SupabaseClient, tenantId: string, id: string, quem: string) =>
-  atualizar(db, tenantId, id, { apagado_por: quem, apagado_em: new Date().toISOString() }, (q) =>
+export const enviarParaLixeira = (db: SupabaseClient, tenantId: string, id: string, versao: number, quem: string) =>
+  atualizar(db, tenantId, id, versao, { apagado_por: quem, apagado_em: new Date().toISOString() }, (q) =>
     q.is('apagado_em', null),
   )
 
-export const restaurarDaLixeira = (db: SupabaseClient, tenantId: string, id: string) =>
-  atualizar(db, tenantId, id, { apagado_por: null, apagado_em: null }, (q) => q.not('apagado_em', 'is', null))
+export const restaurarDaLixeira = (db: SupabaseClient, tenantId: string, id: string, versao: number) =>
+  atualizar(db, tenantId, id, versao, { apagado_por: null, apagado_em: null }, (q) => q.not('apagado_em', 'is', null))

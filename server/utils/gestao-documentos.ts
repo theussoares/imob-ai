@@ -220,7 +220,7 @@ async function transicao(
   ctx: CtxDocs,
   id: string,
   validar: (estado: Estado, docId: string) => ReturnType<typeof conferirDocumento>,
-  gravar: () => Promise<DocumentoGestao | null>,
+  gravar: (versao: number) => Promise<DocumentoGestao | null>,
   extra?: (doc: DocumentoGestao) => string | null,
 ): Promise<DocumentoGestao> {
   const { doc } = await carregarConfirmado(ctx, id)
@@ -228,7 +228,7 @@ async function transicao(
   if (!v.ok) throw recusa(v.erro)
   const erroExtra = extra?.(doc)
   if (erroExtra) throw recusa(erroExtra)
-  const gravado = await gravar()
+  const gravado = await gravar(doc.versoes)
   if (!gravado) throw recusa(CONFLITO, 409)
   return gravado
 }
@@ -238,7 +238,7 @@ export const conferirDocumentoGestao = (ctx: CtxDocs, id: string) =>
     ctx,
     id,
     conferirDocumento,
-    () => marcarConferido(ctx.db, ctx.membro.tenantId, id),
+    (v) => marcarConferido(ctx.db, ctx.membro.tenantId, id, v),
     // O domínio deixa conferir qualquer coisa; no servidor só se confere o que está enviado e fora da lixeira.
     (d) => (d.apagado ? 'Documento na lixeira.' : d.estado !== 'enviado' ? 'Este documento já foi conferido.' : null),
   )
@@ -248,7 +248,7 @@ export const apagarDocumentoGestao = (ctx: CtxDocs, id: string) =>
     ctx,
     id,
     (e, d) => apagarDocumento(e, d, { nome: ctx.membro.nome }),
-    () => enviarParaLixeira(ctx.db, ctx.membro.tenantId, id, ctx.membro.nome),
+    (v) => enviarParaLixeira(ctx.db, ctx.membro.tenantId, id, v, ctx.membro.nome),
   )
 
 export const restaurarDocumentoGestao = (ctx: CtxDocs, id: string) =>
@@ -256,5 +256,5 @@ export const restaurarDocumentoGestao = (ctx: CtxDocs, id: string) =>
     ctx,
     id,
     restaurarDocumento,
-    () => restaurarDaLixeira(ctx.db, ctx.membro.tenantId, id),
+    (v) => restaurarDaLixeira(ctx.db, ctx.membro.tenantId, id, v),
   )
