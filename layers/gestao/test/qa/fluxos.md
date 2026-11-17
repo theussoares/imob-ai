@@ -27,7 +27,7 @@ PASSOU/FALHOU por passo, com o texto observado quando falhar.
    Contratos de locação. NÃO tem Financeiro, Usuários, Configurações.
 5. «Trocar perfil» → volta a `/gestao/login`; entrar como `perfil-dono` → menu com 10 itens.
 6. Acessar direto `/gestao/financeiro` como corretor → redireciona para `/gestao/vendas`.
-7. Acessar `/gestao/imoveis` → mostra `em-breve`.
+7. Acessar `/gestao/imoveis` → mostra a lista de imóveis (`imovel-lista`).
 
 ## F2 — Lista de contratos (visibilidade)
 
@@ -232,14 +232,26 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
    Consulta válida mostra resultado, limpa o campo do documento e entra no histórico com documento MASCARADO
    (`529.***.***-25`); o localStorage não guarda o CPF inteiro. Mesmo documento dá sempre o mesmo resultado.
 
-## F17 — Imóveis
+## F17 — Imóveis (espelho do catálogo)
 
-1. `/gestao/imoveis`: 5 imóveis de exemplo, com situação «Em locação» (há locação aberta) ou «Disponível».
-2. Busca sem acento e sem diferenciar maiúsculas (`barracao`, `otavio`); filtros de situação e finalidade combinam.
-3. «Cadastrar imóvel»: salvar vazio mostra «Informe o título do imóvel.»; duplicado (mesmo título e endereço)
-   recusa; válido entra no topo como «Disponível», com aviso, e persiste ao recarregar.
-4. Nova locação e a Abertura da locação listam os imóveis do cadastro; imóvel só de «Venda» não aparece
-   (o já vinculado à locação continua na Abertura). Abrir locação de um imóvel muda a situação dele para «Em locação».
+1. Dono ou recepção em `/gestao/imoveis`: 5 imóveis (`imovel-card`), cada um com selo do anúncio («No site») e da
+   situação («Em locação» ou «Disponível»). Corretor Carlos (c1): só 2 (im-101 e im-104).
+2. Corretor abrindo `/gestao/imoveis/im-102` (de outro corretor) pela URL volta para `/gestao/imoveis`.
+3. Busca sem acento e sem caixa (`barracao`, `otavio`); filtros de anúncio, situação e finalidade combinam.
+4. `imovel-novo` → salvar vazio mostra «Informe o título do imóvel.». Como corretor, `imovel-corretor` fica
+   desabilitado com ele mesmo; como dono/recepção/jurídico, dá para escolher. O texto `imovel-contato-site` diz
+   que o contato do site é o WhatsApp da imobiliária.
+5. Preencher título, tipo, finalidade, preço, bairro, cidade, UF, área, quartos e proprietário → salva e abre
+   `/gestao/imoveis/<id>` (im-106). Validações: preço 0, CEP de 7 dígitos, suítes acima dos quartos e UF de 1 letra
+   mostram a mensagem do domínio; tipo Terreno esconde quartos/suítes/banheiros/vagas.
+6. Editar e salvar sem mudar o título não acusa duplicado; usar título e referência de outro imóvel acusa.
+7. `imovel-status-rapido` → «Rascunho» persiste ao recarregar; destaque e demais campos salvam.
+8. Fotos: enviar 3 (`imovel-foto-input`) → 3 `imovel-foto`, uma só `imovel-foto-capa`; a 7ª é recusada
+   («no máximo 6 fotos»); tornar capa, mover e remover a capa promove a primeira restante.
+9. Excluir (`imovel-excluir`, confirmar): corretor exclui o dele sem locação; dono em im-101 (locação em andamento)
+   é recusado com «Este imóvel tem locação em andamento…»; recepção/jurídico não veem o botão.
+10. Nova locação e Abertura da locação listam só imóveis de aluguel (im-102 de venda não aparece na Nova locação).
+11. Tudo persiste ao recarregar; «Restaurar demonstração» volta aos 5 imóveis de exemplo.
 
 ## Formato do relatório
 

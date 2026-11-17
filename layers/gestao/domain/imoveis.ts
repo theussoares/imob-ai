@@ -1,29 +1,51 @@
 // `.ts` explícito: o seed da locação é carregado em Node puro pelo mock.
 import { IMOVEIS_EXEMPLO } from './locacao-seed.ts'
+import { PROPERTY_TYPE_LABELS } from '../../../shared/models/property-type.ts'
+import type { Property, PropertyImage, PropertyPurpose, PropertyStatus } from '../../../shared/models/property'
+import type { PropertyType } from '../../../shared/models/property-type.ts'
 import type { Locacao } from './types'
 
 /**
- * Cadastro de imóveis da gestão — MOCK. O cadastro real (`properties`) entra quando
- * a tela for ligada à API; por isso o modelo é próprio daqui e não reaproveita o do
- * catálogo público (que tem colunas internas que a gestão não deve espalhar).
+ * Cadastro de imóveis da gestão — espelho do catálogo (`Property`). Em mock hoje; no backend a mesma
+ * forma vai para `/api/admin/properties`. Os tipos derivam de `Property` para o espelho não divergir:
+ * campo novo no catálogo entra aqui por `Pick`, e não por cópia.
+ *
+ * Não há captador (a regra ainda não existe). `brokerId` é o corretor vendedor: quem cadastra.
  */
 
-export const TIPOS_IMOVEL = ['Apartamento', 'Casa', 'Sala comercial', 'Kitnet', 'Barracão', 'Terreno'] as const
-export type TipoImovel = (typeof TIPOS_IMOVEL)[number]
+export type FotoImovel = Pick<PropertyImage, 'id' | 'url' | 'urlSm' | 'alt' | 'position' | 'isCover'>
 
-export const FINALIDADES_IMOVEL = ['Venda', 'Locação', 'Venda e locação'] as const
-export type FinalidadeImovel = (typeof FINALIDADES_IMOVEL)[number]
+type CamposDoCatalogo = Pick<
+  Property,
+  | 'title' | 'type' | 'purpose' | 'price' | 'neighborhood' | 'city' | 'state'
+  | 'addressZip' | 'addressStreet' | 'addressNumber' | 'location'
+  | 'bedrooms' | 'suites' | 'bathrooms' | 'parking' | 'area' | 'highStandard'
+  | 'description' | 'features' | 'status' | 'featured' | 'createdAt' | 'updatedAt'
+>
 
-export interface ImovelGestao {
+export interface ImovelGestao extends CamposDoCatalogo {
   id: string
-  titulo: string
-  endereco: string
-  tipo: TipoImovel
-  finalidade: FinalidadeImovel
-  proprietario: string
-  captadorId: string
+  /** Corretor vendedor (quem cadastrou). No site só aparece se o corretor estiver configurado para isso. */
+  brokerId: string
+  /** Dado interno: nunca vai para o site. */
+  ownerName: string
+  ownerPhone: string | null
+  images: FotoImovel[]
 }
 
+export const ROTULO_FINALIDADE: Record<PropertyPurpose, string> = { venda: 'Venda', aluguel: 'Aluguel' }
+
+export const STATUS_IMOVEL: PropertyStatus[] = ['active', 'draft', 'sold', 'rented']
+export const ROTULO_STATUS_IMOVEL: Record<PropertyStatus, string> = {
+  active: 'No site',
+  draft: 'Rascunho',
+  sold: 'Vendido',
+  rented: 'Alugado',
+}
+
+export const rotuloTipoImovel = (t: PropertyType) => PROPERTY_TYPE_LABELS[t]
+
+/** Situação pelo contrato (derivada das locações), separada do status do anúncio. */
 export type SituacaoImovel = 'disponivel' | 'em-locacao'
 export const ROTULO_SITUACAO_IMOVEL: Record<SituacaoImovel, string> = {
   disponivel: 'Disponível',
@@ -31,24 +53,50 @@ export const ROTULO_SITUACAO_IMOVEL: Record<SituacaoImovel, string> = {
 }
 
 /** Texto que vai para o contrato (o mesmo formato que as locações do seed já usam). */
-export const rotuloImovel = (i: Pick<ImovelGestao, 'titulo' | 'endereco'>) => (i.endereco ? `${i.titulo} · ${i.endereco}` : i.titulo)
+export const rotuloImovel = (i: Pick<ImovelGestao, 'title' | 'location'>) => (i.location ? `${i.title} · ${i.location}` : i.title)
+
+export const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+type Complemento = Pick<ImovelGestao, 'type' | 'purpose' | 'price' | 'neighborhood' | 'bedrooms' | 'suites' | 'bathrooms' | 'parking' | 'area' | 'ownerName' | 'brokerId'>
 
 /**
- * O seed nasce de `IMOVEIS_EXEMPLO` para os ids (`im-101..`) e os rótulos das locações
- * de exemplo continuarem batendo com o cadastro; o rótulo é quebrado no primeiro « · ».
+ * O seed nasce de `IMOVEIS_EXEMPLO` para os ids (`im-101..`) e os rótulos das locações de exemplo
+ * continuarem batendo com o cadastro; o rótulo é quebrado no primeiro « · ». Os que eram «Venda e
+ * locação» viram aluguel: as telas de locação listam só aluguel.
  */
-const COMPLEMENTO: Record<string, Pick<ImovelGestao, 'tipo' | 'finalidade' | 'proprietario' | 'captadorId'>> = {
-  'im-101': { tipo: 'Apartamento', finalidade: 'Venda e locação', proprietario: 'Helena Duarte', captadorId: 'c1' },
-  'im-102': { tipo: 'Casa', finalidade: 'Venda', proprietario: 'Otávio Ramos', captadorId: 'c2' },
-  'im-103': { tipo: 'Sala comercial', finalidade: 'Locação', proprietario: 'Grupo Centro Ltda', captadorId: 'c3' },
-  'im-104': { tipo: 'Kitnet', finalidade: 'Locação', proprietario: 'Marta Kobayashi', captadorId: 'c1' },
-  'im-105': { tipo: 'Barracão', finalidade: 'Venda e locação', proprietario: 'Indústrias Nova Era', captadorId: 'c2' },
+const COMPLEMENTO: Record<string, Complemento> = {
+  'im-101': { type: 'apartamento', purpose: 'aluguel', price: 2800, neighborhood: 'Centro', bedrooms: 2, suites: 1, bathrooms: 2, parking: 1, area: 68, ownerName: 'Helena Duarte', brokerId: 'c1' },
+  'im-102': { type: 'casa', purpose: 'venda', price: 520000, neighborhood: 'Jardim América', bedrooms: 3, suites: 1, bathrooms: 2, parking: 2, area: 160, ownerName: 'Otávio Ramos', brokerId: 'c2' },
+  'im-103': { type: 'sala', purpose: 'aluguel', price: 3500, neighborhood: 'Centro', bedrooms: 0, suites: 0, bathrooms: 1, parking: 1, area: 45, ownerName: 'Grupo Centro Ltda', brokerId: 'c3' },
+  'im-104': { type: 'kitnet', purpose: 'aluguel', price: 1200, neighborhood: 'Vila Nova', bedrooms: 1, suites: 0, bathrooms: 1, parking: 0, area: 28, ownerName: 'Marta Kobayashi', brokerId: 'c1' },
+  'im-105': { type: 'barracao', purpose: 'aluguel', price: 9800, neighborhood: 'Distrito Industrial', bedrooms: 0, suites: 0, bathrooms: 2, parking: 4, area: 600, ownerName: 'Indústrias Nova Era', brokerId: 'c2' },
 }
+
+const DATA_SEED = '2026-11-01T12:00:00.000Z'
 
 export function imoveisSeed(): ImovelGestao[] {
   return IMOVEIS_EXEMPLO.map((i) => {
-    const [titulo, ...resto] = i.rotulo.split(' · ')
-    return { id: i.id, titulo: titulo!, endereco: resto.join(' · '), ...COMPLEMENTO[i.id]! }
+    const [title, ...resto] = i.rotulo.split(' · ')
+    return {
+      id: i.id,
+      title: title!,
+      location: resto.join(' · ') || null,
+      ...COMPLEMENTO[i.id]!,
+      city: 'Três Lagoas',
+      state: 'MS',
+      addressZip: null,
+      addressStreet: null,
+      addressNumber: null,
+      highStandard: false,
+      description: null,
+      features: [],
+      status: 'active',
+      featured: false,
+      ownerPhone: null,
+      images: [],
+      createdAt: DATA_SEED,
+      updatedAt: DATA_SEED,
+    }
   })
 }
 
@@ -60,51 +108,17 @@ export function situacaoImovel(imovelId: string, locacoes: Locacao[]): SituacaoI
 export interface FiltroImoveis {
   busca: string
   situacao: SituacaoImovel | ''
-  finalidade: FinalidadeImovel | ''
+  purpose: PropertyPurpose | ''
+  status: PropertyStatus | ''
 }
-export const FILTRO_IMOVEIS_VAZIO: FiltroImoveis = { busca: '', situacao: '', finalidade: '' }
-
-const sem = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+export const FILTRO_IMOVEIS_VAZIO: FiltroImoveis = { busca: '', situacao: '', purpose: '', status: '' }
 
 export function filtrarImoveis(imoveis: ImovelGestao[], locacoes: Locacao[], f: FiltroImoveis): ImovelGestao[] {
-  const q = sem(f.busca.trim())
+  const q = semAcento(f.busca.trim())
   return imoveis.filter((i) => {
     if (f.situacao && situacaoImovel(i.id, locacoes) !== f.situacao) return false
-    if (f.finalidade && i.finalidade !== f.finalidade) return false
-    return !q || sem(`${i.titulo} ${i.endereco} ${i.proprietario} ${i.id}`).includes(q)
+    if (f.purpose && i.purpose !== f.purpose) return false
+    if (f.status && i.status !== f.status) return false
+    return !q || semAcento(`${i.title} ${i.location ?? ''} ${i.neighborhood ?? ''} ${i.ownerName} ${i.id}`).includes(q)
   })
-}
-
-export interface NovoImovel {
-  titulo: string
-  endereco: string
-  tipo: TipoImovel | ''
-  finalidade: FinalidadeImovel | ''
-  proprietario: string
-  captadorId: string
-}
-
-export type ResultadoImovel = { ok: true; imovel: ImovelGestao } | { ok: false; erro: string }
-
-export function proximoIdImovel(imoveis: ImovelGestao[]): string {
-  const maior = imoveis.reduce((m, i) => Math.max(m, Number(i.id.replace(/\D/g, '')) || 0), 100)
-  return `im-${maior + 1}`
-}
-
-export function cadastrarImovel(imoveis: ImovelGestao[], dados: NovoImovel): ResultadoImovel {
-  const titulo = dados.titulo.trim()
-  const proprietario = dados.proprietario.trim()
-  if (!titulo) return { ok: false, erro: 'Informe o título do imóvel.' }
-  if (!dados.tipo) return { ok: false, erro: 'Escolha o tipo do imóvel.' }
-  if (!dados.finalidade) return { ok: false, erro: 'Escolha a finalidade (venda, locação ou ambas).' }
-  if (!proprietario) return { ok: false, erro: 'Informe o proprietário.' }
-  if (!dados.captadorId) return { ok: false, erro: 'Escolha o corretor captador.' }
-  const endereco = dados.endereco.trim()
-  // O rótulo vira o texto do contrato: dois imóveis com o mesmo rótulo se confundem nas listas.
-  const rotulo = sem(rotuloImovel({ titulo, endereco }))
-  if (imoveis.some((i) => sem(rotuloImovel(i)) === rotulo)) return { ok: false, erro: 'Já existe um imóvel com este título e endereço.' }
-  return {
-    ok: true,
-    imovel: { id: proximoIdImovel(imoveis), titulo, endereco, tipo: dados.tipo, finalidade: dados.finalidade, proprietario, captadorId: dados.captadorId },
-  }
 }

@@ -8,7 +8,7 @@ const { sessao } = useGestaoSessao()
 const toast = useToast()
 
 // Imóvel só de venda não aparece: não faria sentido abrir locação dele.
-const opcoes = computed(() => store.imoveis.value.filter((i) => i.finalidade !== 'Venda'))
+const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'aluguel'))
 
 const dialog = ref<HTMLDialogElement | null>(null)
 const imovelId = ref('')
