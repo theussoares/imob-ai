@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { TOTAL_ETAPAS_LOCACAO } from '../../domain/locacao-status'
+import { avisosLocacao, hojeISO } from '../../domain/avisos-locacao'
 import type { Locacao } from '../../domain/types'
 
 const props = defineProps<{ locacao: Locacao; corretor: string }>()
 const feitas = computed(() => props.locacao.concluidas.filter(Boolean).length)
+const avisos = computed(() => avisosLocacao(props.locacao, hojeISO()))
 </script>
 
 <template>
@@ -33,6 +35,8 @@ const feitas = computed(() => props.locacao.concluidas.filter(Boolean).length)
       <dt class="text-[var(--ink-soft)]">Atualizado</dt>
       <dd>{{ locacao.updated }}</dd>
     </dl>
+
+    <GestaoAvisosLocacao :avisos="avisos" compacto />
 
     <p class="rounded-lg bg-[#e7e9e6] px-3 py-2 text-[length:var(--fs-caption)] font-bold text-[#2b2f33]">
       {{ feitas }} de {{ TOTAL_ETAPAS_LOCACAO }} etapas concluídas

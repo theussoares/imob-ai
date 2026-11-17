@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import type { DadosAberturaLocacao } from '../../domain/acoes-locacao'
-import { IMOVEIS_EXEMPLO } from '../../domain/locacao-seed'
+import { rotuloImovel } from '../../domain/imoveis'
 import { CORRETORES } from '../../domain/seed'
 import type { Locacao } from '../../domain/types'
 
 const props = defineProps<{ locacao: Locacao; podeEditar: boolean; corretorTravado?: boolean }>()
 const emit = defineEmits<{ salvar: [dados: DadosAberturaLocacao] }>()
+
+const store = useGestaoStore()
+// Só imóvel que pode ser alugado; o já vinculado fica na lista mesmo se o cadastro mudou depois.
+const opcoes = computed(() => store.imoveis.value.filter((i) => i.finalidade !== 'Venda' || i.id === props.locacao.imovelId))
 
 const locador = reactive({ ...props.locacao.locador })
 const locatario = reactive({ ...props.locacao.locatario })
@@ -13,7 +17,7 @@ const imovelId = ref(props.locacao.imovelId)
 const corretorId = ref(props.locacao.corretorId)
 
 function salvar() {
-  const imovel = IMOVEIS_EXEMPLO.find((i) => i.id === imovelId.value)?.rotulo ?? props.locacao.imovel
+  const imovel = (() => { const i = store.imoveis.value.find((x) => x.id === imovelId.value); return i ? rotuloImovel(i) : props.locacao.imovel })()
   emit('salvar', { locador: { ...locador }, locatario: { ...locatario }, imovelId: imovelId.value, imovel, corretorId: corretorId.value })
 }
 
@@ -35,7 +39,7 @@ const botao =
       <label :class="rotulo">
         Imóvel
         <select v-model="imovelId" :class="campo" :disabled="!podeEditar">
-          <option v-for="i in IMOVEIS_EXEMPLO" :key="i.id" :value="i.id">{{ i.rotulo }}</option>
+          <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
         </select>
       </label>
       <label :class="rotulo">

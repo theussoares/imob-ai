@@ -4,13 +4,16 @@ import type { ContratoLocacao } from '../../domain/types'
 const props = defineProps<{ contrato?: ContratoLocacao; podeEditar: boolean }>()
 const emit = defineEmits<{ salvar: [dados: ContratoLocacao] }>()
 
+const store = useGestaoStore()
+
 const form = reactive<ContratoLocacao>({
   valor: props.contrato?.valor ?? 0,
   diaVencimento: props.contrato?.diaVencimento ?? 10,
   inicio: props.contrato?.inicio ?? '',
   fim: props.contrato?.fim ?? '',
   reajuste: props.contrato?.reajuste ?? 'IGP-M',
-  taxaPct: props.contrato?.taxaPct ?? 10,
+  // Contrato novo nasce com a taxa das configurações; contrato salvo guarda a dele.
+  taxaPct: props.contrato?.taxaPct ?? store.config.value.taxaLocacaoPct,
 })
 
 const campo =

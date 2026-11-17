@@ -232,6 +232,8 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
           </li>
         </ul>
       </section>
+
+      <GestaoMatrizPermissoes v-if="caps?.admin" />
     </template>
   </div>
 </template>

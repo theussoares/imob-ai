@@ -52,6 +52,8 @@ export interface NovoProcesso {
   comprador: string
   corretorId: string
   captadorId?: string
+  /** % de comissão; vem das configurações. Sem ele, 5%. */
+  pct?: number
 }
 
 export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, quando = agora()): Resultado {
@@ -72,7 +74,7 @@ export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, q
     status: STATUS_INICIAL,
     updated: quando,
     valor: 0,
-    pct: 5,
+    pct: dados.pct ?? 5,
     fin: { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: 0 },
     etapa: 1,
     concluidas: Array.from({ length: TOTAL_ETAPAS }, () => false),

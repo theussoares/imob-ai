@@ -1,4 +1,5 @@
 // `.ts` explícito: o mock (mocker-nuxt) carrega este arquivo em Node puro.
+import { hojeISO, somarDias } from './avisos-locacao.ts'
 import { requisitoPorChave } from './requisitos.ts'
 import { requisitosDaEtapaLocacao } from './locacao-requisitos.ts'
 import type { Cobranca, Documento, Locacao, Pessoa } from './types'
@@ -42,16 +43,30 @@ function loc(o: Partial<Locacao> & Pick<Locacao, 'id' | 'locador' | 'locatario' 
 
 const vistoria = (data: string, responsavel: string, fotos: string[]) => ({ data, responsavel, fotos, observacao: '' })
 
-const cobranca = (competencia: string, valor: number, pago: boolean, repasse?: Cobranca['repasse']): Cobranca => ({
+const cobranca = (competencia: string, valor: number, pago: boolean, repasse?: Cobranca['repasse'], vencimento = `${competencia}-10`): Cobranca => ({
   id: `cb-${competencia}`,
   competencia,
   valor,
-  vencimento: `${competencia}-10`,
+  vencimento,
   ...(pago && { pago: { data: `${competencia}-09`, comprovante: `comprovante-${competencia}.pdf` } }),
   ...(repasse && { repasse }),
 })
 
-export function locacoesSeed(): Locacao[] {
+/** Mês anterior de uma competência AAAA-MM. */
+function mesAnterior(competencia: string): string {
+  const [a, m] = competencia.split('-').map(Number) as [number, number]
+  return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`
+}
+
+/**
+ * `hoje` ancora os prazos da locação ativa (L-2026-0001) para o demo sempre mostrar os
+ * avisos: contrato terminando em 45 dias e aluguel vencido há 3. Datas fixas envelheceriam
+ * e a reunião abriria sem aviso nenhum. As demais locações não têm prazo em curso.
+ */
+export function locacoesSeed(hoje: string = hojeISO()): Locacao[] {
+  const vencida = somarDias(hoje, -3)
+  const competenciaAberta = vencida.slice(0, 7)
+  const competenciaPaga = mesAnterior(competenciaAberta)
   return [
     loc({
       id: 'L-2026-0004',
@@ -84,10 +99,10 @@ export function locacoesSeed(): Locacao[] {
       concluidas: feitas(7),
       garantia: { tipo: 'Seguro-fiança', detalhe: 'Apólice 99812' },
       vistoriaEntrada: vistoria('2026-08-08', 'Marina Alves', ['sala.jpg', 'cozinha.jpg']),
-      contrato: { valor: 2500, diaVencimento: 10, inicio: '2026-08-10', fim: '2027-08-10', reajuste: 'IGP-M', taxaPct: 10 },
+      contrato: { valor: 2500, diaVencimento: 10, inicio: somarDias(hoje, -320), fim: somarDias(hoje, 45), reajuste: 'IGP-M', taxaPct: 10 },
       cobrancas: [
-        cobranca('2026-10', 2500, true, { valor: 2250, feito: false }),
-        cobranca('2026-11', 2500, false),
+        cobranca(competenciaPaga, 2500, true, { valor: 2250, feito: false }),
+        cobranca(competenciaAberta, 2500, false, undefined, vencida),
       ],
       hist: [{ acao: 'Abriu a locação', quem: 'Carlos Mendes', quando: '01/08/2026 10:00' }],
     }),

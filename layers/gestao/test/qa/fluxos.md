@@ -207,6 +207,39 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
    (com «Restaurar contrato»).
 9. Recepção na etapa 7 de L-2026-0001: `etapa-sem-valores` e nenhum «R$» na tela.
 10. Stepper mostra os nomes da locação (Garantia, Vistoria, Contrato e financeiro…).
+11. Avisos (seed ancorado em «hoje»): `card-locacao` da L-2026-0001 mostra `aviso-card` «Vencido: Aluguel de
+    AAAA-MM em atraso há 3 dias. (+1)». Na tela da locação, `avisos-locacao` lista 2 `aviso`: o vencido
+    (aluguel) e «Atenção: O contrato termina em 45 dias.». Pagar a cobrança em atraso (etapa 7) remove o aviso
+    de aluguel. Recepção vê os mesmos avisos e nenhum «R$». Locação encerrada ou arquivada não avisa.
+
+## F15 — Financeiro, Dashboard e Histórico (só leitura)
+
+1. Dono em `/gestao/financeiro`: indicadores de vendas e de locações com «R$». O filtro de competência vale só
+   para as locações (vendas não têm competência); trocar o mês muda cobranças e repasses.
+2. Recepção e corretor: menu «Financeiro» ausente; URL direta volta ao Dashboard. Jurídico: vê os valores.
+3. Dashboard (`/gestao`): contagens, itens parados há 7+ dias e avisos da locação, limitado a 6 linhas.
+   Recepção vê tudo isso sem nenhum «R$».
+4. `/gestao/auditoria`: eventos de vendas e locações, filtro por pessoa e por contrato; limpar filtro volta à lista inteira.
+
+## F16 — Usuários e permissões, Configurações e Consulta cadastral
+
+1. Dono em `/gestao/usuarios`: a matriz de permissões aparece; mudar uma célula vale na hora e sobrevive a recarregar
+   a página (inclusive a rota que ficou fechada). `admin` e `convidar` do Dono não editam.
+2. Outros perfis não veem a matriz.
+3. `/gestao/config` (só Dono): CNPJ inválido, e-mail inválido, telefone sem DDD e percentual fora de 0–100 recusam
+   com mensagem; salvar válido mostra o aviso. Venda e locação NOVAS usam os percentuais salvos; as já abertas não mudam.
+4. `/gestao/consulta`: faixa «Resultado simulado» sempre visível. CPF inválido ou sem finalidade recusa.
+   Consulta válida mostra resultado, limpa o campo do documento e entra no histórico com documento MASCARADO
+   (`529.***.***-25`); o localStorage não guarda o CPF inteiro. Mesmo documento dá sempre o mesmo resultado.
+
+## F17 — Imóveis
+
+1. `/gestao/imoveis`: 5 imóveis de exemplo, com situação «Em locação» (há locação aberta) ou «Disponível».
+2. Busca sem acento e sem diferenciar maiúsculas (`barracao`, `otavio`); filtros de situação e finalidade combinam.
+3. «Cadastrar imóvel»: salvar vazio mostra «Informe o título do imóvel.»; duplicado (mesmo título e endereço)
+   recusa; válido entra no topo como «Disponível», com aviso, e persiste ao recarregar.
+4. Nova locação e a Abertura da locação listam os imóveis do cadastro; imóvel só de «Venda» não aparece
+   (o já vinculado à locação continua na Abertura). Abrir locação de um imóvel muda a situação dele para «Em locação».
 
 ## Formato do relatório
 

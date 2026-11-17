@@ -3,7 +3,7 @@ import { filtrarLocacoes } from '../../domain/filtro-locacao'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { CORRETORES } from '../../domain/seed'
 
-const todas = locacoesSeed()
+const todas = locacoesSeed('2026-11-17')
 const ids = (q: string, status: '' | 'Ativa' = '') => filtrarLocacoes(todas, { q, status }, CORRETORES).map((l) => l.id)
 
 describe('filtro de locações', () => {

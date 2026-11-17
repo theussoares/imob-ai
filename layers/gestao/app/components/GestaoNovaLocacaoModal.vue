@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { abrirLocacao } from '../../domain/acoes-locacao'
-import { IMOVEIS_EXEMPLO } from '../../domain/locacao-seed'
+import { rotuloImovel } from '../../domain/imoveis'
 import { CORRETORES } from '../../domain/seed'
 
 const store = useGestaoStore()
 const { sessao } = useGestaoSessao()
 const toast = useToast()
+
+// Imóvel só de venda não aparece: não faria sentido abrir locação dele.
+const opcoes = computed(() => store.imoveis.value.filter((i) => i.finalidade !== 'Venda'))
 
 const dialog = ref<HTMLDialogElement | null>(null)
 const imovelId = ref('')
@@ -19,7 +22,7 @@ const erro = ref('')
 const travado = computed(() => sessao.value?.perfil === 'corretor')
 
 function abrir() {
-  imovelId.value = IMOVEIS_EXEMPLO[0]?.id ?? ''
+  imovelId.value = opcoes.value[0]?.id ?? ''
   locador.value = locatario.value = erro.value = ''
   corretorId.value = sessao.value?.corretorId ?? CORRETORES[0]?.id ?? ''
   dialog.value?.showModal()
@@ -30,11 +33,11 @@ function fechar() {
 }
 
 async function enviar() {
-  const imovel = IMOVEIS_EXEMPLO.find((i) => i.id === imovelId.value)
+  const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
   const r = store.aplicar((e, ator) =>
     abrirLocacao(
       e,
-      { locador: locador.value, locatario: locatario.value, imovelId: imovelId.value, imovel: imovel?.rotulo ?? '', corretorId: corretorId.value },
+      { locador: locador.value, locatario: locatario.value, imovelId: imovelId.value, imovel: imovel ? rotuloImovel(imovel) : '', corretorId: corretorId.value },
       ator,
     ),
   )
@@ -68,7 +71,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
       <label :class="rotulo">
         Imóvel
         <select v-model="imovelId" :class="campo" data-testid="imovel">
-          <option v-for="i in IMOVEIS_EXEMPLO" :key="i.id" :value="i.id">{{ i.rotulo }}</option>
+          <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
         </select>
       </label>
       <label :class="rotulo">

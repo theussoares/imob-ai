@@ -62,6 +62,7 @@ async function enviar() {
         vendedor: vendedor.value,
         comprador: comprador.value,
         corretorId: corretorId.value,
+        pct: store.config.value.comissaoPct,
       },
       ator,
     ),

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import * as acao from '../../../../domain/acoes-locacao'
+import { avisosLocacao, hojeISO } from '../../../../domain/avisos-locacao'
 import { conferirDocumento, substituirDocumento } from '../../../../domain/acoes'
 import { validarArquivo } from '../../../../domain/documentos'
 import { pendenciasEtapaLocacao, requisitosDaEtapaLocacao } from '../../../../domain/locacao-requisitos'
@@ -30,6 +31,7 @@ const etapaVista = ref(locacao.value?.etapa ?? 1)
 const podeEditar = computed(() => !final.value && !!caps.value?.editar)
 const podeValores = computed(() => !final.value && !!caps.value?.valores)
 const feitas = computed(() => locacao.value?.concluidas.filter(Boolean).length ?? 0)
+const avisos = computed(() => (locacao.value ? avisosLocacao(locacao.value, hojeISO()) : []))
 const pendencias = computed(() =>
   locacao.value && !final.value ? pendenciasEtapaLocacao(locacao.value, store.documentos.value, etapaVista.value) : [],
 )
@@ -124,6 +126,8 @@ const btn =
         Locação encerrada: somente consulta. Nada mais pode ser alterado.
       </p>
     </header>
+
+    <GestaoAvisosLocacao :avisos="avisos" />
 
     <p class="m-0 text-[length:var(--fs-label)] font-bold" data-testid="progresso-texto">{{ feitas }} de {{ TOTAL_ETAPAS_LOCACAO }} etapas concluídas</p>
     <GestaoStepper :nomes="ETAPAS_LOCACAO" :vista="etapaVista" :atual="locacao.etapa" :concluidas="locacao.concluidas" @ir="etapaVista = $event" />
