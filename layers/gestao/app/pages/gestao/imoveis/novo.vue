@@ -34,7 +34,7 @@ async function salvar() {
 <template>
   <div class="mx-auto flex max-w-3xl flex-col gap-4">
     <header>
-      <NuxtLink to="/gestao/imoveis" class="text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
+      <NuxtLink to="/gestao/imoveis" class="inline-flex min-h-11 items-center text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
       <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-extrabold">Cadastrar imóvel</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Depois de salvar você envia as fotos.</p>
     </header>

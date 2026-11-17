@@ -93,7 +93,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
   <div v-if="imovel && form" class="mx-auto flex max-w-3xl flex-col gap-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <NuxtLink to="/gestao/imoveis" class="text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
+        <NuxtLink to="/gestao/imoveis" class="inline-flex min-h-11 items-center text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
         <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-extrabold" data-testid="imovel-titulo-pagina">{{ imovel.title }}</h1>
         <p class="mt-1 text-[var(--ink-soft)]">{{ imovel.id }} · {{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(imovel.id, store.locacoes.value)] }}</p>
       </div>
