@@ -63,8 +63,10 @@ no backend troca-se só a implementação** por chamadas a `/api/admin/propertie
 
 ## Minhas calls (revise)
 
-- **Finalidade vira uma só** (`venda` ou `aluguel`), como no site. Os dois imóveis do seed marcados
-  «Venda e locação» (`im-101`, `im-105`) passam a `venda`; a locação deles não depende da finalidade.
+- **Finalidade vira uma só** (`venda` ou `aluguel`), como no site. Os imóveis do seed marcados
+  «Venda e locação» (`im-101`, `im-105`) passam a `aluguel`, porque **Nova locação e Abertura da locação
+  listam só imóveis de aluguel** (hoje: finalidade ≠ Venda; o já vinculado à locação continua na Abertura).
+  Venda no gestão não depende da finalidade do imóvel (o processo guarda só o texto).
   Se quiser anunciar o mesmo imóvel nas duas finalidades, é um segundo anúncio (o catálogo é assim).
 - **Excluir:** dono, ou o corretor captador no imóvel dele; bloqueado se há locação ativa. Jurídico e
   recepção não excluem (coerente com «jurídico só arquiva»); para tirar do site, mudam o status para
