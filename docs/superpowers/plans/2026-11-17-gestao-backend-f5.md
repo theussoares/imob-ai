@@ -44,3 +44,8 @@ O núcleo **não importa nada da F1**: recebe `ContextoImoveis` (membro, tenant,
 - [ ] **T5 Endpoints + contexto** (`test/server/gestao-imoveis-endpoints.test.ts`): wrappers chamam o núcleo com o contexto da sessão; id malformado → 400.
 - [ ] **T6 Guardrail público**: nenhuma função nova usa `select('*')` fora do que já é permitido; colunas internas não aparecem em rota pública (suíte existente continua verde).
 - [ ] **T7** `tenant-security-reviewer` → corrigir → `pnpm test` → commit e push em `claude/friendly-planck-u9wtqu-f5`.
+
+## Limitações conhecidas (revisão de segurança)
+
+- Envios de foto simultâneos podem passar do teto de 20 e repetir posição/capa (a contagem é lida antes de gravar). Só dentro do tenant e por usuário autenticado; fechar com contagem dentro de `insertPropertyImages` ou constraint.
+- O 409 de «título e endereço repetido» confirma, ao corretor, a existência de imóvel de outro corretor do mesmo tenant (mesma regra do domínio). Aceito.

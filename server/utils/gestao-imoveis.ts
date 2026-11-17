@@ -56,7 +56,11 @@ export const LIMITE_LISTA_IMOVEIS = 200
 const erro = (statusCode: number, statusMessage: string) => createError({ statusCode, statusMessage })
 const naoEncontrado = () => erro(404, 'Imóvel não encontrado.')
 
-const sessaoDe = (ctx: ContextoImoveis): Sessao => ({ perfil: ctx.membro.perfil, nome: ctx.membro.nome, corretorId: ctx.membro.brokerId })
+const sessaoDe = (ctx: ContextoImoveis): Sessao => ({
+  perfil: ctx.membro.perfil,
+  nome: ctx.membro.nome,
+  // `|| null`: vínculo vazio ('') não pode casar com o `brokerId: ''` de imóvel antigo sem corretor
+  corretorId: ctx.membro.brokerId || null })
 
 /**
  * Imóvel do tenant que a sessão pode ver; senão 404. É a porta de TODA operação por id:

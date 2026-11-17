@@ -181,6 +181,13 @@ describe('Review Focus 1 — corretor A pede o imóvel do corretor B pelo id', (
   })
 })
 
+describe('corretor com vínculo vazio', () => {
+  test("brokerId '' não casa com imóvel antigo sem corretor: 404", async () => {
+    const { ctx } = montar('corretor', { properties: { data: row({ broker_id: null }), error: null } }, { membro: { userId: 'u1', nome: 'F', perfil: 'corretor', brokerId: '' } })
+    expect(await status(obterImovel(ctx, IMOVEL_A))).toBe(404)
+  })
+})
+
 describe('criar', () => {
   const fila = (): Res => ({
     // 1ª leitura: getBroker (objeto); 2ª: embed de corretores da releitura do imóvel (lista)
