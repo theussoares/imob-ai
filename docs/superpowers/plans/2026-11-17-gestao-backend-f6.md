@@ -29,3 +29,8 @@ Provedor real de crédito; migration aplicada (só o arquivo); front HTTP (F7); 
 4. Serviço `gestao-leituras.ts`: `financeiro`, `dashboard`, `auditoria`, `consultas`, `consultar`.
 5. Endpoints `financeiro.get`, `dashboard.get`, `auditoria.get`, `consultas.get|post`.
 6. `pnpm typecheck && pnpm test`; `tenant-security-reviewer`; commit/push.
+
+## Pontos em aberto (parecer do `tenant-security-reviewer`: sem achados)
+
+- Histórico de consultas e auditoria valem para o tenant inteiro (sem `escopoCorretor`), como no protótipo. Na matriz padrão só perfis com `verTodos` os têm; se o Dono ligar `consulta` para o corretor, ele verá consultas de contratos alheios. Decidir antes de liberar essa permissão ao corretor.
+- «Documentos a conferir» do Dashboard conta até 200 (limite da lista); acima disso o número subestima.
