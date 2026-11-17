@@ -13,7 +13,7 @@ import {
   listarVendas,
   type Escopo,
 } from '~~/server/repositories/gestao-venda.repository'
-import { amarrar, executarAcao } from '~~/server/utils/gestao-acoes'
+import { amarrar, executarAcao, MSG_CONFLITO_VERSAO } from '~~/server/utils/gestao-acoes'
 import { ACOES_VENDA, nomeAcaoValido } from '~~/server/utils/gestao-vendas-acoes'
 
 /**
@@ -197,6 +197,13 @@ export async function executarAcaoVenda(
   const nome = (corpo as { acao?: unknown } | null)?.acao
   if (!nomeAcaoValido(nome)) throw createError({ statusCode: 400, statusMessage: 'Ação desconhecida.' })
   const def = ACOES_VENDA[nome]
+  // Concorrência otimista como na locação: a `versao` é a que a tela leu. Sem ela o
+  // servidor só conferiria a versão dentro da própria requisição (leitura → gravação),
+  // e uma aba aberta há uma hora sobrescreveria, sem aviso, o que outra pessoa fez.
+  // Alternativa descartada: tratar `versao` ausente como «a atual» — é o silêncio que
+  // esta checagem existe para impedir.
+  const versao = (corpo as { versao?: unknown }).versao
+  if (typeof versao !== 'number' || !Number.isInteger(versao) || versao < 1) throw invalido('Informe a versão do processo.')
   const dadosParsed = def.schema.safeParse((corpo as { dados?: unknown }).dados ?? {})
   if (!dadosParsed.success) throw createError({ statusCode: 400, statusMessage: 'Dados inválidos.' })
   // `never` no contrato de `DefinicaoAcao`: o Zod acima é o que garante o formato.
@@ -227,6 +234,8 @@ export async function executarAcaoVenda(
       // aparece para processo que o membro PODE ver.
       const c = capacidades(ctx.matriz, ctx.sessao, v.processo)
       if (!def.permitido(c, payload as never)) throw proibido()
+      // Depois da permissão: quem não pode a ação recebe 403, não o estado do processo.
+      if (v.versao !== versao) throw createError({ statusCode: 409, statusMessage: MSG_CONFLITO_VERSAO, data: { erro: MSG_CONFLITO_VERSAO } })
       return v
     },
     paraEstado: (v) => ({ processos: [v.processo], documentos, locacoes: [] }),

@@ -51,7 +51,7 @@ const deps = (db: unknown) => ({
   comissaoPadrao: async () => 6,
   documentosDoProcesso: (d: typeof db, t: string, id: string) => listarDocumentosDoAlvo(d as never, t, { tipo: 'venda', id }),
 })
-const concluir = (m: ReturnType<typeof memoriaSupabase>) => executarAcaoVenda(ctxVendas(m.db), ID, { acao: 'concluirEtapa', dados: { etapa: 2 } }, deps(m.db) as never)
+const concluir = (m: ReturnType<typeof memoriaSupabase>) => executarAcaoVenda(ctxVendas(m.db), ID, { versao: 1, acao: 'concluirEtapa', dados: { etapa: 2 } }, deps(m.db) as never)
 
 describe('F2 × F3: checklist da venda lê o documento de verdade', () => {
   test('três documentos enviados do processo: a etapa 2 conclui', async () => {

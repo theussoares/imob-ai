@@ -154,10 +154,10 @@ describe('recorte de valores', () => {
 
   test.each(['registrarAdiantamento', 'removerAdiantamento', 'salvarFinanceiro'])('%s sem `valores` → 403 e nada é gravado', async (acao) => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A)), error: null } })
-    await expect(executarAcaoVenda(ctx('recepcao', client), ID, { acao, dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
+    await expect(executarAcaoVenda(ctx('recepcao', client), ID, { versao: 1, acao, dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
     // dados vazios falham no Zod (400); com dados válidos o 403 vem da permissão:
     const dados = acao === 'registrarAdiantamento' ? { resp: 'imob', valor: 10, data: '2026-11-01' } : acao === 'removerAdiantamento' ? { adiantamentoId: 'a1' } : { valor: 1000, fin: { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: 0 } }
-    await expect(executarAcaoVenda(ctx('recepcao', client), ID, { acao, dados }, deps())).rejects.toMatchObject({ statusCode: 403 })
+    await expect(executarAcaoVenda(ctx('recepcao', client), ID, { versao: 1, acao, dados }, deps())).rejects.toMatchObject({ statusCode: 403 })
     expect(calls.some((c) => c.method === 'update')).toBe(false)
   })
 })
@@ -167,7 +167,7 @@ describe('ações — permissão, regra, concorrência', () => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: null, error: null } })
     const d = deps()
     await expect(
-      executarAcaoVenda(ctx('corretor', client, CORRETOR_B), ID, { acao: 'salvarObservacao', dados: { obs: 'x' } }, d),
+      executarAcaoVenda(ctx('corretor', client, CORRETOR_B), ID, { versao: 1, acao: 'salvarObservacao', dados: { obs: 'x' } }, d),
     ).rejects.toMatchObject({ statusCode: 404 })
     expect(calls.some((c) => c.method === 'update')).toBe(false)
     expect(d.registrarEvento).not.toHaveBeenCalled()
@@ -181,13 +181,50 @@ describe('ações — permissão, regra, concorrência', () => {
     })
     const d = deps()
     await expect(
-      executarAcaoVenda(ctx('recepcao', client), ID, { acao: 'salvarPessoa', dados: { quem: 'vendedor', cpf: '', telefone: '', email: '' } }, d),
+      executarAcaoVenda(ctx('recepcao', client), ID, { versao: 7, acao: 'salvarPessoa', dados: { quem: 'vendedor', cpf: '', telefone: '', email: '' } }, d),
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Este processo foi alterado por outra pessoa. Recarregue.' })
     // o update foi condicionado à versão LIDA e ao tenant
     const upd = calls.filter((c) => c.method === 'eq' && c.args[0] === 'versao')
     expect(upd.map((c) => c.args[1])).toEqual([7])
     expect(eqs(calls, 'gestao_vendas', 'tenant_id')).toEqual([TENANT, TENANT])
     expect(d.registrarEvento).not.toHaveBeenCalled()
+  })
+
+  test('sem `versao` → 422 antes de tocar no banco; versão que não é inteiro ≥ 1 também', async () => {
+    for (const versao of [undefined, null, 0, -1, 1.5, '3', NaN]) {
+      const { client, calls } = fakeSupabase({})
+      const d = deps()
+      await expect(
+        executarAcaoVenda(ctx('dono', client), ID, { acao: 'salvarObservacao', dados: { obs: 'x' }, versao }, d),
+      ).rejects.toMatchObject({ statusCode: 422 })
+      expect(calls).toHaveLength(0)
+      expect(d.registrarEvento).not.toHaveBeenCalled()
+    }
+  })
+
+  test('aba defasada: `versao` diferente da gravada → 409 com a frase do plano, sem update nem evento', async () => {
+    const { client, calls } = fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A), 5), error: null } })
+    const d = deps()
+    await expect(
+      executarAcaoVenda(ctx('dono', client), ID, { versao: 4, acao: 'salvarObservacao', dados: { obs: 'x' } }, d),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Este processo foi alterado por outra pessoa. Recarregue.' })
+    expect(calls.some((c) => c.method === 'update')).toBe(false)
+    expect(d.registrarEvento).not.toHaveBeenCalled()
+  })
+
+  test('versão à frente da gravada também é 409 (não é «pelo menos»)', async () => {
+    const { client } = fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A), 5), error: null } })
+    await expect(
+      executarAcaoVenda(ctx('dono', client), ID, { versao: 6, acao: 'salvarObservacao', dados: { obs: 'x' } }, deps()),
+    ).rejects.toMatchObject({ statusCode: 409 })
+  })
+
+  test('sem permissão e com versão velha: 403 (a permissão decide primeiro) e nada é gravado', async () => {
+    const { client, calls } = fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A), 5), error: null } })
+    await expect(
+      executarAcaoVenda(ctx('recepcao', client), ID, { versao: 4, acao: 'concluirEtapa', dados: { etapa: 7 } }, deps()),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    expect(calls.some((c) => c.method === 'update')).toBe(false)
   })
 
   test('sucesso: grava versão+1, ator do servidor no hist, e registra o evento com o tenant do contexto', async () => {
@@ -198,7 +235,7 @@ describe('ações — permissão, regra, concorrência', () => {
       ctx('recepcao', client),
       ID,
       // tenantId/ator/quando no corpo não têm efeito: o schema os descarta
-      { acao: 'salvarImovel', dados: { matriculaMae: true, valorVenal: 90000, tenantId: 'OUTRO', ator: 'Hacker' }, tenantId: 'OUTRO' },
+      { versao: 2, acao: 'salvarImovel', dados: { matriculaMae: true, valorVenal: 90000, tenantId: 'OUTRO', ator: 'Hacker' }, tenantId: 'OUTRO' },
       d,
     )
     expect(r.versao).toBe(3)
@@ -214,44 +251,44 @@ describe('ações — permissão, regra, concorrência', () => {
   test('regra do domínio recusa → 422 com a frase, nada gravado (concluir etapa fora de ordem)', async () => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A)), error: null } })
     await expect(
-      executarAcaoVenda(ctx('recepcao', client), ID, { acao: 'concluirEtapa', dados: { etapa: 2 } }, deps()),
+      executarAcaoVenda(ctx('recepcao', client), ID, { versao: 1, acao: 'concluirEtapa', dados: { etapa: 2 } }, deps()),
     ).rejects.toMatchObject({ statusCode: 422, statusMessage: 'Conclua as etapas em ordem.' })
     expect(calls.some((c) => c.method === 'update')).toBe(false)
   })
 
   test('as etapas 6 e 7 têm dono: recepção conclui a 6, não a 7; jurídico a 7, não a 5', async () => {
     const em = (etapa: number) => fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A, { etapa })), error: null } })
-    await expect(executarAcaoVenda(ctx('recepcao', em(7).client), ID, { acao: 'concluirEtapa', dados: { etapa: 7 } }, deps())).rejects.toMatchObject({ statusCode: 403 })
-    await expect(executarAcaoVenda(ctx('juridico', em(5).client), ID, { acao: 'concluirEtapa', dados: { etapa: 5 } }, deps())).rejects.toMatchObject({ statusCode: 403 })
+    await expect(executarAcaoVenda(ctx('recepcao', em(7).client), ID, { versao: 1, acao: 'concluirEtapa', dados: { etapa: 7 } }, deps())).rejects.toMatchObject({ statusCode: 403 })
+    await expect(executarAcaoVenda(ctx('juridico', em(5).client), ID, { versao: 1, acao: 'concluirEtapa', dados: { etapa: 5 } }, deps())).rejects.toMatchObject({ statusCode: 403 })
   })
 
   test('editar = proprio: corretor edita o próprio processo; recepção com matriz alterada não edita o de outro', async () => {
     const p = processoDoCorretor(CORRETOR_A)
     const a = fakeSupabase({ gestao_vendas: [{ data: row(p), error: null }, { data: [{ id: ID }], error: null }] })
     await expect(
-      executarAcaoVenda(ctx('corretor', a.client, CORRETOR_A), ID, { acao: 'salvarImovel', dados: { matriculaMae: false, valorVenal: 1 } }, deps()),
+      executarAcaoVenda(ctx('corretor', a.client, CORRETOR_A), ID, { versao: 1, acao: 'salvarImovel', dados: { matriculaMae: false, valorVenal: 1 } }, deps()),
     ).resolves.toMatchObject({ versao: 2 })
 
     const b = fakeSupabase({ gestao_vendas: { data: row(p), error: null } })
     const c = ctx('recepcao', b.client)
     c.matriz.editar.recepcao = 'proprio'
-    await expect(executarAcaoVenda(c, ID, { acao: 'salvarImovel', dados: { matriculaMae: false, valorVenal: 1 } }, deps())).rejects.toMatchObject({ statusCode: 403 })
+    await expect(executarAcaoVenda(c, ID, { versao: 1, acao: 'salvarImovel', dados: { matriculaMae: false, valorVenal: 1 } }, deps())).rejects.toMatchObject({ statusCode: 403 })
   })
 
   test('ação desconhecida → 400; nome herdado do protótipo do objeto não passa', async () => {
     const { client } = fakeSupabase({})
-    await expect(executarAcaoVenda(ctx('dono', client), ID, { acao: 'nao-existe', dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
-    await expect(executarAcaoVenda(ctx('dono', client), ID, { acao: 'constructor', dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
+    await expect(executarAcaoVenda(ctx('dono', client), ID, { versao: 1, acao: 'nao-existe', dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
+    await expect(executarAcaoVenda(ctx('dono', client), ID, { versao: 1, acao: 'constructor', dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
   })
 
   test('salvarAbertura: corretor de outro tenant → 422; quem não vê todos não reatribui o processo', async () => {
     const p = processoDoCorretor(CORRETOR_A)
     const dados = { vendedor: { nome: 'V', cpf: '' }, comprador: { nome: 'C', cpf: '' }, imovel: 'Casa', corretorId: CORRETOR_B, captadorId: CORRETOR_A, preliminar: { existe: false, arquivo: null } }
     const fora = fakeSupabase({ brokers: { data: [{ id: CORRETOR_A }], error: null } })
-    await expect(executarAcaoVenda(ctx('recepcao', fora.client), ID, { acao: 'salvarAbertura', dados }, deps())).rejects.toMatchObject({ statusCode: 422, statusMessage: 'Corretor inválido.' })
+    await expect(executarAcaoVenda(ctx('recepcao', fora.client), ID, { versao: 1, acao: 'salvarAbertura', dados }, deps())).rejects.toMatchObject({ statusCode: 422, statusMessage: 'Corretor inválido.' })
 
     const ok = fakeSupabase({ brokers: { data: [{ id: CORRETOR_A }, { id: CORRETOR_B }], error: null }, gestao_vendas: [{ data: row(p), error: null }, { data: [{ id: ID }], error: null }] })
-    await executarAcaoVenda(ctx('corretor', ok.client, CORRETOR_A), ID, { acao: 'salvarAbertura', dados }, deps())
+    await executarAcaoVenda(ctx('corretor', ok.client, CORRETOR_A), ID, { versao: 1, acao: 'salvarAbertura', dados }, deps())
     const gravado = ok.calls.find((c) => c.method === 'update')!.args[0] as { corretor_id: string }
     expect(gravado.corretor_id).toBe(CORRETOR_A)
   })
