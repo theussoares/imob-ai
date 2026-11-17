@@ -6,7 +6,7 @@ import type { Locacao } from '../../domain/types'
 
 const ator = { nome: 'Teste' }
 const Q = '16/11/2026 10:00'
-const novo = (): Estado => ({ processos: [], documentos: documentosLocacaoSeed(), locacoes: locacoesSeed() })
+const novo = (): Estado => ({ processos: [], documentos: documentosLocacaoSeed(), locacoes: locacoesSeed('2026-11-17') })
 const loc = (e: Estado, id: string): Locacao => e.locacoes.find((l) => l.id === id)!
 const ok = (r: { ok: boolean; estado?: Estado; erro?: string }): Estado => {
   if (!r.ok) throw new Error(r.erro)
@@ -20,7 +20,7 @@ const GARANTIA = 'L-2026-0003'
 
 describe('abrir locação', () => {
   it('numera acima do maior id do ano', () => {
-    expect(a.proximoIdLocacao(locacoesSeed(), 2026)).toBe('L-2026-0005')
+    expect(a.proximoIdLocacao(locacoesSeed('2026-11-17'), 2026)).toBe('L-2026-0005')
     expect(a.proximoIdLocacao([], 2027)).toBe('L-2027-0001')
   })
   it('cria L-AAAA-NNNN na etapa 1, sem nada concluído', () => {
@@ -108,7 +108,7 @@ describe('etapas', () => {
 
 describe('acompanhamento', () => {
   it('renova por 12 meses só locação ativa', () => {
-    expect(loc(ok(a.renovarLocacao(novo(), ATIVA, ator, Q)), ATIVA).contrato!.fim).toBe('2028-08-10')
+    expect(loc(ok(a.renovarLocacao(novo(), ATIVA, ator, Q)), ATIVA).contrato!.fim).toBe('2028-01-01')
     expect(erro(a.renovarLocacao(novo(), ENCERRADA, ator))).toBeTruthy()
     expect(erro(a.renovarLocacao(novo(), GARANTIA, ator))).toBe('Só locação ativa pode ser renovada.')
   })

@@ -1,0 +1,136 @@
+<script setup lang="ts">
+import { brl } from '../../../domain/acoes-processo'
+import { hojeISO } from '../../../domain/avisos-locacao'
+import {
+  competenciasDisponiveis,
+  ROTULO_REPASSE,
+  ROTULO_SITUACAO,
+  resumoLocacoes,
+  resumoVendas,
+} from '../../../domain/financeiro'
+
+// Rota estática: vence `[secao].vue`. A guarda do middleware já barra quem não tem `valores`.
+definePageMeta({ layout: 'gestao', middleware: 'gestao' })
+useHead({ title: 'Financeiro · Gestão' })
+
+const store = useGestaoStore()
+await store.carregar()
+
+const competencia = ref('')
+const hoje = hojeISO()
+
+const vendas = computed(() => resumoVendas(store.visiveis.value))
+const locacoes = computed(() => resumoLocacoes(store.locacoesVisiveis.value, hoje, competencia.value))
+const competencias = computed(() => competenciasDisponiveis(store.locacoesVisiveis.value))
+
+const mes = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
+const dia = (iso: string) => iso.split('-').reverse().join('/')
+
+const campo =
+  'min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
+const th = 'px-3 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]'
+const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
+</script>
+
+<template>
+  <section class="[display:grid] gap-6">
+    <header>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Financeiro</h1>
+      <p class="mt-1 text-[var(--ink-soft)]">Comissões das vendas e aluguéis, taxas e repasses das locações.</p>
+    </header>
+
+    <section class="[display:grid] gap-3" aria-labelledby="fin-vendas">
+      <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Comissões de venda</h2>
+      <div class="[display:grid] gap-3 sm:grid-cols-3">
+        <GestaoIndicador rotulo="Comissão total" :valor="brl(vendas.comissaoTotal)" testid="fin-comissao-total" />
+        <GestaoIndicador rotulo="Já adiantado" :valor="brl(vendas.adiantado)" testid="fin-comissao-adiantado" />
+        <GestaoIndicador rotulo="A receber" :valor="brl(vendas.aReceber)" testid="fin-comissao-areceber" />
+      </div>
+      <div class="overflow-x-auto rounded-[14px] border border-[var(--line)] bg-[var(--paper)]">
+        <table class="w-full border-collapse" data-testid="fin-tabela-vendas">
+          <caption class="sr-only">Comissão por venda</caption>
+          <thead>
+            <tr>
+              <th :class="th">Venda</th>
+              <th :class="th">Imóvel</th>
+              <th :class="th">Valor</th>
+              <th :class="th">Comissão</th>
+              <th :class="th">Adiantado</th>
+              <th :class="th">A receber</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="l in vendas.linhas" :key="l.id" class="border-t border-[var(--line)]" data-testid="fin-linha-venda">
+              <td :class="td">
+                <NuxtLink :to="`/gestao/vendas/${l.id}`" class="font-bold text-[var(--brand)]">{{ l.id }}</NuxtLink>
+                <div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ l.status }}</div>
+              </td>
+              <td :class="td">{{ l.imovel }}</td>
+              <td :class="td">{{ brl(l.valor) }}</td>
+              <td :class="td">{{ brl(l.comissaoTotal) }}</td>
+              <td :class="td">{{ brl(l.adiantado) }}</td>
+              <td :class="td" class="font-bold">{{ brl(l.aReceber) }}</td>
+            </tr>
+            <tr v-if="!vendas.linhas.length">
+              <td :class="td" colspan="6">Nenhuma venda com comissão.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="[display:grid] gap-3" aria-labelledby="fin-locacoes">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <h2 id="fin-locacoes" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Aluguéis e repasses</h2>
+        <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
+          Competência
+          <select v-model="competencia" :class="campo" data-testid="fin-competencia">
+            <option value="">Todas</option>
+            <option v-for="c in competencias" :key="c" :value="c">{{ mes(c) }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="[display:grid] gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <GestaoIndicador rotulo="Aluguel recebido" :valor="brl(locacoes.recebido)" testid="fin-recebido" />
+        <GestaoIndicador rotulo="Em aberto" :valor="brl(locacoes.emAberto)" testid="fin-aberto" />
+        <GestaoIndicador rotulo="Em atraso" :valor="brl(locacoes.emAtraso)" :alerta="locacoes.emAtraso > 0" testid="fin-atraso" />
+        <GestaoIndicador rotulo="Taxa da imobiliária recebida" :valor="brl(locacoes.taxaRecebida)" testid="fin-taxa" />
+        <GestaoIndicador rotulo="Repasses feitos" :valor="brl(locacoes.repasseFeito)" testid="fin-repasse-feito" />
+        <GestaoIndicador rotulo="Repasses pendentes" :valor="brl(locacoes.repassePendente)" :alerta="locacoes.repassePendente > 0" testid="fin-repasse-pendente" />
+      </div>
+      <div class="overflow-x-auto rounded-[14px] border border-[var(--line)] bg-[var(--paper)]">
+        <table class="w-full border-collapse" data-testid="fin-tabela-alugueis">
+          <caption class="sr-only">Cobranças e repasses por locação</caption>
+          <thead>
+            <tr>
+              <th :class="th">Locação</th>
+              <th :class="th">Competência</th>
+              <th :class="th">Vencimento</th>
+              <th :class="th">Aluguel</th>
+              <th :class="th">Situação</th>
+              <th :class="th">Taxa</th>
+              <th :class="th">Repasse</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="l in locacoes.linhas" :key="l.locacaoId + l.competencia" class="border-t border-[var(--line)]" data-testid="fin-linha-aluguel" :data-situacao="l.situacao">
+              <td :class="td">
+                <NuxtLink :to="`/gestao/locacao/${l.locacaoId}`" class="font-bold text-[var(--brand)]">{{ l.locacaoId }}</NuxtLink>
+                <div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ l.imovel }}</div>
+              </td>
+              <td :class="td">{{ mes(l.competencia) }}</td>
+              <td :class="td">{{ dia(l.vencimento) }}</td>
+              <td :class="td">{{ brl(l.valor) }}</td>
+              <td :class="td" class="font-bold">{{ ROTULO_SITUACAO[l.situacao] }}</td>
+              <td :class="td">{{ brl(l.taxa) }}</td>
+              <td :class="td">{{ brl(l.repasse) }}<div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ ROTULO_REPASSE[l.repasseSituacao] }}</div></td>
+            </tr>
+            <tr v-if="!locacoes.linhas.length">
+              <td :class="td" colspan="7">Nenhuma cobrança neste período.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+</template>

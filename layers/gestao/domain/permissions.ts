@@ -133,16 +133,16 @@ export type ChaveMenu =
   | 'config'
 
 export const MENU: { chave: ChaveMenu; rotulo: string; rota: string; pronto: boolean }[] = [
-  { chave: 'dashboard', rotulo: 'Dashboard', rota: '/gestao', pronto: false },
-  { chave: 'imoveis', rotulo: 'Imóveis', rota: '/gestao/imoveis', pronto: false },
+  { chave: 'dashboard', rotulo: 'Dashboard', rota: '/gestao', pronto: true },
+  { chave: 'imoveis', rotulo: 'Imóveis', rota: '/gestao/imoveis', pronto: true },
   { chave: 'vendas', rotulo: 'Contratos de venda', rota: '/gestao/vendas', pronto: true },
   { chave: 'locacao', rotulo: 'Contratos de locação', rota: '/gestao/locacao', pronto: true },
-  { chave: 'financeiro', rotulo: 'Financeiro', rota: '/gestao/financeiro', pronto: false },
-  { chave: 'consulta', rotulo: 'Consulta cadastral', rota: '/gestao/consulta', pronto: false },
+  { chave: 'financeiro', rotulo: 'Financeiro', rota: '/gestao/financeiro', pronto: true },
+  { chave: 'consulta', rotulo: 'Consulta cadastral', rota: '/gestao/consulta', pronto: true },
   { chave: 'arquivados', rotulo: 'Arquivados', rota: '/gestao/arquivados', pronto: true },
-  { chave: 'auditoria', rotulo: 'Histórico de alterações', rota: '/gestao/auditoria', pronto: false },
-  { chave: 'usuarios', rotulo: 'Usuários e permissões', rota: '/gestao/usuarios', pronto: false },
-  { chave: 'config', rotulo: 'Configurações', rota: '/gestao/config', pronto: false },
+  { chave: 'auditoria', rotulo: 'Histórico de alterações', rota: '/gestao/auditoria', pronto: true },
+  { chave: 'usuarios', rotulo: 'Usuários e permissões', rota: '/gestao/usuarios', pronto: true },
+  { chave: 'config', rotulo: 'Configurações', rota: '/gestao/config', pronto: true },
 ]
 
 /** Item de menu visível para o perfil? Espelha `navOk` do protótipo. */
@@ -177,4 +177,29 @@ export function processosVisiveis(matriz: MatrizPermissoes, sessao: Sessao, proc
 export function locacoesVisiveis(matriz: MatrizPermissoes, sessao: Sessao, locacoes: Locacao[]): Locacao[] {
   const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
   return locacoes.filter((l) => !l.arquivado && (todos || l.corretorId === sessao.corretorId))
+}
+
+/**
+ * Permissões que o Dono não pode tirar de si mesmo: sem `admin` ninguém mais consegue
+ * abrir esta tela e devolver o acesso, e sem `convidar` a conta ficaria sem como chamar
+ * outro administrador. A trava mora aqui, e não só na tela, para o backend herdá-la.
+ */
+export const PERMISSOES_FIXAS_DO_DONO: PermChave[] = ['admin', 'convidar']
+
+export const ROTULO_VALOR: Record<PermValor, string> = { sim: 'Sim', proprio: 'Só os próprios', nao: 'Não' }
+
+export const permissaoFixa = (chave: PermChave, perfil: Perfil): boolean =>
+  perfil === 'dono' && PERMISSOES_FIXAS_DO_DONO.includes(chave)
+
+export type ResultadoMatriz = { ok: true; matriz: MatrizPermissoes } | { ok: false; erro: string }
+
+/** Muda uma célula da matriz, devolvendo cópia. Recusa valor que a permissão não admite e as travas do Dono. */
+export function alterarPermissao(matriz: MatrizPermissoes, chave: PermChave, perfil: Perfil, valor: PermValor): ResultadoMatriz {
+  const def = DEFINICOES_PERMISSAO.find((d) => d.chave === chave)
+  if (!def) return { ok: false, erro: 'Permissão desconhecida.' }
+  if (!def.estados.includes(valor)) return { ok: false, erro: `«${def.rotulo}» não aceita «${ROTULO_VALOR[valor]}».` }
+  if (permissaoFixa(chave, perfil) && valor !== 'sim') {
+    return { ok: false, erro: 'O Dono não pode perder esta permissão: sem ela ninguém administraria o acesso.' }
+  }
+  return { ok: true, matriz: { ...matriz, [chave]: { ...matriz[chave], [perfil]: valor } } }
 }
