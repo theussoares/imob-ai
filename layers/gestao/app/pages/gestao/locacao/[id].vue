@@ -17,7 +17,7 @@ const { askConfirm } = useConfirm()
 const { sessao } = useGestaoSessao()
 
 await store.carregar()
-await store.carregarDocumentos('locacao', String(route.params.id))
+await Promise.all([store.carregarDetalhe('locacao', String(route.params.id)), store.carregarDocumentos('locacao', String(route.params.id))])
 
 // Só enxerga o que `locacoesVisiveis` devolve: corretor pedindo a locação de outro cai
 // em «não encontrada», sem revelar que ela existe.

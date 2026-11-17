@@ -208,6 +208,17 @@ export function useGestaoStore() {
     return r
   }
 
+  /**
+   * `http`: a lista traz o CPF das partes MASCARADO (regra do servidor para listagem); o formulário
+   * do contrato precisa do dado inteiro, senão salvar regravaria o CPF mascarado. A página do
+   * contrato chama isto ao abrir. Também renova a `versao` que a próxima ação vai devolver.
+   */
+  async function carregarDetalhe(tipo: TipoAlvo, id: string) {
+    if (!http) return
+    const r = await repo.recarregar(tipo, id)
+    if (r.ok) aplicarMudanca(r)
+  }
+
   const abrirProcesso = async (dados: NovoProcesso) => comAplicar(await repo.abrirVenda(dados))
   const abrirLocacao = async (dados: NovaLocacao) => comAplicar(await repo.abrirLocacao(dados))
 
@@ -380,6 +391,7 @@ export function useGestaoStore() {
     carregar,
     restaurar,
     executar,
+    carregarDetalhe,
     abrirProcesso,
     abrirLocacao,
     carregarDocumentos,

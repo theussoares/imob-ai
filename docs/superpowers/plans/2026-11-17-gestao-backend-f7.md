@@ -31,13 +31,13 @@ composables/useGestaoAuth.ts     mock = domínio/localStorage (igual); http = ro
 ## Tarefas
 
 - [x] T0 (servidor) `carregarAlvoVisivel` respeita `arquivado` (+ GET da venda) — commit próprio.
-- [ ] T1 `clienteGestao` + testes (Bearer, 401 → sessão expirada, 409 → «alterado por outra pessoa», 422 → erro do domínio, 429).
-- [ ] T2 `GestaoRepository` + `MockGestaoRepository` + `HttpGestaoRepository`; suíte de contrato `describe.each([mock, http])` (http com `$fetch` falso que faz o papel do servidor).
-- [ ] T3 `HttpImoveisRepository` + contrato com o `MockImoveisRepository`.
-- [ ] T4 Store delega; telas passam de `store.aplicar(fn)` (síncrono, função pura do domínio) para `store.executar(tipo, id, acao, dados)` (assíncrono, nome da ação).
-- [ ] T5 `useGestaoAuth`/`useGestaoSessao` em `http`; Supabase client só para refresh, tokens em memória.
-- [ ] T6 Upload de documento (URL assinada) e foto (rota da F5).
-- [ ] T7 `test/qa/fluxos.md` em `http`; `pnpm typecheck && pnpm test`; commit/push em `-f7`.
+- [x] T1 `clienteGestao` + testes (Bearer, 401 → sessão expirada, 409 → «alterado por outra pessoa», 422 → erro do domínio, 429).
+- [x] T2 `GestaoRepository` + `MockGestaoRepository` + `HttpGestaoRepository`; suíte de contrato `describe.each([mock, http])` (http com `$fetch` falso que faz o papel do servidor).
+- [x] T3 `HttpImoveisRepository` + contrato com o `MockImoveisRepository`.
+- [x] T4 Store delega; telas passam de `store.aplicar(fn)` (síncrono, função pura do domínio) para `store.executar(tipo, id, acao, dados)` (assíncrono, nome da ação).
+- [x] T5 `useGestaoAuth`/`useGestaoSessao` em `http`; Supabase client só para refresh, tokens em memória.
+- [x] T6 Upload de documento (URL assinada) e foto (rota da F5).
+- [x] T7 `test/qa/fluxos.md` em `http`; `pnpm typecheck && pnpm test`; commit/push em `-f7`.
 
 ## Decisões
 
@@ -50,4 +50,12 @@ composables/useGestaoAuth.ts     mock = domínio/localStorage (igual); http = ro
 | Corretores vêm de `GET /api/gestao/corretores` (novo, leitura, escopo do tenant) | Continuar com `CORRETORES` do seed | O seed tem ids `c1…`; o servidor exige `brokers.id` do tenant. Sem a lista o Dono não abre contrato em `http` |
 | Foto sobe pela rota da F5 (data URL, 4 por requisição); documento pela URL assinada da F3 | URL assinada também para foto | A F5 decidiu assim (corretor não tem policy de storage); o pedido citava as duas, vale o que o servidor tem |
 | Documentos carregados por processo, sob demanda, + lixeira | Listagem global | Não existe `GET documentos` sem `alvo`; a página «Documentos» carrega os visíveis (máx. 50, 6 em paralelo) |
-| Dashboard/Financeiro/Auditoria seguem calculados no cliente sobre o que o store já carregou | Chamar `/dashboard`, `/financeiro`, `/auditoria` | Mesmas funções de domínio do servidor; trocar a fonte muda a tela e a Olmi não pediu. As rotas ficam expostas no repository |
+| Dashboard/Financeiro/Auditoria seguem calculados no cliente sobre o que o store já carregou | Chamar `/dashboard`, `/financeiro`, `/auditoria` | Mesmas funções de domínio do servidor; trocar a fonte muda a tela e a Olmi não pediu. Ficam para quando a Olmi pedir; os endpoints existem (F6) |
+| Página do contrato chama `carregarDetalhe` (GET do agregado) ao abrir, em `http` | Usar só a lista | A lista traz o CPF das partes mascarado; o formulário regravaria o CPF mascarado ao salvar |
+| Conflito 409: o store relê o agregado e devolve a falha com a frase do servidor | Só mostrar o erro | Sem reler, a segunda tentativa tomaria 409 de novo |
+| Venda manda `versao` mas o servidor ainda não a exige (F2 confere só dentro da requisição) | Mudar a F2 aqui | Fora do escopo da F7; está no relatório como lacuna (locação já exige) |
+| `pdf` do contrato inicial vira documento da categoria `venda`; a marca `pdf` do processo não é settável pela API | Criar ação nova no servidor | Fora do escopo; «contratos sem PDF» seguirá acusando até a F2 marcar `pdf` ao confirmar o documento |
+
+## Verificação
+
+`pnpm typecheck && pnpm test` verdes (192 arquivos). Não foi aberto navegador: o dev server precisa do Supabase do tenant, e a regra desta fase proíbe tocar o banco compartilhado. Telas conferidas por typecheck; fluxos em `test/qa/fluxos.md` (seção H) ficam para quem tem um banco de teste com as migrations 0059–0063.

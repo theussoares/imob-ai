@@ -22,7 +22,7 @@ const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 const { askConfirm } = useConfirm()
 
 await store.carregar()
-await store.carregarDocumentos('venda', String(route.params.id))
+await Promise.all([store.carregarDetalhe('venda', String(route.params.id)), store.carregarDocumentos('venda', String(route.params.id))])
 
 // Só enxerga o que `visiveis` devolve: corretor com «só os meus» pedindo o
 // processo de outro cai em «não encontrado», sem revelar que ele existe.
