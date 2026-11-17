@@ -7,7 +7,7 @@ import { recursoAtivo } from '~~/shared/utils/portal-access'
  * (`FooterPageFeature`): uma tradução no meio faria quem lê o código procurar
  * uma linha que não existe com aquele nome.
  */
-export type RecursoOpcional = 'portal' | 'about' | 'ai' | 'crm' | 'cobranca'
+export type RecursoOpcional = 'portal' | 'about' | 'ai' | 'crm' | 'cobranca' | 'gestao'
 
 /**
  * Este recurso está valendo para esta imobiliária?
@@ -123,4 +123,13 @@ export async function exigirCobranca(tenantId: string): Promise<void> {
   if (!(await cobrancaAtiva(tenantId))) {
     throw createError({ statusCode: 404, statusMessage: 'Cobrança não está ativa para esta imobiliária.' })
   }
+}
+
+/**
+ * O painel de Gestão (/gestao, contratos de venda e locação) está valendo para
+ * esta imobiliária? Ver 0056. Falha fechado como os outros: sem confirmação, o
+ * painel responde 404.
+ */
+export function gestaoAtiva(tenantId: string): Promise<boolean> {
+  return recursoLigado(tenantId, 'gestao')
 }
