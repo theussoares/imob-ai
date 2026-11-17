@@ -18,16 +18,19 @@ no backend troca-se só a implementação** por chamadas a `/api/admin/propertie
 1. Modelo do imóvel do gestão = campos do `Property` de `shared/models` (código, título, tipo,
    finalidade, preço, bairro/cidade/UF, CEP/rua/número, quartos, suítes, banheiros, vagas, área, alto
    padrão, descrição, características, status, destaque, fotos) + dados internos (proprietário, telefone
-   do proprietário, corretor captador).
+   do proprietário) e o **corretor vendedor** (`brokerId`).
 2. Formulário completo (criar e editar), validação em módulo puro testado em Node.
 3. Mudar status (`active | draft | sold | rented`), destaque, excluir com confirmação.
 4. Fotos: enviar várias, escolher capa, reordenar, remover.
-5. Corretor: o imóvel que ele cria fica com ele como captador; ele vê e altera só os dele
+5. Corretor vendedor: quem cadastra o imóvel fica como corretor vendedor dele. No site ele aparece só
+   se o corretor estiver configurado para aparecer (`publicVisible`, recorte público, sem telefone).
+   **Captador não existe nesta fase** (regra ainda indefinida): sem campo, sem padrão. O corretor vê e altera só os imóveis dele
    (`verTodos = proprio`, mesma matriz das vendas). Recepção, jurídico e dono veem todos.
 6. Contato público: **sempre o número da imobiliária**. Não há campo de telefone de corretor
    publicável; o telefone do proprietário é interno. A tela mostra o número do site, só leitura,
    vindo de Configurações.
-7. `imovelId` das locações segue ligando ao imóvel (ids `im-101…` do seed preservados).
+7. Dono, jurídico e recepção podem trocar o corretor vendedor de um imóvel.
+8. `imovelId` das locações segue ligando ao imóvel (ids `im-101…` do seed preservados).
 
 ## Fora do escopo por decisão
 
@@ -36,6 +39,8 @@ no backend troca-se só a implementação** por chamadas a `/api/admin/propertie
   backend faz o imóvel aparecer no catálogo.
 - Descrição por IA, feed dos portais, importação em massa.
 - Sincronizar status com contratos (venda concluída → `sold`, locação aberta → `rented`).
+- Captador do imóvel (`capturedBy`/comissão do captador): fica de fora até a regra existir. A coluna
+  `captadorId` do mock sai; o seed vira corretor vendedor.
 
 ## Approaches
 
