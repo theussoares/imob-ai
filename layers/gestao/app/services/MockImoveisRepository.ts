@@ -1,7 +1,7 @@
 import type { ImovelGestao } from '../../domain/imoveis'
 import { atualizarImovel, criarImovel, definirDestaque, excluirImovel, mudarStatusImovel, type NovoImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import { adicionarFotos, definirCapa, moverFoto, removerFoto, type FotoNova, type ResultadoFotos } from '../../domain/imoveis-fotos'
-import type { PropertyStatus } from '../../../../shared/models/property'
+import type { PropertyStatus } from '~~/shared/models/property'
 import type { ArmazemImoveis, ImoveisRepository, ResultadoExclusao } from './ImoveisRepository'
 
 const SEM_ESPACO = 'Sem espaço para guardar neste navegador. Remova fotos ou imóveis de exemplo.'

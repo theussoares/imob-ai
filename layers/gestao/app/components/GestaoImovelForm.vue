@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, temQuartos } from '../../../../shared/models/property-type'
+import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, temQuartos } from '~~/shared/models/property-type'
 import { ROTULO_FINALIDADE, ROTULO_STATUS_IMOVEL, STATUS_IMOVEL } from '../../domain/imoveis'
 import type { NovoImovel } from '../../domain/imoveis-acoes'
 

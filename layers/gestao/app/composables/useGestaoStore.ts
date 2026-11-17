@@ -6,7 +6,7 @@ import { capacidades, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao,
 import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
 import { imoveisVisiveis as filtrarImoveisVisiveis, permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
-import type { PropertyStatus } from '../../../../shared/models/property'
+import type { PropertyStatus } from '~~/shared/models/property'
 import { MockImoveisRepository } from '../services/MockImoveisRepository'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { documentosSeedCompleto, processosSeed } from '../../domain/seed'

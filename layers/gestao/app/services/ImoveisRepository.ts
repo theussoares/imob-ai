@@ -1,7 +1,7 @@
 import type { ImovelGestao } from '../../domain/imoveis'
 import type { NovoImovel, ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
-import type { PropertyStatus } from '../../../../shared/models/property'
+import type { PropertyStatus } from '~~/shared/models/property'
 
 export type ResultadoExclusao = { ok: true } | { ok: false; erro: string }
 
