@@ -201,6 +201,13 @@ export default defineNuxtConfig({
     // imobiliárias precisam reconectar a conta. Guarde-a como se guarda a
     // service_role.
     paymentsEncryptionKey: '',
+    // Pepper do HMAC do código do 2º fator e do token de convite do /gestao
+    // (`server/utils/gestao-otp.ts`). Sem default, como as duas acima:
+    // NUXT_GESTAO_OTP_PEPPER, 32+ caracteres aleatórios. Sem ele, em produção, o
+    // login do /gestao recusa (um código de 6 dígitos com hash sem segredo se
+    // quebra de um dump em segundos). Trocar invalida convites e códigos em
+    // aberto — só isso: nada permanente depende dele.
+    gestaoOtpPepper: '',
     // Trocar de modelo é variável de ambiente, não deploy de código.
     aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {

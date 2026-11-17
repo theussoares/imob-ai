@@ -437,3 +437,65 @@ export function emailRecuperacaoSenhaPainel(d: DadosAcessoPainel): CorpoEmail {
   ].join('\n')
   return { assunto: `${d.nomeImobiliaria} · redefinir sua senha do painel`, html, texto }
 }
+
+export interface DadosCodigoGestao {
+  nomeImobiliaria: string
+  /** 6 dígitos. Só no corpo: o assunto aparece na notificação e no log de falha do envio. */
+  codigo: string
+}
+
+/**
+ * Código do 2º fator do painel de gestão. O código fica fora do assunto: o
+ * assunto vai para o log quando o envio falha (`mailer.ts`) e aparece na tela
+ * bloqueada do celular de quem estiver por perto.
+ */
+export function emailCodigoGestao(d: DadosCodigoGestao): CorpoEmail {
+  const imob = esc(d.nomeImobiliaria)
+  const html = moldura(
+    [
+      `<p style="margin:0 0 14px">Seu código para entrar no painel de gestão da <b>${imob}</b>:</p>`,
+      `<p style="margin:0 0 14px;font-size:28px;font-weight:700;letter-spacing:6px">${esc(d.codigo)}</p>`,
+      '<p style="margin:0;color:#6b7280;font-size:13px">Vale por 10 minutos e uma vez só.</p>',
+    ].join(''),
+    'Se você não tentou entrar agora, alguém sabe a sua senha: troque-a e avise a imobiliária. Sem este código, ninguém entra.',
+  )
+  const texto = [
+    `Seu código para entrar no painel de gestão da ${d.nomeImobiliaria}: ${d.codigo}`,
+    '',
+    'Vale por 10 minutos e uma vez só.',
+    'Se você não tentou entrar agora, alguém sabe a sua senha: troque-a e avise a imobiliária.',
+  ].join('\n')
+  return { assunto: `${d.nomeImobiliaria} · código de acesso`, html, texto }
+}
+
+export interface DadosConviteGestao {
+  nomeImobiliaria: string
+  link: string
+  perfil: string
+}
+
+/** Convite para o painel de gestão: link de uso único, 72 h, perfil já definido por quem convidou. */
+export function emailConviteGestao(d: DadosConviteGestao): CorpoEmail {
+  const imob = esc(d.nomeImobiliaria)
+  const html = moldura(
+    [
+      `<p style="margin:0 0 14px">Você foi convidado para o painel de gestão da <b>${imob}</b>,`,
+      ` com o perfil <b>${esc(d.perfil)}</b>.</p>`,
+      '<p style="margin:0">Para entrar, crie sua senha:</p>',
+      botao(d.link, 'Criar minha senha'),
+      '<p style="margin:0;color:#6b7280;font-size:13px">',
+      'O link vale uma vez só, por 72 horas. Se o botão não funcionar, copie e cole este endereço no navegador:<br>',
+      `<span style="word-break:break-all">${esc(d.link)}</span></p>`,
+    ].join(''),
+    `Você recebeu este e-mail porque alguém da ${imob} te convidou. Se não esperava por isso, ignore — sem a senha, ninguém entra.`,
+  )
+  const texto = [
+    `Você foi convidado para o painel de gestão da ${d.nomeImobiliaria}, com o perfil ${d.perfil}.`,
+    '',
+    'Crie sua senha neste endereço (vale uma vez só, por 72 horas):',
+    d.link,
+    '',
+    'Se não esperava por este convite, ignore — sem a senha, ninguém entra.',
+  ].join('\n')
+  return { assunto: `${d.nomeImobiliaria} · convite para o painel de gestão`, html, texto }
+}

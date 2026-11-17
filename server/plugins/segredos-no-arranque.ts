@@ -55,6 +55,8 @@ export default defineNitroPlugin(() => {
     // Sem ela nenhuma imobiliária conecta o Asaas (a chave de API é cifrada
     // com ela) — e as que já conectaram param de emitir.
     PAYMENTS_ENCRYPTION_KEY: segredoDeRuntime(config.paymentsEncryptionKey, 'PAYMENTS_ENCRYPTION_KEY'),
+    // Sem ele o login do /gestao recusa todo mundo (gestao-otp.ts, falha fechado).
+    GESTAO_OTP_PEPPER: segredoDeRuntime(config.gestaoOtpPepper, 'GESTAO_OTP_PEPPER'),
   })
 
   if (!faltando.length) return

@@ -36,6 +36,8 @@ const SEGREDOS = [
   'useRuntimeConfig().supabaseServiceKey',
   'config.paymentsEncryptionKey',
   'useRuntimeConfig().paymentsEncryptionKey',
+  'config.gestaoOtpPepper',
+  'useRuntimeConfig().gestaoOtpPepper',
 ]
 
 /**

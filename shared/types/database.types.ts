@@ -489,6 +489,235 @@ export type Database = {
           },
         ]
       }
+      gestao_eventos: {
+        Row: {
+          acao: string
+          alvo_id: string
+          alvo_tipo: string
+          ator_nome: string
+          ator_user_id: string
+          id: number
+          quando: string
+          tenant_id: string
+        }
+        Insert: {
+          acao: string
+          alvo_id: string
+          alvo_tipo: string
+          ator_nome: string
+          ator_user_id: string
+          id?: number
+          quando?: string
+          tenant_id: string
+        }
+        Update: {
+          acao?: string
+          alvo_id?: string
+          alvo_tipo?: string
+          ator_nome?: string
+          ator_user_id?: string
+          id?: number
+          quando?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_eventos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gestao_login_falhas: {
+        Row: {
+          chave: string
+          created_at: string
+          id: number
+          tenant_id: string
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          id?: number
+          tenant_id: string
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          id?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_login_falhas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gestao_members: {
+        Row: {
+          broker_id: string | null
+          convidado_por: string
+          created_at: string
+          email: string
+          id: string
+          invite_expires_at: string | null
+          invite_token_hash: string | null
+          nome: string
+          perfil: string
+          tenant_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          broker_id?: string | null
+          convidado_por?: string
+          created_at?: string
+          email: string
+          id?: string
+          invite_expires_at?: string | null
+          invite_token_hash?: string | null
+          nome?: string
+          perfil: string
+          tenant_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          broker_id?: string | null
+          convidado_por?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invite_expires_at?: string | null
+          invite_token_hash?: string | null
+          nome?: string
+          perfil?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_members_broker_fk"
+            columns: ["broker_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "gestao_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gestao_otp: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          expires_at: string
+          last_sent_at: string
+          locked_until: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          expires_at: string
+          last_sent_at?: string
+          locked_until?: string | null
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          expires_at?: string
+          last_sent_at?: string
+          locked_until?: string | null
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_otp_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gestao_sessions: {
+        Row: {
+          session_id: string
+          tenant_id: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          session_id: string
+          tenant_id: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          session_id?: string
+          tenant_id?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gestao_settings: {
+        Row: {
+          config: Json | null
+          matriz: Json | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          matriz?: Json | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          matriz?: Json | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gestao_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_events: {
         Row: {
           body: string | null

@@ -33,9 +33,11 @@ function arquivosTs(dir: string): string[] {
 
 /**
  * `[code]` é o código do imóvel, escolhido pela imobiliária — texto, não uuid.
- * É o único parâmetro de rota que não é id de tabela.
+ * `[token]` é o token do convite do /gestao (64 hex), conferido pela forma em
+ * `consultarConviteGestao` antes de ir ao banco. São os únicos parâmetros de
+ * rota que não são id de tabela.
  */
-const NAO_E_ID = /getRouterParam\(event, 'code'\)/
+const NAO_E_ID = /getRouterParam\(event, '(code|token)'\)/
 
 describe('idDeRota', () => {
   test('devolve o uuid limpo', () => {

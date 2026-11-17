@@ -252,3 +252,37 @@ export interface Locacao {
   obs: string
   arquivado: boolean
 }
+
+// ---- Acesso e auditoria no servidor (backend F1) ------------------------------
+
+export type StatusMembro = 'ativo' | 'pendente' | 'expirado'
+
+/** Linha da tela «Usuários e permissões». `voce` é preenchido por quem lista. */
+export interface MembroGestaoLista {
+  id: string
+  nome: string
+  email: string
+  perfil: Perfil
+  /** Corretor cadastrado (`brokers.id`) quando o perfil é `corretor`. */
+  brokerId: string | null
+  status: StatusMembro
+  convidadoPor: string
+  /** ISO; só para convite ainda não aceito. */
+  conviteExpiraEm: string | null
+  criadoEm: string
+  voce?: boolean
+}
+
+export type AlvoEvento = 'venda' | 'locacao' | 'documento' | 'imovel' | 'membro' | 'config' | 'consulta'
+
+/** Registro de `gestao_eventos`: só cresce, autor e hora dados pelo servidor. */
+export interface EventoGestao {
+  id: string
+  atorUserId: string
+  atorNome: string
+  acao: string
+  alvoTipo: AlvoEvento
+  alvoId: string
+  /** ISO */
+  quando: string
+}
