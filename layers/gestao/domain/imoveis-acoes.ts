@@ -1,8 +1,8 @@
 // `.ts` explícito: o mock carrega o domínio em Node puro.
 import { rotuloImovel, semAcento, situacaoImovel, type ImovelGestao } from './imoveis.ts'
-import { PROPERTY_TYPES, temQuartos } from '../../../shared/models/property-type.ts'
-import type { PropertyPurpose, PropertyStatus } from '../../../shared/models/property'
-import type { PropertyType } from '../../../shared/models/property-type.ts'
+import { PROPERTY_TYPES, temQuartos } from '~~/shared/models/property-type'
+import type { PropertyPurpose, PropertyStatus } from '~~/shared/models/property'
+import type { PropertyType } from '~~/shared/models/property-type'
 import type { Locacao, MatrizPermissoes, Sessao } from './types'
 
 /** Campos que a tela edita. Texto vazio vira `null` em `validarImovel`; `type` e `purpose` vazios são «não escolhido». */
