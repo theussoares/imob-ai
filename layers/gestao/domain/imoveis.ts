@@ -1,8 +1,8 @@
 // `.ts` explícito: o seed da locação é carregado em Node puro pelo mock.
 import { IMOVEIS_EXEMPLO } from './locacao-seed.ts'
-import { PROPERTY_TYPE_LABELS } from '../../../shared/models/property-type.ts'
-import type { Property, PropertyImage, PropertyPurpose, PropertyStatus } from '../../../shared/models/property'
-import type { PropertyType } from '../../../shared/models/property-type.ts'
+import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property-type'
+import type { Property, PropertyImage, PropertyPurpose, PropertyStatus } from '~~/shared/models/property'
+import type { PropertyType } from '~~/shared/models/property-type'
 import type { Locacao } from './types'
 
 /**
