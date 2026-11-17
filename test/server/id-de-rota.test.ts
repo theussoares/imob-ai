@@ -83,7 +83,9 @@ describe('varredura: todo endpoint com id de rota confere a forma', () => {
       // com `descricao.post.ts` no round anterior: a checagem real morava em
       // outro arquivo, e o texto do comentário bastava para passar aqui.
       const fonte = stripComments(readFileSync(caminho, 'utf8'))
-      const confere = fonte.includes('idDeRota(') || fonte.includes('ehUuid(')
+      // `idDeVenda(`: o id das vendas do gestão é V-AAAA-NNNN (não uuid), conferido
+      // por `gestao-vendas.ts`; ver test/server/gestao-vendas.test.ts.
+      const confere = fonte.includes('idDeRota(') || fonte.includes('ehUuid(') || fonte.includes('idDeVenda(')
       expect(confere, `${rel}: id de rota vai ao banco sem conferir a forma`).toBe(true)
     })
   }
