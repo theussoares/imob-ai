@@ -1,4 +1,5 @@
 import type { Estado } from '../../domain/acoes'
+import { type EstadoAuth, estadoAuthVazio } from '../../domain/auth'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { matrizPadrao, PERFIS, sessaoDoPerfil } from '../../domain/permissions'
 import type { MatrizPermissoes, Perfil, Sessao } from '../../domain/types'
@@ -21,6 +22,10 @@ function zerarEstadoDaSessao() {
   useState<Record<string, number>>('gestao:versoes').value = {}
   useState<unknown[]>('gestao:corretores').value = []
   useState<string>('gestao:erro-carga').value = ''
+  // Lista de membros e convites que o Dono carregou: o próximo a entrar neste navegador não a lê.
+  useState<EstadoAuth>('gestao:auth').value = estadoAuthVazio()
+  useState<string | null>('gestao:2fa-pendente').value = null
+  useState<number>('gestao:reenvio-em').value = 0
 }
 
 /**
