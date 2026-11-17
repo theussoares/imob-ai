@@ -15,6 +15,7 @@ export async function registrarEvento(
   db: Client,
   tenantId: string,
   e: { atorUserId: string; atorNome: string; acao: string; alvoTipo: AlvoEvento; alvoId: string },
+  opcoes: { obrigatorio?: boolean } = {},
 ): Promise<void> {
   const { error } = await db.from('gestao_eventos').insert({
     tenant_id: tenantId,
@@ -24,9 +25,14 @@ export async function registrarEvento(
     alvo_tipo: e.alvoTipo,
     alvo_id: e.alvoId,
   })
-  // Não lança: quando chega aqui a ação já foi gravada, e devolver erro faria a
+  // Por padrão não lança: quando chega aqui a ação já foi gravada, e devolver erro faria a
   // pessoa repetir a ação. A lacuna na auditoria fica gritando no log.
-  if (error) logError('gestao.evento_falhou', { tenant: tenantId, acao: e.acao, alvo: e.alvoTipo, reason: errMessage(error) })
+  // `obrigatorio` é para quando o registro é a CONDIÇÃO da ação (download de documento:
+  // sem registro de quem baixou, sem URL) — aí o chamador precisa do erro para recusar.
+  if (error) {
+    logError('gestao.evento_falhou', { tenant: tenantId, acao: e.acao, alvo: e.alvoTipo, reason: errMessage(error) })
+    if (opcoes.obrigatorio) throw error
+  }
 }
 
 const DATA = /^\d{4}-\d{2}-\d{2}$/

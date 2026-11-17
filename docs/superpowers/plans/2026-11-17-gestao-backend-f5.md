@@ -13,7 +13,7 @@ server/api/gestao/imoveis*.ts          wrappers de 5 linhas: contexto → funç�
 server/utils/gestao-imoveis-contexto.ts  monta ContextoImoveis a partir de requireGestaoMember (F1) — único ponto que depende da F1
 server/utils/gestao-imoveis.ts         núcleo (listar/obter/criar/atualizar/status/destaque/excluir/fotos); recebe ctx por parâmetro
 server/utils/gestao-fotos.ts           data URL → bytes validados (magic bytes) + upload ao bucket property-images
-server/utils/gestao-imoveis-locacoes.ts  regra plugável «locação ativa» (TODO F4)
+(removido na integração) «locação ativa» vem de `locacoesAtivasDoImovel` em `gestao-locacao.repository.ts` (F4)
 server/mappers/gestao-imovel.ts        Property → ImovelGestao; corpo cru → NovoImovel; NovoImovel → PropertyInput
 server/repositories/property.repository.ts  +filtro por corretor/limite na listagem, update sem tocar fotos, status, operações de foto escopadas
 ```

@@ -10,7 +10,7 @@ export interface ConsultaGravada {
 }
 
 /**
- * Supabase em memória, só o que o repository de documentos usa: `eq`, `not`,
+ * Supabase em memória, só o que o repository de documentos usa: `eq`, `neq`, `not`,
  * `is`, `in`, `order`, `limit`, `select` (com projeção de colunas), `insert`,
  * `update`, `delete`, `maybeSingle`, `single`.
  *
@@ -46,6 +46,7 @@ export function memoriaSupabase(inicial: Record<string, Row[]> = {}) {
       update(v: Row) { op = 'update'; patch = v; return chain },
       delete() { op = 'delete'; return chain },
       eq(c: string, v: unknown) { eq[c] = v; preds.push((r) => r[c] === v); return chain },
+      neq(c: string, v: unknown) { preds.push((r) => r[c] !== v); return chain },
       not(c: string, o: string, v: unknown) {
         preds.push((r) => (o === 'is' ? r[c] !== v && !(v === null && r[c] == null) : r[c] !== v))
         return chain

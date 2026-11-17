@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { CategoriaDocumento, Documento, EstadoDocumento, Locacao } from '~~/layers/gestao/domain/types'
+import type { Locacao } from '~~/layers/gestao/domain/types'
 import {
   toLocacaoModel,
   toLocacaoRow,
@@ -126,43 +126,20 @@ export async function imovelDoTenant(db: SupabaseClient, tenantId: string, imove
   return !!data
 }
 
-interface DocumentoRow {
-  id: string
-  alvo_id: string
-  requisito: string | null
-  nome: string
-  categoria: string
-  estado: string
-  tamanho: number
-  versao: number
-  enviado_por: string
-  apagado_por: string | null
-  apagado_em: string | null
-}
-
 /**
- * Documentos da locação, só para as regras de checklist de «concluir etapa»
- * (`pendenciasEtapaLocacao`). A tabela é da fase de documentos (0061); aqui só se
- * lê, sempre com tenant e alvo no where. `storage_path` nunca é selecionado.
+ * Locações em andamento do imóvel (não encerradas e não arquivadas): a regra
+ * «não excluir imóvel com locação ativa». O filtro roda no banco, com o mesmo
+ * critério de `situacaoImovel` do domínio. Linha ilegível propaga o erro em vez
+ * de ser ignorada: o guarda de exclusão falha fechado (500), nunca aberto.
  */
-export async function documentosDaLocacao(db: SupabaseClient, tenantId: string, locacaoId: string): Promise<Documento[]> {
+export async function locacoesAtivasDoImovel(db: SupabaseClient, tenantId: string, imovelId: string): Promise<Locacao[]> {
   const { data, error } = await db
-    .from('gestao_documentos')
-    .select('id, alvo_id, requisito, nome, categoria, estado, tamanho, versao, enviado_por, apagado_por, apagado_em')
+    .from('gestao_locacoes')
+    .select(COLUNAS)
     .eq('tenant_id', tenantId)
-    .eq('alvo_tipo', 'locacao')
-    .eq('alvo_id', locacaoId)
-  if (error) falha(error, 'ler os documentos das')
-  return ((data ?? []) as DocumentoRow[]).map((r) => ({
-    id: r.id,
-    nome: r.nome,
-    categoria: r.categoria as CategoriaDocumento,
-    processoId: r.alvo_id,
-    estado: r.estado as EstadoDocumento,
-    tamanho: r.tamanho,
-    versoes: r.versao,
-    enviadoPor: r.enviado_por,
-    ...(r.requisito && { requisito: r.requisito }),
-    apagado: r.apagado_em ? { quem: r.apagado_por ?? '', quando: r.apagado_em } : null,
-  }))
+    .eq('imovel_id', imovelId)
+    .eq('arquivado', false)
+    .neq('status', 'Encerrada')
+  if (error) falha(error, 'consultar')
+  return ((data ?? []) as GestaoLocacaoRow[]).map((r) => toLocacaoModel(r).locacao)
 }

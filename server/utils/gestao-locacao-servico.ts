@@ -7,7 +7,6 @@ import { ehUuid, paraPerfil, type LocacaoSemValores, type LocacaoVersionada } fr
 import {
   buscarLocacao,
   corretorDoTenant,
-  documentosDaLocacao,
   gravarLocacao,
   imovelDoTenant,
   inserirLocacao,
@@ -15,6 +14,7 @@ import {
   ultimoIdDoAno,
 } from '~~/server/repositories/gestao-locacao.repository'
 import { registrarEvento } from '~~/server/repositories/gestao-evento.repository'
+import { listarDocumentosDoAlvo } from '~~/server/repositories/gestao-documento.repository'
 import { ACOES_LOCACAO, corpoAcaoSchema, permitidoNaLocacao } from '~~/server/utils/gestao-locacao-acoes'
 import { executarAcao } from '~~/server/utils/gestao-acoes'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
@@ -204,7 +204,7 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
       if (def.tocaVinculos) dados = await validarVinculos(ctx, dados as Vinculos, item.locacao)
       versaoLida = item.versao
       // Os documentos só pesam em «concluir etapa» (checklist): nas outras ações a leitura seria à toa.
-      const documentos = c.data.acao === 'concluirEtapaLocacao' ? await documentosDaLocacao(ctx.db, tenantId, id) : []
+      const documentos = c.data.acao === 'concluirEtapaLocacao' ? await listarDocumentosDoAlvo(ctx.db, tenantId, { tipo: 'locacao', id }) : []
       return { id, versao: item.versao, locacao: item.locacao, documentos }
     },
     paraEstado: (a) => ({ processos: [], documentos: a.documentos, locacoes: [a.locacao] }),

@@ -15,8 +15,7 @@ renovar/encerrar/arquivar) rodando as ações puras de `domain/acoes-locacao.ts`
 | F2 | `executarAcao` (`server/utils/gestao-acoes.ts`) | carregar → função pura → gravar (404/422/409) |
 | F3 | tabela `gestao_documentos` (0061) | só leitura, para o checklist de «concluir etapa» |
 
-Nada disso é criado aqui. Enquanto os arquivos não existirem, `vitest.config.ts` aponta os imports para stubs
-(`test/helpers/dependencias-ausentes/`) e os testes usam `vi.mock`; o alias some sozinho quando o arquivo real chega.
+Integrado: as fases estão juntas na branch; os stubs, o alias de `vitest.config.ts` e os `vi.mock` de F1/F2 saíram. Os documentos do checklist vêm de `listarDocumentosDoAlvo` (F3), que exclui upload pendente e lixeira.
 
 ## Decisões
 

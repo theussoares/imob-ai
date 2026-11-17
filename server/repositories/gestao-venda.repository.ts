@@ -16,6 +16,9 @@ type Client = SupabaseClient
 
 export const LIMITE_LISTA = 200
 
+/** Colunas de `VendaRow`, uma a uma: coluna nova na tabela só sai depois que alguém a escreve aqui. */
+const COLUNAS = 'id, tenant_id, corretor_id, status, arquivado, etapa, versao, dados, updated_at'
+
 /** `corretorId` ausente = vê todos os corretores do tenant. */
 export interface Escopo {
   tenantId: string
@@ -27,7 +30,7 @@ export async function listarVendas(
   escopo: Escopo,
   filtro: { arquivado: boolean },
 ): Promise<Venda[]> {
-  let q = db.from('gestao_vendas').select('*').eq('tenant_id', escopo.tenantId).eq('arquivado', filtro.arquivado)
+  let q = db.from('gestao_vendas').select(COLUNAS).eq('tenant_id', escopo.tenantId).eq('arquivado', filtro.arquivado)
   if (escopo.corretorId) q = q.eq('corretor_id', escopo.corretorId)
   const { data, error } = await q.order('updated_at', { ascending: false }).limit(LIMITE_LISTA)
   if (error) throw error
@@ -45,7 +48,7 @@ export async function listarVendas(
 }
 
 export async function buscarVenda(db: Client, escopo: Escopo, id: string): Promise<Venda | null> {
-  let q = db.from('gestao_vendas').select('*').eq('tenant_id', escopo.tenantId).eq('id', id)
+  let q = db.from('gestao_vendas').select(COLUNAS).eq('tenant_id', escopo.tenantId).eq('id', id)
   if (escopo.corretorId) q = q.eq('corretor_id', escopo.corretorId)
   const { data, error } = await q.maybeSingle()
   if (error) throw error

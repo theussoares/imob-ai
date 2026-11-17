@@ -16,8 +16,9 @@ const SQL = readFileSync(join(process.cwd(), 'supabase', 'migrations', '0061_ges
 describe('0061 — documentos do gestão', () => {
   test('tabela: RLS ligada, sem grant e sem policy para anon/authenticated', () => {
     expect(SQL).toMatch(/alter table public\.gestao_documentos enable row level security/)
-    expect(SQL).toMatch(/revoke all on public\.gestao_documentos from anon/)
-    expect(SQL).toMatch(/revoke all on public\.gestao_documentos from authenticated/)
+    // Forma única, a mesma que `gestao-migration-guardrail` exige de toda tabela gestao_*:
+    // os dois papéis na MESMA instrução, para nenhum dos dois ficar de fora por esquecimento.
+    expect(SQL).toMatch(/revoke all on public\.gestao_documentos from anon, authenticated/)
     expect(SQL).not.toMatch(/create policy/)
     expect(SQL).not.toMatch(/grant\s/i)
   })

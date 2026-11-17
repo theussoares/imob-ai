@@ -160,7 +160,7 @@ describe('guardrail estático dos arquivos do gestão-imóveis', () => {
   test('todo endpoint passa pelo contexto autenticado e nenhum lê tenant do corpo', () => {
     for (const f of endpoints) {
       const src = ler(f)
-      expect(src, f).toContain('contextoImoveis(event)')
+      expect(src, f).toContain('contextoImoveis(await requireGestaoMember(event))')
       expect(src, f).not.toMatch(/tenant/i)
       expect(src, f).not.toContain('serviceSupabase')
     }

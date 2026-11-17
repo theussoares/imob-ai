@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { abrirLocacao } from '~~/layers/gestao/domain/acoes-locacao'
 import { matrizPadrao } from '~~/layers/gestao/domain/permissions'
 import type { Locacao, Perfil } from '~~/layers/gestao/domain/types'
@@ -6,36 +6,12 @@ import { toLocacaoRow } from '~~/server/mappers/gestao-locacao'
 import { fakeSupabase, type RecordedCall } from '../helpers/fake-supabase'
 
 /**
- * F1 (gestao-auth, gestao-evento) e F2 (gestao-acoes) vivem em outras branches.
- * Os dublês seguem as assinaturas do plano; `executarAcao` repete o contrato
- * documentado (404 / 422 / 409) para o teste exercitar o serviço de verdade.
+ * Sem `vi.mock`: o serviço roda sobre a F1 (`exigirPermissao`, `registrarEvento`) e a F2
+ * (`executarAcao`) de verdade. Os dublês antigos existiam só porque as fases viviam em
+ * branches separadas; um mock que repete o contrato esconde justamente a divergência
+ * que a integração precisa pegar.
  */
-const registrarEvento = vi.fn(async () => {})
-vi.mock('~~/server/repositories/gestao-evento.repository', () => ({ registrarEvento: (...a: unknown[]) => (registrarEvento as (...x: unknown[]) => unknown)(...a) }))
-vi.mock('~~/server/utils/gestao-auth', () => ({
-  exigirPermissao: (ctx: { matriz: Record<string, Record<string, string>>; membro: { perfil: string } }, chave: string) => {
-    if ((ctx.matriz[chave]?.[ctx.membro.perfil] ?? 'nao') === 'nao') throw createError({ statusCode: 403, statusMessage: 'Sem permissão.' })
-  },
-}))
-vi.mock('~~/server/utils/gestao-acoes', () => ({
-  executarAcao: async (o: {
-    carregar: () => Promise<{ id: string; versao: number } | null>
-    paraEstado: (a: never) => unknown
-    doEstado: (e: never, a: never) => unknown
-    gravar: (n: never, v: number) => Promise<'ok' | 'conflito'>
-    acao: (e: never, a: { nome: string }, q: string) => { ok: boolean; estado?: unknown; erro?: string }
-  }) => {
-    const antes = await o.carregar()
-    if (!antes) throw createError({ statusCode: 404, statusMessage: 'Não encontrado.' })
-    const r = o.acao(o.paraEstado(antes as never) as never, { nome: 'Ator' }, '17/11/2026 10:00')
-    if (!r.ok) throw createError({ statusCode: 422, statusMessage: r.erro })
-    const novo = o.doEstado(r.estado as never, antes as never) as { id: string; versao: number }
-    if ((await o.gravar(novo as never, antes.versao)) === 'conflito') throw createError({ statusCode: 409, statusMessage: 'Este processo foi alterado por outra pessoa. Recarregue.' })
-    return novo
-  },
-}))
-
-const { abrir, agir, ler, listar } = await import('~~/server/utils/gestao-locacao-servico')
+import { abrir, agir, ler, listar } from '~~/server/utils/gestao-locacao-servico'
 
 const T = 'tenant-1'
 const BROKER_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -76,7 +52,8 @@ function ctx(perfil: Perfil, brokerId: string | null, results: Parameters<typeof
 const eqs = (calls: RecordedCall[], col: string) => calls.filter((x) => x.method === 'eq' && x.args[0] === col).map((x) => x.args[1])
 const status = async (p: Promise<unknown>) => ((await p.then(() => null, (e) => e)) as { statusCode?: number; statusMessage?: string } | null)
 
-beforeEach(() => registrarEvento.mockClear())
+/** Inserts em `gestao_eventos`: o que o serviço auditou. */
+const eventos = (calls: RecordedCall[]) => calls.filter((x) => x.table === 'gestao_eventos' && x.method === 'insert').map((x) => x.args[0])
 
 describe('leitura: escopo, 404 e recorte', () => {
   test('corretor B pede a locação do corretor A pelo id: 404, e a query foi escopada por corretor', async () => {
@@ -143,7 +120,7 @@ describe('ações: permissão, versão e 409', () => {
     const e = await status(agir(c, 'L-2026-0001', corpo('renovarLocacao', {}, 4)))
     expect(e).toMatchObject({ statusCode: 409, statusMessage: 'Esta locação foi alterada por outra pessoa. Recarregue.' })
     expect(calls.some((x) => x.method === 'update')).toBe(false)
-    expect(registrarEvento).not.toHaveBeenCalled()
+    expect(eventos(calls)).toEqual([])
   })
 
   test('corrida: versão confere ao ler mas o update não acha linha = 409', async () => {
@@ -157,7 +134,7 @@ describe('ações: permissão, versão e 409', () => {
     expect(r.versao).toBe(6)
     expect((calls.find((x) => x.method === 'update')!.args[0] as { versao: number }).versao).toBe(6)
     expect(eqs(calls, 'tenant_id')).toEqual([T, T])
-    expect(registrarEvento).toHaveBeenCalledWith(expect.anything(), T, { atorUserId: 'u1', atorNome: 'Fulano', acao: 'renovarLocacao', alvoTipo: 'locacao', alvoId: 'L-2026-0001' })
+    expect(eventos(calls)).toEqual([{ tenant_id: T, ator_user_id: 'u1', ator_nome: 'Fulano', acao: 'renovarLocacao', alvo_tipo: 'locacao', alvo_id: 'L-2026-0001' }])
     expect(JSON.stringify(r.locacao)).toContain('2028-01-01') // renovou 12 meses
   })
 
@@ -169,8 +146,10 @@ describe('ações: permissão, versão e 409', () => {
   })
 
   test('falha ao registrar o evento não derruba uma ação já gravada', async () => {
-    registrarEvento.mockRejectedValueOnce(new Error('boom'))
-    const { c } = ctx('juridico', null, { gestao_locacoes: [{ data: linha(ativa(), 1), error: null }, { data: [{ id: 'x' }], error: null }] })
+    const { c } = ctx('juridico', null, {
+      gestao_locacoes: [{ data: linha(ativa(), 1), error: null }, { data: [{ id: 'x' }], error: null }],
+      gestao_eventos: { data: null, error: { message: 'boom' } },
+    })
     await expect(agir(c, 'L-2026-0001', corpo('renovarLocacao', {}, 1))).resolves.toBeTruthy()
   })
 
@@ -223,7 +202,7 @@ describe('abrir', () => {
     expect((r.locacao as Locacao).corretorId).toBe(BROKER_A)
     const ins = calls.find((x) => x.method === 'insert')!.args[0] as { tenant_id: string; corretor_id: string; versao: number }
     expect(ins).toMatchObject({ tenant_id: T, corretor_id: BROKER_A, versao: 1 })
-    expect(registrarEvento).toHaveBeenCalledOnce()
+    expect(eventos(calls)).toHaveLength(1)
   })
 
   test('imóvel de outro tenant: 422, nada inserido', async () => {

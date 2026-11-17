@@ -18,13 +18,12 @@ export async function auditarDocumento(
   opcoes: { obrigatorio?: boolean } = {},
 ): Promise<void> {
   try {
-    await registrarEvento(ctx.db, ctx.membro.tenantId, {
-      atorUserId: ctx.membro.userId,
-      atorNome: ctx.membro.nome,
-      acao,
-      alvoTipo: 'documento',
-      alvoId: documentoId,
-    })
+    await registrarEvento(
+      ctx.db,
+      ctx.membro.tenantId,
+      { atorUserId: ctx.membro.userId, atorNome: ctx.membro.nome, acao, alvoTipo: 'documento', alvoId: documentoId },
+      { obrigatorio: opcoes.obrigatorio },
+    )
   } catch (e) {
     logError('gestao.documento.evento_falhou', { tenantId: ctx.membro.tenantId, documentoId, acao, motivo: errMessage(e) })
     if (opcoes.obrigatorio) throw createError({ statusCode: 500, statusMessage: 'Não foi possível registrar o acesso.' })

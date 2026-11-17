@@ -55,8 +55,7 @@ create index if not exists gestao_documentos_lixeira_idx
 alter table public.gestao_documentos enable row level security;
 -- Sem policy: acesso só pela service_role, que o servidor usa com tenant_id no where.
 -- O revoke é o que fecha de verdade — o Supabase dá GRANT default a anon/authenticated.
-revoke all on public.gestao_documentos from anon;
-revoke all on public.gestao_documentos from authenticated;
+revoke all on public.gestao_documentos from anon, authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (

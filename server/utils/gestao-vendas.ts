@@ -41,8 +41,8 @@ export interface DepsVendas {
   comissaoPadrao: (db: SupabaseClient, tenantId: string) => Promise<number>
   /**
    * Documentos do processo, para `concluirEtapa` conferir o checklist das etapas 2–5.
-   * Hoje devolve `[]`: a tabela `gestao_documentos` é da F3. Sem isso as etapas 2–5
-   * não concluem pela API até a F3 trocar esta função (única costura).
+   * O endpoint passa `listarDocumentosDoAlvo` (F3): sem lixeira e sem upload não confirmado.
+   * Ausente = `[]`, o que só serve a testes que não exercitam o checklist.
    */
   documentosDoProcesso?: (db: SupabaseClient, tenantId: string, processoId: string) => Promise<Documento[]>
   agora?: () => Date

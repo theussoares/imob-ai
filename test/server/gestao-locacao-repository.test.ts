@@ -3,7 +3,6 @@ import { abrirLocacao } from '~~/layers/gestao/domain/acoes-locacao'
 import { toLocacaoRow } from '~~/server/mappers/gestao-locacao'
 import {
   buscarLocacao,
-  documentosDaLocacao,
   gravarLocacao,
   inserirLocacao,
   listarLocacoes,
@@ -84,18 +83,5 @@ describe('repository de locações do gestão', () => {
     const { client, calls } = fakeSupabase({ gestao_locacoes: { data: [{ id: 'L-2026-0007' }], error: null } })
     expect(await ultimoIdDoAno(client, T, 2026)).toBe('L-2026-0007')
     expect(hadEq(calls, 'gestao_locacoes', 'tenant_id')).toBe(true)
-  })
-
-  test('documentos: escopo de tenant e alvo, sem storage_path', async () => {
-    const { client, calls } = fakeSupabase({
-      gestao_documentos: {
-        data: [{ id: 'd1', alvo_id: 'L-2026-0001', requisito: 'locatario:rg-cnh', nome: 'rg.pdf', categoria: 'pessoas', estado: 'enviado', tamanho: 10, versao: 2, enviado_por: 'Ana', apagado_por: null, apagado_em: null }],
-        error: null,
-      },
-    })
-    const docs = await documentosDaLocacao(client, T, 'L-2026-0001')
-    expect(docs[0]).toMatchObject({ processoId: 'L-2026-0001', requisito: 'locatario:rg-cnh', versoes: 2, apagado: null })
-    expect(String(calls.find((c) => c.method === 'select')!.args[0])).not.toContain('storage_path')
-    expect(calls.filter((c) => c.method === 'eq').map((c) => c.args[0])).toEqual(['tenant_id', 'alvo_tipo', 'alvo_id'])
   })
 })
