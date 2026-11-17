@@ -10,7 +10,6 @@ import {
   situacaoImovel,
   type FiltroImoveis,
 } from '../../../../domain/imoveis'
-import { CORRETORES } from '../../../../domain/seed'
 
 // A guarda do middleware já barra quem não tem acesso à seção `imoveis`.
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
@@ -23,7 +22,7 @@ const filtro = reactive<FiltroImoveis>({ ...FILTRO_IMOVEIS_VAZIO })
 const lista = computed(() => filtrarImoveis(store.imoveisVisiveis.value, store.locacoes.value, filtro))
 const podeCriar = computed(() => store.permissoesDoImovel(null).criar)
 
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 const preco = (valor: number, finalidade: 'venda' | 'aluguel') =>
   `${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}${finalidade === 'aluguel' ? '/mês' : ''}`
 const capa = (fotos: { url: string; urlSm: string | null; isCover: boolean }[]) => { const c = fotos.find((f) => f.isCover) ?? fotos[0]; return c ? (c.urlSm ?? c.url) : null }

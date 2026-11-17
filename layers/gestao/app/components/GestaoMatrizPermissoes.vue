@@ -16,13 +16,14 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 
-function mudar(chave: PermChave, perfil: Perfil, valor: PermValor) {
+async function mudar(chave: PermChave, perfil: Perfil, valor: PermValor) {
   const r = alterarPermissao(store.matriz.value, chave, perfil, valor)
   if (!r.ok) {
     toast.error(r.erro)
     return
   }
-  store.definirMatriz(r.matriz)
+  const g = await store.definirMatriz(r.matriz)
+  if (!g.ok) return void toast.error(g.erro)
   toast.success('Permissão atualizada.')
 }
 
@@ -35,7 +36,8 @@ async function restaurar() {
     danger: true,
   })
   if (!ok) return
-  store.definirMatriz(matrizPadrao())
+  const g = await store.definirMatriz(matrizPadrao())
+  if (!g.ok) return void toast.error(g.erro)
   toast.success('Permissões restauradas.')
 }
 

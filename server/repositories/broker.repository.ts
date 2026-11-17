@@ -24,6 +24,22 @@ export async function listPublicBrokers(client: Client, tenantId: string): Promi
   return (data ?? []).map(toPublicBrokerModel)
 }
 
+/**
+ * Id e nome dos corretores ativos, para o seletor de corretor do /gestao. Só duas colunas
+ * (nada de telefone ou e-mail): quem lê é recepção e corretor, não o Dono do cadastro.
+ */
+export async function listBrokerNames(client: Client, tenantId: string): Promise<{ id: string; nome: string }[]> {
+  const { data, error } = await client
+    .from('brokers')
+    .select('id, name')
+    .eq('tenant_id', tenantId)
+    .eq('active', true)
+    .order('name', { ascending: true })
+    .limit(200)
+  if (error) throw error
+  return (data ?? []).map((b) => ({ id: b.id, nome: b.name }))
+}
+
 export async function listBrokers(client: Client, tenantId: string): Promise<Broker[]> {
   const { data, error } = await client
     .from('brokers')

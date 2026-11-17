@@ -26,6 +26,8 @@ const perfil = ref<Perfil | ''>('')
 const erro = ref('')
 const criando = ref(false)
 const ultimo = ref<Convite | null>(null)
+const emailEnviado = ref(true)
+const brokerId = ref('')
 
 const agora = ref(Date.now())
 onMounted(() => {
@@ -46,15 +48,22 @@ async function criar() {
   if (!sessao.value || !perfil.value || !email.value.trim()) return
   criando.value = true
   erro.value = ''
-  const r = await auth.convidar(email.value, perfil.value, { nome: sessao.value.nome, perfil: sessao.value.perfil })
+  if (auth.http && perfil.value === 'corretor' && !brokerId.value) {
+    erro.value = 'Escolha o corretor cadastrado desta pessoa.'
+    criando.value = false
+    return
+  }
+  const r = await auth.convidar(email.value, perfil.value, { nome: sessao.value.nome, perfil: sessao.value.perfil }, brokerId.value || undefined)
   criando.value = false
   if (!r.ok) {
     erro.value = r.erro
     return
   }
   ultimo.value = r.convite
+  emailEnviado.value = !('emailEnviado' in r) || r.emailEnviado
   email.value = ''
   perfil.value = ''
+  brokerId.value = ''
 }
 
 async function copiar(c: Convite) {
@@ -103,6 +112,13 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
           pode ser mudado por quem aceita.
         </p>
         <p
+          v-if="auth.http"
+          class="m-0 mb-3 text-[length:var(--fs-label)] text-[var(--ink-soft)]"
+          data-testid="convite-por-email"
+        >
+          O link vai só por e-mail, direto para quem foi convidado — ele não aparece aqui.
+        </p>
+        <p
           v-if="auth.demo"
           class="m-0 mb-3 rounded-xl border-2 border-dashed border-[var(--accent)] p-3 text-[length:var(--fs-label)]"
           data-testid="faixa-demo"
@@ -128,6 +144,13 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
               data-testid="convite-email"
             />
           </div>
+          <div v-if="auth.http && perfil === 'corretor'" class="flex flex-col gap-1.5 md:col-span-3">
+            <label for="convite-corretor" class="font-bold">Corretor cadastrado</label>
+            <select id="convite-corretor" v-model="brokerId" :class="campo" data-testid="convite-corretor">
+              <option value="" disabled>Escolha…</option>
+              <option v-for="c in store.corretores.value" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            </select>
+          </div>
           <div class="flex flex-col gap-1.5">
             <label for="convite-perfil" class="font-bold">Perfil</label>
             <select id="convite-perfil" v-model="perfil" :class="campo" data-testid="convite-perfil">
@@ -146,7 +169,10 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
         </form>
         <p v-if="erro" id="convite-erro" role="alert" class="m-0 mt-3 font-semibold text-[var(--danger)]">{{ erro }}</p>
 
-        <div v-if="ultimo" class="mt-4 flex flex-col gap-2 rounded-xl bg-[var(--brand-ghost)] p-3.5" role="status">
+        <p v-if="ultimo && auth.http" class="m-0 mt-4 rounded-xl bg-[var(--brand-ghost)] p-3.5 font-bold" role="status" data-testid="convite-enviado">
+          {{ emailEnviado ? `Convite enviado por e-mail para ${ultimo.email}.` : `Convite criado para ${ultimo.email}, mas o e-mail não saiu. Cancele e convide de novo.` }}
+        </p>
+        <div v-else-if="ultimo" class="mt-4 flex flex-col gap-2 rounded-xl bg-[var(--brand-ghost)] p-3.5" role="status">
           <p class="m-0 font-bold">Convite criado para {{ ultimo.email }}. Envie este link:</p>
           <div class="flex flex-col gap-2 sm:flex-row">
             <input
@@ -189,6 +215,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
             </div>
             <div class="flex gap-2">
               <button
+                v-if="!auth.http"
                 type="button"
                 class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3.5 font-bold hover:bg-[var(--brand-ghost)]"
                 @click="copiar(c)"

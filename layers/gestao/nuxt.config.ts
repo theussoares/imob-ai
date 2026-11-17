@@ -42,6 +42,10 @@ export default defineNuxtConfig({
       // exemplo e a faixa com o código do 2º fator. NUNCA ligar fora do demo.
       // env NUXT_PUBLIC_GESTAO_DEMO.
       gestaoDemo: false,
+      // De onde o painel lê e grava: `mock` (localStorage + seed, o que a Olmi validou) ou `http`
+      // (`/api/gestao/**` de verdade). Padrão `mock` até a Olmi validar o backend; qualquer valor
+      // que não seja `http` cai em `mock`. env NUXT_PUBLIC_GESTAO_BACKEND.
+      gestaoBackend: 'mock',
     },
   },
 

@@ -1,24 +1,23 @@
 <script setup lang="ts">
-import * as acao from '../../../../domain/acoes-locacao'
 import { avisosLocacao, hojeISO } from '../../../../domain/avisos-locacao'
-import { conferirDocumento, substituirDocumento } from '../../../../domain/acoes'
 import { validarArquivo } from '../../../../domain/documentos'
 import { pendenciasEtapaLocacao, requisitosDaEtapaLocacao } from '../../../../domain/locacao-requisitos'
 import { ETAPAS_LOCACAO, locacaoFinal, TOTAL_ETAPAS_LOCACAO } from '../../../../domain/locacao-status'
 import type { Requisito } from '../../../../domain/requisitos'
-import { CORRETORES } from '../../../../domain/seed'
 import type { ContratoLocacao, Documento, Pessoa, Vistoria } from '../../../../domain/types'
+import type { ArquivoGestao as ArquivoEscolhido } from '../../../services/GestaoRepository'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
 const route = useRoute()
 const store = useGestaoStore()
 const toast = useToast()
-const demo = !!useRuntimeConfig().public.gestaoDemo
+const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 const { askConfirm } = useConfirm()
 const { sessao } = useGestaoSessao()
 
 await store.carregar()
+await store.carregarDocumentos('locacao', String(route.params.id))
 
 // Só enxerga o que `locacoesVisiveis` devolve: corretor pedindo a locação de outro cai
 // em «não encontrada», sem revelar que ela existe.
@@ -38,10 +37,14 @@ const pendencias = computed(() =>
 // Etapa 7 é de quem vê valores; as demais, de quem edita cadastros.
 const podeNaEtapa = (e: number) => (e === 7 ? podeValores.value : podeEditar.value)
 const requisitos = computed(() => requisitosDaEtapaLocacao(etapaVista.value))
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? id
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? id
 
-function executar(fn: Parameters<typeof store.aplicar>[0], sucesso?: string): boolean {
-  const r = store.aplicar(fn)
+/**
+ * Executa uma ação da locação pelo NOME (o servidor despacha pela mesma chave) e avisa o
+ * resultado. 409 («alterada por outra pessoa») e 422 (frase do domínio) chegam como `erro`.
+ */
+async function executar(acao: string, dados: unknown, sucesso?: string): Promise<boolean> {
+  const r = await store.executar('locacao', id(), acao, dados)
   if (!r.ok) {
     toast.error(r.erro)
     return false
@@ -52,51 +55,67 @@ function executar(fn: Parameters<typeof store.aplicar>[0], sucesso?: string): bo
 
 const id = () => locacao.value!.id
 
-function concluirEtapa() {
+/** O que a abertura da locação grava: só estes campos (o resto do agregado é do servidor). */
+const abertura = (l: { locador: Pessoa; locatario: Pessoa; imovelId: string; imovel: string; corretorId: string }) => ({
+  locador: l.locador,
+  locatario: l.locatario,
+  imovelId: l.imovelId,
+  imovel: l.imovel,
+  corretorId: l.corretorId,
+})
+
+async function concluirEtapa() {
   const feita = etapaVista.value
-  if (executar((s, a) => acao.concluirEtapaLocacao(s, id(), feita, a), `Etapa ${feita} concluída.`)) {
+  if (await executar('concluirEtapaLocacao', { etapa: feita }, `Etapa ${feita} concluída.`)) {
     etapaVista.value = Math.min(feita + 1, TOTAL_ETAPAS_LOCACAO)
   }
 }
 
 function salvarPessoa(quem: 'locador' | 'locatario', pessoa: Pessoa) {
   const l = locacao.value!
-  executar((s, a) => acao.salvarAberturaLocacao(s, l.id, { ...l, [quem]: pessoa }, a), 'Cadastro salvo.')
+  void executar('salvarAberturaLocacao', abertura({ ...l, [quem]: pessoa }), 'Cadastro salvo.')
 }
 
 function salvarVistoria(quando: 'entrada' | 'saida', v: Vistoria) {
-  executar((s, a) => acao.salvarVistoria(s, id(), quando, v, a), 'Vistoria salva.')
+  void executar('salvarVistoria', { quando, vistoria: v }, 'Vistoria salva.')
 }
 
-const salvarContrato = (c: ContratoLocacao) => executar((s, a) => acao.salvarContrato(s, id(), c, a), 'Contrato salvo.')
+const salvarContrato = (c: ContratoLocacao) => executar('salvarContrato', c, 'Contrato salvo.')
 
-function enviarArquivo(r: Requisito, arq: { name: string; size: number }) {
+const hoje = () => new Date().toISOString().slice(0, 10)
+
+async function enviarArquivo(r: Requisito, arq: ArquivoEscolhido) {
   const erro = validarArquivo(arq.name, arq.size)
   if (erro) return void toast.error(erro)
-  executar(
-    (s, a) => acao.enviarDocumentoLocacao(s, { nome: arq.name, categoria: r.categoria, processoId: id(), tamanho: arq.size, requisito: r.chave }, a),
-    'Documento enviado.',
-  )
+  const res = await store.enviarDocumento('locacao', id(), arq, { categoria: r.categoria, requisito: r.chave })
+  if (res.ok) toast.success('Documento enviado.')
+  else toast.error(res.erro)
 }
 
-function trocarArquivo(d: Documento, arq: { name: string; size: number }) {
+async function trocarArquivo(d: Documento, arq: ArquivoEscolhido) {
   const erro = validarArquivo(arq.name, arq.size)
   if (erro) return void toast.error(erro)
-  executar((s) => substituirDocumento(s, d.id, arq.size), 'Arquivo trocado.')
+  const res = await store.novaVersaoDocumento(d, arq)
+  if (res.ok) toast.success('Arquivo trocado.')
+  else toast.error(res.erro)
 }
 
-async function confirmar(titulo: string, descricao: string, rotulo: string, fn: Parameters<typeof store.aplicar>[0], sucesso: string) {
-  if (await askConfirm({ title: titulo, description: descricao, confirmLabel: rotulo, cancelLabel: 'Voltar' })) return executar(fn, sucesso)
+async function conferirArquivo(d: Documento) {
+  const res = await store.conferirDocumento(d)
+  if (res.ok) toast.success('Documento conferido.')
+  else toast.error(res.erro)
+}
+
+async function confirmar(titulo: string, descricao: string, rotulo: string, acao: string, sucesso: string) {
+  if (await askConfirm({ title: titulo, description: descricao, confirmLabel: rotulo, cancelLabel: 'Voltar' })) return executar(acao, {}, sucesso)
   return false
 }
 
-const renovar = () =>
-  confirmar('Renovar por 12 meses?', 'O fim do contrato avança 12 meses.', 'Renovar', (s, a) => acao.renovarLocacao(s, id(), a), 'Contrato renovado.')
-const encerrar = () =>
-  confirmar('Encerrar a locação?', 'Ela passa a aceitar só consulta.', 'Encerrar locação', (s, a) => acao.encerrarLocacao(s, id(), a), 'Locação encerrada.')
+const renovar = () => confirmar('Renovar por 12 meses?', 'O fim do contrato avança 12 meses.', 'Renovar', 'renovarLocacao', 'Contrato renovado.')
+const encerrar = () => confirmar('Encerrar a locação?', 'Ela passa a aceitar só consulta.', 'Encerrar locação', 'encerrarLocacao', 'Locação encerrada.')
 
 async function arquivar() {
-  const ok = await confirmar('Arquivar esta locação?', 'Ela sai da lista e vai para «Arquivados». Pode ser restaurada.', 'Arquivar', (s, a) => acao.arquivarLocacao(s, id(), a), 'Locação arquivada.')
+  const ok = await confirmar('Arquivar esta locação?', 'Ela sai da lista e vai para «Arquivados». Pode ser restaurada.', 'Arquivar', 'arquivarLocacao', 'Locação arquivada.')
   if (ok) await navigateTo('/gestao/locacao')
 }
 
@@ -136,10 +155,10 @@ const btn =
       <div class="flex min-w-0 flex-col gap-3">
         <h2 class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Etapa {{ etapaVista }}: {{ ETAPAS_LOCACAO[etapaVista - 1] }}</h2>
 
-        <GestaoLocacaoAbertura v-if="etapaVista === 1" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" :corretor-travado="sessao?.perfil === 'corretor'" @salvar="(d) => executar((s, a) => acao.salvarAberturaLocacao(s, id(), d, a), 'Abertura salva.')" />
+        <GestaoLocacaoAbertura v-if="etapaVista === 1" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" :corretor-travado="sessao?.perfil === 'corretor'" @salvar="(d) => executar('salvarAberturaLocacao', abertura(d), 'Abertura salva.')" />
         <GestaoLocacaoPessoa v-else-if="etapaVista === 2" :key="locacao.updated" titulo="Cadastro do locatário" :pessoa="locacao.locatario" :pode-editar="podeEditar" @salvar="salvarPessoa('locatario', $event)" />
         <GestaoLocacaoPessoa v-else-if="etapaVista === 3" :key="locacao.updated" titulo="Cadastro do locador" :pessoa="locacao.locador" :pode-editar="podeEditar" @salvar="salvarPessoa('locador', $event)" />
-        <GestaoLocacaoGarantia v-else-if="etapaVista === 5" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" @salvar="(d) => executar((s, a) => acao.salvarGarantia(s, id(), d, a), 'Garantia salva.')" />
+        <GestaoLocacaoGarantia v-else-if="etapaVista === 5" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" @salvar="(d) => executar('salvarGarantia', d, 'Garantia salva.')" />
         <GestaoLocacaoVistoria v-else-if="etapaVista === 6" :key="locacao.updated" titulo="Vistoria de entrada" :vistoria="locacao.vistoriaEntrada" :pode-editar="podeEditar" :demo="demo" @salvar="salvarVistoria('entrada', $event)" />
 
         <template v-else-if="etapaVista === 7">
@@ -152,9 +171,9 @@ const btn =
               :cobrancas="locacao.cobrancas"
               :pode-editar="podeValores && !!locacao.contrato"
               :demo="demo"
-              @gerar="(c) => executar((s, a) => acao.gerarCobranca(s, id(), c, a), 'Cobrança gerada.')"
-              @pagar="(cb, comp) => executar((s, a) => acao.registrarPagamento(s, id(), cb, { data: new Date().toISOString().slice(0, 10), comprovante: comp }, a), 'Pagamento registrado.')"
-              @repassar="(cb, comp) => executar((s, a) => acao.registrarRepasse(s, id(), cb, { data: new Date().toISOString().slice(0, 10), comprovante: comp }, a), 'Repasse registrado.')"
+              @gerar="(c) => executar('gerarCobranca', { competencia: c }, 'Cobrança gerada.')"
+              @pagar="(cb, comp) => executar('registrarPagamento', { cobrancaId: cb, data: hoje(), comprovante: comp }, 'Pagamento registrado.')"
+              @repassar="(cb, comp) => executar('registrarRepasse', { cobrancaId: cb, data: hoje(), comprovante: comp }, 'Repasse registrado.')"
             />
           </template>
         </template>
@@ -188,7 +207,7 @@ const btn =
           :demo="demo"
           @enviar="enviarArquivo"
           @trocar="trocarArquivo"
-          @conferir="(d) => executar((s) => conferirDocumento(s, d.id), 'Documento conferido.')"
+          @conferir="conferirArquivo"
         />
 
         <div v-if="pendencias.length && etapaVista === locacao.etapa && etapaVista < TOTAL_ETAPAS_LOCACAO && podeNaEtapa(etapaVista)" id="pendencias-etapa" class="rounded-[10px] bg-[#fef3c7] px-3 py-2 text-[#78350f]" role="note" data-testid="pendencias-etapa">

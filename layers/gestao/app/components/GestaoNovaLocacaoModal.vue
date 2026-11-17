@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { abrirLocacao } from '../../domain/acoes-locacao'
 import { rotuloImovel } from '../../domain/imoveis'
-import { CORRETORES } from '../../domain/seed'
 
 const store = useGestaoStore()
 const { sessao } = useGestaoSessao()
@@ -24,7 +22,7 @@ const travado = computed(() => sessao.value?.perfil === 'corretor')
 function abrir() {
   imovelId.value = opcoes.value[0]?.id ?? ''
   locador.value = locatario.value = erro.value = ''
-  corretorId.value = sessao.value?.corretorId ?? CORRETORES[0]?.id ?? ''
+  corretorId.value = sessao.value?.corretorId ?? store.corretores.value[0]?.id ?? ''
   dialog.value?.showModal()
 }
 
@@ -34,18 +32,18 @@ function fechar() {
 
 async function enviar() {
   const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
-  const r = store.aplicar((e, ator) =>
-    abrirLocacao(
-      e,
-      { locador: locador.value, locatario: locatario.value, imovelId: imovelId.value, imovel: imovel ? rotuloImovel(imovel) : '', corretorId: corretorId.value },
-      ator,
-    ),
-  )
+  const r = await store.abrirLocacao({
+    locador: locador.value,
+    locatario: locatario.value,
+    imovelId: imovelId.value,
+    imovel: imovel ? rotuloImovel(imovel) : '',
+    corretorId: corretorId.value,
+  })
   if (!r.ok) {
     erro.value = r.erro
     return
   }
-  const nova = r.estado.locacoes[0]!
+  const nova = r.locacao!
   fechar()
   toast.success(`Locação ${nova.id} aberta.`)
   await navigateTo(`/gestao/locacao/${nova.id}`)
@@ -85,7 +83,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
       <label :class="rotulo">
         Corretor
         <select v-model="corretorId" :class="campo" :disabled="travado">
-          <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+          <option v-for="c in store.corretores.value" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </label>
       <p v-if="erro" role="alert" class="rounded-lg bg-[#fee2e2] px-3 py-2 text-[length:var(--fs-label)] font-bold text-[#7f1d1d]">

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { formImovelVazio } from '../../../../domain/imoveis-acoes'
-import { CORRETORES } from '../../../../domain/seed'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Cadastrar imóvel · Gestão' })
@@ -40,7 +39,7 @@ async function salvar() {
     </header>
     <GestaoImovelForm
       v-model="form"
-      :corretores="CORRETORES"
+      :corretores="store.corretores.value"
       :pode-trocar-corretor="store.permissoesDoImovel(null).trocarCorretor"
       :telefone-site="store.config.value.imobiliaria.telefone"
       :erro="erro"

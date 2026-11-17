@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { brl } from '../../../domain/acoes-processo'
-import * as acao from '../../../domain/acoes-locacao'
 import { hojeISO } from '../../../domain/avisos-locacao'
 import {
   competenciasDisponiveis,
@@ -17,7 +16,7 @@ useHead({ title: 'Financeiro · Gestão' })
 
 const store = useGestaoStore()
 const toast = useToast()
-const demo = !!useRuntimeConfig().public.gestaoDemo
+const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 await store.carregar()
 
 const competencia = ref('')
@@ -31,15 +30,13 @@ const pendencias = computed(() => pendenciasFinanceiras(store.locacoesVisiveis.v
 const podeValores = computed(() => !!store.caps(null)?.valores)
 
 // Mesma ação do contrato (etapa 7): a regra e o histórico da locação são os mesmos nos dois lugares.
-function registrar(fn: (data: string) => Parameters<typeof store.aplicar>[0], sucesso: string) {
-  const r = store.aplicar(fn(new Date().toISOString().slice(0, 10)))
+async function registrar(loc: string, acao: 'registrarPagamento' | 'registrarRepasse', cobrancaId: string, comprovante: string, sucesso: string) {
+  const r = await store.executar('locacao', loc, acao, { cobrancaId, data: new Date().toISOString().slice(0, 10), comprovante })
   if (r.ok) toast.success(sucesso)
   else toast.error(r.erro)
 }
-const pagar = (loc: string, cb: string, comp: string) =>
-  registrar((data) => (s, a) => acao.registrarPagamento(s, loc, cb, { data, comprovante: comp }, a), 'Pagamento registrado.')
-const repassar = (loc: string, cb: string, comp: string) =>
-  registrar((data) => (s, a) => acao.registrarRepasse(s, loc, cb, { data, comprovante: comp }, a), 'Repasse registrado.')
+const pagar = (loc: string, cb: string, comp: string) => registrar(loc, 'registrarPagamento', cb, comp, 'Pagamento registrado.')
+const repassar = (loc: string, cb: string, comp: string) => registrar(loc, 'registrarRepasse', cb, comp, 'Repasse registrado.')
 
 const mes = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
 const dia = (iso: string) => iso.split('-').reverse().join('/')

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { restaurarProcesso } from '../../../domain/acoes-ciclo'
-import { restaurarLocacao } from '../../../domain/acoes-locacao'
-import { CORRETORES } from '../../../domain/seed'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Arquivados' })
@@ -23,7 +20,7 @@ const arquivados = computed(() => [
     .filter((l) => l.arquivado)
     .map((l) => ({ tipo: 'locacao' as const, id: l.id, status: l.status, titulo: `${l.locador.nome} e ${l.locatario.nome}`, imovel: l.imovel, corretorId: l.corretorId, updated: l.updated })),
 ])
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 
 async function restaurar(id: string, tipo: 'venda' | 'locacao') {
   const ok = await askConfirm({
@@ -33,7 +30,7 @@ async function restaurar(id: string, tipo: 'venda' | 'locacao') {
     cancelLabel: 'Voltar',
   })
   if (!ok) return
-  const r = store.aplicar((s, a) => (tipo === 'venda' ? restaurarProcesso(s, id, a) : restaurarLocacao(s, id, a)))
+  const r = await store.executar(tipo, id, tipo === 'venda' ? 'restaurarProcesso' : 'restaurarLocacao', {})
   if (r.ok) toast.success('Contrato restaurado.')
   else toast.error(r.erro)
 }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { filtrarLocacoes } from '../../../../domain/filtro-locacao'
 import { STATUS_LOCACAO } from '../../../../domain/locacao-status'
-import { CORRETORES } from '../../../../domain/seed'
 import type { StatusLocacao } from '../../../../domain/types'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
@@ -28,10 +27,10 @@ onMounted(() => {
 })
 
 const filtrados = computed(() =>
-  filtrarLocacoes(store.locacoesVisiveis.value, { q: q.value, status: status.value }, CORRETORES),
+  filtrarLocacoes(store.locacoesVisiveis.value, { q: q.value, status: status.value }, store.corretores.value),
 )
 
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 
 function limpar() {
   q.value = ''

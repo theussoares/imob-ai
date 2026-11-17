@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { completarProcesso, validarContato, validarPdf } from '../../domain/novo-processo'
-import { CORRETORES } from '../../domain/seed'
+import { validarContato, validarPdf } from '../../domain/novo-processo'
 
 const store = useGestaoStore()
 const { sessao } = useGestaoSessao()
@@ -30,7 +29,7 @@ function abrir() {
   telVendedor.value = emailVendedor.value = telComprador.value = emailComprador.value = ''
   arquivo.value = null
   erro.value = ''
-  corretorId.value = sessao.value?.corretorId ?? CORRETORES[0]?.id ?? ''
+  corretorId.value = sessao.value?.corretorId ?? store.corretores.value[0]?.id ?? ''
   // showModal() e não `open`: só ele dá focus trap, Esc e backdrop nativos.
   dialog.value?.showModal()
 }
@@ -54,33 +53,37 @@ async function enviar() {
     erro.value = invalido
     return
   }
-  const r = store.aplicar((e, ator) =>
-    store.acoes.abrirProcesso(
-      e,
-      {
-        imovel: imovel.value,
-        vendedor: vendedor.value,
-        comprador: comprador.value,
-        corretorId: corretorId.value,
-        pct: store.config.value.comissaoPct,
-      },
-      ator,
-    ),
-  )
+  const r = await store.abrirProcesso({
+    imovel: imovel.value,
+    vendedor: vendedor.value,
+    comprador: comprador.value,
+    corretorId: corretorId.value,
+    pct: store.config.value.comissaoPct,
+  })
   if (!r.ok) {
     erro.value = r.erro
     return
   }
-  // O processo novo entra na frente da lista (acoes.abrirProcesso).
-  const novo = r.estado.processos[0]!
-  // No demo o PDF não sobe: guardamos só que existe contrato (pdf: true).
-  store.aplicar((e) =>
-    completarProcesso(e, novo.id, {
-      vendedor: { telefone: telVendedor.value, email: emailVendedor.value },
-      comprador: { telefone: telComprador.value, email: emailComprador.value },
-      pdf: !!arquivo.value,
-    }),
-  )
+  const novo = r.processo!
+  const contatos = {
+    vendedor: { telefone: telVendedor.value, email: emailVendedor.value },
+    comprador: { telefone: telComprador.value, email: emailComprador.value },
+  }
+  if (store.http) {
+    // O servidor abre o processo só com os nomes; telefone e e-mail entram pelo cadastro de cada parte
+    // (a mesma ação da etapa 2/3) e o contrato em PDF sobe como documento do processo.
+    for (const quem of ['vendedor', 'comprador'] as const) {
+      const c = contatos[quem]
+      if (c.telefone.trim() || c.email.trim()) await store.executar('venda', novo.id, 'salvarPessoa', { quem, cpf: '', telefone: c.telefone, email: c.email })
+    }
+    if (arquivo.value) {
+      const up = await store.enviarDocumento('venda', novo.id, { name: arquivo.value.name, size: arquivo.value.size, file: arquivo.value }, { categoria: 'venda' })
+      if (!up.ok) toast.error(`Processo aberto, mas o contrato não subiu: ${up.erro}`)
+    }
+  } else {
+    // No demo o PDF não sobe: guardamos só que existe contrato (pdf: true).
+    await store.executar('venda', novo.id, 'completarProcesso', { ...contatos, pdf: !!arquivo.value })
+  }
   fechar()
   toast.success(`Processo ${novo.id} aberto.`)
   await navigateTo(`/gestao/vendas/${novo.id}`)
@@ -142,7 +145,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
       <label :class="rotulo">
         Corretor
         <select v-model="corretorId" :class="campo" :disabled="travado">
-          <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+          <option v-for="c in store.corretores.value" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </label>
 

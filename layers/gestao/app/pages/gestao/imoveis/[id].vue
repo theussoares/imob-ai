@@ -2,7 +2,6 @@
 import { FOTOS_IMOVEL_MAX } from '../../../../domain/imoveis-fotos'
 import { ROTULO_SITUACAO_IMOVEL, ROTULO_STATUS_IMOVEL, situacaoImovel } from '../../../../domain/imoveis'
 import { imovelParaForm } from '../../../../domain/imoveis-acoes'
-import { CORRETORES } from '../../../../domain/seed'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
@@ -119,7 +118,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
 
     <GestaoImovelForm
       v-model="form"
-      :corretores="CORRETORES"
+      :corretores="store.corretores.value"
       :pode-trocar-corretor="permissoes.trocarCorretor"
       :telefone-site="store.config.value.imobiliaria.telefone"
       :erro="erro"

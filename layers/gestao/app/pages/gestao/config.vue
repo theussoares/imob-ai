@@ -13,15 +13,19 @@ await store.carregar()
 const form = reactive(structuredClone(toRaw(store.config.value)))
 const erro = ref('')
 
-function salvar() {
+async function salvar() {
   const r = validarConfiguracoes(form)
   if (!r.ok) {
     erro.value = r.erro
     return
   }
+  const g = await store.definirConfig(r.config)
+  if (!g.ok) {
+    erro.value = g.erro
+    return
+  }
   erro.value = ''
-  store.definirConfig(r.config)
-  Object.assign(form, structuredClone(r.config))
+  Object.assign(form, structuredClone(g.config))
   toast.success('Configurações salvas.')
 }
 

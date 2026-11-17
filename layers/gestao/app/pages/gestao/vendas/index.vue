@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { filtrarProcessos } from '../../../../domain/filtro'
 import { documentosPendentes } from '../../../../domain/requisitos'
-import { CORRETORES } from '../../../../domain/seed'
 import { STATUS_VENDA } from '../../../../domain/status'
 import type { StatusVenda } from '../../../../domain/types'
 
@@ -29,10 +28,10 @@ onMounted(() => {
 })
 
 const filtrados = computed(() =>
-  filtrarProcessos(store.visiveis.value, { q: q.value, status: status.value }, CORRETORES),
+  filtrarProcessos(store.visiveis.value, { q: q.value, status: status.value }, store.corretores.value),
 )
 
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 
 // Pendência = item de documento (etapas 2 a 4) ainda sem arquivo. Os da lixeira
 // não contam como enviados: apagar o arquivo reabre a pendência.

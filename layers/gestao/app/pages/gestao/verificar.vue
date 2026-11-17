@@ -62,7 +62,8 @@ async function enviar() {
     return
   }
   // A sessão só nasce AQUI, depois do 2º fator.
-  entrar(r.conta.perfil)
+  // `http`: o servidor já devolveu a sessão (perfil, nome, corretor); `entrar` só existe no demo.
+  if (!auth.http) entrar(r.conta.perfil)
   await navigateTo('/gestao/vendas')
 }
 

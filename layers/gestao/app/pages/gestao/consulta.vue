@@ -25,8 +25,8 @@ const contratos = computed(() => [
   ...store.locacoesVisiveis.value.map((l) => ({ id: l.id, rotulo: `${l.id} · locação · ${l.imovel}` })),
 ])
 
-function consultar() {
-  const r = store.consultar({ documento: documento.value, finalidade: finalidade.value, contratoId: contratoId.value })
+async function consultar() {
+  const r = await store.consultar({ documento: documento.value, finalidade: finalidade.value, contratoId: contratoId.value })
   if (!r.ok) {
     erro.value = r.erro
     resultado.value = null

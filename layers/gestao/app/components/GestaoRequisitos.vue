@@ -2,6 +2,7 @@
 import { ACEITA_ARQUIVO, formatarTamanho, ROTULO_ESTADO } from '../../domain/documentos'
 import { documentoDoRequisito, type Requisito } from '../../domain/requisitos'
 import type { Documento } from '../../domain/types'
+import type { ArquivoGestao } from '../services/GestaoRepository'
 
 /**
  * Lista de itens de documento de uma etapa: cada linha mostra o estado, o arquivo
@@ -23,8 +24,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  enviar: [requisito: Requisito, arquivo: { name: string; size: number }]
-  trocar: [doc: Documento, arquivo: { name: string; size: number }]
+  enviar: [requisito: Requisito, arquivo: ArquivoGestao]
+  trocar: [doc: Documento, arquivo: ArquivoGestao]
   conferir: [doc: Documento]
 }>()
 
@@ -38,7 +39,8 @@ function escolheu(e: Event, r: Requisito, doc: Documento | undefined) {
   // Limpa o valor: escolher o MESMO arquivo de novo não dispararia `change`.
   input.value = ''
   if (!arq) return
-  const dados = { name: arq.name, size: arq.size }
+  // `file` vai junto: em `http` é ele que sobe para o Storage; em `mock` só nome e tamanho contam.
+  const dados: ArquivoGestao = { name: arq.name, size: arq.size, file: arq }
   if (doc) emit('trocar', doc, dados)
   else emit('enviar', r, dados)
 }

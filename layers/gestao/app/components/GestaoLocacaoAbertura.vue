@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DadosAberturaLocacao } from '../../domain/acoes-locacao'
 import { rotuloImovel } from '../../domain/imoveis'
-import { CORRETORES } from '../../domain/seed'
 import type { Locacao } from '../../domain/types'
 
 const props = defineProps<{ locacao: Locacao; podeEditar: boolean; corretorTravado?: boolean }>()
@@ -45,7 +44,7 @@ const botao =
       <label :class="rotulo">
         Corretor
         <select v-model="corretorId" :class="campo" :disabled="!podeEditar || corretorTravado" data-testid="abertura-corretor">
-          <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+          <option v-for="c in store.corretores.value" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </label>
     </div>

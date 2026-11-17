@@ -10,7 +10,6 @@ import {
 } from '../../domain/acoes-processo'
 import type { DadosAbertura } from '../../domain/acoes-ciclo'
 import { conferirFontes } from '../../domain/commission'
-import { CORRETORES } from '../../domain/seed'
 import { requisitosDaEtapa, type Requisito } from '../../domain/requisitos'
 import { ETAPAS_VENDA } from '../../domain/status'
 import type { ConferenciaFinal, Documento, FormaPagamento, GanhoCapital, Processo } from '../../domain/types'
@@ -36,6 +35,7 @@ const props = defineProps<{
   /** perfil pode arquivar e o processo já está encerrado */
   podeArquivar?: boolean
 }>()
+const { corretores } = useGestaoStore()
 const emit = defineEmits<{
   salvarFinanceiro: [dados: DadosFinanceiros]
   salvarPessoa: [quem: 'vendedor' | 'comprador', dados: DadosPessoa]
@@ -231,13 +231,13 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <label :class="rotuloCampo">
           Corretor vendedor
           <select v-model="corretorId" :disabled="!podeEditar || corretorTravado" :class="campo" data-testid="abertura-corretor">
-            <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            <option v-for="c in corretores" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
         </label>
         <label :class="rotuloCampo">
           Corretor captador
           <select v-model="captadorId" :disabled="!podeEditar" :class="campo" data-testid="abertura-captador">
-            <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            <option v-for="c in corretores" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
         </label>
       </div>

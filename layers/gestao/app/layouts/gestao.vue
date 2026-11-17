@@ -16,9 +16,9 @@ const itens = computed(() =>
 // '/gestao' (dashboard) só fica ativo exato; as demais por prefixo.
 const ativo = (rota: string) => (rota === '/gestao' ? route.path === '/gestao' : route.path.startsWith(rota))
 
-function trocarPerfil() {
-  sair()
-  navigateTo('/gestao/login')
+async function trocarPerfil() {
+  await sair()
+  await navigateTo('/gestao/login')
 }
 
 async function restaurarDados() {
@@ -51,6 +51,7 @@ const btn =
         </span>
         <span>{{ tenant?.name || 'Gestão' }}</span>
         <span
+          v-if="!store.http"
           class="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]"
         >
           Demonstração
@@ -61,8 +62,8 @@ const btn =
           <strong>{{ sessao.nome }}</strong>
           <small class="text-[var(--ink-soft)]">{{ PERFIS[sessao.perfil].nome }}</small>
         </span>
-        <button type="button" :class="btn" @click="restaurarDados">Restaurar dados</button>
-        <button type="button" :class="btn" @click="trocarPerfil">Trocar perfil</button>
+        <button v-if="!store.http" type="button" :class="btn" @click="restaurarDados">Restaurar dados</button>
+        <button type="button" :class="btn" @click="trocarPerfil">{{ store.http ? 'Sair' : 'Trocar perfil' }}</button>
       </div>
     </header>
 
@@ -89,6 +90,15 @@ const btn =
       </nav>
 
       <main id="gestao-conteudo" class="min-w-0 flex-1 p-3 outline-none md:p-5" tabindex="-1">
+        <p
+          v-if="store.erroCarga.value"
+          role="alert"
+          class="m-0 mb-3 rounded-[10px] border border-[var(--danger-line)] bg-[var(--danger-ghost)] px-3 py-2 font-semibold text-[var(--danger)]"
+          data-testid="erro-carga"
+        >
+          {{ store.erroCarga.value }}
+          <button type="button" class="ml-2 cursor-pointer font-bold underline" @click="store.carregar(true)">Tentar de novo</button>
+        </p>
         <slot />
       </main>
     </div>

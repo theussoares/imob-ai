@@ -19,6 +19,9 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 
+await store.carregar()
+await store.carregarDocumentosDaPagina()
+
 const caps = computed(() => store.caps())
 const podeEnviar = computed(() => !!caps.value?.enviarDocs)
 const podeConferir = computed(() => !!caps.value?.conferir)
@@ -73,21 +76,31 @@ const rotuloProcesso = (id: string) => {
 const opcoesProcesso = computed(() => store.visiveis.value.map((p) => ({ id: p.id, rotulo: rotuloProcesso(p.id) })))
 
 // --- ações ------------------------------------------------------------------
-// Sem Storage no demo: ver/baixar só avisam. Link de arquivo falso levaria a um 404.
+// `mock`: sem Storage, ver/baixar só avisam (link de arquivo falso levaria a um 404).
+// `http`: URL assinada de 60 s, pedida na hora (o servidor audita antes de entregá-la).
 const demoArquivo = () => toast.success('Demonstração: arquivo de exemplo')
 
-function substituir(d: Documento, arquivo: File) {
-  const invalido = validarArquivo(arquivo.name, arquivo.size)
-  if (invalido) return toast.error(invalido)
-  const r = store.aplicar((e) => store.acoes.substituirDocumento(e, d.id, arquivo.size))
-  if (r.ok) toast.success(`Nova versão de «${d.nome}» enviada.`)
+async function abrirArquivo(d: Documento) {
+  if (!store.http) return demoArquivo()
+  const r = await store.baixarDocumento(d)
+  if (!r.ok) return void toast.error(r.erro)
+  if (r.url) window.open(r.url, '_blank', 'noopener')
+}
+
+/** Mensagem de sucesso ou do erro (409 já vem com «alterado por outra pessoa»). */
+function avisar(r: { ok: true } | { ok: false; erro: string }, sucesso: string) {
+  if (r.ok) toast.success(sucesso)
   else toast.error(r.erro)
 }
 
-function conferir(d: Documento) {
-  const r = store.aplicar((e) => store.acoes.conferirDocumento(e, d.id))
-  if (r.ok) toast.success(`«${d.nome}» conferido.`)
-  else toast.error(r.erro)
+async function substituir(d: Documento, arquivo: File) {
+  const invalido = validarArquivo(arquivo.name, arquivo.size)
+  if (invalido) return toast.error(invalido)
+  avisar(await store.novaVersaoDocumento(d, { name: arquivo.name, size: arquivo.size, file: arquivo }), `Nova versão de «${d.nome}» enviada.`)
+}
+
+async function conferir(d: Documento) {
+  avisar(await store.conferirDocumento(d), `«${d.nome}» conferido.`)
 }
 
 async function apagar(d: Documento) {
@@ -98,15 +111,11 @@ async function apagar(d: Documento) {
     danger: true,
   })
   if (!ok) return
-  const r = store.aplicar((e, ator) => store.acoes.apagarDocumento(e, d.id, ator))
-  if (r.ok) toast.success('Documento enviado para a lixeira.')
-  else toast.error(r.erro)
+  avisar(await store.apagarDocumento(d), 'Documento enviado para a lixeira.')
 }
 
-function restaurar(d: Documento) {
-  const r = store.aplicar((e) => store.acoes.restaurarDocumento(e, d.id))
-  if (r.ok) toast.success(`«${d.nome}» restaurado.`)
-  else toast.error(r.erro)
+async function restaurar(d: Documento) {
+  avisar(await store.restaurarDocumento(d), `«${d.nome}» restaurado.`)
 }
 
 // --- enviar documento -------------------------------------------------------
@@ -118,16 +127,14 @@ function abrirEnvio() {
   modal.value?.abrir(processoFiltro.value ?? '')
 }
 
-function enviar(dados: { arquivo: File | null; categoria: CategoriaDocumento; processoId: string }) {
+async function enviar(dados: { arquivo: File | null; categoria: CategoriaDocumento; processoId: string }) {
   const { arquivo } = dados
-  // `enviarDocumento` valida nome/tipo/tamanho/processo; aqui só o que ele não
-  // enxerga: nenhum arquivo escolhido chega como nome vazio.
-  const r = store.aplicar((e, ator) =>
-    store.acoes.enviarDocumento(
-      e,
-      { nome: arquivo?.name ?? '', categoria: dados.categoria, processoId: dados.processoId, tamanho: arquivo?.size ?? 0 },
-      ator,
-    ),
+  // Nenhum arquivo escolhido chega como nome vazio; o domínio (mock) e o servidor (http) validam o resto.
+  const r = await store.enviarDocumento(
+    'venda',
+    dados.processoId,
+    { name: arquivo?.name ?? '', size: arquivo?.size ?? 0, ...(arquivo && { file: arquivo }) },
+    { categoria: dados.categoria },
   )
   if (!r.ok) {
     erroEnvio.value = r.erro
@@ -311,8 +318,8 @@ const tab = (ativo: boolean) => [
           :pode-substituir="podeEnviar"
           :pode-conferir="podeConferir"
           :pode-apagar="podeApagar"
-          @ver="demoArquivo"
-          @baixar="demoArquivo"
+          @ver="abrirArquivo(d)"
+          @baixar="abrirArquivo(d)"
           @substituir="substituir(d, $event)"
           @versoes="verVersoes(d)"
           @conferir="conferir(d)"

@@ -5,30 +5,24 @@ import {
   type DadosImovel,
   type DadosPessoa,
   type NovoAdiantamento,
-  registrarAdiantamento,
-  removerAdiantamento,
-  salvarConferenciaFinal,
-  salvarFinanceiro,
-  salvarImovel,
-  salvarPessoa,
 } from '../../../../domain/acoes-processo'
-import { arquivarProcesso, type DadosAbertura, salvarAbertura, salvarObservacao } from '../../../../domain/acoes-ciclo'
-import { conferirDocumento, enviarDocumento, substituirDocumento } from '../../../../domain/acoes'
+import type { DadosAbertura } from '../../../../domain/acoes-ciclo'
 import { validarArquivo } from '../../../../domain/documentos'
 import { pendenciasEtapa, type Requisito } from '../../../../domain/requisitos'
 import { ETAPAS_VENDA, progresso, STATUS_VENDA, statusFinal, TOTAL_ETAPAS } from '../../../../domain/status'
-import { CORRETORES } from '../../../../domain/seed'
 import type { ConferenciaFinal, Documento, StatusVenda } from '../../../../domain/types'
+import type { ArquivoGestao as ArquivoEscolhido } from '../../../services/GestaoRepository'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
 const route = useRoute()
 const store = useGestaoStore()
 const toast = useToast()
-const demo = !!useRuntimeConfig().public.gestaoDemo
+const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 const { askConfirm } = useConfirm()
 
 await store.carregar()
+await store.carregarDocumentos('venda', String(route.params.id))
 
 // Só enxerga o que `visiveis` devolve: corretor com «só os meus» pedindo o
 // processo de outro cai em «não encontrado», sem revelar que ele existe.
@@ -63,9 +57,12 @@ const podeConferirArquivo = computed(() => !final.value && !!caps.value?.conferi
 
 const podeMudarStatus = computed(() => !final.value && !!(caps.value?.editar || caps.value?.juridico))
 
-/** Executa uma ação do store e avisa o resultado; devolve se deu certo. */
-function executar(fn: Parameters<typeof store.aplicar>[0], sucesso?: string): boolean {
-  const r = store.aplicar(fn)
+/**
+ * Executa uma ação de venda pelo NOME (o servidor despacha pela mesma chave) e avisa o resultado;
+ * devolve se deu certo. 409 e 422 chegam aqui como `erro` já com a frase certa.
+ */
+async function executar(id: string, acao: string, dados: unknown, sucesso?: string): Promise<boolean> {
+  const r = await store.executar('venda', id, acao, dados)
   if (!r.ok) {
     toast.error(r.erro)
     return false
@@ -74,7 +71,7 @@ function executar(fn: Parameters<typeof store.aplicar>[0], sucesso?: string): bo
   return true
 }
 
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? id
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? id
 
 const selectStatus = ref<HTMLSelectElement | null>(null)
 
@@ -97,50 +94,50 @@ async function mudarStatus(e: Event) {
       return
     }
   }
-  if (!executar((s, a) => store.acoes.mudarStatus(s, p.id, novo, a), `Status: ${novo}.`)) {
+  if (!(await executar(p.id, 'mudarStatus', { status: novo }, `Status: ${novo}.`))) {
     if (selectStatus.value) selectStatus.value.value = p.status
     return
   }
   etapaVista.value = processo.value?.etapa ?? etapaVista.value
 }
 
-function concluirEtapa() {
+async function concluirEtapa() {
   const p = processo.value
   if (!p) return
   const feita = etapaVista.value
-  if (executar((s, a) => store.acoes.concluirEtapa(s, p.id, feita, a), `Etapa ${feita} concluída.`)) {
+  if (await executar(p.id, 'concluirEtapa', { etapa: feita }, `Etapa ${feita} concluída.`)) {
     etapaVista.value = Math.min(feita + 1, TOTAL_ETAPAS)
   }
 }
 
 function salvarFin(dados: DadosFinanceiros) {
   const p = processo.value
-  if (p) executar((s, a) => salvarFinanceiro(s, p.id, dados, a), 'Checklist comercial salvo.')
+  if (p) void executar(p.id, 'salvarFinanceiro', { valor: dados.valor, fin: dados.fin }, 'Checklist comercial salvo.')
 }
 
 function salvarParte(quem: 'vendedor' | 'comprador', dados: DadosPessoa) {
   const p = processo.value
-  if (p) executar((s, a) => salvarPessoa(s, p.id, quem, dados, a), 'Cadastro salvo.')
+  if (p) void executar(p.id, 'salvarPessoa', { quem, cpf: dados.cpf, telefone: dados.telefone, email: dados.email }, 'Cadastro salvo.')
 }
 
 function salvarDadosImovel(dados: DadosImovel) {
   const p = processo.value
-  if (p) executar((s, a) => salvarImovel(s, p.id, dados, a), 'Dados do imóvel salvos.')
+  if (p) void executar(p.id, 'salvarImovel', { matriculaMae: dados.matriculaMae, valorVenal: dados.valorVenal }, 'Dados do imóvel salvos.')
 }
 
 function salvarConferencia(dados: ConferenciaFinal) {
   const p = processo.value
-  if (p) executar((s, a) => salvarConferenciaFinal(s, p.id, dados, a), 'Conferência final salva.')
+  if (p) void executar(p.id, 'salvarConferenciaFinal', dados, 'Conferência final salva.')
 }
 
 function salvarDadosAbertura(dados: DadosAbertura) {
   const p = processo.value
-  if (p) executar((s, a) => salvarAbertura(s, p.id, dados, a), 'Abertura salva.')
+  if (p) void executar(p.id, 'salvarAbertura', dados, 'Abertura salva.')
 }
 
 function salvarObs(texto: string) {
   const p = processo.value
-  if (p) executar((s, a) => salvarObservacao(s, p.id, texto, a), 'Observações salvas.')
+  if (p) void executar(p.id, 'salvarObservacao', { obs: texto }, 'Observações salvas.')
 }
 
 async function cancelarVenda() {
@@ -153,7 +150,7 @@ async function cancelarVenda() {
     cancelLabel: 'Voltar',
     danger: true,
   })
-  if (ok) executar((s, a) => store.acoes.mudarStatus(s, p.id, 'Venda cancelada', a), 'Venda cancelada.')
+  if (ok) await executar(p.id, 'mudarStatus', { status: 'Venda cancelada' }, 'Venda cancelada.')
 }
 
 async function arquivar() {
@@ -165,7 +162,7 @@ async function arquivar() {
     confirmLabel: 'Arquivar contrato',
     cancelLabel: 'Voltar',
   })
-  if (ok && executar((s, a) => arquivarProcesso(s, p.id, a), 'Contrato arquivado.')) await navigateTo('/gestao/vendas')
+  if (ok && (await executar(p.id, 'arquivarProcesso', {}, 'Contrato arquivado.'))) await navigateTo('/gestao/vendas')
 }
 
 async function concluirVenda() {
@@ -176,35 +173,38 @@ async function concluirVenda() {
     description: 'O processo passa a aceitar só consulta.',
     confirmLabel: 'Concluir venda',
   })
-  if (ok) executar((s, a) => store.acoes.mudarStatus(s, p.id, 'Venda concluída', a), 'Venda concluída.')
+  if (ok) await executar(p.id, 'mudarStatus', { status: 'Venda concluída' }, 'Venda concluída.')
 }
 
-// Arquivos dos itens do checklist. O demo guarda só nome e tamanho (sem binário),
-// mas a validação de tipo e tamanho é a de verdade: a mesma da tela de documentos.
-function enviarArquivo(r: Requisito, arq: { name: string; size: number }) {
+// Arquivos dos itens do checklist. Em `mock` guarda só nome e tamanho (sem binário); em `http` o
+// arquivo sobe de verdade (URL assinada). A validação de tipo e tamanho é a mesma da tela de documentos.
+async function enviarArquivo(r: Requisito, arq: ArquivoEscolhido) {
   const p = processo.value
   if (!p) return
   const erro = validarArquivo(arq.name, arq.size)
   if (erro) return void toast.error(erro)
-  executar(
-    (s, a) => enviarDocumento(s, { nome: arq.name, categoria: r.categoria, processoId: p.id, tamanho: arq.size, requisito: r.chave }, a),
-    'Documento enviado.',
-  )
+  const res = await store.enviarDocumento('venda', p.id, arq, { categoria: r.categoria, requisito: r.chave })
+  if (res.ok) toast.success('Documento enviado.')
+  else toast.error(res.erro)
 }
 
-function trocarArquivo(d: Documento, arq: { name: string; size: number }) {
+async function trocarArquivo(d: Documento, arq: ArquivoEscolhido) {
   const erro = validarArquivo(arq.name, arq.size)
   if (erro) return void toast.error(erro)
-  executar((s) => substituirDocumento(s, d.id, arq.size), 'Arquivo trocado.')
+  const res = await store.novaVersaoDocumento(d, arq)
+  if (res.ok) toast.success('Arquivo trocado.')
+  else toast.error(res.erro)
 }
 
-function conferirArquivo(d: Documento) {
-  executar((s) => conferirDocumento(s, d.id), 'Documento conferido.')
+async function conferirArquivo(d: Documento) {
+  const res = await store.conferirDocumento(d)
+  if (res.ok) toast.success('Documento conferido.')
+  else toast.error(res.erro)
 }
 
 function registrar(dados: NovoAdiantamento) {
   const p = processo.value
-  if (p) executar((s, a) => registrarAdiantamento(s, p.id, dados, a), `Adiantamento de ${brl(dados.valor)} registrado.`)
+  if (p) void executar(p.id, 'registrarAdiantamento', dados, `Adiantamento de ${brl(dados.valor)} registrado.`)
 }
 
 async function remover(adId: string) {
@@ -217,7 +217,7 @@ async function remover(adId: string) {
     confirmLabel: 'Remover',
     danger: true,
   })
-  if (ok) executar((s, a) => removerAdiantamento(s, p.id, adId, a), 'Adiantamento removido.')
+  if (ok) await executar(p.id, 'removerAdiantamento', { adiantamentoId: adId }, 'Adiantamento removido.')
 }
 
 const btn =
