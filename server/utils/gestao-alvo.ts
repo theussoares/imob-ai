@@ -20,6 +20,14 @@ export function veTodos(ctx: CtxAlvo): boolean {
   return ctx.matriz.verTodos?.[ctx.membro.perfil] === 'sim'
 }
 
+/**
+ * Quem enxerga arquivados é quem tem o menu «Arquivados» (`menuVisivel`): arquivar OU apagar
+ * documento. É a mesma regra da lista e do GET da locação (`veArquivadas`) e da venda.
+ */
+export function veArquivados(ctx: Pick<CtxAlvo, 'membro' | 'matriz'>): boolean {
+  return ctx.matriz.arquivar?.[ctx.membro.perfil] === 'sim' || ctx.matriz.apagarDocs?.[ctx.membro.perfil] === 'sim'
+}
+
 export interface AlvoVisivel {
   tipo: AlvoTipo
   id: string
@@ -35,13 +43,13 @@ const NAO_ENCONTRADO = { statusCode: 404, statusMessage: 'Não encontrado.' } as
  * é de lá que sai o `corretor_id`, e a F2/F4 é dona da escrita, não da regra de
  * visibilidade dos documentos.
  *
- * Tudo que não é visível — id inexistente, de outro tenant, de outro corretor —
- * dá o MESMO 404. 403 contaria ao corretor A que o processo do corretor B existe.
+ * Tudo que não é visível — id inexistente, de outro tenant, de outro corretor,
+ * arquivado para quem não vê arquivados — dá o MESMO 404. 403 contaria ao corretor A que o processo do corretor B existe.
  */
 export async function carregarAlvoVisivel(ctx: CtxAlvo, tipo: AlvoTipo, id: string): Promise<AlvoVisivel> {
   let q = ctx.db
     .from(TABELA[tipo])
-    .select('id, corretor_id')
+    .select('id, corretor_id, arquivado')
     .eq('tenant_id', ctx.membro.tenantId)
     .eq('id', id)
   if (!veTodos(ctx)) {
@@ -52,7 +60,10 @@ export async function carregarAlvoVisivel(ctx: CtxAlvo, tipo: AlvoTipo, id: stri
   const { data, error } = await q.maybeSingle()
   if (error) throw error
   if (!data) throw createError(NAO_ENCONTRADO)
-  const row = data as { id: string; corretor_id: string }
+  const row = data as { id: string; corretor_id: string; arquivado?: boolean | null }
+  // Arquivado some para quem não vê arquivados, como no GET do agregado: listar ou baixar os
+  // documentos de um processo que o GET devolve 404 seria um caminho lateral para o mesmo dado.
+  if (row.arquivado && !veArquivados(ctx)) throw createError(NAO_ENCONTRADO)
   return { tipo, id: row.id, corretorId: row.corretor_id }
 }
 

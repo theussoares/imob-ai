@@ -50,6 +50,16 @@ const deps = (): DepsVendas & { registrarEvento: ReturnType<typeof vi.fn> } => (
 const eqs = (calls: RecordedCall[], table: string, col: string) =>
   calls.filter((c) => c.table === table && c.method === 'eq' && c.args[0] === col).map((c) => c.args[1])
 
+describe('leitura — venda arquivada', () => {
+  test('corretor recebe 404 no GET de venda arquivada (a lista já a esconde); quem vê arquivados lê', async () => {
+    const arquivada = processoDoCorretor(CORRETOR_A, { arquivado: true })
+    const a = fakeSupabase({ gestao_vendas: { data: row(arquivada), error: null } })
+    await expect(lerVendaDoMembro(ctx('corretor', a.client, CORRETOR_A), ID)).rejects.toMatchObject({ statusCode: 404 })
+    const b = fakeSupabase({ gestao_vendas: { data: row(arquivada), error: null } })
+    expect((await lerVendaDoMembro(ctx('dono', b.client), ID)).processo.id).toBe(ID)
+  })
+})
+
 describe('leitura — escopo por tenant e por corretor', () => {
   test('corretor B pede o processo do corretor A pelo id → 404, e a query já nasce escopada', async () => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: null, error: null } })

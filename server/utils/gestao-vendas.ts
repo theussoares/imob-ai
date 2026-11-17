@@ -128,7 +128,10 @@ export async function lerVendaDoMembro(ctx: CtxVendas, id: string): Promise<Vend
   const v = await buscarVenda(ctx.db, escopoDe(ctx), id)
   // 404 e não 403: o corretor B não descobre que o processo do corretor A existe.
   if (!v) throw naoEncontrado()
-  return resposta(v, capacidades(ctx.matriz, ctx.sessao).valores)
+  // Arquivada some para quem não vê arquivados, igual à lista e à locação: 404, não 403.
+  const c = capacidades(ctx.matriz, ctx.sessao)
+  if (v.processo.arquivado && !(c.arquivar || c.apagarDocs)) throw naoEncontrado()
+  return resposta(v, c.valores)
 }
 
 const novoSchema = z.object({

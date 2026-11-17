@@ -315,3 +315,30 @@ describe('concorrência (revisão de segurança)', () => {
     expect(r).toBe('conflito')
   })
 })
+
+describe('processo arquivado (achado do revisor)', () => {
+  const arquivar = () => {
+    m.tabelas.gestao_vendas!.find((r) => r.tenant_id === TA && r.id === 'V-2026-0001')!.arquivado = true
+  }
+
+  test('corretor não lista nem baixa documento de venda arquivada: o GET do processo já dá 404', async () => {
+    const { doc } = await enviar(corretor1())
+    arquivar()
+    expect(await codigo(listarDocumentos(corretor1(), 'venda:V-2026-0001'))).toBe(404)
+    expect(await codigo(urlDeDownload(corretor1(), doc.id))).toBe(404)
+    expect(await codigo(conferirDocumentoGestao(corretor1(), doc.id))).toBe(404)
+  })
+
+  test('quem vê arquivados (arquivar ou apagarDocs) segue enxergando', async () => {
+    const { doc } = await enviar(dono())
+    arquivar()
+    expect(await listarDocumentos(dono(), 'venda:V-2026-0001')).toHaveLength(1)
+    expect((await urlDeDownload(dono(), doc.id)).doc.id).toBe(doc.id)
+  })
+
+  test('arquivada de outro corretor continua 404 para todos os corretores', async () => {
+    await enviar(corretor1())
+    arquivar()
+    expect(await codigo(listarDocumentos(corretor2(), 'venda:V-2026-0001'))).toBe(404)
+  })
+})
