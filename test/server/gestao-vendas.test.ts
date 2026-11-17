@@ -96,6 +96,17 @@ describe('leitura — escopo por tenant e por corretor', () => {
     await expect(listarVendasDoMembro(ctx('juridico', client), { arquivados: true })).resolves.toEqual([])
   })
 
+  test('lista mascara o CPF das partes; o detalhe devolve inteiro', async () => {
+    const p = processoDoCorretor(CORRETOR_A)
+    const cpf = p.vendedor.cpf
+    const l = fakeSupabase({ gestao_vendas: { data: [row(p)], error: null } })
+    const lista = await listarVendasDoMembro(ctx('dono', l.client), { arquivados: false })
+    expect(lista[0]!.processo.vendedor.cpf).not.toContain(cpf.slice(0, 6))
+    expect(lista[0]!.processo.vendedor.cpf.slice(-2)).toBe(cpf.replace(/\D/g, '').slice(-2))
+    const d = fakeSupabase({ gestao_vendas: { data: row(p), error: null } })
+    expect((await lerVendaDoMembro(ctx('dono', d.client), ID)).processo.vendedor.cpf).toBe(cpf)
+  })
+
   test('uma linha corrompida não derruba a lista', async () => {
     const { client } = fakeSupabase({
       gestao_vendas: { data: [{ ...row(processoDoCorretor(CORRETOR_A)), dados: { lixo: true } }, row(processoDoCorretor(CORRETOR_A, { id: 'V-2026-0143' }))], error: null },

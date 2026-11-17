@@ -53,6 +53,22 @@ export interface VendaResposta {
   processo: Processo | ProcessoSemValores
 }
 
+/** Últimos 2 dígitos aparecem; o resto vira «*». Vazio continua vazio. */
+export const mascararCpf = (cpf: string): string => {
+  const d = cpf.replace(/\D/g, '')
+  return d.length < 4 ? (cpf ? '***' : '') : `${'*'.repeat(d.length - 2)}${d.slice(-2)}`
+}
+
+/** Listagem: CPF/CNPJ das partes mascarado (regra do plano). O detalhe (`GET /vendas/:id`) traz inteiro. */
+const mascarada = (r: VendaResposta): VendaResposta => ({
+  ...r,
+  processo: {
+    ...r.processo,
+    vendedor: { ...r.processo.vendedor, cpf: mascararCpf(r.processo.vendedor.cpf) },
+    comprador: { ...r.processo.comprador, cpf: mascararCpf(r.processo.comprador.cpf) },
+  },
+})
+
 const resposta = (v: Venda, podeValores: boolean): VendaResposta => ({
   versao: v.versao,
   processo: recortarValores(v.processo, podeValores),
@@ -93,7 +109,7 @@ export async function listarVendasDoMembro(
   // Mesmo critério do menu «Arquivados» (`menuVisivel`).
   if (filtro.arquivados && !(c.arquivar || c.apagarDocs)) throw proibido()
   const vendas = await listarVendas(ctx.db, escopoDe(ctx), { arquivado: filtro.arquivados })
-  return vendas.map((v) => resposta(v, c.valores))
+  return vendas.map((v) => mascarada(resposta(v, c.valores)))
 }
 
 /** Formato de `proximoId`. Id fora dele nem chega ao banco: 404 igual a «não existe». */
