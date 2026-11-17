@@ -15,6 +15,7 @@ import {
   restaurarDaLixeira,
   type DocumentoComCaminho,
 } from '~~/server/repositories/gestao-documento.repository'
+import { marcarPdfSeContrato } from '~~/server/utils/gestao-venda-pdf'
 import { ehUuid } from '~~/shared/utils/uuid'
 import { carregarAlvoVisivel, idsAlvosVisiveis, type CtxAlvo } from '~~/server/utils/gestao-alvo'
 import {
@@ -187,7 +188,9 @@ export async function confirmarEnvio(ctx: CtxDocs, id: string): Promise<Document
   })
   // Conflito NÃO apaga o objeto: a outra aba pode ter acabado de confirmar o mesmo caminho.
   if (r === 'conflito') throw recusa(CONFLITO, 409)
-  return (await carregarVisivel(ctx, doc.id)).doc
+  const confirmado = (await carregarVisivel(ctx, doc.id)).doc
+  await marcarPdfSeContrato(ctx.db, tenantId, confirmado)
+  return confirmado
 }
 
 /**
@@ -243,18 +246,30 @@ export const conferirDocumentoGestao = (ctx: CtxDocs, id: string) =>
     (d) => (d.apagado ? 'Documento na lixeira.' : d.estado !== 'enviado' ? 'Este documento já foi conferido.' : null),
   )
 
-export const apagarDocumentoGestao = (ctx: CtxDocs, id: string) =>
-  transicao(
+/** Lixeira e restauração mexem na marca `pdf` do contrato (ver `gestao-venda-pdf.ts`). */
+const comMarcaDePdf = async (ctx: CtxDocs, doc: DocumentoGestao): Promise<DocumentoGestao> => {
+  await marcarPdfSeContrato(ctx.db, ctx.membro.tenantId, doc)
+  return doc
+}
+
+export const apagarDocumentoGestao = async (ctx: CtxDocs, id: string) =>
+  comMarcaDePdf(
     ctx,
-    id,
-    (e, d) => apagarDocumento(e, d, { nome: ctx.membro.nome }),
-    (v) => enviarParaLixeira(ctx.db, ctx.membro.tenantId, id, v, ctx.membro.nome),
+    await transicao(
+      ctx,
+      id,
+      (e, d) => apagarDocumento(e, d, { nome: ctx.membro.nome }),
+      (v) => enviarParaLixeira(ctx.db, ctx.membro.tenantId, id, v, ctx.membro.nome),
+    ),
   )
 
-export const restaurarDocumentoGestao = (ctx: CtxDocs, id: string) =>
-  transicao(
+export const restaurarDocumentoGestao = async (ctx: CtxDocs, id: string) =>
+  comMarcaDePdf(
     ctx,
-    id,
-    restaurarDocumento,
-    (v) => restaurarDaLixeira(ctx.db, ctx.membro.tenantId, id, v),
+    await transicao(
+      ctx,
+      id,
+      restaurarDocumento,
+      (v) => restaurarDaLixeira(ctx.db, ctx.membro.tenantId, id, v),
+    ),
   )

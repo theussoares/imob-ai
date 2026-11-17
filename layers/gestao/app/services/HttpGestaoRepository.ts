@@ -140,8 +140,7 @@ export class HttpGestaoRepository implements GestaoRepository {
     return this.tentar(async () => {
       const versao = this.versoes.ler(`${tipo}:${id}`)
       if (tipo === 'venda') {
-        // A venda ainda confere só a versão lida dentro da própria requisição (F2); mandamos a da
-        // tela para o dia em que o servidor passar a exigi-la, como já faz a locação.
+        // O servidor exige a `versao` que a tela leu (sem ela, 422; defasada, 409), como na locação.
         const r = await this.api.post<RespostaVenda>(`/api/gestao/vendas/${encodeURIComponent(id)}/acoes`, { acao, dados, versao })
         return { processo: this.guardarVenda(r) }
       }
@@ -172,6 +171,24 @@ export class HttpGestaoRepository implements GestaoRepository {
    * abre o objeto, confere o formato pelos primeiros bytes e só então grava a versão.
    * Sem o passo 3 o documento fica «pendente» e invisível nas listas.
    */
+  /**
+   * O servidor liga/desliga `pdf` do processo ao confirmar, apagar ou restaurar um documento da
+   * categoria `venda`, e sobe a `versao` dele. Sem reler, a versão guardada fica velha e a PRÓXIMA
+   * ação do usuário no processo tomaria 409 sem ninguém ter mexido nele.
+   * Só relê nesse caso (um GET a mais só onde a versão de fato mudou). Se a leitura falhar o
+   * documento já foi aceito: seguimos sem o processo, e um 409 futuro cai no «recarregar» do store.
+   */
+  private async comProcessoAtualizado(documento: Documento): Promise<Mudanca> {
+    // Id de venda é `V-AAAA-NNNN` (locação é `L-…`): o documento só traz `processoId`, não o tipo.
+    if (documento.categoria !== 'venda' || !documento.processoId.startsWith('V-')) return { documento }
+    try {
+      const r = await this.api.get<RespostaVenda>(`/api/gestao/vendas/${encodeURIComponent(documento.processoId)}`)
+      return { documento, processo: this.guardarVenda(r) }
+    } catch {
+      return { documento }
+    }
+  }
+
   private async enviar(corpo: Record<string, unknown>, arquivo: ArquivoGestao): Promise<Documento> {
     if (!arquivo.file) throw new ErroGestao('Escolha um arquivo.', 422)
     const ini = await this.api.post<{ documentoId: string; uploadUrl: string }>('/api/gestao/documentos/upload', {
@@ -189,17 +206,21 @@ export class HttpGestaoRepository implements GestaoRepository {
   }
 
   enviarDocumento(alvo: { tipo: TipoAlvo; id: string }, arquivo: ArquivoGestao, extra: { categoria: CategoriaDocumento; requisito?: string }): Promise<Resultado<Mudanca>> {
-    return this.tentar(async () => ({
-      documento: await this.enviar({ alvo: alvoParam(alvo.tipo, alvo.id), categoria: extra.categoria, ...(extra.requisito && { requisito: extra.requisito }) }, arquivo),
-    }))
+    return this.tentar(async () =>
+      this.comProcessoAtualizado(await this.enviar({ alvo: alvoParam(alvo.tipo, alvo.id), categoria: extra.categoria, ...(extra.requisito && { requisito: extra.requisito }) }, arquivo)),
+    )
   }
 
   novaVersaoDocumento(doc: Documento, tipo: TipoAlvo, arquivo: ArquivoGestao): Promise<Resultado<Mudanca>> {
-    return this.tentar(async () => ({ documento: await this.enviar({ alvo: alvoParam(tipo, doc.processoId), documentoId: doc.id }, arquivo) }))
+    return this.tentar(async () => this.comProcessoAtualizado(await this.enviar({ alvo: alvoParam(tipo, doc.processoId), documentoId: doc.id }, arquivo)))
   }
 
   private sobre(doc: Documento, rota: 'conferir' | 'apagar' | 'restaurar'): Promise<Resultado<Mudanca>> {
-    return this.tentar(async () => ({ documento: await this.api.post<Documento>(`/api/gestao/documentos/${doc.id}/${rota}`) }))
+    return this.tentar(async () => {
+      const novo = await this.api.post<Documento>(`/api/gestao/documentos/${doc.id}/${rota}`)
+      // Conferir não mexe na marca; apagar e restaurar, sim.
+      return rota === 'conferir' ? { documento: novo } : this.comProcessoAtualizado(novo)
+    })
   }
   conferirDocumento(doc: Documento) {
     return this.sobre(doc, 'conferir')

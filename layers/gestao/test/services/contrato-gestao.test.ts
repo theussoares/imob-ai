@@ -147,6 +147,46 @@ describe('GestaoRepository — http: erros e concorrência', () => {
     expect((await aba2.executar('locacao', id, 'salvarGarantia', { tipo: 'Fiador', detalhe: 'b' })).ok).toBe(true)
   })
 
+  it('venda: aba defasada recebe o conflito e, relida, grava (o servidor exige a versão)', async () => {
+    const servidor = criarServidorFalso()
+    const aba1 = montarHttp(servidor)
+    const aba2 = montarHttp(servidor)
+    const d1 = await aba1.carregar()
+    await aba2.carregar()
+    const id = d1.processos.find((p) => !p.arquivado)!.id
+    expect((await aba1.executar('venda', id, 'salvarObservacao', { obs: 'a' })).ok).toBe(true)
+    expect(await aba2.executar('venda', id, 'salvarObservacao', { obs: 'b' })).toMatchObject({ ok: false, conflito: true, erro: MSG_409 })
+    expect((await aba2.recarregar('venda', id)).ok).toBe(true)
+    expect((await aba2.executar('venda', id, 'salvarObservacao', { obs: 'b' })).ok).toBe(true)
+  })
+
+  it('contrato de venda enviado: devolve o processo com `pdf` e a versão nova, e a ação seguinte não toma 409', async () => {
+    const servidor = criarServidorFalso()
+    const repo = montarHttp(servidor)
+    const d = await repo.carregar()
+    const p = d.processos.find((x) => !x.arquivado && !x.pdf)!
+    const env = await repo.enviarDocumento({ tipo: 'venda', id: p.id }, arquivo(), { categoria: 'venda' })
+    expect(env.ok && env.processo).toMatchObject({ id: p.id, pdf: true })
+    expect((await repo.executar('venda', p.id, 'salvarObservacao', { obs: 'depois do contrato' })).ok).toBe(true)
+
+    const doc = env.ok ? env.documento! : null
+    const apagado = await repo.apagarDocumento(doc!)
+    expect(apagado.ok && apagado.processo).toMatchObject({ id: p.id, pdf: false })
+    expect((await repo.executar('venda', p.id, 'salvarObservacao', { obs: 'sem contrato' })).ok).toBe(true)
+    const volta = await repo.restaurarDocumento(doc!)
+    expect(volta.ok && volta.processo).toMatchObject({ pdf: true })
+  })
+
+  it('documento de outra categoria não relê o processo (nenhuma chamada a mais)', async () => {
+    const servidor = criarServidorFalso()
+    const repo = montarHttp(servidor)
+    const d = await repo.carregar()
+    const antes = servidor.chamadas.length
+    const env = await repo.enviarDocumento({ tipo: 'venda', id: d.processos[0]!.id }, arquivo(), { categoria: 'pessoas' })
+    expect(env.ok && env.processo).toBeUndefined()
+    expect(servidor.chamadas.slice(antes).some((c) => /vendas\//.test(c.url))).toBe(false)
+  })
+
   it('manda Authorization: Bearer em toda chamada autenticada', async () => {
     const servidor = criarServidorFalso()
     const repo = montarHttp(servidor)

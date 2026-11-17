@@ -61,6 +61,18 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     return d
   }
   const tipoDe = (id: string) => (banco.atual().processos.some((p) => p.id === id) ? ('venda' as const) : ('locacao' as const))
+  /**
+   * O servidor real liga/desliga `pdf` conforme os documentos da categoria `venda` do processo e
+   * sobe a `versao` dele (`gestao-venda-pdf.ts`). O cliente tem de acompanhar essa versão.
+   */
+  const sincronizarPdf = (d: Documento) => {
+    if (d.categoria !== 'venda' || !banco.atual().processos.some((p) => p.id === d.processoId)) return
+    const deveTer = banco.atual().documentos.some((x) => x.processoId === d.processoId && x.categoria === 'venda' && !x.apagado)
+    const atual = banco.atual()
+    if (atual.processos.find((p) => p.id === d.processoId)!.pdf === deveTer) return
+    banco.gravar({ ...atual, processos: atual.processos.map((p) => (p.id === d.processoId ? { ...p, pdf: deveTer } : p)) })
+    versoes.set(`venda:${d.processoId}`, ver(`venda:${d.processoId}`) + 1)
+  }
   const comoErro = (r: { ok: false; erro: string }): never => {
     throw new ErroFetchFalso(422, r.erro)
   }
@@ -103,6 +115,9 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     if (m && m[2] && metodo === 'POST') {
       const id = decodeURIComponent(m[1]!)
       venda(id)
+      // Como o servidor real: sem `versao` é 422; versão diferente da gravada é 409.
+      if (!Number.isInteger(corpo.versao) || corpo.versao < 1) throw new ErroFetchFalso(422, 'Informe a versão do processo.')
+      if (corpo.versao !== ver(`venda:${id}`)) throw new ErroFetchFalso(409, MSG_409)
       const r = await repo.executar('venda', id, corpo.acao, corpo.dados)
       if (!r.ok) return comoErro(r)
       versoes.set(`venda:${id}`, ver(`venda:${id}`) + 1)
@@ -147,10 +162,12 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
         const r = p.documentoId
           ? await repo.novaVersaoDocumento(doc(p.documentoId), p.alvo.tipo, arquivo)
           : await repo.enviarDocumento(p.alvo, arquivo, { categoria: p.categoria as never, requisito: p.requisito })
+        if (r.ok) sincronizarPdf(r.documento!)
         return r.ok ? out(r.documento) : comoErro(r)
       }
       if (acao === 'download') return out({ url: `https://storage.falso/baixar/${id}`, expiraEmSegundos: 60 })
       const r = await (acao === 'conferir' ? repo.conferirDocumento(doc(id)) : acao === 'apagar' ? repo.apagarDocumento(doc(id)) : repo.restaurarDocumento(doc(id)))
+      if (r.ok) sincronizarPdf(r.documento!)
       return r.ok ? out(r.documento) : comoErro(r)
     }
 
