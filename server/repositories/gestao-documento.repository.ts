@@ -84,6 +84,26 @@ export async function listarLixeira(
     .map(toDocumentoGestao)
 }
 
+/**
+ * Documentos `enviado` (ainda sem conferência) dos contratos `alvoIds`, para o número do
+ * Dashboard. Recebe os ids que quem pergunta enxerga: o corretor não conta documento de
+ * contrato alheio. Lista vazia não vai ao banco (`.in('alvo_id', [])` não vale confiar).
+ */
+export async function listarParaConferir(db: SupabaseClient, tenantId: string, alvoIds: string[]): Promise<DocumentoGestao[]> {
+  if (!alvoIds.length) return []
+  const { data, error } = await db
+    .from('gestao_documentos')
+    .select(COLUNAS_DOCUMENTO)
+    .eq('tenant_id', tenantId)
+    .eq('estado', 'enviado')
+    .is('apagado_em', null)
+    .in('alvo_id', alvoIds)
+    .order('updated_at', { ascending: false })
+    .limit(LIMITE_LISTA)
+  if (error) throw error
+  return ((data ?? []) as unknown as GestaoDocumentoRow[]).map(toDocumentoGestao)
+}
+
 /** Uma linha por id, com o caminho — para confirmar, baixar, conferir e apagar. Inclui `pendente`. */
 export async function obterDocumento(
   db: SupabaseClient,
