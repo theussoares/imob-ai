@@ -9,7 +9,7 @@ const emit = defineEmits<{ salvar: [dados: DadosAberturaLocacao] }>()
 
 const store = useGestaoStore()
 // Só imóvel que pode ser alugado; o já vinculado fica na lista mesmo se o cadastro mudou depois.
-const opcoes = computed(() => store.imoveis.value.filter((i) => i.finalidade !== 'Venda' || i.id === props.locacao.imovelId))
+const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'aluguel' || i.id === props.locacao.imovelId))
 
 const locador = reactive({ ...props.locacao.locador })
 const locatario = reactive({ ...props.locacao.locatario })
