@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { competenciasDisponiveis, resumoLocacoes, resumoVendas } from '../../domain/financeiro'
+import { competenciasDisponiveis, pendenciasFinanceiras, resumoLocacoes, resumoVendas } from '../../domain/financeiro'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { processosSeed } from '../../domain/seed'
 
@@ -55,5 +55,23 @@ describe('resumoLocacoes', () => {
     const ativa = l.find((x) => x.id === 'L-2026-0001')!
     const aberta = ativa.cobrancas.find((c) => !c.pago)!
     expect(resumoLocacoes(l, HOJE).linhas.find((x) => x.competencia === aberta.competencia)!.repasse).toBe(2250)
+  })
+})
+
+describe('pendenciasFinanceiras', () => {
+  it('lista o que falta receber (atrasado primeiro) e os repasses pendentes, de todas as competências', () => {
+    const p = pendenciasFinanceiras(locacoes(), HOJE)
+    expect(p.receber.length).toBeGreaterThan(0)
+    expect(p.receber.every((l) => l.situacao !== 'paga')).toBe(true)
+    expect(p.receber[0]!.situacao).toBe('atrasada')
+    expect(p.repassar.every((l) => l.repasseSituacao === 'pendente')).toBe(true)
+    expect(p.repassar.some((l) => l.locacaoId === 'L-2026-0001' && l.repasse === 2250)).toBe(true)
+  })
+
+  it('deixa de fora a locação encerrada, que só aceita consulta', () => {
+    const todas = locacoes().map((l) => ({ ...l, status: 'Encerrada' as const }))
+    const p = pendenciasFinanceiras(todas, HOJE)
+    expect(p.receber).toEqual([])
+    expect(p.repassar).toEqual([])
   })
 })

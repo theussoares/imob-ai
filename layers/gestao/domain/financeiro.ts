@@ -1,5 +1,6 @@
 import { calcularComissao } from './commission.ts'
 import { diasEntre } from './avisos-locacao.ts'
+import { locacaoFinal } from './locacao-status.ts'
 import type { Locacao, Processo } from './types'
 
 /**
@@ -55,6 +56,7 @@ export type SituacaoRepasse = 'sem-pagamento' | 'pendente' | 'feito'
 
 export interface LinhaAluguel {
   locacaoId: string
+  cobrancaId: string
   imovel: string
   competencia: string
   vencimento: string
@@ -96,6 +98,7 @@ export function resumoLocacoes(locacoes: Locacao[], hoje: string, competencia = 
       const situacao: SituacaoAluguel = c.pago ? 'paga' : diasEntre(hoje, c.vencimento) < 0 ? 'atrasada' : 'aberta'
       linhas.push({
         locacaoId: l.id,
+        cobrancaId: c.id,
         imovel: l.imovel,
         competencia: c.competencia,
         vencimento: c.vencimento,
@@ -118,6 +121,28 @@ export function resumoLocacoes(locacoes: Locacao[], hoje: string, competencia = 
     taxaRecebida: soma((l) => l.situacao === 'paga', (l) => l.taxa),
     repasseFeito: soma((l) => l.repasseSituacao === 'feito', (l) => l.repasse),
     repassePendente: soma((l) => l.repasseSituacao === 'pendente', (l) => l.repasse),
+  }
+}
+
+export interface PendenciasFinanceiras {
+  /** aluguéis ainda não pagos: atrasados primeiro, depois por vencimento */
+  receber: LinhaAluguel[]
+  /** aluguéis pagos cujo repasse ao proprietário ainda não foi feito, do mais antigo */
+  repassar: LinhaAluguel[]
+}
+
+/**
+ * Fila de trabalho do financeiro: o que ainda pede ação, de todas as competências.
+ * Locação encerrada fica de fora porque o domínio só aceita consulta nela; a linha
+ * apareceria com botão que sempre falha.
+ */
+export function pendenciasFinanceiras(locacoes: Locacao[], hoje: string): PendenciasFinanceiras {
+  const abertas = locacoes.filter((l) => !locacaoFinal(l.status))
+  const { linhas } = resumoLocacoes(abertas, hoje)
+  const porVencimento = (a: LinhaAluguel, b: LinhaAluguel) => a.vencimento.localeCompare(b.vencimento)
+  return {
+    receber: linhas.filter((l) => l.situacao !== 'paga').sort((a, b) => Number(b.situacao === 'atrasada') - Number(a.situacao === 'atrasada') || porVencimento(a, b)),
+    repassar: linhas.filter((l) => l.repasseSituacao === 'pendente').sort(porVencimento),
   }
 }
 

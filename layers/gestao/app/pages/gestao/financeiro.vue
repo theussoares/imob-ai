@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { brl } from '../../../domain/acoes-processo'
+import * as acao from '../../../domain/acoes-locacao'
 import { hojeISO } from '../../../domain/avisos-locacao'
 import {
   competenciasDisponiveis,
+  pendenciasFinanceiras,
   ROTULO_REPASSE,
   ROTULO_SITUACAO,
   resumoLocacoes,
@@ -14,6 +16,8 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Financeiro · Gestão' })
 
 const store = useGestaoStore()
+const toast = useToast()
+const demo = !!useRuntimeConfig().public.gestaoDemo
 await store.carregar()
 
 const competencia = ref('')
@@ -22,6 +26,20 @@ const hoje = hojeISO()
 const vendas = computed(() => resumoVendas(store.visiveis.value))
 const locacoes = computed(() => resumoLocacoes(store.locacoesVisiveis.value, hoje, competencia.value))
 const competencias = computed(() => competenciasDisponiveis(store.locacoesVisiveis.value))
+
+const pendencias = computed(() => pendenciasFinanceiras(store.locacoesVisiveis.value, hoje))
+const podeValores = computed(() => !!store.caps(null)?.valores)
+
+// Mesma ação do contrato (etapa 7): a regra e o histórico da locação são os mesmos nos dois lugares.
+function registrar(fn: (data: string) => Parameters<typeof store.aplicar>[0], sucesso: string) {
+  const r = store.aplicar(fn(new Date().toISOString().slice(0, 10)))
+  if (r.ok) toast.success(sucesso)
+  else toast.error(r.erro)
+}
+const pagar = (loc: string, cb: string, comp: string) =>
+  registrar((data) => (s, a) => acao.registrarPagamento(s, loc, cb, { data, comprovante: comp }, a), 'Pagamento registrado.')
+const repassar = (loc: string, cb: string, comp: string) =>
+  registrar((data) => (s, a) => acao.registrarRepasse(s, loc, cb, { data, comprovante: comp }, a), 'Repasse registrado.')
 
 const mes = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
 const dia = (iso: string) => iso.split('-').reverse().join('/')
@@ -38,6 +56,8 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Financeiro</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Comissões das vendas e aluguéis, taxas e repasses das locações.</p>
     </header>
+
+    <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :demo="demo" @pagar="pagar" @repassar="repassar" />
 
     <section class="[display:grid] gap-3" aria-labelledby="fin-vendas">
       <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Comissões de venda</h2>
