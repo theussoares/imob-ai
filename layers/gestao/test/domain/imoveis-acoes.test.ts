@@ -91,7 +91,7 @@ describe('criarImovel e atualizarImovel', () => {
   })
 
   it('atualiza preservando fotos e criação; manter o próprio título não é duplicado', () => {
-    const base = imoveisSeed().map((i) => (i.id === 'im-102' ? { ...i, images: [{ id: 'f1', url: 'data:image/jpeg;base64,AA', alt: null, position: 0, isCover: true }] } : i))
+    const base = imoveisSeed().map((i) => (i.id === 'im-102' ? { ...i, images: [{ id: 'f1', url: 'data:image/jpeg;base64,AA', urlSm: null, alt: null, position: 0, isCover: true }] } : i))
     const form = { ...imovelParaForm(base.find((i) => i.id === 'im-102')!), price: 530000 }
     const r = atualizarImovel(base, 'im-102', form, AGORA)
     expect(r.ok && r.imovel).toMatchObject({ id: 'im-102', price: 530000, createdAt: '2026-11-01T12:00:00.000Z', updatedAt: AGORA })

@@ -8,7 +8,7 @@ const novo: NovoImovel = {
   ...formImovelVazio('c1'), title: 'Cobertura 2', type: 'apartamento', purpose: 'venda', price: 750000,
   neighborhood: 'Centro', city: 'Três Lagoas', state: 'MS', area: 120, bedrooms: 3, suites: 1, bathrooms: 2, parking: 2, ownerName: 'Ana Lima',
 }
-const foto = { url: 'data:image/jpeg;base64,AAAA', alt: null }
+const foto = { url: 'data:image/webp;base64,AAAA', urlSm: 'data:image/webp;base64,AA', alt: null }
 
 function montar(cabe = () => true) {
   let lista: ImovelGestao[] = imoveisSeed()

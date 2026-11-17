@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { adicionarFotos, definirCapa, FOTO_TAMANHO_MAX, FOTOS_IMOVEL_MAX, moverFoto, removerFoto } from '../../domain/imoveis-fotos'
 
-const img = (n = 1) => ({ url: `data:image/jpeg;base64,${'A'.repeat(n)}`, alt: null })
+const img = (n = 1) => ({ url: `data:image/webp;base64,${'A'.repeat(n)}`, urlSm: 'data:image/webp;base64,AA' as string | null, alt: null })
 const sequencia = () => {
   let n = 0
   return () => `f${++n}`
@@ -27,8 +27,14 @@ describe('adicionarFotos', () => {
     expect(r).toEqual({ ok: false, erro: 'Cada imóvel aceita no máximo 6 fotos.' })
   })
 
-  it('recusa o que não é imagem e a foto grande demais', () => {
-    expect(adicionarFotos([], [{ url: 'https://x.com/a.jpg', alt: null }], sequencia())).toEqual({ ok: false, erro: 'O arquivo precisa ser uma imagem.' })
+  it('guarda as duas versões (grande e pequena)', () => {
+    const r = adicionarFotos([], [img()], sequencia())
+    expect(r.ok && r.fotos[0]).toMatchObject({ url: 'data:image/webp;base64,A', urlSm: 'data:image/webp;base64,AA' })
+  })
+
+  it('recusa o que não é imagem (também na versão pequena) e a foto grande demais', () => {
+    expect(adicionarFotos([], [{ ...img(), urlSm: 'https://x.com/s.jpg' }], sequencia())).toEqual({ ok: false, erro: 'O arquivo precisa ser uma imagem.' })
+    expect(adicionarFotos([], [{ url: 'https://x.com/a.jpg', urlSm: null, alt: null }], sequencia())).toEqual({ ok: false, erro: 'O arquivo precisa ser uma imagem.' })
     expect(adicionarFotos([], [img(FOTO_TAMANHO_MAX)], sequencia())).toEqual({ ok: false, erro: 'A foto é grande demais depois de reduzida.' })
   })
 })

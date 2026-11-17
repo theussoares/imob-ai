@@ -13,7 +13,7 @@ import type { Locacao } from './types'
  * Não há captador (a regra ainda não existe). `brokerId` é o corretor vendedor: quem cadastra.
  */
 
-export type FotoImovel = Pick<PropertyImage, 'id' | 'url' | 'alt' | 'position' | 'isCover'>
+export type FotoImovel = Pick<PropertyImage, 'id' | 'url' | 'urlSm' | 'alt' | 'position' | 'isCover'>
 
 type CamposDoCatalogo = Pick<
   Property,

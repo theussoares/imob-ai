@@ -57,7 +57,8 @@ no backend troca-se só a implementação** por chamadas a `/api/admin/propertie
 | `ImoveisRepository` (listar, obter, criar, atualizar, excluir, status, fotos) com `MockImoveisRepository` agora e `HttpImoveisRepository` no backend | Store chamando o mock direto | Trocar para `/api/admin/properties` não mexe em tela |
 | Tipo, finalidade e status usam as listas fechadas de `shared/models` (`PROPERTY_TYPES`, `PropertyPurpose`, `PropertyStatus`) | Listas próprias do gestão | Fonte única; senão o espelho traduz e perde valor |
 | Validação em `domain/imoveis.ts` (pura) | Validar no componente | Migra para o servidor sem reescrever |
-| Fotos no mock: redimensionadas no cliente (≤ 1280 px, JPEG) e guardadas no localStorage, no máximo 6 por imóvel | Guardar o arquivo original | O limite do localStorage (~5 MB) estouraria; no backend vai para o Storage |
+| Fotos usam a **mesma redução do `/admin`** (`resizeForUpload`, `app/utils/image.ts`): duas versões, 1600 px (`url`) e 640 px (`urlSm`), WebP com fallback JPEG; no mock viram data URL no localStorage (máx. 6 por imóvel). No backend sobem os mesmos dois blobs para o bucket `property-images` | Redutor próprio do gestão (foi a 1ª versão: 1280 px, JPEG, sem `urlSm`) | Foto de celular nunca vai crua para o Storage, e o card do site recebe a `urlSm` como hoje; duas regras de redução divergiriam |
+| Formato que o canvas não abre (SVG, HEIC) é recusado no gestão: «Use fotos em JPG, PNG ou WebP.» | Enviar cru como o `/admin` faz | É o caso que a redução existe para evitar; revisar se o HEIC virar problema real |
 | Chave do localStorage sobe para `gestao-demo-v5` | Manter `v4` | O estado antigo não tem os campos novos |
 | «Situação» (disponível / em locação) continua derivada das locações e separada do status do site | Fundir os dois | São coisas diferentes: o status é o anúncio, a situação é o contrato |
 

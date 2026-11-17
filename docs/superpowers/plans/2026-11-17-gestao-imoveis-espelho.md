@@ -17,7 +17,7 @@
 - **Sem captador** (sem campo, sem padrão). Quem cadastra vira corretor vendedor (`brokerId`); no site aparece só se o corretor tiver `publicVisible`, sem telefone.
 - Contato público = número da imobiliária (`config.imobiliaria.telefone`); o formulário não tem telefone de corretor publicável; `ownerPhone` é interno.
 - Corretor vê e altera só os imóveis dele (`verTodos`); dono, jurídico e recepção veem todos e podem trocar o corretor. Excluir: dono, ou o corretor vendedor no imóvel dele; bloqueado com locação em andamento.
-- Fotos: no máximo 6 por imóvel, redimensionadas no cliente (≤ 1280 px, JPEG) antes de guardar.
+- Fotos: no máximo 6 por imóvel, com a mesma redução do `/admin` (`resizeForUpload`: 1600 px + `urlSm` 640 px, WebP com fallback JPEG); SVG/HEIC recusados.
 - Chave do localStorage sobe para `gestao-demo-v5`. Ids `im-101…` preservados (locações apontam para eles); o texto do contrato (`Locacao.imovel`) é um retrato e **não** muda quando o imóvel é editado.
 - Domain importa com `.ts` explícito e caminho relativo (o mock carrega em Node puro). Mensagens de erro são frases prontas para a tela, em pt-BR.
 - Testes novos ficam em `layers/gestao/test/`. Validação final: `pnpm typecheck && pnpm test`.
@@ -136,7 +136,7 @@
 - Create: `layers/gestao/app/composables/useRedimensionarFoto.ts`, `layers/gestao/app/components/GestaoImovelForm.vue`, `layers/gestao/app/components/GestaoImovelFotos.vue`
 
 **Interfaces:**
-- Produces: `useRedimensionarFoto(): { reduzir(arquivo: File): Promise<FotoNova | { erro: string }> }` (canvas, lado maior ≤ 1280 px, JPEG 0,8; arquivo que não é imagem → `{ erro: 'O arquivo precisa ser uma imagem.' }`; só aqui mora o uso de `canvas`/`FileReader`).
+- Produces: `useRedimensionarFoto(): { reduzir(arquivo: File): Promise<FotoNova | { erro: string }> }` (reusa `resizeForUpload`, `IMAGE_SIZE_LG/SM` e `isResizableImage` de `app/utils/image.ts`; formato que o canvas não abre → `{ erro: 'Use fotos em JPG, PNG ou WebP.' }`; só aqui mora o `FileReader`). `FotoNova = { url; urlSm: string | null; alt }`, `FotoImovel` ganha `urlSm`.
 - `GestaoImovelForm`: props `modelo: NovoImovel`, `corretores: { id; nome }[]`, `podeTrocarCorretor: boolean`, `telefoneSite: string`, `erro: string`, `salvando: boolean`, `rotuloSalvar: string`; emit `salvar` e `update:modelo`. Seções: Anúncio (título, tipo, finalidade, preço, status, destaque, descrição, características), Endereço (CEP, rua, número, bairro, cidade, UF, referência interna = `location`), Medidas (quartos/suítes/banheiros/vagas só se `temQuartos(type)`, área, alto padrão), Interno (proprietário, telefone do proprietário, corretor vendedor — `select` desabilitado se `!podeTrocarCorretor`). Texto fixo: «Contato no site: WhatsApp da imobiliária ({telefoneSite}). O corretor aparece no anúncio só se estiver configurado para aparecer.»
 - `GestaoImovelFotos`: props `fotos`, `max`, `erro`, `ocupado`; emits `adicionar(arquivos: File[])`, `capa(id)`, `mover(id, direcao)`, `remover(id)`.
 - Todos os `data-testid` no padrão atual: `imovel-*` (`imovel-titulo`, `imovel-tipo`, `imovel-finalidade`, `imovel-preco`, `imovel-salvar`, `imovel-erro`, `imovel-foto-input`, `imovel-foto`, `imovel-foto-capa`, `imovel-foto-remover`).

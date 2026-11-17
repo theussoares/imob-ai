@@ -26,7 +26,7 @@ const podeCriar = computed(() => store.permissoesDoImovel(null).criar)
 const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
 const preco = (valor: number, finalidade: 'venda' | 'aluguel') =>
   `${valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}${finalidade === 'aluguel' ? '/mês' : ''}`
-const capa = (fotos: { url: string; isCover: boolean }[]) => (fotos.find((f) => f.isCover) ?? fotos[0])?.url ?? null
+const capa = (fotos: { url: string; urlSm: string | null; isCover: boolean }[]) => { const c = fotos.find((f) => f.isCover) ?? fotos[0]; return c ? (c.urlSm ?? c.url) : null }
 
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'

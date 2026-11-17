@@ -41,7 +41,7 @@ const botao =
     <p v-if="!props.fotos.length" class="m-0 text-[var(--ink-soft)]">Sem fotos. A primeira que você enviar vira a capa do anúncio.</p>
     <ul v-else class="m-0 list-none [display:grid] gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
       <li v-for="(f, i) in props.fotos" :key="f.id" class="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--paper)]" data-testid="imovel-foto">
-        <img :src="f.url" :alt="f.alt ?? `Foto ${i + 1} do imóvel`" class="aspect-[4/3] w-full object-cover" />
+        <img :src="f.urlSm ?? f.url" :alt="f.alt ?? `Foto ${i + 1} do imóvel`" class="aspect-[4/3] w-full object-cover" />
         <div class="flex flex-wrap items-center gap-2 p-2">
           <span v-if="f.isCover" class="rounded-full bg-[#d1fae5] px-2.5 py-1 text-[length:var(--fs-caption)] font-bold text-[#064e3b]" data-testid="imovel-foto-capa">Capa</span>
           <button v-else type="button" :class="botao" @click="emit('capa', f.id)">Tornar capa</button>

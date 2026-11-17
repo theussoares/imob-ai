@@ -2,11 +2,13 @@ import type { FotoImovel } from './imoveis.ts'
 
 /** Teto por imóvel: no mock as fotos moram no localStorage (~5 MB para o painel todo). */
 export const FOTOS_IMOVEL_MAX = 6
-/** Caracteres do data URL depois de reduzida no navegador (~300 KB). */
-export const FOTO_TAMANHO_MAX = 400_000
+/** Caracteres do data URL da versão grande (1600 px) depois de reduzida; ~450 KB em bytes. */
+export const FOTO_TAMANHO_MAX = 600_000
 
+/** As duas versões que o `/admin` também gera (`app/utils/image.ts`): `url` = 1600 px, `urlSm` = 640 px. */
 export interface FotoNova {
   url: string
+  urlSm: string | null
   alt: string | null
 }
 
@@ -17,10 +19,10 @@ const renumerar = (fotos: FotoImovel[]): FotoImovel[] => fotos.map((f, position)
 export function adicionarFotos(fotos: FotoImovel[], novas: FotoNova[], novoId: () => string): ResultadoFotos {
   if (fotos.length + novas.length > FOTOS_IMOVEL_MAX) return { ok: false, erro: `Cada imóvel aceita no máximo ${FOTOS_IMOVEL_MAX} fotos.` }
   for (const n of novas) {
-    if (!n.url.startsWith('data:image/')) return { ok: false, erro: 'O arquivo precisa ser uma imagem.' }
+    if (![n.url, n.urlSm].every((u) => u === null || u.startsWith('data:image/'))) return { ok: false, erro: 'O arquivo precisa ser uma imagem.' }
     if (n.url.length >= FOTO_TAMANHO_MAX) return { ok: false, erro: 'A foto é grande demais depois de reduzida.' }
   }
-  const todas = [...fotos, ...novas.map((n) => ({ id: novoId(), url: n.url, alt: n.alt, position: 0, isCover: false }))]
+  const todas = [...fotos, ...novas.map((n) => ({ id: novoId(), url: n.url, urlSm: n.urlSm, alt: n.alt, position: 0, isCover: false }))]
   const comCapa = todas.some((f) => f.isCover) ? todas : todas.map((f, i) => ({ ...f, isCover: i === 0 }))
   return { ok: true, fotos: renumerar(comCapa) }
 }
