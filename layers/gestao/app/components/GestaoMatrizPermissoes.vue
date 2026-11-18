@@ -41,6 +41,9 @@ async function restaurar() {
   toast.success('Permissões restauradas.')
 }
 
+// No celular a tabela mostra um perfil por vez: com 4 colunas ela estourava a largura e exigia rolagem lateral.
+const perfilMovel = ref<Perfil>(ORDEM_PERFIS[0]!)
+const col = (p: Perfil) => (p === perfilMovel.value ? '' : 'hidden md:table-cell')
 </script>
 
 <template>
@@ -60,13 +63,20 @@ async function restaurar() {
       </button>
     </div>
 
+    <label class="mb-3 [display:grid] gap-1 text-[length:var(--fs-label)] font-semibold md:hidden">
+      Perfil
+      <select v-model="perfilMovel" class="min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)]" data-testid="matriz-perfil">
+        <option v-for="p in ORDEM_PERFIS" :key="p" :value="p">{{ PERFIS[p].nome }}</option>
+      </select>
+    </label>
+
     <div class="overflow-x-auto">
       <table class="w-full border-collapse" data-testid="matriz">
         <caption class="sr-only">Permissões de cada perfil</caption>
         <thead>
           <tr>
             <th class="px-2 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]">Permissão</th>
-            <th v-for="p in ORDEM_PERFIS" :key="p" class="px-2 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]">
+            <th v-for="p in ORDEM_PERFIS" :key="p" :class="col(p)" class="px-2 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]">
               {{ PERFIS[p].nome }}
             </th>
           </tr>
@@ -74,7 +84,7 @@ async function restaurar() {
         <tbody>
           <tr v-for="d in DEFINICOES_PERMISSAO" :key="d.chave" class="border-t border-[var(--line)]">
             <th scope="row" class="px-2 py-2 text-left text-[length:var(--fs-ui)] font-semibold">{{ d.rotulo }}</th>
-            <td v-for="p in ORDEM_PERFIS" :key="p" class="px-2 py-2">
+            <td v-for="p in ORDEM_PERFIS" :key="p" :class="col(p)" class="px-2 py-2">
               <!-- Sim/Não vira interruptor; com um terceiro estado ("Só os próprios") vira grupo de chips. -->
               <button
                 v-if="d.estados.length === 2 && d.estados.includes('sim') && d.estados.includes('nao')"
@@ -85,12 +95,12 @@ async function restaurar() {
                 :disabled="permissaoFixa(d.chave, p)"
                 :title="permissaoFixa(d.chave, p) ? 'O Dono sempre mantém esta permissão.' : undefined"
                 class="relative h-7 w-12 cursor-pointer rounded-full border-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                :class="store.matriz.value[d.chave][p] === 'sim' ? 'bg-[var(--gestao-amarelo)]' : 'bg-[var(--line-2)]'"
+                :class="store.matriz.value[d.chave][p] === 'sim' ? 'bg-[var(--brand)]' : 'bg-[var(--line-2)]'"
                 :data-testid="`perm-${d.chave}-${p}`"
                 @click="mudar(d.chave, p, store.matriz.value[d.chave][p] === 'sim' ? 'nao' : 'sim')"
               >
                 <span
-                  class="absolute top-0.5 left-0.5 size-6 rounded-full bg-[var(--brand)] transition-transform"
+                  class="absolute top-0.5 left-0.5 size-6 rounded-full bg-white transition-transform"
                   :class="store.matriz.value[d.chave][p] === 'sim' ? 'translate-x-5' : ''"
                 />
               </button>
@@ -103,7 +113,7 @@ async function restaurar() {
                   :aria-checked="store.matriz.value[d.chave][p] === e"
                   :disabled="permissaoFixa(d.chave, p)"
                   class="min-h-8 cursor-pointer whitespace-nowrap rounded-full border px-2.5 text-[length:var(--fs-caption)] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                  :class="store.matriz.value[d.chave][p] === e ? 'border-[var(--brand)] bg-[var(--gestao-amarelo)] text-[var(--brand)]' : 'border-[var(--line-2)] text-[var(--ink-soft)]'"
+                  :class="store.matriz.value[d.chave][p] === e ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-[var(--line-2)] text-[var(--ink-soft)]'"
                   @click="mudar(d.chave, p, e)"
                 >
                   {{ ROTULO_VALOR[e] }}

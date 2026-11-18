@@ -31,12 +31,12 @@ const abas = computed(() => abasDeStatus(props.contagens, props.ordem, props.ati
       role="tab"
       :aria-selected="ativo === a.status"
       class="-mb-px inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border-b-[3px] px-4 font-semibold whitespace-nowrap"
-      :class="ativo === a.status ? 'border-[var(--gestao-amarelo)] text-[var(--ink)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'"
+      :class="ativo === a.status ? 'border-[var(--brand)] text-[var(--ink)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'"
       :data-testid="`aba-status-${a.status || 'todos'}`"
       @click="emit('mudar', a.status)"
     >
       {{ a.status || 'Todos' }}
-      <span class="rounded-full bg-[var(--brand-ghost)] px-2 text-[length:var(--fs-label)] font-bold text-[var(--ink)]">{{ a.total }}</span>
+      <span class="rounded-full bg-[var(--surface)] px-2 text-[length:var(--fs-label)] font-bold text-[var(--ink)]">{{ a.total }}</span>
     </button>
   </div>
 </template>

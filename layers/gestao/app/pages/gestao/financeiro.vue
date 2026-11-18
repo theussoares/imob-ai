@@ -86,7 +86,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
         role="tab"
         :aria-selected="aba === a.chave"
         class="-mb-px min-h-11 cursor-pointer border-b-[3px] px-4 font-semibold"
-        :class="aba === a.chave ? 'border-[var(--gestao-amarelo)] text-[var(--ink)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'"
+        :class="aba === a.chave ? 'border-[var(--brand)] text-[var(--ink)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'"
         :data-testid="`fin-aba-${a.chave}`"
         @click="aba = a.chave"
       >

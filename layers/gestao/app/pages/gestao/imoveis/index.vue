@@ -30,6 +30,10 @@ const capa = (fotos: { url: string; urlSm: string | null; isCover: boolean }[]) 
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
+const filtrosAbertos = ref(false)
+const filtrosAtivos = computed(() => [filtro.status, filtro.situacao, filtro.purpose].filter(Boolean).length)
+// `hidden` e `[display:grid]` empatam em especificidade; por isso o display não vem de `rotulo`.
+const rotuloFiltro = computed(() => `gap-1 text-[length:var(--fs-label)] font-semibold ${filtrosAbertos.value ? '[display:grid]' : 'hidden md:[display:grid]'}`)
 const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0_1px_2px_rgba(20,22,26,0.05)]'
 </script>
 
@@ -46,22 +50,28 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0
     </header>
 
     <div :class="card" class="[display:grid] gap-3 p-4 md:grid-cols-[1fr_10rem_10rem_10rem] md:p-5">
-      <label :class="rotulo">Buscar
-        <input v-model="filtro.busca" :class="campo" type="search" autocomplete="off" placeholder="Título, bairro ou proprietário" data-testid="imovel-busca" />
-      </label>
-      <label :class="rotulo">Anúncio
+      <div class="flex items-end gap-2">
+        <label :class="rotulo" class="min-w-0 flex-1">Buscar
+          <input v-model="filtro.busca" :class="campo" type="search" autocomplete="off" placeholder="Título, bairro ou proprietário" data-testid="imovel-busca" />
+        </label>
+        <!-- Só no celular: os três selects ficam atrás deste botão para a lista não cair abaixo da dobra. -->
+        <button type="button" class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3.5 font-bold hover:bg-[var(--brand-ghost)] md:hidden" :aria-expanded="filtrosAbertos" data-testid="imovel-filtros-botao" @click="filtrosAbertos = !filtrosAbertos">
+          Filtros<span v-if="filtrosAtivos"> ({{ filtrosAtivos }})</span>
+        </button>
+      </div>
+      <label :class="rotuloFiltro">Anúncio
         <select v-model="filtro.status" :class="campo" data-testid="imovel-filtro-status">
           <option value="">Todos</option>
           <option v-for="s in STATUS_IMOVEL" :key="s" :value="s">{{ ROTULO_STATUS_IMOVEL[s] }}</option>
         </select>
       </label>
-      <label :class="rotulo">Situação
+      <label :class="rotuloFiltro">Situação
         <select v-model="filtro.situacao" :class="campo" data-testid="imovel-filtro-situacao">
           <option value="">Todas</option>
           <option v-for="(r, k) in ROTULO_SITUACAO_IMOVEL" :key="k" :value="k">{{ r }}</option>
         </select>
       </label>
-      <label :class="rotulo">Finalidade
+      <label :class="rotuloFiltro">Finalidade
         <select v-model="filtro.purpose" :class="campo" data-testid="imovel-filtro-finalidade">
           <option value="">Todas</option>
           <option v-for="(r, k) in ROTULO_FINALIDADE" :key="k" :value="k">{{ r }}</option>

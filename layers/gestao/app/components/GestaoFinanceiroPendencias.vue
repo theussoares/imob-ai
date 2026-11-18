@@ -21,6 +21,8 @@ function escolher(e: Event, acao: 'pagar' | 'repassar', l: LinhaAluguel) {
   else emit('repassar', l.locacaoId, l.cobrancaId, nome)
 }
 
+// No celular as pendências viram uma faixa de resumo; a lista abre sob demanda e não empurra as abas para fora da primeira tela.
+const aberto = ref(false)
 const botao =
   'inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 font-bold hover:bg-[var(--brand-ghost)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--brand)]'
 </script>
@@ -29,8 +31,14 @@ const botao =
   <section class="[display:grid] gap-4" aria-labelledby="fin-pendencias" data-testid="fin-pendencias">
     <div>
       <h2 id="fin-pendencias" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Pendências</h2>
-      <p class="mt-1 text-[var(--ink-soft)]">O que ainda precisa de ação, de todos os meses. Registre aqui sem abrir o contrato.</p>
+      <p class="mt-1 hidden text-[var(--ink-soft)] md:block">O que ainda precisa de ação, de todos os meses. Registre aqui sem abrir o contrato.</p>
+      <p class="mt-1 text-[var(--ink-soft)] md:hidden" data-testid="fin-pend-resumo">
+        {{ pendencias.receber.length }} a receber · {{ pendencias.repassar.length }} repasses a fazer
+        <button type="button" class="ml-2 min-h-11 cursor-pointer border-0 bg-transparent font-bold text-[var(--brand)] underline" :aria-expanded="aberto" data-testid="fin-pend-alternar" @click="aberto = !aberto">{{ aberto ? 'Ocultar' : 'Ver' }}</button>
+      </p>
     </div>
+
+    <div :class="aberto ? 'flex flex-col gap-4' : 'hidden md:flex md:flex-col md:gap-4'">
 
     <div v-for="grupo in [
       { chave: 'receber', titulo: 'Aluguéis a receber', vazio: 'Nenhum aluguel em aberto.', itens: pendencias.receber },
@@ -61,6 +69,7 @@ const botao =
           </template>
         </li>
       </ul>
+    </div>
     </div>
   </section>
 </template>

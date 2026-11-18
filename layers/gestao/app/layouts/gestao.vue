@@ -55,6 +55,8 @@ const ICONES: Record<string, string> = {
 
 // Menu do avatar e paleta de navegação (Ctrl/Cmd+K). Fecham com Esc ou clique fora.
 const menuAberto = ref(false)
+const drawer = ref(false)
+watch(() => route.path, () => { drawer.value = false })
 const buscaAberta = ref(false)
 const termo = ref('')
 const campoBusca = ref<HTMLInputElement | null>(null)
@@ -64,6 +66,7 @@ const resultados = computed(() => {
 })
 async function abrirBusca() {
   menuAberto.value = false
+  drawer.value = false
   buscaAberta.value = true
   termo.value = ''
   await nextTick()
@@ -80,6 +83,7 @@ function teclas(e: KeyboardEvent) {
   } else if (e.key === 'Escape') {
     menuAberto.value = false
     buscaAberta.value = false
+    drawer.value = false
   }
 }
 onMounted(() => document.addEventListener('keydown', teclas))
@@ -102,8 +106,20 @@ const btn =
       class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--paper)] px-4 py-2.5"
     >
       <div class="flex items-center gap-2.5 font-bold">
+        <button
+          v-if="sessao"
+          type="button"
+          class="[display:grid] size-11 cursor-pointer place-items-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] md:hidden"
+          aria-label="Abrir menu"
+          :aria-expanded="drawer"
+          aria-controls="gestao-menu"
+          data-testid="menu-drawer"
+          @click="drawer = true"
+        >
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
         <span
-          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-bold text-[var(--gestao-amarelo)]"
+          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-bold text-white"
           aria-hidden="true"
         >
           {{ (tenant?.name || 'G').slice(0, 1) }}
@@ -119,23 +135,25 @@ const btn =
       <div v-if="sessao" class="flex items-center gap-2">
         <button
           type="button"
-          class="hidden min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[var(--ink-soft)] hover:bg-[var(--brand-ghost)] sm:inline-flex"
+          class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[var(--ink-soft)] hover:bg-[var(--brand-ghost)]"
           data-testid="busca-global"
+          aria-label="Ir para…"
           @click="abrirBusca"
         >
-          Ir para…
-          <kbd class="rounded border border-[var(--line-2)] px-1.5 text-[length:var(--fs-caption)]">Ctrl K</kbd>
+          <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-4-4" /></svg>
+          <span class="hidden sm:inline">Ir para…</span>
+          <kbd class="hidden rounded border border-[var(--line-2)] px-1.5 text-[length:var(--fs-caption)] sm:inline">Ctrl K</kbd>
         </button>
         <div class="relative">
           <button
             type="button"
-            class="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full border border-[var(--line)] bg-[var(--paper)] py-1 pr-3 pl-1 hover:bg-[var(--brand-ghost)]"
+            class="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full border border-[var(--line)] bg-[var(--paper)] py-1 pr-3 pl-1 outline-none hover:bg-[var(--brand-ghost)] focus-visible:ring-2 focus-visible:ring-[var(--line-2)]"
             aria-haspopup="menu"
             :aria-expanded="menuAberto"
             data-testid="menu-avatar"
             @click="menuAberto = !menuAberto"
           >
-            <span class="[display:grid] size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-[var(--gestao-amarelo)]" aria-hidden="true">
+            <span class="[display:grid] size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-white" aria-hidden="true">
               {{ sessao.nome.slice(0, 1) }}
             </span>
             <span class="hidden flex-col text-left leading-tight sm:flex">
@@ -164,11 +182,14 @@ const btn =
     <div class="flex min-h-0 flex-1 flex-col md:flex-row">
       <nav
         v-if="sessao"
-        class="flex flex-none gap-1 overflow-x-auto border-b border-[var(--line)] bg-[var(--paper)] p-2 md:w-58 md:flex-col md:overflow-visible md:border-r md:border-b-0 md:p-3"
+        id="gestao-menu"
+        class="flex-none flex-col gap-1 border-[var(--line)] bg-[var(--paper)] p-3 md:static md:z-auto md:flex md:w-58 md:overflow-visible md:border-r md:shadow-none"
+        :class="drawer ? 'fixed inset-y-0 left-0 z-50 flex w-72 overflow-y-auto shadow-[0_0_40px_rgba(20,22,26,0.3)]' : 'hidden'"
         aria-label="Seções do painel"
       >
-        <div v-for="g in grupos" :key="g.nome" class="flex flex-none gap-1 md:flex-col">
-          <p class="m-0 hidden px-3 pb-1 pt-3 text-[length:var(--fs-caption)] font-semibold uppercase tracking-wide text-[var(--ink-soft)] md:block">
+        <button type="button" class="mb-1 ml-auto min-h-11 cursor-pointer rounded-[10px] border-0 bg-transparent px-3 font-bold text-[var(--ink-soft)] md:hidden" @click="drawer = false">Fechar</button>
+        <div v-for="g in grupos" :key="g.nome" class="flex flex-none flex-col gap-1">
+          <p class="m-0 px-3 pb-1 pt-3 text-[length:var(--fs-caption)] font-semibold uppercase tracking-wide text-[var(--ink-soft)]">
             {{ g.nome }}
           </p>
           <NuxtLink
@@ -178,7 +199,7 @@ const btn =
             class="flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-[10px] px-3 font-semibold no-underline hover:bg-[var(--surface)]"
             :class="
               ativo(m.rota)
-                ? 'bg-[var(--gestao-amarelo)] font-bold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
+                ? 'bg-[var(--surface)] font-bold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
                 : 'text-[var(--ink-soft)]'
             "
             :aria-current="ativo(m.rota) ? 'page' : undefined"
@@ -199,6 +220,8 @@ const btn =
           </NuxtLink>
         </div>
       </nav>
+
+      <div v-if="drawer" class="fixed inset-0 z-40 bg-black/40 md:hidden" aria-hidden="true" @click="drawer = false" />
 
       <main id="gestao-conteudo" class="min-w-0 flex-1 p-3 outline-none md:p-5" tabindex="-1">
         <p
