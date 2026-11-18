@@ -8,9 +8,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   const tirar = () => {
     const el = document.querySelector<HTMLElement>('.gestao-splash')
     if (!el) return
-    el.style.transition = 'opacity .2s'
+    // O painel real sobe suavemente enquanto o esqueleto some: sem corte entre um e outro.
+    document.getElementById('__nuxt')?.classList.add('gestao-entrando')
+    el.style.transition = 'opacity .25s'
     el.style.opacity = '0'
-    setTimeout(() => el.remove(), 220)
+    setTimeout(() => el.remove(), 260)
   }
   nuxtApp.hook('app:suspense:resolve', tirar)
   setTimeout(tirar, 15000)

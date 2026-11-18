@@ -17,3 +17,14 @@
   --line: #e4e4e7;
   --line-2: #d4d4d8;
 }
+
+/* Entrada do painel depois do esqueleto (plugin gestao-splash.client.ts). */
+.gestao-entrando {
+  animation: gestao-entra 0.4s ease-out;
+}
+@keyframes gestao-entra {
+  from { opacity: 0; transform: translateY(8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gestao-entrando { animation: none; }
+}
