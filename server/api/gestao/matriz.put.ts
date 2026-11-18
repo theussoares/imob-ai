@@ -1,7 +1,7 @@
 import { exigirPermissao, requireGestaoMember } from '~~/server/utils/gestao-auth'
 import { validarMatrizPedido } from '~~/server/utils/gestao-membros'
 import { gravarMatriz } from '~~/server/repositories/gestao-settings.repository'
-import { registrarEvento } from '~~/server/repositories/gestao-evento.repository'
+import { auditarConfig } from '~~/server/utils/gestao-auditoria-config'
 
 /**
  * Salva a matriz de permissões (`admin`). A matriz inteira é revalidada célula a
@@ -17,12 +17,6 @@ export default defineEventHandler(async (event) => {
   if (!r.ok) throw createError({ statusCode: 422, statusMessage: r.erro })
 
   await gravarMatriz(ctx.db, ctx.tenant.id, r.matriz)
-  await registrarEvento(ctx.db, ctx.tenant.id, {
-    atorUserId: ctx.membro.userId,
-    atorNome: ctx.membro.nome,
-    acao: 'Alterou as permissões',
-    alvoTipo: 'config',
-    alvoId: 'matriz',
-  })
+  await auditarConfig(ctx, 'Alterou as permissões', 'matriz')
   return { matriz: r.matriz }
 })

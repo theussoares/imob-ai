@@ -183,11 +183,11 @@ export class HttpGestaoRepository implements GestaoRepository {
     return this.tentar(async () => {
       const versao = this.versoes.ler(`${tipo}:${id}`)
       if (tipo === 'venda') {
-        // O servidor exige a `versao` que a tela leu (sem ela, 422; defasada, 409), como na locação.
+        // O servidor exige a `versao` que a tela leu (sem ela, 422; defasada, 409), nos dois tipos.
         const r = await this.api.post<RespostaVenda>(`/api/gestao/vendas/${encodeURIComponent(id)}/acoes`, { acao, dados, versao })
         return { processo: this.guardarVenda(r) }
       }
-      const r = await this.api.post<RespostaLocacao>(`/api/gestao/locacoes/${encodeURIComponent(id)}/acoes`, { acao, dados, versao: versao ?? 1 })
+      const r = await this.api.post<RespostaLocacao>(`/api/gestao/locacoes/${encodeURIComponent(id)}/acoes`, { acao, dados, versao })
       return { locacao: this.guardarLocacao(r) }
     })
   }
