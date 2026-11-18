@@ -2,12 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { abrirProcesso, agora, type Estado } from '~~/layers/gestao/domain/acoes'
 import { filtrarProcessos } from '~~/layers/gestao/domain/filtro'
-import { paginar, POR_PAGINA, totalDePaginas, type Pagina } from '~~/layers/gestao/domain/paginacao'
+import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
+import { contarPorStatus, paginar, POR_PAGINA, totalDePaginas, type PaginaComContagens } from '~~/layers/gestao/domain/paginacao'
 import { capacidades } from '~~/layers/gestao/domain/permissions'
 import type { Documento, MatrizPermissoes, Processo, Sessao } from '~~/layers/gestao/domain/types'
 import { recortarValores, type ProcessoSemValores, type Venda } from '~~/server/mappers/gestao-venda'
 import {
   buscarVenda,
+  contarVendasPorStatus,
   corretoresDoTenant,
   gravarVenda,
   idsDoAno,
@@ -126,7 +128,7 @@ export interface FiltroPaginaVendas {
   status: string
 }
 
-export type PaginaVendas = Pagina<VendaResposta> & {
+export type PaginaVendas = PaginaComContagens<VendaResposta> & {
   /** Só na busca por texto: havia mais linhas que o teto e o resultado cobre as mais recentes. */
   truncado: boolean
 }
@@ -142,21 +144,27 @@ export async function listarVendasPaginaDoMembro(ctx: CtxVendas, filtro: FiltroP
   const c = capacidades(ctx.matriz, ctx.sessao)
   if (filtro.arquivados && !(c.arquivar || c.apagarDocs)) throw proibido()
   const escopo = escopoDe(ctx)
-  const base = { arquivado: filtro.arquivados, ...(filtro.status ? { status: filtro.status } : {}) }
   const paraResposta = (v: Venda) => mascarada(resposta(v, c.valores))
 
   if (!filtro.q.trim()) {
-    const { vendas, total } = await listarVendasPagina(ctx.db, escopo, base, filtro.pagina, POR_PAGINA)
-    return { itens: vendas.map(paraResposta), total, pagina: filtro.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: false }
+    const base = { arquivado: filtro.arquivados, ...(filtro.status ? { status: filtro.status } : {}) }
+    const [{ vendas, total }, contagens] = await Promise.all([
+      listarVendasPagina(ctx.db, escopo, base, filtro.pagina, POR_PAGINA),
+      contarVendasPorStatus(ctx.db, escopo, filtro.arquivados, STATUS_VENDA),
+    ])
+    return { itens: vendas.map(paraResposta), total, pagina: filtro.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: false, contagens }
   }
 
+  // Com busca o status NÃO vai para o banco: as abas precisam da contagem de todos os status entre as linhas
+  // que casam o texto, e a fatia do status escolhido sai da mesma lista, em memória.
   const [{ vendas, truncado }, corretores] = await Promise.all([
-    listarTodasVendas(ctx.db, escopo, base),
+    listarTodasVendas(ctx.db, escopo, { arquivado: filtro.arquivados }),
     listBrokerNames(ctx.db, ctx.membro.tenantId),
   ])
-  const achadas = new Set(filtrarProcessos(vendas.map((v) => v.processo), { q: filtro.q, status: '' }, corretores).map((p) => p.id))
+  const casadas = filtrarProcessos(vendas.map((v) => v.processo), { q: filtro.q, status: '' }, corretores)
+  const achadas = new Set(casadas.filter((p) => !filtro.status || p.status === filtro.status).map((p) => p.id))
   const pag = paginar(vendas.filter((v) => achadas.has(v.id)), filtro.pagina)
-  return { ...pag, itens: pag.itens.map(paraResposta), truncado }
+  return { ...pag, itens: pag.itens.map(paraResposta), truncado, contagens: contarPorStatus(casadas, STATUS_VENDA) }
 }
 
 /** Formato de `proximoId`. Id fora dele nem chega ao banco: 404 igual a «não existe». */

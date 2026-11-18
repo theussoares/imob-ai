@@ -74,6 +74,28 @@ export async function listarLocacoesPagina(
   return { locacoes: ((data ?? []) as GestaoLocacaoRow[]).map(toLocacaoModel), total: count ?? 0 }
 }
 
+/**
+ * Locações por status sob o MESMO escopo da lista (tenant, arquivadas, corretor), sem o filtro de status.
+ * Contagem exata do banco por status, em paralelo: ler as linhas esbarraria no corte de 1000 do PostgREST.
+ * `corretorId === null` (corretor sem vínculo) não vê nenhuma, como em `listarLocacoes`.
+ */
+export async function contarLocacoesPorStatus(
+  db: SupabaseClient,
+  tenantId: string,
+  filtro: Omit<FiltroLocacoes, 'status'>,
+  statusValidos: readonly string[],
+): Promise<Record<string, number>> {
+  if (filtro.corretorId === null) return Object.fromEntries(statusValidos.map((s) => [s, 0]))
+  const pares = await Promise.all(
+    statusValidos.map(async (status) => {
+      const { count, error } = await consulta(db, tenantId, { ...filtro, status }, { count: 'exact', head: true })
+      if (error) falha(error, 'listar')
+      return [status, count ?? 0] as const
+    }),
+  )
+  return Object.fromEntries(pares)
+}
+
 /** Teto e bloco da busca por texto: mesma razão de `listarTodasVendas`. */
 export const LIMITE_BUSCA = 5000
 const BLOCO = 1000

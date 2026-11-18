@@ -2,13 +2,15 @@ import { z } from 'zod'
 import { abrirLocacao } from '~~/layers/gestao/domain/acoes-locacao'
 import { agora, type Estado } from '~~/layers/gestao/domain/acoes'
 import { filtrarLocacoes } from '~~/layers/gestao/domain/filtro-locacao'
-import { paginar, POR_PAGINA, totalDePaginas, type Pagina } from '~~/layers/gestao/domain/paginacao'
+import { STATUS_LOCACAO } from '~~/layers/gestao/domain/locacao-status'
+import { contarPorStatus, paginar, POR_PAGINA, totalDePaginas, type PaginaComContagens } from '~~/layers/gestao/domain/paginacao'
 import { listBrokerNames } from '~~/server/repositories/broker.repository'
 import { avisosLocacao, hojeISO, type AvisoLocacao } from '~~/layers/gestao/domain/avisos-locacao'
 import type { Documento, Locacao } from '~~/layers/gestao/domain/types'
 import { ehUuid, paraPerfil, type LocacaoSemValores, type LocacaoVersionada } from '~~/server/mappers/gestao-locacao'
 import {
   buscarLocacao,
+  contarLocacoesPorStatus,
   corretorDoTenant,
   gravarLocacao,
   imovelDoTenant,
@@ -95,23 +97,32 @@ export interface FiltroPaginaLocacoes {
   status: string
 }
 
-export type PaginaLocacoes = Pagina<RespostaLocacao> & { truncado: boolean }
+export type PaginaLocacoes = PaginaComContagens<RespostaLocacao> & { truncado: boolean }
 
-/** Mesma estratégia de `listarVendasPaginaDoMembro`: banco pagina sem busca; com busca, a `filtrarLocacoes` da tela casa o texto. */
+/**
+ * Mesma estratégia de `listarVendasPaginaDoMembro`: banco pagina sem busca; com busca, a `filtrarLocacoes` da
+ * tela casa o texto. `contagens` (abas por status) segue o mesmo escopo (tenant, arquivadas, corretor) e a
+ * busca, mas não o status escolhido.
+ */
 export async function listarPagina(ctx: ContextoGestao, filtro: FiltroPaginaLocacoes): Promise<PaginaLocacoes> {
   if (filtro.arquivadas && !veArquivadas(ctx)) throw createError({ statusCode: 403, statusMessage: 'Sem permissão para ver os arquivados.' })
   const tenantId = ctx.membro.tenantId
-  const base = { arquivadas: filtro.arquivadas, ...escopo(ctx), ...(filtro.status ? { status: filtro.status } : {}) }
+  const escopoBase = { arquivadas: filtro.arquivadas, ...escopo(ctx) }
 
   if (!filtro.q.trim()) {
-    const { locacoes, total } = await listarLocacoesPagina(ctx.db, tenantId, base, filtro.pagina, POR_PAGINA)
-    return { itens: locacoes.map((i) => resposta(ctx, i)), total, pagina: filtro.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: false }
+    const [{ locacoes, total }, contagens] = await Promise.all([
+      listarLocacoesPagina(ctx.db, tenantId, { ...escopoBase, ...(filtro.status ? { status: filtro.status } : {}) }, filtro.pagina, POR_PAGINA),
+      contarLocacoesPorStatus(ctx.db, tenantId, escopoBase, STATUS_LOCACAO),
+    ])
+    return { itens: locacoes.map((i) => resposta(ctx, i)), total, pagina: filtro.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: false, contagens }
   }
 
-  const [{ locacoes, truncado }, corretores] = await Promise.all([listarTodasLocacoes(ctx.db, tenantId, base), listBrokerNames(ctx.db, tenantId)])
-  const achadas = new Set(filtrarLocacoes(locacoes.map((i) => i.locacao), { q: filtro.q, status: '' }, corretores).map((l) => l.id))
+  // Com busca o status fica fora do banco: as abas contam todos os status entre as linhas que casam o texto.
+  const [{ locacoes, truncado }, corretores] = await Promise.all([listarTodasLocacoes(ctx.db, tenantId, escopoBase), listBrokerNames(ctx.db, tenantId)])
+  const casadas = filtrarLocacoes(locacoes.map((i) => i.locacao), { q: filtro.q, status: '' }, corretores)
+  const achadas = new Set(casadas.filter((l) => !filtro.status || l.status === filtro.status).map((l) => l.id))
   const pag = paginar(locacoes.filter((i) => achadas.has(i.locacao.id)), filtro.pagina)
-  return { ...pag, itens: pag.itens.map((i) => resposta(ctx, i)), truncado }
+  return { ...pag, itens: pag.itens.map((i) => resposta(ctx, i)), truncado, contagens: contarPorStatus(casadas, STATUS_LOCACAO) }
 }
 
 export async function ler(ctx: ContextoGestao, id: string): Promise<RespostaLocacao> {

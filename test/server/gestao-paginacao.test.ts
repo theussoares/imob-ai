@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { abrirLocacao } from '~~/layers/gestao/domain/acoes-locacao'
+import { STATUS_LOCACAO } from '~~/layers/gestao/domain/locacao-status'
+import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
 import { matrizPadrao } from '~~/layers/gestao/domain/permissions'
 import { processosSeed } from '~~/layers/gestao/domain/seed'
 import type { Locacao, Perfil, Processo } from '~~/layers/gestao/domain/types'
@@ -47,10 +49,13 @@ describe('vendas paginadas', () => {
   test('tenant sempre; corretor sem verTodos só vê o seu; status filtra no banco; id desempata a ordem', async () => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: [], error: null, count: 0 } })
     await listarVendasPaginaDoMembro(ctxV('corretor', client, A), { ...F, status: 'Em negociação' })
-    expect(eqs(calls, 'gestao_vendas', 'tenant_id')).toEqual([T])
-    expect(eqs(calls, 'gestao_vendas', 'corretor_id')).toEqual([A])
-    expect(eqs(calls, 'gestao_vendas', 'status')).toEqual(['Em negociação'])
-    expect(calls.filter((c) => c.method === 'order').map((c) => c.args[0])).toEqual(['updated_at', 'id'])
+    // Página E contagens das abas: toda query leva tenant e corretor (a contagem não pode vazar o total do tenant).
+    const nQueries = 1 + STATUS_VENDA.length
+    expect(eqs(calls, 'gestao_vendas', 'tenant_id')).toEqual(Array(nQueries).fill(T))
+    expect(eqs(calls, 'gestao_vendas', 'corretor_id')).toEqual(Array(nQueries).fill(A))
+    expect(eqs(calls, 'gestao_vendas', 'status')[0]).toBe('Em negociação')
+    // A página (1ª query) ordena por updated_at e desempata por id; as contagens reaproveitam a mesma `consulta`.
+    expect(calls.filter((c) => c.method === 'order').slice(0, 2).map((c) => c.args[0])).toEqual(['updated_at', 'id'])
     expect(calls.some((c) => c.method === 'limit')).toBe(false)
   })
 
@@ -93,12 +98,13 @@ describe('vendas paginadas', () => {
 
   test('página além do fim (416 do PostgREST): lista vazia com o total, para a tela ir à última', async () => {
     const { client, calls } = fakeSupabase({
-      gestao_vendas: [{ data: null, error: { code: 'PGRST103', message: 'Requested range not satisfiable' } }, { data: null, error: null, count: 30 }],
+      // Ordem de consumo: a página (erra), as contagens das abas (uma por status) e só então a contagem de fallback.
+      gestao_vendas: [{ data: null, error: { code: 'PGRST103', message: 'Requested range not satisfiable' } }, ...Array(STATUS_VENDA.length).fill({ data: null, error: null, count: 0 }), { data: null, error: null, count: 30 }],
     })
     const r = await listarVendasPaginaDoMembro(ctxV('dono', client), { ...F, pagina: 99 })
     expect(r).toMatchObject({ itens: [], total: 30, pagina: 99, paginas: 2 })
-    expect(calls.filter((c) => c.method === 'select').map((c) => c.args[1])).toEqual([{ count: 'exact' }, { count: 'exact', head: true }])
-    expect(eqs(calls, 'gestao_vendas', 'tenant_id')).toEqual([T, T])
+    expect(calls.filter((c) => c.method === 'select').map((c) => c.args[1])).toEqual([{ count: 'exact' }, ...Array(STATUS_VENDA.length + 1).fill({ count: 'exact', head: true })])
+    expect(new Set(eqs(calls, 'gestao_vendas', 'tenant_id'))).toEqual(new Set([T]))
   })
 
   test('erro do banco sobe (500), não vira lista vazia', async () => {
@@ -134,9 +140,11 @@ describe('locações paginadas', () => {
     const { c, calls } = ctxL('corretor', A, { gestao_locacoes: { data: [linhaL(locacao('L-2026-0001', 'Ana'))], error: null, count: 30 } })
     const r = await listarPagina(c, { ...FL, pagina: 2, status: 'Em análise' })
     expect(ranges(calls)).toEqual([[24, 47]])
-    expect(eqs(calls, 'gestao_locacoes', 'tenant_id')).toEqual([T])
-    expect(eqs(calls, 'gestao_locacoes', 'corretor_id')).toEqual([A])
-    expect(eqs(calls, 'gestao_locacoes', 'status')).toEqual(['Em análise'])
+    // Página E contagens das abas: toda query leva tenant e corretor.
+    const nQueries = 1 + STATUS_LOCACAO.length
+    expect(eqs(calls, 'gestao_locacoes', 'tenant_id')).toEqual(Array(nQueries).fill(T))
+    expect(eqs(calls, 'gestao_locacoes', 'corretor_id')).toEqual(Array(nQueries).fill(A))
+    expect(eqs(calls, 'gestao_locacoes', 'status')[0]).toBe('Em análise')
     expect(r).toMatchObject({ total: 30, pagina: 2, paginas: 2, truncado: false })
   })
 
@@ -149,7 +157,7 @@ describe('locações paginadas', () => {
 
   test('página além do fim (416): vazia com o total', async () => {
     const { c } = ctxL('dono', null, {
-      gestao_locacoes: [{ data: null, error: { code: 'PGRST103', message: 'x' } }, { data: null, error: null, count: 5 }],
+      gestao_locacoes: [{ data: null, error: { code: 'PGRST103', message: 'x' } }, ...Array(STATUS_LOCACAO.length).fill({ data: null, error: null, count: 0 }), { data: null, error: null, count: 5 }],
     })
     expect(await listarPagina(c, { ...FL, pagina: 9 })).toMatchObject({ itens: [], total: 5, pagina: 9, paginas: 1 })
   })
@@ -164,5 +172,55 @@ describe('locações paginadas', () => {
     expect(r.total).toBe(1)
     const { c: c2 } = ctxL('corretor', A, { gestao_locacoes: { data: [], error: null, count: 0 } })
     await expect(listarPagina(c2, { ...FL, arquivadas: true })).rejects.toMatchObject({ statusCode: 403 })
+  })
+})
+
+describe('contagens por status (abas)', () => {
+  // `count` por status: o fake devolve a lista na ordem em que as queries são consumidas (página primeiro).
+  const contagensDe = (valores: Record<string, number>, lista: readonly string[]) => lista.map((s) => ({ data: null, error: null, count: valores[s] ?? 0 }))
+
+  test('vendas sem busca: uma contagem exata por status, sob tenant e corretor, SEM o status escolhido', async () => {
+    const { client, calls } = fakeSupabase({
+      gestao_vendas: [{ data: [], error: null, count: 3 }, ...contagensDe({ 'Em negociação': 2, 'Venda concluída': 1 }, STATUS_VENDA)],
+    })
+    const r = await listarVendasPaginaDoMembro(ctxV('corretor', client, A), { ...F, status: 'Em negociação' })
+    expect(r.contagens['Em negociação']).toBe(2)
+    expect(r.contagens['Venda concluída']).toBe(1)
+    expect(r.contagens['Venda cancelada']).toBe(0)
+    // A aba ativa não zera as outras: as contagens percorrem TODOS os status, e a 1ª query (a página) é a única filtrada.
+    expect(eqs(calls, 'gestao_vendas', 'status')).toEqual(['Em negociação', ...STATUS_VENDA])
+    expect(calls.filter((c) => c.method === 'select').slice(1).every((c) => (c.args[1] as { head?: boolean }).head === true)).toBe(true)
+  })
+
+  test('vendas com busca: conta só o que casa o texto, em todos os status, e a página respeita o status escolhido', async () => {
+    const a = venda('V-2026-0003', 'José Silva', { status: 'Em negociação' })
+    const b = venda('V-2026-0002', 'Jose Pereira', { status: 'Venda concluída' })
+    const c = venda('V-2026-0001', 'Maria Souza', { status: 'Em negociação' })
+    const { client, calls } = fakeSupabase({ gestao_vendas: { data: [a, b, c].map(rowV), error: null }, brokers: { data: [{ id: A, name: 'Carla' }], error: null } })
+    const r = await listarVendasPaginaDoMembro(ctxV('dono', client), { ...F, q: 'jose', status: 'Venda concluída' })
+    expect(r.itens.map((i) => i.processo.id)).toEqual(['V-2026-0002'])
+    expect(r.total).toBe(1)
+    expect(r.contagens['Em negociação']).toBe(1) // Maria não casa «jose»
+    expect(r.contagens['Venda concluída']).toBe(1)
+    // Status fica fora do banco na busca: senão as outras abas contariam zero.
+    expect(eqs(calls, 'gestao_vendas', 'status')).toEqual([])
+    expect(eqs(calls, 'gestao_vendas', 'tenant_id')).toEqual([T])
+  })
+
+  test('locações sem busca: contagem por status com tenant e corretor em toda query', async () => {
+    const { c, calls } = ctxL('corretor', A, {
+      gestao_locacoes: [{ data: [], error: null, count: 4 }, ...contagensDe({ Ativa: 4 }, STATUS_LOCACAO)],
+    })
+    const r = await listarPagina(c, FL)
+    expect(r.contagens).toMatchObject({ Ativa: 4, Encerrada: 0 })
+    expect(eqs(calls, 'gestao_locacoes', 'tenant_id')).toEqual(Array(1 + STATUS_LOCACAO.length).fill(T))
+    expect(eqs(calls, 'gestao_locacoes', 'corretor_id')).toEqual(Array(1 + STATUS_LOCACAO.length).fill(A))
+  })
+
+  test('locações: corretor sem vínculo não conta nada e não toca a tabela', async () => {
+    const { c, calls } = ctxL('corretor', null, { gestao_locacoes: { data: [], error: null, count: 9 } })
+    const r = await listarPagina(c, FL)
+    expect(Object.values(r.contagens).every((n) => n === 0)).toBe(true)
+    expect(calls.some((x) => x.table === 'gestao_locacoes')).toBe(false)
   })
 })

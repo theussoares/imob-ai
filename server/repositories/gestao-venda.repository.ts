@@ -80,6 +80,27 @@ export async function listarVendasPagina(
   return { vendas: paraModelos((data ?? []) as VendaRow[], escopo.tenantId), total: count ?? 0 }
 }
 
+/**
+ * Quantas vendas há em cada status, sob o MESMO escopo da lista (tenant, arquivado, corretor) e sem o
+ * filtro de status. Uma contagem exata do banco por status, em paralelo, e não `select status` das linhas:
+ * ler as linhas esbarraria no corte de 1000 do PostgREST e daria contagem errada em carteira grande.
+ */
+export async function contarVendasPorStatus(
+  db: Client,
+  escopo: Escopo,
+  arquivado: boolean,
+  statusValidos: readonly string[],
+): Promise<Record<string, number>> {
+  const pares = await Promise.all(
+    statusValidos.map(async (status) => {
+      const { count, error } = await consulta(db, escopo, { arquivado, status }, { count: 'exact', head: true })
+      if (error) throw error
+      return [status, count ?? 0] as const
+    }),
+  )
+  return Object.fromEntries(pares)
+}
+
 /** Teto da busca por texto: ela lê as linhas do filtro para casar nome/CPF em memória (ver `listarVendasDoMembro`). */
 export const LIMITE_BUSCA = 5000
 const BLOCO = 1000

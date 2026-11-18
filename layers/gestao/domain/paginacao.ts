@@ -38,6 +38,37 @@ export function paginar<T>(lista: T[], pagina: number, porPagina = POR_PAGINA): 
   }
 }
 
+/**
+ * Contagem por status, para as abas da lista. Vem do servidor e respeita a busca `q` e o escopo do perfil,
+ * mas NÃO o status escolhido: a aba ativa não pode zerar as outras, senão trocar de aba esconderia justo
+ * as abas para onde o usuário queria ir. Calculada sobre todas as páginas, não só a atual.
+ */
+export type Contagens = Record<string, number>
+
+export type PaginaComContagens<T> = Pagina<T> & { contagens: Contagens }
+
+/** Conta por status, com zero explícito para os que não aparecem (o contrato é «uma chave por status válido»). */
+export function contarPorStatus(lista: readonly { status: string }[], statusValidos: readonly string[]): Contagens {
+  const c: Contagens = Object.fromEntries(statusValidos.map((s) => [s, 0]))
+  for (const { status } of lista) if (status in c) c[status]!++
+  return c
+}
+
+/**
+ * Abas da lista: «Todos» (status '') primeiro e depois só os status com contagem > 0, na ordem do fluxo.
+ * São 13 status de venda; mostrar todas as abas deixaria a maioria em «0» e empurraria as úteis para fora
+ * da tela. O status ATIVO fica mesmo com contagem 0 (link antigo, ou a última do status foi movida): sumir
+ * com a aba em que o usuário está o deixaria sem saber qual filtro vale.
+ */
+export function abasDeStatus(contagens: Contagens | undefined, ordem: readonly string[], ativo = ''): { status: string; total: number }[] {
+  const c = contagens ?? {}
+  const total = ordem.reduce((soma, s) => soma + (c[s] ?? 0), 0)
+  return [
+    { status: '', total },
+    ...ordem.filter((s) => (c[s] ?? 0) > 0 || s === ativo).map((s) => ({ status: s, total: c[s] ?? 0 })),
+  ]
+}
+
 /** Filtro de uma lista de contratos: o que vive na URL (`?pagina=2&q=silva&status=Concluído`). */
 export interface FiltroLista {
   pagina: number

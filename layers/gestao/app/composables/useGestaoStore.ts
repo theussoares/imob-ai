@@ -15,8 +15,10 @@ import { resumoDashboard, type ResumoDashboard } from '../../domain/dashboard'
 import { competenciasDisponiveis, pendenciasFinanceiras, type RespostaFinanceiro, resumoLocacoes, resumoVendas } from '../../domain/financeiro'
 import { filtrarLocacoes } from '../../domain/filtro-locacao'
 import { filtrarProcessos } from '../../domain/filtro'
-import { paginar, type Pagina } from '../../domain/paginacao'
-import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Processo, StatusLocacao, StatusVenda } from '../../domain/types'
+import { contarPorStatus, paginar, type PaginaComContagens } from '../../domain/paginacao'
+import { STATUS_VENDA } from '../../domain/status'
+import { STATUS_LOCACAO } from '../../domain/locacao-status'
+import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Processo } from '../../domain/types'
 import { type FiltroPagina, HttpGestaoRepository } from '../services/HttpGestaoRepository'
 import { HttpImoveisRepository } from '../services/HttpImoveisRepository'
 import type { ArmazemGestao, ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from '../services/GestaoRepository'
@@ -241,16 +243,21 @@ export function useGestaoStore() {
    * 200 que o store guarda). `mock`: a carteira toda está em memória, então filtra e fatia aqui com as
    * MESMAS funções do servidor (`filtrarProcessos`, `paginar`) — o demo mostra o que o servidor mostraria.
    */
-  async function paginaDeVendas(f: FiltroPagina): Promise<Pagina<Processo>> {
+  async function paginaDeVendas(f: FiltroPagina): Promise<PaginaComContagens<Processo>> {
     if (api) return (repo as HttpGestaoRepository).paginaVendas(f)
     const base = f.arquivados && sessao.value ? processosArquivados(matriz.value, sessao.value, estado.value.processos) : visiveis.value
-    return paginar(filtrarProcessos(base, { q: f.q, status: f.status as StatusVenda | '' }, corretores.value), f.pagina)
+    // As contagens das abas saem da lista SEM o status (mas já com a busca), como no servidor.
+    const casadas = filtrarProcessos(base, { q: f.q, status: '' }, corretores.value)
+    const lista = f.status ? casadas.filter((p) => p.status === f.status) : casadas
+    return { ...paginar(lista, f.pagina), contagens: contarPorStatus(casadas, STATUS_VENDA) }
   }
 
-  async function paginaDeLocacoes(f: FiltroPagina): Promise<Pagina<Locacao>> {
+  async function paginaDeLocacoes(f: FiltroPagina): Promise<PaginaComContagens<Locacao>> {
     if (api) return (repo as HttpGestaoRepository).paginaLocacoes(f)
     const base = f.arquivados && sessao.value ? locacoesArquivadas(matriz.value, sessao.value, estado.value.locacoes) : locacoesVisiveis.value
-    return paginar(filtrarLocacoes(base, { q: f.q, status: f.status as StatusLocacao | '' }, corretores.value), f.pagina)
+    const casadas = filtrarLocacoes(base, { q: f.q, status: '' }, corretores.value)
+    const lista = f.status ? casadas.filter((l) => l.status === f.status) : casadas
+    return { ...paginar(lista, f.pagina), contagens: contarPorStatus(casadas, STATUS_LOCACAO) }
   }
 
   /** Página da tela Documentos. `http`: o servidor lê e filtra; `mock`: a mesma conta (`paginarDocumentos`) sobre o estado local. */

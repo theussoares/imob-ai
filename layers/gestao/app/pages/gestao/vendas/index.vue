@@ -68,17 +68,18 @@ const btn =
           data-testid="busca"
         />
       </label>
-      <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
-        Status
-        <select :value="filtro.status" :class="campo" data-testid="filtro-status" @change="mudar({ status: ($event.target as HTMLSelectElement).value })">
-          <option value="">Todos os status</option>
-          <option v-for="s in STATUS_VENDA" :key="s" :value="s">{{ s }}</option>
-        </select>
-      </label>
       <p v-if="resultado" class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite">
         {{ resultado.total }} {{ resultado.total === 1 ? 'contrato' : 'contratos' }}
       </p>
     </div>
+
+    <GestaoAbasStatus
+      :contagens="resultado?.contagens"
+      :ordem="STATUS_VENDA"
+      :ativo="filtro.status"
+      rotulo="Filtrar por status"
+      @mudar="(status) => mudar({ status })"
+    />
 
     <div
       v-if="falhou"

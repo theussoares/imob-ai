@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filtroArquivadosDaUrl, filtroDaUrl, lerPagina, paginar, POR_PAGINA, queryDaLista, queryDosArquivados, totalDePaginas } from '../../domain/paginacao'
+import { abasDeStatus, contarPorStatus, filtroArquivadosDaUrl, filtroDaUrl, lerPagina, paginar, POR_PAGINA, queryDaLista, queryDosArquivados, totalDePaginas } from '../../domain/paginacao'
 
 describe('lerPagina', () => {
   it.each([
@@ -79,5 +79,32 @@ describe('filtro de Arquivados na URL', () => {
 
   it('tipo desconhecido vira vendas', () => {
     expect(filtroArquivadosDaUrl({ tipo: 'x' }).tipo).toBe('venda')
+  })
+})
+
+describe('contagem por status (abas das listas)', () => {
+  const ORDEM = ['A', 'B', 'C', 'D']
+
+  it('contarPorStatus: uma chave por status válido (zero explícito) e ignora status desconhecido', () => {
+    const c = contarPorStatus([{ status: 'A' }, { status: 'A' }, { status: 'C' }, { status: 'lixo' }], ORDEM)
+    expect(c).toEqual({ A: 2, B: 0, C: 1, D: 0 })
+  })
+
+  it('abasDeStatus: «Todos» primeiro, com a soma, e só os status com contagem > 0, na ordem do fluxo', () => {
+    const abas = abasDeStatus({ A: 2, B: 0, C: 1, D: 0 }, ORDEM)
+    expect(abas).toEqual([
+      { status: '', total: 3 },
+      { status: 'A', total: 2 },
+      { status: 'C', total: 1 },
+    ])
+  })
+
+  it('a aba ativa fica mesmo com contagem 0 (link antigo): não some o filtro em vigor', () => {
+    expect(abasDeStatus({ A: 1, B: 0, C: 0, D: 0 }, ORDEM, 'D').map((a) => a.status)).toEqual(['', 'A', 'D'])
+  })
+
+  it('sem contagens (carregando) ou lista vazia: só «Todos», com zero', () => {
+    expect(abasDeStatus(undefined, ORDEM)).toEqual([{ status: '', total: 0 }])
+    expect(abasDeStatus({ A: 0, B: 0, C: 0, D: 0 }, ORDEM)).toEqual([{ status: '', total: 0 }])
   })
 })

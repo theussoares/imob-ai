@@ -5,8 +5,10 @@ import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/
 import { filtroDocumentosDaUrl, paginarDocumentos } from '../../domain/documentos'
 import { filtrarProcessos } from '../../domain/filtro'
 import { filtrarLocacoes } from '../../domain/filtro-locacao'
-import { paginar } from '../../domain/paginacao'
-import type { Documento, StatusLocacao, StatusVenda } from '../../domain/types'
+import { contarPorStatus, paginar } from '../../domain/paginacao'
+import { STATUS_VENDA } from '../../domain/status'
+import { STATUS_LOCACAO } from '../../domain/locacao-status'
+import type { Documento } from '../../domain/types'
 import type { Fetcher } from '../../app/services/clienteGestao'
 import type { ArmazemGestao, DadosGestao } from '../../app/services/GestaoRepository'
 import { MockGestaoRepository } from '../../app/services/MockGestaoRepository'
@@ -109,14 +111,14 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     if (metodo === 'GET' && rota === 'matriz') return out({ matriz: d.matriz })
     // Como o servidor: com `pagina` a resposta é uma Pagina; sem ela, o array/objeto de sempre.
     if (metodo === 'GET' && rota === 'vendas' && q.pagina !== undefined) {
-      const achadas = filtrarProcessos(d.processos.filter((p) => !!p.arquivado === !!q.arquivados), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusVenda | '' }, d.corretores)
-      const pag = paginar(achadas, Number(q.pagina))
-      return out({ ...pag, truncado: false, itens: pag.itens.map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })) })
+      const casadas = filtrarProcessos(d.processos.filter((p) => !!p.arquivado === !!q.arquivados), { q: String(q.q ?? ''), status: '' }, d.corretores)
+      const pag = paginar(casadas.filter((p) => !q.status || p.status === q.status), Number(q.pagina))
+      return out({ ...pag, truncado: false, contagens: contarPorStatus(casadas, STATUS_VENDA), itens: pag.itens.map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })) })
     }
     if (metodo === 'GET' && rota === 'locacoes' && q.pagina !== undefined) {
-      const achadas = filtrarLocacoes(d.locacoes.filter((l) => !!l.arquivado === !!q.arquivadas), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusLocacao | '' }, d.corretores)
-      const pag = paginar(achadas, Number(q.pagina))
-      return out({ ...pag, truncado: false, itens: pag.itens.map((l) => locacao(l.id)) })
+      const casadas = filtrarLocacoes(d.locacoes.filter((l) => !!l.arquivado === !!q.arquivadas), { q: String(q.q ?? ''), status: '' }, d.corretores)
+      const pag = paginar(casadas.filter((l) => !q.status || l.status === q.status), Number(q.pagina))
+      return out({ ...pag, truncado: false, contagens: contarPorStatus(casadas, STATUS_LOCACAO), itens: pag.itens.map((l) => locacao(l.id)) })
     }
     if (metodo === 'GET' && rota === 'documentos/pagina') {
       const f = filtroDocumentosDaUrl(q, { podeApagar: true })

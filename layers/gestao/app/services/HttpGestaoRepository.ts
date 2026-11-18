@@ -6,7 +6,7 @@ import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes
 import { type FiltroListaDocumentos, type PaginaDocumentos, queryDosDocumentos } from '../../domain/documentos'
 import type { ResumoDashboard } from '../../domain/dashboard'
 import type { RespostaFinanceiro } from '../../domain/financeiro'
-import type { Pagina } from '../../domain/paginacao'
+import type { PaginaComContagens } from '../../domain/paginacao'
 import { type ClienteGestao, ErroGestao, paraFalha } from './clienteGestao'
 import type { ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from './GestaoRepository'
 
@@ -158,13 +158,13 @@ export class HttpGestaoRepository implements GestaoRepository {
     return this.api.get<PaginaDocumentos>('/api/gestao/documentos/pagina', queryDosDocumentos(f))
   }
 
-  async paginaVendas(f: FiltroPagina): Promise<Pagina<Processo>> {
-    const r = await this.api.get<Pagina<RespostaVenda>>('/api/gestao/vendas', consultaDaPagina(f, 'arquivados'))
+  async paginaVendas(f: FiltroPagina): Promise<PaginaComContagens<Processo>> {
+    const r = await this.api.get<PaginaComContagens<RespostaVenda>>('/api/gestao/vendas', consultaDaPagina(f, 'arquivados'))
     return { ...r, itens: r.itens.map((i) => this.guardarVenda(i)) }
   }
 
-  async paginaLocacoes(f: FiltroPagina): Promise<Pagina<Locacao>> {
-    const r = await this.api.get<Pagina<RespostaLocacao>>('/api/gestao/locacoes', consultaDaPagina(f, 'arquivadas'))
+  async paginaLocacoes(f: FiltroPagina): Promise<PaginaComContagens<Locacao>> {
+    const r = await this.api.get<PaginaComContagens<RespostaLocacao>>('/api/gestao/locacoes', consultaDaPagina(f, 'arquivadas'))
     return { ...r, itens: r.itens.map((i) => this.guardarLocacao(i)) }
   }
 
