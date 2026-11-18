@@ -24,6 +24,13 @@
   --danger-ghost: #fef2f2;
 }
 
+/* Cor do texto herdada: o layout já fixa `text-[var(--ink)]`, mas login, verificação e convite usam
+   só `.gestao-tema` e herdavam o --ink do :root (escuro), o que no tema escuro deixava título,
+   rótulos e o captcha ilegíveis. */
+.gestao-tema {
+  color: var(--ink);
+}
+
 /* Tema escuro. A classe fica no <html> (não no layout) para o esqueleto do HTML inicial e as telas de
    login seguirem a mesma escolha. Aqui --brand vira claro (é a cor de realce de links, barras e
    interruptores); por isso o texto sobre ele usa --on-brand e o texto dos botões amarelos é fixado
