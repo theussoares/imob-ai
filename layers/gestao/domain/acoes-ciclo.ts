@@ -1,6 +1,7 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes'
 import { alterar } from './acoes-processo'
 import { statusFinal } from './status'
+import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import type { Processo } from './types'
 
 /**
@@ -11,8 +12,6 @@ import type { Processo } from './types'
  * Arquivar também não apaga nada — o contrato sai da lista e vai para «Arquivados»,
  * de onde volta com «Restaurar» (decisão de 15/11: o jurídico só arquiva).
  */
-
-const SO_DIGITOS = (t: string) => t.replace(/\D/g, '')
 
 export interface DadosAbertura {
   vendedor: { nome: string; cpf: string }
@@ -29,8 +28,9 @@ export function salvarAbertura(estado: Estado, id: string, d: DadosAbertura, ato
     if (!d.comprador.nome.trim()) return { ok: false, erro: 'Informe o comprador.' }
     if (!d.imovel.trim()) return { ok: false, erro: 'Informe o imóvel.' }
     for (const [rot, cpf] of [['vendedor', d.vendedor.cpf], ['comprador', d.comprador.cpf]] as const) {
-      if (cpf.trim() && ![11, 14].includes(SO_DIGITOS(cpf).length)) {
-        return { ok: false, erro: `CPF ou CNPJ do ${rot} deve ter 11 ou 14 dígitos.` }
+      // Vazio passa: a abertura se completa aos poucos, mas a etapa 1 só conclui com ele (`pendenciasEtapa`).
+      if (cpf.trim() && !tipoDeDocumento(cpf)) {
+        return { ok: false, erro: `CPF ou CNPJ do ${rot} inválido. Confira os dígitos.` }
       }
     }
     const arquivo = d.preliminar.existe ? d.preliminar.arquivo?.trim() || null : null

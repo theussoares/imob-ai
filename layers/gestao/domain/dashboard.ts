@@ -1,5 +1,6 @@
 import { avisosLocacao, diasEntre, type NivelAviso } from './avisos-locacao.ts'
 import { locacaoFinal } from './locacao-status.ts'
+import { documentosPendentes } from './requisitos.ts'
 import { statusFinal } from './status.ts'
 import type { Documento, Locacao, Processo } from './types'
 
@@ -66,6 +67,10 @@ export function resumoDashboard(
   for (const p of vendasAtivas) {
     const dias = statusFinal(p.status) ? 0 : parado(p.updated)
     if (dias) atencao.push({ id: p.id, tipo: 'venda', titulo: `${p.id} · ${p.imovel}`, texto: `Sem movimento há ${dias} dias (${p.status}).`, nivel: 'atencao', href: `/gestao/vendas/${p.id}` })
+  }
+  for (const p of vendasAtivas) {
+    const n = documentosPendentes(p, documentos)
+    if (n) atencao.push({ id: p.id, tipo: 'venda', titulo: `${p.id} · ${p.imovel}`, texto: `${n} ${n === 1 ? 'pendência documental' : 'pendências documentais'}.`, nivel: 'atencao', href: `/gestao/vendas/${p.id}` })
   }
   for (const l of locacoesAtivas) {
     const dias = locacaoFinal(l.status) ? 0 : parado(l.updated)

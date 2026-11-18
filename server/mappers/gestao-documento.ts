@@ -1,3 +1,4 @@
+import { rotuloQuando } from '~~/layers/gestao/domain/fuso'
 import type { CategoriaDocumento, Documento, EstadoDocumento } from '~~/layers/gestao/domain/types'
 import type { AlvoTipo } from '~~/server/utils/gestao-documento-regras'
 
@@ -31,20 +32,8 @@ export interface DocumentoGestao extends Documento {
   alvoTipo: AlvoTipo
 }
 
-/** «dd/mm/aaaa hh:mm» no fuso do Brasil: o servidor roda em UTC e o texto é para quem lê no painel. */
-export function quandoBr(iso: string): string {
-  const partes = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(iso))
-  const g = (t: string) => partes.find((p) => p.type === t)?.value ?? ''
-  return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}`
-}
+/** «dd/mm/aaaa hh:mm» no fuso do painel: o servidor roda em UTC e o texto é para quem lê no painel. */
+export const quandoBr = (iso: string): string => rotuloQuando(iso)
 
 /**
  * Row → modelo do domínio. Não carrega `storage_path`, `mime` nem `tenant_id`:

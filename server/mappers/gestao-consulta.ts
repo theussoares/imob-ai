@@ -1,3 +1,4 @@
+import { rotuloQuando } from '~~/layers/gestao/domain/fuso'
 import { z } from 'zod'
 import { FINALIDADES, type ConsultaFeita } from '~~/layers/gestao/domain/consulta'
 
@@ -34,11 +35,8 @@ export const COLUNAS_CONSULTA = 'id, documento_mascarado, tipo, finalidade, cont
 
 const p = (n: number) => String(n).padStart(2, '0')
 
-/** ISO → `dd/mm/aaaa hh:mm` no relógio de Brasília (sem horário de verão desde 2019: UTC-3). */
-export function quandoBrasil(iso: string): string {
-  const d = new Date(new Date(iso).getTime() - 3 * 3600_000)
-  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`
-}
+/** ISO → `dd/mm/aaaa hh:mm` no fuso do painel. */
+export const quandoBrasil = (iso: string): string => rotuloQuando(iso)
 
 export function toConsultaModel(row: unknown): ConsultaFeita {
   const r = consultaRowSchema.parse(row)

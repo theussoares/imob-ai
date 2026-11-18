@@ -63,10 +63,10 @@ describe('permitidoNaLocacao', () => {
   })
 })
 
-describe('relógio de Brasília', () => {
-  test('22h em Brasília ainda é o mesmo dia, embora seja 01h UTC do dia seguinte', () => {
+describe('relógio do painel (Campo Grande, UTC-4)', () => {
+  test('21h em Campo Grande ainda é o mesmo dia, embora seja 01h UTC do dia seguinte', () => {
     const d = agoraBrasil(new Date('2026-11-18T01:00:00Z'))
-    expect([d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()]).toEqual([2026, 11, 17, 22])
+    expect([d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()]).toEqual([2026, 11, 17, 21])
   })
 })
 

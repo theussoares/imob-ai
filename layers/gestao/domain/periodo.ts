@@ -1,4 +1,5 @@
 import { hojeISO, somarDias } from './avisos-locacao.ts'
+import { agoraNoFuso } from './fuso.ts'
 
 /**
  * Atalhos do seletor de período (de/até em ISO yyyy-mm-dd, ambos inclusivos).
@@ -29,9 +30,7 @@ export const ATALHOS_PERIODO: { id: AtalhoPeriodo; rotulo: string }[] = [
  * domínio é compartilhado com o navegador e não pode importar de `server/`; sem ela,
  * «Hoje» viraria o dia seguinte à noite para quem está em UTC.
  */
-export function agoraBrasilData(agora: Date = new Date()): Date {
-  return new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
-}
+export const agoraBrasilData = (agora: Date = new Date()): Date => agoraNoFuso(agora)
 
 const p2 = (n: number) => String(n).padStart(2, '0')
 

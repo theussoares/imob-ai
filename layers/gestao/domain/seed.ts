@@ -60,8 +60,8 @@ export function processosSeed(): Processo[] {
   return [
     proc({
       id: 'V-2026-0142',
-      vendedor: pessoa('Marta Lopes', '214.568.730-12', 1),
-      comprador: pessoa('Daniel Reis', '398.115.204-77', 2),
+      vendedor: pessoa('Marta Lopes', '214.568.730-08', 1),
+      comprador: pessoa('Daniel Reis', '398.115.204-29', 2),
       imovel: 'Apartamento 302 · Edifício Solar · Rua das Palmeiras, 410',
       corretorId: 'c1',
       status: 'Aguardando registro',
@@ -86,8 +86,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0151',
-      vendedor: pessoa('Roberto Neves', '102.744.386-50', 3),
-      comprador: { nome: 'Camila Farias', cpf: '445.902.118-03' },
+      vendedor: pessoa('Roberto Neves', '102.744.386-90', 3),
+      comprador: { nome: 'Camila Farias', cpf: '445.902.118-82' },
       imovel: 'Casa 3 quartos · Jardim das Acácias',
       corretorId: 'c2',
       captadorId: 'c1',
@@ -105,8 +105,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0155',
-      vendedor: { nome: 'Antônio Cardoso', cpf: '071.338.559-24' },
-      comprador: { nome: 'Larissa Moura', cpf: '287.601.440-91' },
+      vendedor: { nome: 'Antônio Cardoso', cpf: '071.338.559-68' },
+      comprador: { nome: 'Larissa Moura', cpf: '287.601.440-84' },
       imovel: 'Terreno 360 m² · Loteamento Vila Nova',
       corretorId: 'c1',
       captadorId: 'c1',
@@ -117,7 +117,7 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0158',
-      vendedor: pessoa('Sônia Barros', '330.912.685-40', 7),
+      vendedor: pessoa('Sônia Barros', '330.912.685-43', 7),
       comprador: pessoa('Empresa Alfa Ltda', '12.345.678/0001-90', 8),
       imovel: 'Sala comercial 41 m² · Centro',
       corretorId: 'c3',
@@ -136,8 +136,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0133',
-      vendedor: pessoa('Irene Matos', '445.118.902-61', 9),
-      comprador: pessoa('Fábio Siqueira', '519.220.007-18', 10),
+      vendedor: pessoa('Irene Matos', '445.118.902-00', 9),
+      comprador: pessoa('Fábio Siqueira', '519.220.007-52', 10),
       imovel: 'Casa 2 quartos · Jardim Primavera',
       corretorId: 'c3',
       captadorId: 'c3',
@@ -155,8 +155,8 @@ export function processosSeed(): Processo[] {
     }),
     proc({
       id: 'V-2026-0147',
-      vendedor: pessoa('Gustavo Pires', '602.331.874-09', 11),
-      comprador: pessoa('Patrícia Lemos', '730.446.118-25', 12),
+      vendedor: pessoa('Gustavo Pires', '602.331.874-64', 11),
+      comprador: pessoa('Patrícia Lemos', '730.446.118-73', 12),
       imovel: 'Sobrado · Rua das Orquídeas, 88',
       corretorId: 'c2',
       captadorId: 'c2',

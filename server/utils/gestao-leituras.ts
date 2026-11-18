@@ -11,7 +11,7 @@ import {
   type RespostaFinanceiro,
 } from '~~/layers/gestao/domain/financeiro'
 import { listarConsultas, inserirConsulta, ultimoIdConsulta } from '~~/server/repositories/gestao-consulta.repository'
-import { listarParaConferir } from '~~/server/repositories/gestao-documento.repository'
+import { listarDocumentosDosContratos } from '~~/server/repositories/gestao-documento.repository'
 import { buscarLocacao, listarTodasLocacoes } from '~~/server/repositories/gestao-locacao.repository'
 import { buscarVenda, listarTodasVendas } from '~~/server/repositories/gestao-venda.repository'
 import { registrarEvento, listarEventos } from '~~/server/repositories/gestao-evento.repository'
@@ -85,7 +85,10 @@ export async function financeiro(ctx: ContextoGestao, competencia: string): Prom
 export async function dashboard(ctx: ContextoGestao): Promise<ResumoDashboard & { truncado: boolean }> {
   const { processos, locacoes, truncado } = await contratosVisiveis(ctx)
   const ids = [...processos.map((p) => p.id), ...locacoes.map((l) => l.id)]
-  const documentos = await listarParaConferir(ctx.db, ctx.membro.tenantId, ids)
+  // Todos os documentos dos contratos visíveis (não só os «para conferir»): as pendências
+  // documentais da venda saem da mesma lista. Sem isso o painel dizia «Nada pendente» com a
+  // venda mostrando 9 documentos faltando.
+  const { docs: documentos } = await listarDocumentosDosContratos(ctx.db, ctx.membro.tenantId, ids)
   return { ...resumoDashboard(processos, locacoes, documentos, hoje()), truncado }
 }
 

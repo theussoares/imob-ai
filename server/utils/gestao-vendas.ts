@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { abrirProcesso, agora, type Estado } from '~~/layers/gestao/domain/acoes'
+import { agoraNoFuso } from '~~/layers/gestao/domain/fuso'
 import { filtrarProcessos } from '~~/layers/gestao/domain/filtro'
 import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
 import { contarPorStatus, paginar, POR_PAGINA, totalDePaginas, type PaginaComContagens } from '~~/layers/gestao/domain/paginacao'
@@ -222,7 +223,7 @@ export async function abrirVendaDoMembro(ctx: CtxVendas, corpo: unknown, deps: D
   const validos = await corretoresDoTenant(ctx.db, ctx.membro.tenantId, [corretorId, captadorId])
   if (!validos.has(corretorId) || !validos.has(captadorId)) throw invalido('Corretor inválido.')
 
-  const quando = agora((deps.agora ?? (() => new Date()))())
+  const quando = agora(agoraNoFuso((deps.agora ?? (() => new Date()))()))
   const pct = await deps.comissaoPadrao(ctx.db, ctx.membro.tenantId)
   const ator = { nome: ctx.membro.nome }
 
@@ -273,7 +274,7 @@ export async function executarAcaoVenda(
   const tenantId = ctx.membro.tenantId
   const escopo = escopoDe(ctx)
   const veTodos = escopo.corretorId === undefined
-  const quando = agora((deps.agora ?? (() => new Date()))())
+  const quando = agora(agoraNoFuso((deps.agora ?? (() => new Date()))()))
   const documentos = deps.documentosDoProcesso ? await deps.documentosDoProcesso(ctx.db, tenantId, id) : []
 
   // Reatribuição de corretor/captador: valida no tenant e, para quem não vê

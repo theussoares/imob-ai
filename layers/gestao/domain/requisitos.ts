@@ -1,5 +1,6 @@
 // `.ts` explícito: este módulo é carregado pelo seed, que o mock lê em Node puro.
 import { conferirFontes } from './commission.ts'
+import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import type { CategoriaDocumento, Documento, EstadoDocumento, Processo } from './types'
 
 /**
@@ -114,6 +115,12 @@ export function pendenciasEtapa(p: Processo, docs: Documento[], etapa: number): 
       if (vazio(p.vendedor.nome)) out.push('Informe o vendedor.')
       if (vazio(p.comprador.nome)) out.push('Informe o comprador.')
       if (vazio(p.imovel)) out.push('Informe o imóvel.')
+      // CPF/CNPJ das duas partes já na abertura: a consulta cadastral e o contrato dependem dele.
+      for (const quem of ['vendedor', 'comprador'] as const) {
+        const cpf = p[quem].cpf
+        if (vazio(cpf)) out.push(`Informe o CPF ou CNPJ do ${quem}.`)
+        else if (!tipoDeDocumento(cpf)) out.push(`CPF ou CNPJ do ${quem} inválido.`)
+      }
       break
     case 2:
     case 3: {
