@@ -3,6 +3,8 @@ import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Perfil, Processo } from '../../domain/types'
+import type { ResumoDashboard } from '../../domain/dashboard'
+import type { RespostaFinanceiro } from '../../domain/financeiro'
 import type { Pagina } from '../../domain/paginacao'
 import { type ClienteGestao, ErroGestao, paraFalha } from './clienteGestao'
 import type { ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from './GestaoRepository'
@@ -133,6 +135,15 @@ export class HttpGestaoRepository implements GestaoRepository {
       consultas: consultas.consultas,
       corretores: corretores.corretores,
     }
+  }
+
+  /** Totais calculados no servidor sobre TODOS os contratos do escopo (a lista do store tem só os 200 mais recentes). */
+  financeiro(competencia: string): Promise<RespostaFinanceiro> {
+    return this.api.get<RespostaFinanceiro>('/api/gestao/financeiro', competencia ? { competencia } : undefined)
+  }
+
+  dashboard(): Promise<ResumoDashboard & { truncado: boolean }> {
+    return this.api.get<ResumoDashboard & { truncado: boolean }>('/api/gestao/dashboard')
   }
 
   /**

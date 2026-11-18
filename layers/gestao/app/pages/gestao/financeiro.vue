@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { brl } from '../../../domain/acoes-processo'
-import { hojeISO } from '../../../domain/avisos-locacao'
-import {
-  competenciasDisponiveis,
-  pendenciasFinanceiras,
-  ROTULO_REPASSE,
-  ROTULO_SITUACAO,
-  resumoLocacoes,
-  resumoVendas,
-} from '../../../domain/financeiro'
+import { ROTULO_REPASSE, ROTULO_SITUACAO, type RespostaFinanceiro } from '../../../domain/financeiro'
 
 // Rota estática: vence `[secao].vue`. A guarda do middleware já barra quem não tem `valores`.
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
@@ -20,20 +12,35 @@ const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 await store.carregar()
 
 const competencia = ref('')
-const hoje = hojeISO()
 
-const vendas = computed(() => resumoVendas(store.visiveis.value))
-const locacoes = computed(() => resumoLocacoes(store.locacoesVisiveis.value, hoje, competencia.value))
-const competencias = computed(() => competenciasDisponiveis(store.locacoesVisiveis.value))
+// Totais do servidor (`http`) ou calculados aqui (`mock`): ver `store.lerFinanceiro`. A tela só guarda a resposta.
+const resumo = ref<RespostaFinanceiro | null>(await store.lerFinanceiro('').catch(() => null))
+const vendas = computed(() => resumo.value!.vendas)
+const locacoes = computed(() => resumo.value!.locacoes)
+const competencias = computed(() => resumo.value!.competencias)
+const pendencias = computed(() => resumo.value!.pendencias)
 
-const pendencias = computed(() => pendenciasFinanceiras(store.locacoesVisiveis.value, hoje))
+let seq = 0
+async function atualizar() {
+  const minha = ++seq
+  try {
+    const r = await store.lerFinanceiro(competencia.value)
+    if (minha !== seq) return
+    resumo.value = r
+  } catch {
+    // Com totais antigos na tela, eles ficam; sem nenhum, o bloco de erro (`!resumo`) aparece.
+  }
+}
+watch(competencia, atualizar)
 const podeValores = computed(() => !!store.caps(null)?.valores)
 
 // Mesma ação do contrato (etapa 7): a regra e o histórico da locação são os mesmos nos dois lugares.
 async function registrar(loc: string, acao: 'registrarPagamento' | 'registrarRepasse', cobrancaId: string, comprovante: string, sucesso: string) {
   const r = await store.executar('locacao', loc, acao, { cobrancaId, data: new Date().toISOString().slice(0, 10), comprovante })
-  if (r.ok) toast.success(sucesso)
-  else toast.error(r.erro)
+  if (r.ok) {
+    toast.success(sucesso)
+    await atualizar()
+  } else toast.error(r.erro)
 }
 const pagar = (loc: string, cb: string, comp: string) => registrar(loc, 'registrarPagamento', cb, comp, 'Pagamento registrado.')
 const repassar = (loc: string, cb: string, comp: string) => registrar(loc, 'registrarRepasse', cb, comp, 'Repasse registrado.')
@@ -53,6 +60,16 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Financeiro</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Comissões das vendas e aluguéis, taxas e repasses das locações.</p>
     </header>
+
+    <div v-if="!resumo" role="alert" class="[display:grid] justify-items-start gap-3 rounded-[14px] border border-[var(--line)] bg-[var(--paper)] p-5">
+      <p class="m-0 font-bold">Não foi possível carregar os totais.</p>
+      <button type="button" class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]" @click="atualizar">Tentar de novo</button>
+    </div>
+
+    <template v-else>
+    <p v-if="resumo.truncado" role="status" class="m-0 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] p-3 text-[var(--ink-soft)]" data-testid="aviso-truncado">
+      Há mais de 5000 contratos de cada tipo: os totais cobrem só os mais recentes.
+    </p>
 
     <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :demo="demo" @pagar="pagar" @repassar="repassar" />
 
@@ -149,5 +166,6 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
         </table>
       </div>
     </section>
+    </template>
   </section>
 </template>

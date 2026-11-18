@@ -11,7 +11,7 @@ export interface ConsultaGravada {
 
 /**
  * Supabase em memória, só o que o repository de documentos usa: `eq`, `neq`, `not`,
- * `is`, `in`, `order`, `limit`, `select` (com projeção de colunas), `insert`,
+ * `is`, `in`, `order`, `limit`, `range`, `select` (com projeção de colunas), `insert`,
  * `update`, `delete`, `maybeSingle`, `single`.
  *
  * Existe, além do `fakeSupabase` (que devolve respostas roteirizadas), porque
@@ -35,6 +35,7 @@ export function memoriaSupabase(inicial: Record<string, Row[]> = {}) {
     let novo: Row | null = null
     let ordenar: string | null = null
     let limite = Infinity
+    let inicio = 0
     let unico: 'maybe' | 'single' | null = null
 
     const chain: Record<string, unknown> = {
@@ -55,6 +56,7 @@ export function memoriaSupabase(inicial: Record<string, Row[]> = {}) {
       in(c: string, vs: unknown[]) { preds.push((r) => vs.includes(r[c])); return chain },
       order(c: string) { ordenar = c; return chain },
       limit(n: number) { limite = n; return chain },
+      range(de: number, ate: number) { inicio = de; limite = ate - de + 1; return chain },
       maybeSingle() { unico = 'maybe'; return chain },
       single() { unico = 'single'; return chain },
     }
@@ -78,7 +80,7 @@ export function memoriaSupabase(inicial: Record<string, Row[]> = {}) {
       }
       let lista = data as Row[]
       if (ordenar) { const o = ordenar; lista = [...lista].sort((a, b) => String(b[o]).localeCompare(String(a[o]))) }
-      lista = lista.slice(0, limite).map(proj)
+      lista = lista.slice(inicio, inicio + limite).map(proj)
       if (unico) {
         if (!lista.length && unico === 'single') { data = null; error = { code: 'PGRST116', message: 'sem linha' } }
         else data = lista[0] ?? null

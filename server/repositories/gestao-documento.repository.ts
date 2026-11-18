@@ -84,24 +84,40 @@ export async function listarLixeira(
     .map(toDocumentoGestao)
 }
 
+/** Ids por consulta: o `in (...)` vai na URL, e milhares de uuid estouram o limite dela. */
+const LOTE_IDS = 100
+const BLOCO_DOCS = 1000
+
 /**
  * Documentos `enviado` (ainda sem conferência) dos contratos `alvoIds`, para o número do
  * Dashboard. Recebe os ids que quem pergunta enxerga: o corretor não conta documento de
  * contrato alheio. Lista vazia não vai ao banco (`.in('alvo_id', [])` não vale confiar).
+ *
+ * É CONTAGEM, então não pode cortar em 200: lê todos, em lotes de ids e, dentro do lote, em
+ * blocos de 1000 linhas (o corte do PostgREST).
  */
 export async function listarParaConferir(db: SupabaseClient, tenantId: string, alvoIds: string[]): Promise<DocumentoGestao[]> {
-  if (!alvoIds.length) return []
-  const { data, error } = await db
-    .from('gestao_documentos')
-    .select(COLUNAS_DOCUMENTO)
-    .eq('tenant_id', tenantId)
-    .eq('estado', 'enviado')
-    .is('apagado_em', null)
-    .in('alvo_id', alvoIds)
-    .order('updated_at', { ascending: false })
-    .limit(LIMITE_LISTA)
-  if (error) throw error
-  return ((data ?? []) as unknown as GestaoDocumentoRow[]).map(toDocumentoGestao)
+  const linhas: GestaoDocumentoRow[] = []
+  for (let i = 0; i < alvoIds.length; i += LOTE_IDS) {
+    const lote = alvoIds.slice(i, i + LOTE_IDS)
+    for (let de = 0; ; de += BLOCO_DOCS) {
+      const { data, error } = await db
+        .from('gestao_documentos')
+        .select(COLUNAS_DOCUMENTO)
+        .eq('tenant_id', tenantId)
+        .eq('estado', 'enviado')
+        .is('apagado_em', null)
+        .in('alvo_id', lote)
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(de, de + BLOCO_DOCS - 1)
+      if (error) throw error
+      const bloco = (data ?? []) as unknown as GestaoDocumentoRow[]
+      linhas.push(...bloco)
+      if (bloco.length < BLOCO_DOCS) break
+    }
+  }
+  return linhas.map(toDocumentoGestao)
 }
 
 /** Uma linha por id, com o caminho — para confirmar, baixar, conferir e apagar. Inclui `pendente`. */

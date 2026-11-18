@@ -152,3 +152,13 @@ export const ROTULO_REPASSE: Record<SituacaoRepasse, string> = {
   pendente: 'Repasse pendente',
   feito: 'Repasse feito',
 }
+
+/** O que a tela Financeiro lê: do servidor em `http`, calculado localmente em `mock` (mesmas funções). */
+export interface RespostaFinanceiro {
+  vendas: ResumoVendas
+  locacoes: ResumoLocacoes
+  competencias: string[]
+  pendencias: PendenciasFinanceiras
+  /** `true` = passou de 5000 contratos por tipo; os totais cobrem só os mais recentes. */
+  truncado: boolean
+}

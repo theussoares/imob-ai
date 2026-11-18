@@ -9,6 +9,9 @@ import type { FotoNova } from '../../domain/imoveis-fotos'
 import type { PropertyStatus } from '~~/shared/models/property'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
+import { hojeISO } from '../../domain/avisos-locacao'
+import { resumoDashboard, type ResumoDashboard } from '../../domain/dashboard'
+import { competenciasDisponiveis, pendenciasFinanceiras, type RespostaFinanceiro, resumoLocacoes, resumoVendas } from '../../domain/financeiro'
 import { filtrarLocacoes } from '../../domain/filtro-locacao'
 import { filtrarProcessos } from '../../domain/filtro'
 import { paginar, type Pagina } from '../../domain/paginacao'
@@ -247,6 +250,30 @@ export function useGestaoStore() {
     return paginar(filtrarLocacoes(locacoesVisiveis.value, { q: f.q, status: f.status as StatusLocacao | '' }, corretores.value), f.pagina)
   }
 
+  // --- totais (Financeiro e Dashboard) ---------------------------------------------------------
+
+  /**
+   * `http`: o servidor soma sobre todos os contratos do escopo (a lista do store só guarda os 200 mais
+   * recentes, e somar nela subestimaria). `mock`: tudo está em memória; as mesmas funções de domínio.
+   */
+  async function lerFinanceiro(competencia: string): Promise<RespostaFinanceiro> {
+    if (api) return (repo as HttpGestaoRepository).financeiro(competencia)
+    const h = hojeISO()
+    const l = locacoesVisiveis.value
+    return {
+      vendas: resumoVendas(visiveis.value),
+      locacoes: resumoLocacoes(l, h, competencia),
+      competencias: competenciasDisponiveis(l),
+      pendencias: pendenciasFinanceiras(l, h),
+      truncado: false,
+    }
+  }
+
+  async function lerDashboard(): Promise<ResumoDashboard & { truncado: boolean }> {
+    if (api) return (repo as HttpGestaoRepository).dashboard()
+    return { ...resumoDashboard(visiveis.value, locacoesVisiveis.value, estado.value.documentos, hojeISO()), truncado: false }
+  }
+
   // --- documentos ---------------------------------------------------------------------------
 
   const tipoDoAlvo = (id: string): TipoAlvo => (estado.value.processos.some((p) => p.id === id) ? 'venda' : 'locacao')
@@ -413,6 +440,8 @@ export function useGestaoStore() {
     executar,
     carregarDetalhe,
     paginaDeVendas,
+    lerFinanceiro,
+    lerDashboard,
     paginaDeLocacoes,
     abrirProcesso,
     abrirLocacao,

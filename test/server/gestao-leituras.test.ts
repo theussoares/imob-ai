@@ -4,6 +4,7 @@ import { matrizPadrao } from '~~/layers/gestao/domain/permissions'
 import { processosSeed } from '~~/layers/gestao/domain/seed'
 import type { Locacao, Perfil, Processo } from '~~/layers/gestao/domain/types'
 import { toLocacaoRow } from '~~/server/mappers/gestao-locacao'
+import { listarParaConferir } from '~~/server/repositories/gestao-documento.repository'
 import { memoriaSupabase } from '../helpers/memoria-supabase'
 
 /**
@@ -191,16 +192,30 @@ describe('consultas', () => {
   })
 })
 
-describe('limite de 200 contratos', () => {
-  test('abaixo do limite: `truncado` é false; no limite, true — o total não pode parecer completo quando não é', async () => {
-    expect((await financeiro(ctx('dono', null, mem.db), '')).truncado).toBe(false)
-    expect((await dashboard(ctx('dono', null, mem.db))).truncado).toBe(false)
-    const muitas = memoriaSupabase({
-      gestao_vendas: Array.from({ length: 200 }, (_, i) => venda(A, T, `V-2026-${String(i + 1).padStart(4, '0')}`)),
-      gestao_locacoes: [],
-      gestao_documentos: [],
-    })
-    expect((await financeiro(ctx('dono', null, muitas.db), '')).truncado).toBe(true)
-    expect((await dashboard(ctx('dono', null, muitas.db))).truncado).toBe(true)
+describe('totais cobrem todos os contratos (blocos de 1000, teto de 5000)', () => {
+  const id = (i: number) => `V-2026-${String(i + 1).padStart(4, '0')}`
+  const lote = (n: number) => memoriaSupabase({ gestao_vendas: Array.from({ length: n }, (_, i) => venda(A, T, id(i))), gestao_locacoes: [], gestao_documentos: [] })
+
+  test('mais de 200 (e de 1000) contratos entram na conta, sem aviso: o corte de 200 não existe mais', async () => {
+    const f = await financeiro(ctx('dono', null, lote(1200).db), '')
+    expect(f.vendas.linhas).toHaveLength(1200)
+    expect(f.truncado).toBe(false)
+    expect((await dashboard(ctx('dono', null, lote(1200).db))).truncado).toBe(false)
+  })
+
+  test('no teto de 5000 o total avisa que pode estar incompleto', async () => {
+    expect((await financeiro(ctx('dono', null, lote(5000).db), '')).truncado).toBe(true)
+    expect((await dashboard(ctx('dono', null, lote(5000).db))).truncado).toBe(true)
+  })
+
+  test('documentos para conferir: ids em lotes de 100 (a URL não estoura) e a contagem não corta em 200', async () => {
+    const ids = Array.from({ length: 250 }, (_, i) => id(i))
+    const docs = Array.from({ length: 450 }, (_, i) => ({ id: `d${i}`, tenant_id: T, alvo_tipo: 'venda', alvo_id: ids[i % 250]!, estado: 'enviado', apagado_em: null, updated_at: '2026-11-17T10:00:00Z' }))
+    const m = memoriaSupabase({ gestao_documentos: docs })
+    const r = await listarParaConferir(m.db, T, ids)
+    expect(r).toHaveLength(450)
+    expect(m.consultas.filter((c) => c.table === 'gestao_documentos').every((c) => c.eq.tenant_id === T)).toBe(true)
+    expect(m.consultas.filter((c) => c.table === 'gestao_documentos')).toHaveLength(3)
+    expect(await listarParaConferir(m.db, T, [])).toEqual([])
   })
 })

@@ -8,14 +8,12 @@ import {
   pendenciasFinanceiras,
   resumoLocacoes,
   resumoVendas,
-  type PendenciasFinanceiras,
-  type ResumoLocacoes,
-  type ResumoVendas,
+  type RespostaFinanceiro,
 } from '~~/layers/gestao/domain/financeiro'
 import { listarConsultas, inserirConsulta, ultimoIdConsulta } from '~~/server/repositories/gestao-consulta.repository'
 import { listarParaConferir } from '~~/server/repositories/gestao-documento.repository'
-import { buscarLocacao, listarLocacoes } from '~~/server/repositories/gestao-locacao.repository'
-import { buscarVenda, LIMITE_LISTA, listarVendas } from '~~/server/repositories/gestao-venda.repository'
+import { buscarLocacao, listarTodasLocacoes } from '~~/server/repositories/gestao-locacao.repository'
+import { buscarVenda, listarTodasVendas } from '~~/server/repositories/gestao-venda.repository'
 import { registrarEvento, listarEventos } from '~~/server/repositories/gestao-evento.repository'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
@@ -43,27 +41,21 @@ async function contratosVisiveis(ctx: ContextoGestao) {
   const tenantId = ctx.membro.tenantId
   // Corretor sem vínculo (`null`) não tem «os meus»: nada, e não tudo.
   const semVinculo = e.corretorId === null
-  const [vendas, locacoes] = await Promise.all([
-    semVinculo ? [] : listarVendas(ctx.db, { tenantId, ...(e.corretorId ? { corretorId: e.corretorId } : {}) }, { arquivado: false }),
-    listarLocacoes(ctx.db, tenantId, { arquivadas: false, corretorId: e.corretorId }),
+  const [v, l] = await Promise.all([
+    semVinculo
+      ? { vendas: [], truncado: false }
+      : listarTodasVendas(ctx.db, { tenantId, ...(e.corretorId ? { corretorId: e.corretorId } : {}) }, { arquivado: false }),
+    listarTodasLocacoes(ctx.db, tenantId, { arquivadas: false, corretorId: e.corretorId }),
   ])
-  // As listas cortam em `LIMITE_LISTA` (as mais recentes): quem soma em cima precisa saber que
-  // o total pode estar incompleto. Alternativa descartada: paginar tudo aqui — o recorte de 200
-  // é o mesmo das telas, e o número que a tela mostra tem de bater com o que ela lista.
-  const truncado = vendas.length >= LIMITE_LISTA || locacoes.length >= LIMITE_LISTA
-  return { processos: vendas.map((v) => v.processo), locacoes: locacoes.map((l) => l.locacao), truncado }
+  // Totais precisam de TODOS os contratos: lê em blocos de 1000 até `LIMITE_BUSCA` (5000 por tipo) e só
+  // então avisa. Alternativa descartada: somar no banco — o valor mora no `jsonb` e a conta é a do domínio
+  // (`resumoVendas`...); uma segunda implementação em SQL divergiria dela.
+  return { processos: v.vendas.map((x) => x.processo), locacoes: l.locacoes.map((x) => x.locacao), truncado: v.truncado || l.truncado }
 }
 
 // ---------------------------------------------------------------- financeiro
 
-export interface RespostaFinanceiro {
-  vendas: ResumoVendas
-  locacoes: ResumoLocacoes
-  competencias: string[]
-  pendencias: PendenciasFinanceiras
-  /** `true` = há mais contratos que o limite de 200; os totais cobrem só os mais recentes. */
-  truncado: boolean
-}
+export type { RespostaFinanceiro }
 
 const COMPETENCIA = /^\d{4}-(0[1-9]|1[0-2])$/
 
