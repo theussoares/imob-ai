@@ -25,6 +25,9 @@ const mockerServer = {
 }
 
 export default defineNuxtConfig({
+  // Tema preto/amarelo/cinza do painel (layout e telas de acesso).
+  css: [fileURLToPath(new URL('./app/assets/gestao-tema.css', import.meta.url))],
+
   modules: comMocks ? ['mocker-nuxt'] : [],
 
   // Chave do mocker-nuxt, só existe (e só é tipada) com o módulo registrado.

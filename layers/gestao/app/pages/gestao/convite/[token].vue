@@ -48,7 +48,7 @@ const campo =
 </script>
 
 <template>
-  <main class="[display:grid] min-h-dvh place-items-center bg-[var(--surface)] p-4">
+  <GestaoAuthShell class="gestao-tema">
     <div
       class="flex w-full max-w-130 flex-col gap-4 rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow)] sm:p-7"
     >
@@ -114,5 +114,5 @@ const campo =
         </button>
       </form>
     </div>
-  </main>
+  </GestaoAuthShell>
 </template>

@@ -151,25 +151,3 @@ const btn =
     <AdminConfirmDialog />
   </div>
 </template>
-
-<style>
-/*
- * Tema do painel: preto, amarelo e cinza, fixo. O tenant customiza o verde do
- * SITE público; o painel interno tem identidade própria, e trocar --brand por
- * tenant mudaria o contraste de todo botão e badge. Os derivados (-ghost, -2)
- * são refeitos aqui porque color-mix() resolve no :root, onde --brand ainda é
- * o do tenant — redefinir só --brand não os atualiza.
- */
-.gestao-tema {
-  --gestao-amarelo: #facc15;
-  --brand: #17171a;
-  --brand-2: #2a2a2e;
-  --brand-ghost: #fdf3b8;
-  --surface: #f4f4f5;
-  --paper: #ffffff;
-  --ink: #17171a;
-  --ink-soft: #52525b;
-  --line: #e4e4e7;
-  --line-2: #d4d4d8;
-}
-</style>
