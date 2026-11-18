@@ -10,6 +10,8 @@ interface Props {
   erro: string
   salvando: boolean
   rotuloSalvar: string
+  /** Imóvel de outro corretor visto pelo contrato: sem salvar e sem os campos internos (o servidor já os omite). */
+  somenteLeitura?: boolean
 }
 const props = defineProps<Props>()
 const emit = defineEmits<{ salvar: [] }>()
@@ -34,7 +36,7 @@ function enviar() {
   el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
 }
 // aria-invalid + aria-describedby do campo; o texto do erro fica logo abaixo dele.
-const aria = (c: CampoImovel) => ({ id: `f-${c}`, 'aria-invalid': erros.value[c] ? 'true' : undefined, 'aria-describedby': erros.value[c] ? `e-${c}` : undefined })
+const aria = (c: CampoImovel) => ({ id: `f-${c}`, 'aria-invalid': (erros.value[c] ? 'true' : undefined) as 'true' | undefined, 'aria-describedby': erros.value[c] ? `e-${c}` : undefined })
 
 const num = (e: Event): number | null => {
   const v = (e.target as HTMLInputElement).value
@@ -158,11 +160,11 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 
     <fieldset :class="secao" class="m-0 min-w-0">
       <legend :class="titulo" class="float-left mb-2 w-full p-0">Interno (não vai para o site)</legend>
-      <label :class="rotulo"><span>Proprietário<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+      <label v-if="!props.somenteLeitura" :class="rotulo"><span>Proprietário<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.ownerName" :class="campo" autocomplete="off" v-bind="aria('ownerName')" data-testid="imovel-proprietario" />
         <span v-if="erros.ownerName" id="e-ownerName" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.ownerName }}</span>
       </label>
-      <label :class="rotulo">Telefone do proprietário
+      <label v-if="!props.somenteLeitura" :class="rotulo">Telefone do proprietário
         <GestaoCampoTelefone v-model="m.ownerPhone" :classe="campo" :erro-externo="erros.ownerPhone" v-bind="aria('ownerPhone')" data-testid="imovel-telefone-proprietario" />
       </label>
       <label :class="rotulo"><span>Corretor vendedor<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
@@ -177,9 +179,9 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
       </p>
     </fieldset>
 
-    <p v-if="Object.keys(erros).length" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="imovel-erros-resumo">Corrija {{ Object.keys(erros).length }} {{ Object.keys(erros).length === 1 ? 'campo' : 'campos' }} antes de salvar.</p>
+    <p v-if="!props.somenteLeitura && Object.keys(erros).length" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="imovel-erros-resumo">Corrija {{ Object.keys(erros).length }} {{ Object.keys(erros).length === 1 ? 'campo' : 'campos' }} antes de salvar.</p>
     <p v-if="props.erro && !Object.keys(erros).length" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="imovel-erro">{{ props.erro }}</p>
-    <div>
+    <div v-if="!props.somenteLeitura">
       <button type="submit" :disabled="props.salvando" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] hover:opacity-90 disabled:opacity-60" data-testid="imovel-salvar">
         {{ props.salvando ? 'Salvando…' : props.rotuloSalvar }}
       </button>

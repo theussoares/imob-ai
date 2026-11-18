@@ -88,7 +88,7 @@ async function confirmar() {
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const aria = (c: 'valor' | 'data' | 'forma') => ({ id: `rc-${c}`, 'aria-invalid': erros.value[c] ? 'true' : undefined, 'aria-describedby': erros.value[c] ? `rc-e-${c}` : undefined })
+const aria = (c: 'valor' | 'data' | 'forma') => ({ id: `rc-${c}`, 'aria-invalid': (erros.value[c] ? 'true' : undefined) as 'true' | undefined, 'aria-describedby': erros.value[c] ? `rc-e-${c}` : undefined })
 const OBR = ' *'
 </script>
 

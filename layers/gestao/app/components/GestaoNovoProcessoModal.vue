@@ -34,7 +34,7 @@ watch([imovelId, vendedor, comprador, corretorId, telVendedor, emailVendedor, te
   erros.value = errosNovoProcesso(form(), arquivo.value)
   erro.value = ''
 })
-const aria = (c: CampoNovoProcesso) => ({ id: `np-${c}`, 'aria-invalid': erros.value[c] ? 'true' : undefined, 'aria-describedby': erros.value[c] ? `np-e-${c}` : undefined })
+const aria = (c: CampoNovoProcesso) => ({ id: `np-${c}`, 'aria-invalid': (erros.value[c] ? 'true' : undefined) as 'true' | undefined, 'aria-describedby': erros.value[c] ? `np-e-${c}` : undefined })
 const enviando = ref(false)
 
 // Corretor logado abre processo só em nome próprio: deixar escolher outro

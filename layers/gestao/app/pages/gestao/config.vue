@@ -16,7 +16,7 @@ const erro = ref('')
 const erros = ref<Partial<Record<CampoConfig, string>>>({})
 const tentou = ref(false)
 watch(form, () => { if (tentou.value) erros.value = errosConfiguracoes(form) }, { deep: true })
-const aria = (c: CampoConfig) => ({ id: `cfg-${c}`, 'aria-invalid': erros.value[c] ? 'true' : undefined, 'aria-describedby': erros.value[c] ? `cfg-e-${c}` : undefined })
+const aria = (c: CampoConfig) => ({ id: `cfg-${c}`, 'aria-invalid': (erros.value[c] ? 'true' : undefined) as 'true' | undefined, 'aria-describedby': erros.value[c] ? `cfg-e-${c}` : undefined })
 
 async function salvar() {
   tentou.value = true

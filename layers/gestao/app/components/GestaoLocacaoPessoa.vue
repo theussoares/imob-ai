@@ -18,7 +18,7 @@ const botao =
     <h2 class="m-0 text-[length:var(--fs-body)] font-bold">{{ titulo }}</h2>
     <div class="[display:grid] items-start gap-3 sm:grid-cols-3">
       <label :class="rotulo">CPF ou CNPJ<input v-model="form.cpf" :class="campo" :disabled="!podeEditar" inputmode="numeric" autocomplete="off" data-testid="pessoa-cpf" /></label>
-      <label :class="rotulo">Telefone<GestaoCampoTelefone v-model="form.telefone" :classe="campo" :disabled="!podeEditar" data-testid="pessoa-telefone" /></label>
+      <label :class="rotulo">Telefone<GestaoCampoTelefone :model-value="form.telefone ?? ''" @update:model-value="form.telefone = $event" :classe="campo" :disabled="!podeEditar" data-testid="pessoa-telefone" /></label>
       <label :class="rotulo">E-mail<input v-model="form.email" :class="campo" :disabled="!podeEditar" type="email" autocomplete="off" data-testid="pessoa-email" /></label>
     </div>
     <div v-if="podeEditar"><button type="submit" :class="botao" data-testid="salvar-pessoa">Salvar cadastro</button></div>

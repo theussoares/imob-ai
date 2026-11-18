@@ -178,7 +178,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
             data-testid="adiantamento-comprovante-arquivo"
             :aria-invalid="erroComprovante ? 'true' : undefined"
             :aria-describedby="erroComprovante ? 'adi-e-comprovante' : undefined"
-            @change="escolherArquivo(); erroComprovante = ''"
+            @change="escolherArquivo($event); erroComprovante = ''"
           />
           <span v-if="erroComprovante" id="adi-e-comprovante" class="font-semibold text-[var(--danger)]" role="alert">{{ erroComprovante }}</span>
         </label>

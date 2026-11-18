@@ -103,6 +103,12 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
       </label>
     </header>
 
+    <p v-if="!permissoes.editar" role="note" class="m-0 rounded-xl border border-[var(--line-2)] bg-[var(--paper)] p-3 font-semibold text-[var(--ink-soft)]" data-testid="imovel-somente-leitura">
+      Somente leitura: este imóvel está no seu contrato, mas foi captado por outro corretor.
+    </p>
+
+    <!-- `fieldset disabled` desabilita todos os campos e botões de dentro de uma vez, inclusive os dos componentes filhos. -->
+    <fieldset :disabled="!permissoes.editar" class="contents" :class="permissoes.editar ? '' : 'opacity-70'">
     <section :class="card">
       <GestaoImovelFotos
         :fotos="imovel.images"
@@ -124,8 +130,10 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
       :erro="erro"
       :salvando="salvando"
       rotulo-salvar="Salvar alterações"
+      :somente-leitura="!permissoes.editar"
       @salvar="salvar"
     />
+    </fieldset>
 
     <section v-if="permissoes.excluir" :class="card" class="flex flex-wrap items-center justify-between gap-3">
       <p class="m-0 text-[var(--ink-soft)]">Excluir tira o imóvel do gestão e do site.</p>

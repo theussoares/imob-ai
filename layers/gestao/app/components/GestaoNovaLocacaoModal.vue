@@ -25,7 +25,7 @@ watch([imovelId, locador, locatario, corretorId], () => {
   erros.value = errosNovaLocacao(form())
   erro.value = ''
 })
-const aria = (c: CampoNovaLocacao) => ({ id: `nl-${c}`, 'aria-invalid': erros.value[c] ? 'true' : undefined, 'aria-describedby': erros.value[c] ? `nl-e-${c}` : undefined })
+const aria = (c: CampoNovaLocacao) => ({ id: `nl-${c}`, 'aria-invalid': (erros.value[c] ? 'true' : undefined) as 'true' | undefined, 'aria-describedby': erros.value[c] ? `nl-e-${c}` : undefined })
 const enviando = ref(false)
 
 // Corretor logado abre locação só em nome próprio: escolher outro faria a locação
