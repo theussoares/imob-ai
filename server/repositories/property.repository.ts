@@ -177,6 +177,21 @@ export async function listAllProperties(
   return attachBrokersAdmin(client, tenantId, data ?? [])
 }
 
+/** Imóveis do tenant por id (em lotes de 100), mesmas colunas e embed de `listAllProperties`. Lista vazia não vai ao banco. */
+export async function listPropertiesByIds(client: Client, tenantId: string, ids: string[]): Promise<Property[]> {
+  const out: Property[] = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await client
+      .from('properties')
+      .select(`*, ${IMAGES_EMBED}`)
+      .eq('tenant_id', tenantId)
+      .in('id', ids.slice(i, i + 100))
+    if (error) throw error
+    out.push(...(await attachBrokersAdmin(client, tenantId, data ?? [])))
+  }
+  return out
+}
+
 /**
  * Identidade mínima de todos os imóveis do tenant: o que o gestão precisa para
  * gerar o próximo código e recusar título+endereço repetido, sem trazer a ficha

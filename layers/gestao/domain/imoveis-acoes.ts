@@ -185,17 +185,21 @@ export interface PermissoesImovel {
  * e do corretor vendedor (jurídico e recepção tiram do site mudando o status para rascunho). O servidor
  * repete esta regra: a tela só a espelha.
  */
-export function permissoesImovel(matriz: MatrizPermissoes, sessao: Sessao, imovel: ImovelGestao | null): PermissoesImovel {
+/**
+ * `vinculado` = o imóvel é de uma venda/locação do escopo da sessão (corretor): ele PODE VER, para o contrato
+ * não apontar para um imóvel que ele não encontra, mas não edita nem exclui o que não captou.
+ */
+export function permissoesImovel(matriz: MatrizPermissoes, sessao: Sessao, imovel: ImovelGestao | null, vinculado = false): PermissoesImovel {
   const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
   const criar = matriz.criar?.[sessao.perfil] === 'sim'
   if (!imovel) return { ver: true, criar, editar: false, excluir: false, trocarCorretor: todos }
   const proprio = sessao.corretorId !== null && imovel.brokerId === sessao.corretorId
-  const ver = todos || proprio
-  return { ver, criar, editar: ver, excluir: ver && (sessao.perfil === 'dono' || proprio), trocarCorretor: todos }
+  const meu = todos || proprio
+  return { ver: meu || vinculado, criar, editar: meu, excluir: meu && (sessao.perfil === 'dono' || proprio), trocarCorretor: todos }
 }
 
-export function imoveisVisiveis(matriz: MatrizPermissoes, sessao: Sessao, imoveis: ImovelGestao[]): ImovelGestao[] {
-  return imoveis.filter((i) => permissoesImovel(matriz, sessao, i).ver)
+export function imoveisVisiveis(matriz: MatrizPermissoes, sessao: Sessao, imoveis: ImovelGestao[], vinculados: ReadonlySet<string> = new Set()): ImovelGestao[] {
+  return imoveis.filter((i) => permissoesImovel(matriz, sessao, i, vinculados.has(i.id)).ver)
 }
 
 export function podeExcluirImovel(imovel: ImovelGestao, sessao: Sessao, matriz: MatrizPermissoes, locacoes: Locacao[]): { ok: true } | { ok: false; erro: string } {

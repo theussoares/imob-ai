@@ -173,3 +173,15 @@ describe('errosImovel: todos os erros de uma vez, por campo', () => {
     if (!r.ok) expect(r.erro).toBe(Object.values(errosImovel(f))[0])
   })
 })
+
+describe('imóvel vinculado a contrato do corretor: vê, não edita', () => {
+  it('ver = true só com o vínculo; editar e excluir seguem do captador', () => {
+    const matriz = matrizPadrao()
+    const c1 = { perfil: 'corretor', nome: 'C', corretorId: 'c1' } as const
+    const alheio = imoveisSeed().find((i) => i.brokerId !== 'c1')!
+    expect(permissoesImovel(matriz, c1, alheio)).toMatchObject({ ver: false })
+    expect(permissoesImovel(matriz, c1, alheio, true)).toMatchObject({ ver: true, editar: false, excluir: false })
+    expect(imoveisVisiveis(matriz, c1, [alheio], new Set([alheio.id]))).toHaveLength(1)
+    expect(imoveisVisiveis(matriz, c1, [alheio], new Set(['outro']))).toHaveLength(0)
+  })
+})

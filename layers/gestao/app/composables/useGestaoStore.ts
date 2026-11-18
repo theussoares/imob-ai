@@ -411,11 +411,19 @@ export function useGestaoStore() {
 
   // --- imóveis ------------------------------------------------------------------------------
 
+  /** Imóveis das vendas e locações ativas do escopo (corretor: as dele): ele os vê, mas não os edita. */
+  const imoveisDosContratos = computed(
+    () =>
+      new Set(
+        [...visiveis.value.filter((p) => !p.arquivado).map((p) => p.imovelId), ...locacoesVisiveis.value.filter((l) => !l.arquivado).map((l) => l.imovelId)].filter((x): x is string => !!x),
+      ),
+  )
+
   const NEGADO = { ok: false, erro: 'Você não pode alterar este imóvel.' } as const
 
   const permissoesDoImovel = (imovel: ImovelGestao | null): PermissoesImovel =>
     sessao.value
-      ? permissoesImovel(matriz.value, sessao.value, imovel)
+      ? permissoesImovel(matriz.value, sessao.value, imovel, !!imovel && imoveisDosContratos.value.has(imovel.id))
       : { ver: false, criar: false, editar: false, excluir: false, trocarCorretor: false }
 
   /** Checa a permissão no domínio e só então chama o repositório (o servidor repete a checagem). */
@@ -516,7 +524,7 @@ export function useGestaoStore() {
     consultar,
     consultas: computed(() => consultas.value),
     imoveis: computed(() => imoveis.value),
-    imoveisVisiveis: computed(() => (sessao.value ? filtrarImoveisVisiveis(matriz.value, sessao.value, imoveis.value) : [])),
+    imoveisVisiveis: computed(() => (sessao.value ? filtrarImoveisVisiveis(matriz.value, sessao.value, imoveis.value, imoveisDosContratos.value) : [])),
     permissoesDoImovel,
     cadastrarImovel,
     atualizarImovel,

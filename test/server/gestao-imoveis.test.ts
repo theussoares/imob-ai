@@ -139,6 +139,50 @@ describe('listar', () => {
   })
 })
 
+describe('imóveis vinculados aos contratos do corretor', () => {
+  const vinculados = () => ({ imoveisDosContratos: async () => new Set([IMOVEL_B]) })
+  const res = (): Res => ({
+    properties: [
+      { data: [row()], error: null }, // captados (broker_id)
+      { data: [row({ id: IMOVEL_B, broker_id: 'b2' }), row({ id: 'outro-que-nao-e-do-contrato', broker_id: 'b2' })], error: null }, // por id
+    ],
+    brokers: { data: [corretorB], error: null },
+  })
+
+  test('lista também o imóvel de venda/locação dele, em lote por id e com tenant; o que não é dele nem do contrato fica de fora', async () => {
+    const { ctx, calls } = montar('corretor', res(), vinculados())
+    expect((await listarImoveis(ctx)).map((i) => i.id).sort()).toEqual([IMOVEL_A, IMOVEL_B].sort())
+    const alheio = (await listarImoveis(montar('corretor', res(), vinculados()).ctx)).find((i) => i.id === IMOVEL_B)!
+    // Sem a carteira de quem captou: proprietário, telefone e referência interna.
+    expect(alheio).toMatchObject({ ownerName: '', ownerPhone: null, location: null })
+    const porId = calls.find((c) => c.table === 'properties' && c.method === 'in' && c.args[0] === 'id')
+    expect(porId?.args[1]).toEqual([IMOVEL_B])
+    expect(calls.filter((c) => c.method === 'eq' && c.args[0] === 'tenant_id').length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('sem imóveis vinculados não faz a segunda consulta; dono não pede vínculo nenhum', async () => {
+    const um = montar('corretor', { properties: { data: [row()], error: null }, brokers: { data: [corretorB], error: null } }, { imoveisDosContratos: async () => new Set() })
+    await listarImoveis(um.ctx)
+    expect(um.calls.some((c) => c.table === 'properties' && c.method === 'in')).toBe(false)
+    let pediu = false
+    const dono = montar('dono', { properties: { data: [row()], error: null }, brokers: { data: [corretorB], error: null } }, { imoveisDosContratos: async () => ((pediu = true), new Set()) })
+    await listarImoveis(dono.ctx)
+    expect(pediu).toBe(false)
+  })
+
+  test('GET por id abre o vinculado; um id que não é do captador nem de contrato dele segue 404', async () => {
+    const outro = { properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null }, brokers: { data: [corretorB], error: null } }
+    const v = await obterImovel(montar('corretor', outro, vinculados()).ctx, IMOVEL_B)
+    expect(v).toMatchObject({ id: IMOVEL_B, ownerName: '', ownerPhone: null, location: null })
+    expect(await status(obterImovel(montar('corretor', outro, { imoveisDosContratos: async () => new Set() }).ctx, IMOVEL_B))).toBe(404)
+  })
+
+  test('só leitura: editar o vinculado continua 404 (a porta de toda escrita é o captador)', async () => {
+    const outro = { properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null } }
+    expect(await status(excluirImovel(montar('corretor', outro, vinculados()).ctx, IMOVEL_B))).toBe(404)
+  })
+})
+
 describe('Review Focus 1 — corretor A pede o imóvel do corretor B pelo id', () => {
   const outro = () => ({ properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null } })
 
