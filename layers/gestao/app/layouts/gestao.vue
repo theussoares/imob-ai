@@ -53,6 +53,38 @@ const ICONES: Record<string, string> = {
   config: 'M4 7h10m4 0h2M4 17h2m4 0h10M16 4v6M8 14v6',
 }
 
+// Menu do avatar e paleta de navegação (Ctrl/Cmd+K). Fecham com Esc ou clique fora.
+const menuAberto = ref(false)
+const buscaAberta = ref(false)
+const termo = ref('')
+const campoBusca = ref<HTMLInputElement | null>(null)
+const resultados = computed(() => {
+  const t = termo.value.trim().toLowerCase()
+  return itens.value.filter((m) => !t || m.rotulo.toLowerCase().includes(t))
+})
+async function abrirBusca() {
+  menuAberto.value = false
+  buscaAberta.value = true
+  termo.value = ''
+  await nextTick()
+  campoBusca.value?.focus()
+}
+async function ir(rota: string) {
+  buscaAberta.value = false
+  await navigateTo(rota)
+}
+function teclas(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    void abrirBusca()
+  } else if (e.key === 'Escape') {
+    menuAberto.value = false
+    buscaAberta.value = false
+  }
+}
+onMounted(() => document.addEventListener('keydown', teclas))
+onBeforeUnmount(() => document.removeEventListener('keydown', teclas))
+
 const btn =
   'min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3.5 font-bold hover:bg-[var(--brand-ghost)]'
 </script>
@@ -84,13 +116,48 @@ const btn =
           Demonstração
         </span>
       </div>
-      <div v-if="sessao" class="flex flex-wrap items-center gap-2">
-        <span class="mr-1 flex flex-col leading-tight">
-          <strong>{{ sessao.nome }}</strong>
-          <small class="text-[var(--ink-soft)]">{{ PERFIS[sessao.perfil].nome }}</small>
-        </span>
-        <button v-if="!store.http" type="button" :class="btn" @click="restaurarDados">Restaurar dados</button>
-        <button type="button" :class="btn" @click="trocarPerfil">{{ store.http ? 'Sair' : 'Trocar perfil' }}</button>
+      <div v-if="sessao" class="flex items-center gap-2">
+        <button
+          type="button"
+          class="hidden min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[var(--ink-soft)] hover:bg-[var(--brand-ghost)] sm:inline-flex"
+          data-testid="busca-global"
+          @click="abrirBusca"
+        >
+          Ir para…
+          <kbd class="rounded border border-[var(--line-2)] px-1.5 text-[length:var(--fs-caption)]">Ctrl K</kbd>
+        </button>
+        <div class="relative">
+          <button
+            type="button"
+            class="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full border border-[var(--line)] bg-[var(--paper)] py-1 pr-3 pl-1 hover:bg-[var(--brand-ghost)]"
+            aria-haspopup="menu"
+            :aria-expanded="menuAberto"
+            data-testid="menu-avatar"
+            @click="menuAberto = !menuAberto"
+          >
+            <span class="[display:grid] size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-[var(--gestao-amarelo)]" aria-hidden="true">
+              {{ sessao.nome.slice(0, 1) }}
+            </span>
+            <span class="hidden flex-col text-left leading-tight sm:flex">
+              <strong>{{ sessao.nome }}</strong>
+              <small class="text-[var(--ink-soft)]">{{ PERFIS[sessao.perfil].nome }}</small>
+            </span>
+          </button>
+          <div
+            v-if="menuAberto"
+            role="menu"
+            class="absolute right-0 z-40 mt-2 flex w-56 flex-col gap-1 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-2 shadow-[0_8px_24px_rgba(20,22,26,0.12)]"
+          >
+            <p class="m-0 px-3 py-1 text-[var(--ink-soft)]">{{ PERFIS[sessao.perfil].nome }}</p>
+            <button v-if="!store.http" type="button" role="menuitem" class="min-h-11 cursor-pointer rounded-lg border-0 bg-transparent px-3 text-left font-semibold hover:bg-[var(--surface)]" @click="menuAberto = false; restaurarDados()">
+              Restaurar dados
+            </button>
+            <button type="button" role="menuitem" class="min-h-11 cursor-pointer rounded-lg border-0 bg-transparent px-3 text-left font-semibold hover:bg-[var(--surface)]" data-testid="sair" @click="menuAberto = false; trocarPerfil()">
+              {{ store.http ? 'Sair' : 'Trocar perfil' }}
+            </button>
+          </div>
+          <div v-if="menuAberto" class="fixed inset-0 z-30" aria-hidden="true" @click="menuAberto = false" />
+        </div>
       </div>
     </header>
 
@@ -145,6 +212,26 @@ const btn =
         </p>
         <div class="mx-auto w-full max-w-6xl"><slot /></div>
       </main>
+    </div>
+
+    <div v-if="buscaAberta" class="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[15vh]" @click.self="buscaAberta = false">
+      <div role="dialog" aria-modal="true" aria-label="Ir para uma tela" class="w-full max-w-md overflow-hidden rounded-xl bg-[var(--paper)] shadow-[0_20px_48px_rgba(20,22,26,0.25)]">
+        <input
+          ref="campoBusca"
+          v-model="termo"
+          type="search"
+          placeholder="Ir para… (Dashboard, Imóveis, Financeiro)"
+          class="min-h-12 w-full border-0 border-b border-[var(--line)] px-4 text-[length:var(--fs-body)] outline-none"
+          data-testid="busca-global-campo"
+          @keydown.enter="resultados[0] && ir(resultados[0].rota)"
+        />
+        <ul class="m-0 max-h-72 list-none overflow-y-auto p-2">
+          <li v-for="m in resultados" :key="m.chave">
+            <button type="button" class="min-h-11 w-full cursor-pointer rounded-lg border-0 bg-transparent px-3 text-left font-semibold hover:bg-[var(--brand-ghost)]" @click="ir(m.rota)">{{ m.rotulo }}</button>
+          </li>
+          <li v-if="!resultados.length" class="px-3 py-3 text-[var(--ink-soft)]">Nada encontrado.</li>
+        </ul>
+      </div>
     </div>
 
     <AdminToasts />
