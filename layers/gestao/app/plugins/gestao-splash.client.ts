@@ -1,7 +1,7 @@
 /**
  * Controla a saída da abertura/esqueleto do HTML (`server/utils/gestao-splash.ts`).
  *
- * - Espera a animação dos prédios terminar (1,8 s desde a abertura da página) antes de mostrar o
+ * - Espera a animação dos prédios terminar (2,7 s desde a abertura da página) antes de mostrar o
  *   painel, mesmo que ele fique pronto antes: a abertura é parte do produto, e cortá-la no meio
  *   pareceria um defeito.
  * - Sai quando a tela real terminou de montar (`app:suspense:resolve`: layout + página já resolveram
@@ -10,7 +10,9 @@
  *   passados 20 s, o próprio HTML mostra "Não foi possível carregar"). Tirar o esqueleto à força
  *   deixaria a tela branca, que é justamente o que ele existe para evitar.
  */
-const DURACAO_ABERTURA_MS = 1800
+// Menor que o 3 s em que o CSS da abertura cede ao esqueleto (`gs-intro-sai`): com o painel pronto,
+// a abertura sai direto para ele e o esqueleto nem chega a aparecer.
+const DURACAO_ABERTURA_MS = 2700
 
 export default defineNuxtPlugin((nuxtApp) => {
   let tirando = false

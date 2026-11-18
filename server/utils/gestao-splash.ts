@@ -12,7 +12,7 @@
  * Cores fixas e neutras: neste ponto ainda não se sabe o tenant nem o tema escolhido.
  */
 export const GESTAO_SPLASH_HTML = `<div class="gestao-splash" aria-hidden="true">
-  <div class="gs-intro"><div class="gs-logo"></div><div class="gs-pred"><i style="height:32px;animation-delay:.1s"></i><i style="height:50px;animation-delay:.22s"></i><i style="height:40px;animation-delay:.34s"></i><i style="height:76px;animation-delay:.46s"></i><i style="height:46px;animation-delay:.58s"></i><i style="height:62px;animation-delay:.7s"></i></div></div>
+  <div class="gs-intro"><div class="gs-logo"></div><div class="gs-pred"><i style="height:32px;animation-delay:.2s"></i><i style="height:50px;animation-delay:.45s"></i><i style="height:40px;animation-delay:1.45s"></i><i style="height:76px;animation-delay:.95s"></i><i style="height:46px;animation-delay:1.2s"></i><i style="height:62px;animation-delay:1.45s"></i></div></div>
   <p class="gs-falha">Não foi possível carregar o painel. <a href="">Tentar de novo</a></p>
   <style>
     /* Esqueleto do painel: aparece no HTML inicial (a rota /gestao não renderiza no servidor), antes de
@@ -30,13 +30,14 @@ export const GESTAO_SPLASH_HTML = `<div class="gestao-splash" aria-hidden="true"
     .gestao-splash .gs-logo:after{content:"";width:10px;height:10px;border-radius:3px;background:#facc15}
         .gestao-splash .gs-side>*:nth-child(1){animation-delay:.05s}.gestao-splash .gs-side>*:nth-child(2){animation-delay:.1s}.gestao-splash .gs-side>*:nth-child(3){animation-delay:.15s}.gestao-splash .gs-side>*:nth-child(4){animation-delay:.2s}.gestao-splash .gs-side>*:nth-child(5){animation-delay:.25s}.gestao-splash .gs-side>*:nth-child(6){animation-delay:.3s}
     .gestao-splash .gs-ct>*:nth-child(1){animation-delay:.15s}.gestao-splash .gs-ct>*:nth-child(2){animation-delay:.25s}.gestao-splash .gs-ct>*:nth-child(3){animation-delay:.35s}
-    /* Abertura: prédios sobem (1,5 s) e a camada some, revelando o esqueleto, que fica até o painel
-       estar pronto. Tudo em CSS, sem depender de JavaScript. */
-    .gestao-splash .gs-intro{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:#f4f4f5;animation:gs-intro-sai .35s ease 1.5s forwards}
+    /* Abertura: prédios sobem (~2,7 s). Se o painel já estiver pronto, o plugin remove tudo antes
+       de 3 s e o esqueleto nunca aparece; se não, a camada some aos 3 s e o esqueleto fica até o
+       painel estar pronto. Tudo em CSS, sem depender de JavaScript. */
+    .gestao-splash .gs-intro{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:#f4f4f5;animation:gs-intro-sai .35s ease 3s forwards}
     .gestao-splash .gs-intro .gs-logo{width:52px;height:52px;border-radius:13px}
     .gestao-splash .gs-intro .gs-logo:after{width:16px;height:16px;border-radius:4px}
     .gestao-splash .gs-pred{display:flex;align-items:flex-end;gap:7px;height:76px}
-    .gestao-splash .gs-pred i{display:block;width:17px;background:#d4d4d8;border-radius:3px 3px 0 0;transform-origin:bottom;animation:gs-sobe .9s cubic-bezier(.2,.8,.2,1) backwards}
+    .gestao-splash .gs-pred i{display:block;width:17px;background:#d4d4d8;border-radius:3px 3px 0 0;transform-origin:bottom;animation:gs-sobe 1.3s cubic-bezier(.2,.8,.2,1) backwards}
     .gestao-splash .gs-pred i:after{content:"";display:block;width:9px;height:3px;margin:6px auto 0;border-radius:2px;background:#facc15;animation:gs-pisca 1s ease-in-out infinite}
     @keyframes gs-sobe{from{transform:scaleY(0)}}
     @keyframes gs-pisca{50%{opacity:.25}}
