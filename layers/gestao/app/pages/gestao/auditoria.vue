@@ -58,14 +58,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
           <option value="locacao">Locações</option>
         </select>
       </label>
-      <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
-        De
-        <input v-model="filtro.de" type="date" :class="campo" data-testid="aud-de" />
-      </label>
-      <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
-        Até
-        <input v-model="filtro.ate" type="date" :class="campo" data-testid="aud-ate" />
-      </label>
+      <GestaoSeletorPeriodo v-model:de="filtro.de" v-model:ate="filtro.ate" testid="aud-periodo" />
       <p class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite" data-testid="aud-total">
         {{ lista.length }} {{ lista.length === 1 ? 'registro' : 'registros' }}
       </p>
