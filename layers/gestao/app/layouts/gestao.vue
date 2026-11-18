@@ -31,7 +31,7 @@ const btn =
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col bg-[var(--surface)] text-[length:var(--fs-ui)] text-[var(--ink)]">
+  <div class="gestao-tema flex min-h-dvh flex-col bg-[var(--surface)] text-[length:var(--fs-ui)] text-[var(--ink)]">
     <a
       href="#gestao-conteudo"
       class="absolute -left-[999px] top-2 z-50 rounded-lg bg-[var(--paper)] px-3 py-2 focus:left-2"
@@ -44,7 +44,7 @@ const btn =
     >
       <div class="flex items-center gap-2.5 font-extrabold">
         <span
-          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] text-white"
+          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-extrabold text-[var(--gestao-amarelo)]"
           aria-hidden="true"
         >
           {{ (tenant?.name || 'G').slice(0, 1) }}
@@ -80,7 +80,7 @@ const btn =
           class="flex min-h-11 items-center whitespace-nowrap rounded-[10px] px-3 font-semibold no-underline hover:bg-[var(--surface)]"
           :class="
             ativo(m.rota)
-              ? 'bg-[var(--brand-ghost)] font-extrabold text-[var(--brand)]'
+              ? 'bg-[var(--gestao-amarelo)] font-extrabold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
               : 'text-[var(--ink-soft)]'
           "
           :aria-current="ativo(m.rota) ? 'page' : undefined"
@@ -107,3 +107,25 @@ const btn =
     <AdminConfirmDialog />
   </div>
 </template>
+
+<style>
+/*
+ * Tema do painel: preto, amarelo e cinza, fixo. O tenant customiza o verde do
+ * SITE público; o painel interno tem identidade própria, e trocar --brand por
+ * tenant mudaria o contraste de todo botão e badge. Os derivados (-ghost, -2)
+ * são refeitos aqui porque color-mix() resolve no :root, onde --brand ainda é
+ * o do tenant — redefinir só --brand não os atualiza.
+ */
+.gestao-tema {
+  --gestao-amarelo: #facc15;
+  --brand: #17171a;
+  --brand-2: #2a2a2e;
+  --brand-ghost: #fdf3b8;
+  --surface: #f4f4f5;
+  --paper: #ffffff;
+  --ink: #17171a;
+  --ink-soft: #52525b;
+  --line: #e4e4e7;
+  --line-2: #d4d4d8;
+}
+</style>
