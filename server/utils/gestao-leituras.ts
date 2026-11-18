@@ -15,7 +15,7 @@ import {
 import { listarConsultas, inserirConsulta, ultimoIdConsulta } from '~~/server/repositories/gestao-consulta.repository'
 import { listarParaConferir } from '~~/server/repositories/gestao-documento.repository'
 import { buscarLocacao, listarLocacoes } from '~~/server/repositories/gestao-locacao.repository'
-import { buscarVenda, listarVendas } from '~~/server/repositories/gestao-venda.repository'
+import { buscarVenda, LIMITE_LISTA, listarVendas } from '~~/server/repositories/gestao-venda.repository'
 import { registrarEvento, listarEventos } from '~~/server/repositories/gestao-evento.repository'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
@@ -47,7 +47,11 @@ async function contratosVisiveis(ctx: ContextoGestao) {
     semVinculo ? [] : listarVendas(ctx.db, { tenantId, ...(e.corretorId ? { corretorId: e.corretorId } : {}) }, { arquivado: false }),
     listarLocacoes(ctx.db, tenantId, { arquivadas: false, corretorId: e.corretorId }),
   ])
-  return { processos: vendas.map((v) => v.processo), locacoes: locacoes.map((l) => l.locacao) }
+  // As listas cortam em `LIMITE_LISTA` (as mais recentes): quem soma em cima precisa saber que
+  // o total pode estar incompleto. Alternativa descartada: paginar tudo aqui — o recorte de 200
+  // é o mesmo das telas, e o número que a tela mostra tem de bater com o que ela lista.
+  const truncado = vendas.length >= LIMITE_LISTA || locacoes.length >= LIMITE_LISTA
+  return { processos: vendas.map((v) => v.processo), locacoes: locacoes.map((l) => l.locacao), truncado }
 }
 
 // ---------------------------------------------------------------- financeiro
@@ -57,6 +61,8 @@ export interface RespostaFinanceiro {
   locacoes: ResumoLocacoes
   competencias: string[]
   pendencias: PendenciasFinanceiras
+  /** `true` = há mais contratos que o limite de 200; os totais cobrem só os mais recentes. */
+  truncado: boolean
 }
 
 const COMPETENCIA = /^\d{4}-(0[1-9]|1[0-2])$/
@@ -66,13 +72,14 @@ export async function financeiro(ctx: ContextoGestao, competencia: string): Prom
   if (competencia && !COMPETENCIA.test(competencia)) {
     throw createError({ statusCode: 422, statusMessage: 'Competência inválida (use aaaa-mm).' })
   }
-  const { processos, locacoes } = await contratosVisiveis(ctx)
+  const { processos, locacoes, truncado } = await contratosVisiveis(ctx)
   const h = hoje()
   return {
     vendas: resumoVendas(processos),
     locacoes: resumoLocacoes(locacoes, h, competencia),
     competencias: competenciasDisponiveis(locacoes),
     pendencias: pendenciasFinanceiras(locacoes, h),
+    truncado,
   }
 }
 
@@ -83,11 +90,11 @@ export async function financeiro(ctx: ContextoGestao, competencia: string): Prom
  * de `valores`. O recorte que importa é o de corretor, feito em `contratosVisiveis`; a
  * contagem de documentos recebe só os ids que ele enxerga.
  */
-export async function dashboard(ctx: ContextoGestao): Promise<ResumoDashboard> {
-  const { processos, locacoes } = await contratosVisiveis(ctx)
+export async function dashboard(ctx: ContextoGestao): Promise<ResumoDashboard & { truncado: boolean }> {
+  const { processos, locacoes, truncado } = await contratosVisiveis(ctx)
   const ids = [...processos.map((p) => p.id), ...locacoes.map((l) => l.id)]
   const documentos = await listarParaConferir(ctx.db, ctx.membro.tenantId, ids)
-  return resumoDashboard(processos, locacoes, documentos, hoje())
+  return { ...resumoDashboard(processos, locacoes, documentos, hoje()), truncado }
 }
 
 // ------------------------------------------------------------------ auditoria

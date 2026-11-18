@@ -105,6 +105,8 @@ function corpoInvalido(erro: z.ZodError): never {
 
 const MAX_TENTATIVAS_NUMERO = 3
 
+const veTodosCorretores = (ctx: ContextoGestao): boolean => ctx.matriz.verTodos?.[ctx.membro.perfil] === 'sim'
+
 export async function abrir(ctx: ContextoGestao, corpo: unknown): Promise<RespostaLocacao> {
   exigirPermissao(ctx, 'criar')
   const parsed = aberturaSchema.safeParse(corpo)
@@ -113,7 +115,9 @@ export async function abrir(ctx: ContextoGestao, corpo: unknown): Promise<Respos
   const tenantId = ctx.membro.tenantId
 
   let corretorId: string
-  if (ctx.membro.perfil === 'corretor') {
+  // Pela matriz, como a venda (`verTodos`): o Dono pode restringir Recepção/Jurídico a «os meus»,
+  // e checar o nome do perfil deixaria essa pessoa abrir locação em nome de outro corretor.
+  if (!veTodosCorretores(ctx)) {
     if (!ctx.membro.brokerId) throw createError({ statusCode: 403, statusMessage: 'Seu usuário não está ligado a um corretor.' })
     corretorId = ctx.membro.brokerId
   } else {
@@ -197,10 +201,11 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
     carregar: async () => {
       const item = await buscarLocacao(ctx.db, tenantId, id, escopo(ctx))
       if (!item || (item.locacao.arquivado && !veArquivadas(ctx))) return null
-      if (item.versao !== c.data.versao) throw createError({ statusCode: 409, statusMessage: MSG_VERSAO })
       if (!permitidoNaLocacao(matriz, membro.perfil, membro.brokerId, chaves, item.locacao)) {
         throw createError({ statusCode: 403, statusMessage: 'Você não tem permissão para esta ação.' })
       }
+      // Depois da permissão (como na venda): o 409 diria a quem não pode agir que a locação existe e mudou.
+      if (item.versao !== c.data.versao) throw createError({ statusCode: 409, statusMessage: MSG_VERSAO })
       if (def.tocaVinculos) dados = await validarVinculos(ctx, dados as Vinculos, item.locacao)
       versaoLida = item.versao
       // Os documentos só pesam em «concluir etapa» (checklist): nas outras ações a leitura seria à toa.
@@ -233,7 +238,7 @@ interface Vinculos {
 async function validarVinculos(ctx: ContextoGestao, d: Vinculos, atual: Locacao): Promise<Vinculos> {
   const tenantId = ctx.membro.tenantId
   const out = { ...d }
-  if (ctx.membro.perfil === 'corretor') out.corretorId = atual.corretorId
+  if (!veTodosCorretores(ctx)) out.corretorId = atual.corretorId
   else if (d.corretorId !== atual.corretorId && !(ehUuid(d.corretorId) && (await corretorDoTenant(ctx.db, tenantId, d.corretorId)))) {
     throw createError({ statusCode: 422, statusMessage: 'Escolha um corretor desta imobiliária.' })
   }

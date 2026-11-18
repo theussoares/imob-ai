@@ -55,13 +55,24 @@ export async function buscarVenda(db: Client, escopo: Escopo, id: string): Promi
   return data ? toVendaModel(data as VendaRow) : null
 }
 
-/** Ids já usados no ano, para `proximoId` do domínio escolher o seguinte. */
+/**
+ * O maior id já usado no ano, para `proximoId` do domínio escolher o seguinte.
+ *
+ * Só o maior (`order desc` + `limit 1`): listar todos esbarra no corte de 1000 linhas
+ * do PostgREST, e com mais de 1000 vendas no ano o «próximo número» seria calculado
+ * sobre um subconjunto arbitrário — repetia um id existente, a PK recusava, e a abertura
+ * devolvia 409 para sempre. A ordem é textual: vale enquanto o sufixo tem 4 dígitos
+ * (`V-AAAA-9999`); o domínio preenche com zeros, então passa de 9999 vendas/ano só
+ * com decisão nova.
+ */
 export async function idsDoAno(db: Client, tenantId: string, ano: number): Promise<string[]> {
   const { data, error } = await db
     .from('gestao_vendas')
     .select('id')
     .eq('tenant_id', tenantId)
     .like('id', `V-${ano}-%`)
+    .order('id', { ascending: false })
+    .limit(1)
   if (error) throw error
   return ((data ?? []) as { id: string }[]).map((r) => r.id)
 }

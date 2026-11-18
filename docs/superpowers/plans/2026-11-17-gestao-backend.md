@@ -119,3 +119,38 @@ Despacho por nome: mapa `acao → { permissao: PermChave; zod; fn }` cobrindo `m
 - Branch de integração: `claude/friendly-planck-u9wtqu`. Cada sessão trabalha em `claude/friendly-planck-u9wtqu-fN` criada a partir dela e o orquestrador faz o merge.
 - Ordem: F1 → (F2 ∥ F3 ∥ F5) → F4 → F6 → F7.
 - Revisão de cada fase pelo orquestrador + `tenant-security-reviewer` antes do merge.
+
+## Pendências após a revisão
+
+Revisão final do branch inteiro (`git diff origin/main...HEAD`) em 18/11, por duas passadas
+independentes: segurança multitenant (`tenant-security-reviewer`) e geral (correção, contrato
+do front, migrations, privacidade). Nenhum achado **Crítico**. Os **Importantes** que eram bugs
+foram corrigidos com teste (abaixo); o resto está aqui, com a decisão que falta.
+
+### Corrigido na revisão
+
+| Achado | Correção |
+|---|---|
+| Venda aceitava ação em processo arquivado que o membro não vê (o GET dava 404, a escrita passava) | `executarAcaoVenda` devolve 404, como a locação |
+| `idsDoAno` listava todos os ids do ano; acima de 1000 linhas o PostgREST corta e a abertura de venda dava 409 para sempre | lê só o maior id (`order desc` + `limit 1`) |
+| Locação conferia `versao` (409) antes da permissão (403): confirmava a existência a quem não pode agir | permissão primeiro, como na venda |
+| Locação travava o corretor pelo NOME do perfil; a venda, pela matriz (`verTodos`) | locação também usa `verTodos` (Recepção/Jurídico restritos a «os meus» não abrem em nome de outro) |
+| Financeiro/dashboard somavam só 200 contratos sem avisar | resposta traz `truncado: true` quando a lista bateu no limite |
+
+### Pendente
+
+| Pendência | Por que não foi feito aqui | Quem decide / próximo passo |
+|---|---|---|
+| **Política de privacidade e `docs/runbooks/lgpd-site-publico.md` não cobrem o que o `/gestao` coleta**: e-mail e código do 2º fator (envio por terceiro), `gestao_consultas` (CPF/CNPJ mascarado + resultado de crédito + ator), `gestao_login_falhas` (HMAC de e-mail/IP), `gestao_eventos`/`gestao_sessions`/`gestao_otp`. Sem prazo de expurgo definido. O `privacidade-guardrail` passa porque não vigia `/gestao` | Base legal e retenção são decisão do controlador, não do código. As frases da política que existem continuam verdadeiras | Dono do projeto/DPO: tabela de tratamentos + retenção no runbook, expurgo de eventos/sessões/consultas, e se `privacidade.vue` precisa citar a equipe interna. **Antes de ligar para um cliente** |
+| **Telas de lista, Financeiro e Dashboard cobrem só os 200 contratos mais recentes** (o servidor agora avisa com `truncado`; a tela ainda não mostra o aviso) | Exige decisão de produto: paginar a lista ou aceitar o limite com aviso | Olmi/produto. Enquanto isso, `truncado` está na resposta |
+| `gestao_locacoes` sem FK composta `(corretor_id, tenant_id)` / `(imovel_id, tenant_id)` (a `gestao_vendas` tem) | Hoje o servidor confere o tenant em `abrir` e `validarVinculos`, então não é explorável. A FK de `imovel_id` pede `unique (id, tenant_id)` em `properties` (tabela do catálogo público): migration que mexe em tabela de produção, e as migrations ainda não foram aplicadas | Nova migration depois do go-live, não editando a 0062 já revisada |
+| Sem script de rollback para a 0059 e a 0062 (existem 0060, 0061, 0063) | O da 0059 apaga convites/sessões/códigos de todos os tenants: precisa de decisão e aviso | Escrever quando alguém precisar; o runbook já avisa |
+| `ultimoIdConsulta`/`ultimoIdDoAno` (locação) ordenam id por texto: após `C-9999`/`L-AAAA-9999` o próximo repete e dá 409. O mesmo limite vale para `idsDoAno` (documentado) | Anos de uso até chegar lá; o comentário do código admite o limite | Trocar por contador/`max` numérico se um tenant se aproximar |
+| `matriz.put` e `configuracoes.put` chamam `registrarEvento` sem try/catch: falha de auditoria depois de gravar devolve 500 por algo já aplicado | Vendas/locações/documentos logam e seguem; estes dois não | Mesmo tratamento (log e segue) |
+| Fotos de imóvel: `position`/`isCover` calculados pelo `images.length` lido antes; dois envios concorrentes repetem posição/capa. `status`, `destaque` e fotos não usam `expectedUpdatedAt` | Comportamento herdado do `/admin` | Só se aparecer uso concorrente |
+| Rebaixar dois Donos ao mesmo tempo pode deixar a imobiliária sem Dono ativo (`contarDonosAtivos` + `alterarMembro` não são atômicos). **Suspeita**, não confirmada | Baixa probabilidade; correção certa é constraint/RPC | Migration futura |
+| `toVendaColunas` grava o processo sem passar por Zod (a locação passa) | A leitura já descarta linha inválida com log | Validar na escrita se algum dia entrar dado de outra origem |
+| `iniciarEnvio` cria nova linha de documento a cada envio sem `documentoId`; não há índice único por `(tenant, alvo, requisito)` entre não apagados. **Suspeita** | Depende de como o domínio trata duplicata do mesmo item | Conferir no QA em banco de teste |
+| Listas/auditoria limitadas a 200; uploads pendentes abandonados nunca são limpos; filtro «Quem» da auditoria sai só dos 200 eventos mais recentes | Limites da fase | Job de limpeza + paginação quando o volume pedir |
+| Front manda `versao ?? 1` para locação quando a versão não foi guardada (a venda falha com 422) | Só ocorre com estado inconsistente; o 409 cai no «recarregar» | Igualar à venda |
+| Não conferido: TTL do cache de `recursoLigado` (janela em que um `/gestao` desligado ainda responde) e se `auth.getUser` recusa JWT de sessão já encerrada | Revisor não confirmou lendo o código | Conferir no banco de teste (seção H do QA) |

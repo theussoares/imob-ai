@@ -123,6 +123,12 @@ export function idDeVenda(valor: string | null | undefined): string {
   return id
 }
 
+/** Mesmo critério do menu «Arquivados» (`menuVisivel`). */
+const podeVerArquivados = (ctx: CtxVendas): boolean => {
+  const c = capacidades(ctx.matriz, ctx.sessao)
+  return c.arquivar || c.apagarDocs
+}
+
 export async function lerVendaDoMembro(ctx: CtxVendas, id: string): Promise<VendaResposta> {
   if (!ID_VENDA.test(id)) throw naoEncontrado()
   const v = await buscarVenda(ctx.db, escopoDe(ctx), id)
@@ -229,6 +235,10 @@ export async function executarAcaoVenda(
     carregar: async () => {
       const v = await buscarVenda(ctx.db, escopo, id)
       if (!v) return null
+      // Arquivada some para quem não vê arquivados, como no GET (`lerVendaDoMembro`) e na locação:
+      // sem isto o 404 da leitura não valia para a escrita, e o corretor editava o que não lista.
+      // Quem restaura (`arquivar`) vê arquivados, então não é barrado aqui.
+      if (v.processo.arquivado && !podeVerArquivados(ctx)) return null
       // A permissão depende do processo (`editar = proprio`), então só dá para
       // checar depois de carregar — e o carregar já escopou, então 403 só
       // aparece para processo que o membro PODE ver.

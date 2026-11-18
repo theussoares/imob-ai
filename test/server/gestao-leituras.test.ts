@@ -190,3 +190,17 @@ describe('consultas', () => {
     expect((await consultar(c, { documento: CPF, finalidade: 'Venda', contratoId: 'V-2026-0142' })).contratoId).toBe('V-2026-0142')
   })
 })
+
+describe('limite de 200 contratos', () => {
+  test('abaixo do limite: `truncado` é false; no limite, true — o total não pode parecer completo quando não é', async () => {
+    expect((await financeiro(ctx('dono', null, mem.db), '')).truncado).toBe(false)
+    expect((await dashboard(ctx('dono', null, mem.db))).truncado).toBe(false)
+    const muitas = memoriaSupabase({
+      gestao_vendas: Array.from({ length: 200 }, (_, i) => venda(A, T, `V-2026-${String(i + 1).padStart(4, '0')}`)),
+      gestao_locacoes: [],
+      gestao_documentos: [],
+    })
+    expect((await financeiro(ctx('dono', null, muitas.db), '')).truncado).toBe(true)
+    expect((await dashboard(ctx('dono', null, muitas.db))).truncado).toBe(true)
+  })
+})

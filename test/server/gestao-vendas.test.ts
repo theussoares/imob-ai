@@ -10,6 +10,7 @@ import {
   type CtxVendas,
   type DepsVendas,
 } from '~~/server/utils/gestao-vendas'
+import { idsDoAno } from '~~/server/repositories/gestao-venda.repository'
 import { fakeSupabase, hadEq, type RecordedCall } from '../helpers/fake-supabase'
 
 /**
@@ -227,6 +228,17 @@ describe('ações — permissão, regra, concorrência', () => {
     expect(calls.some((c) => c.method === 'update')).toBe(false)
   })
 
+  test('processo arquivado que o membro não vê (sem arquivar/apagarDocs): ação responde 404, como o GET, e nada é gravado', async () => {
+    const arquivada = processoDoCorretor(CORRETOR_A, { arquivado: true })
+    const { client, calls } = fakeSupabase({ gestao_vendas: { data: row(arquivada, 1), error: null } })
+    const d = deps()
+    await expect(
+      executarAcaoVenda(ctx('corretor', client, CORRETOR_A), ID, { versao: 1, acao: 'salvarObservacao', dados: { obs: 'x' } }, d),
+    ).rejects.toMatchObject({ statusCode: 404 })
+    expect(calls.some((c) => c.method === 'update')).toBe(false)
+    expect(d.registrarEvento).not.toHaveBeenCalled()
+  })
+
   test('sucesso: grava versão+1, ator do servidor no hist, e registra o evento com o tenant do contexto', async () => {
     const p = processoDoCorretor(CORRETOR_A)
     const { client, calls } = fakeSupabase({ gestao_vendas: [{ data: row(p, 2), error: null }, { data: [{ id: ID }], error: null }] })
@@ -333,5 +345,15 @@ describe('abrir processo', () => {
     await expect(abrirVendaDoMembro(c, corpo, deps())).rejects.toMatchObject({ statusCode: 403 })
     const ok = fakeSupabase({ brokers: { data: [{ id: CORRETOR_A }], error: null }, gestao_vendas: { data: [], error: null } })
     await expect(abrirVendaDoMembro(ctx('recepcao', ok.client), { ...corpo, vendedor: ' ', corretorId: CORRETOR_A }, deps())).rejects.toMatchObject({ statusCode: 422, statusMessage: 'Informe o vendedor.' })
+  })
+})
+
+describe('numeração: ids do ano', () => {
+  test('lê só o maior id (order desc + limit 1): o PostgREST corta em 1000 linhas, e sem isso o número calculado repetia para sempre', async () => {
+    const { client, calls } = fakeSupabase({ gestao_vendas: { data: [{ id: 'V-2026-1203' }], error: null } })
+    expect(await idsDoAno(client, TENANT, 2026)).toEqual(['V-2026-1203'])
+    expect(calls.find((c) => c.method === 'order')?.args).toEqual(['id', { ascending: false }])
+    expect(calls.find((c) => c.method === 'limit')?.args[0]).toBe(1)
+    expect(eqs(calls, 'gestao_vendas', 'tenant_id')).toEqual([TENANT])
   })
 })

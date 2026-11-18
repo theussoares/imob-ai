@@ -161,6 +161,14 @@ describe('ações: permissão, versão e 409', () => {
     expect(calls.some((x) => x.method === 'update')).toBe(false)
   })
 
+  test('sem permissão sobre a locação e com versão velha: 403 (a permissão decide antes do 409, que confirmaria a existência)', async () => {
+    const { c, calls } = ctx('corretor', BROKER_B, { gestao_locacoes: { data: linha(locacao(BROKER_A), 5), error: null } })
+    ;(c as { matriz: Record<string, Record<string, string>> }).matriz.verTodos!.corretor = 'sim'
+    const e = await status(agir(c, 'L-2026-0001', corpo('salvarGarantia', { tipo: 'Caução', detalhe: 'x' }, 4)))
+    expect(e?.statusCode).toBe(403)
+    expect(calls.some((x) => x.method === 'update')).toBe(false)
+  })
+
   test('corretor de outra locação sem verTodos: 404 (não vaza existência)', async () => {
     const { c } = ctx('corretor', BROKER_B, { gestao_locacoes: { data: null, error: null } })
     expect((await status(agir(c, 'L-2026-0001', corpo('salvarGarantia', { tipo: 'Caução', detalhe: 'x' })))).statusCode).toBe(404)
@@ -203,6 +211,17 @@ describe('abrir', () => {
     const ins = calls.find((x) => x.method === 'insert')!.args[0] as { tenant_id: string; corretor_id: string; versao: number }
     expect(ins).toMatchObject({ tenant_id: T, corretor_id: BROKER_A, versao: 1 })
     expect(eventos(calls)).toHaveLength(1)
+  })
+
+  test('quem não vê todos (matriz, não o nome do perfil) abre sempre em nome do próprio corretor', async () => {
+    const { c, calls } = ctx('recepcao', BROKER_A, {
+      properties: { data: { id: IMOVEL }, error: null },
+      gestao_locacoes: [{ data: [], error: null }, { data: null, error: null }],
+    })
+    ;(c as { matriz: Record<string, Record<string, string>> }).matriz.verTodos!.recepcao = 'proprio'
+    const r = await abrir(c, { ...body, corretorId: BROKER_B })
+    expect((r.locacao as Locacao).corretorId).toBe(BROKER_A)
+    expect((calls.find((x) => x.method === 'insert')!.args[0] as { corretor_id: string }).corretor_id).toBe(BROKER_A)
   })
 
   test('imóvel de outro tenant: 422, nada inserido', async () => {
