@@ -162,7 +162,7 @@ const tab = (ativo: boolean) => [
 
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-[length:var(--fs-title)] font-extrabold">Documentos</h1>
+        <h1 class="text-[length:var(--fs-title)] font-bold">Documentos</h1>
         <p class="text-[var(--ink-soft)]">Todo documento fica ligado a um imóvel e a um processo.</p>
       </div>
       <button
@@ -339,7 +339,7 @@ const tab = (ativo: boolean) => [
       data-testid="modal-versoes"
     >
       <div v-if="docVersoes" class="flex flex-col gap-3">
-        <h2 id="versoes-titulo" class="text-[length:var(--fs-title-sm)] font-extrabold">
+        <h2 id="versoes-titulo" class="text-[length:var(--fs-title-sm)] font-bold">
           Versões de {{ docVersoes.nome }}
         </h2>
         <ul class="flex flex-col gap-2">

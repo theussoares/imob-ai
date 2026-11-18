@@ -30,7 +30,7 @@ const comQuartos = computed(() => (m.value.type ? temQuartos(m.value.type) : tru
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const secao = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[var(--shadow)] md:p-5 [display:grid] gap-3 md:grid-cols-2'
+const secao = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5 [display:grid] gap-3 md:grid-cols-2'
 const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 </script>
 

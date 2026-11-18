@@ -69,9 +69,9 @@ const btn =
     <header
       class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--paper)] px-4 py-2.5"
     >
-      <div class="flex items-center gap-2.5 font-extrabold">
+      <div class="flex items-center gap-2.5 font-bold">
         <span
-          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-extrabold text-[var(--gestao-amarelo)]"
+          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-bold text-[var(--gestao-amarelo)]"
           aria-hidden="true"
         >
           {{ (tenant?.name || 'G').slice(0, 1) }}
@@ -111,7 +111,7 @@ const btn =
             class="flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-[10px] px-3 font-semibold no-underline hover:bg-[var(--surface)]"
             :class="
               ativo(m.rota)
-                ? 'bg-[var(--gestao-amarelo)] font-extrabold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
+                ? 'bg-[var(--gestao-amarelo)] font-bold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
                 : 'text-[var(--ink-soft)]'
             "
             :aria-current="ativo(m.rota) ? 'page' : undefined"

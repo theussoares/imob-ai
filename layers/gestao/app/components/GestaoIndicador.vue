@@ -13,7 +13,7 @@ defineProps<{ rotulo: string; valor: string; detalhe?: string; alerta?: boolean;
     :data-testid="testid"
   >
     <span class="text-[length:var(--fs-label)] font-semibold text-[var(--ink-soft)]">{{ rotulo }}</span>
-    <strong class="text-[length:var(--fs-title)] leading-tight font-extrabold" :class="alerta ? 'text-[#7f1d1d]' : ''">{{ valor }}</strong>
+    <strong class="text-[length:var(--fs-title)] leading-tight font-bold" :class="alerta ? 'text-[#7f1d1d]' : ''">{{ valor }}</strong>
     <span v-if="detalhe" class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ detalhe }}</span>
   </component>
 </template>

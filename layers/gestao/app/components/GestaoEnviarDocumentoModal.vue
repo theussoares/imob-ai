@@ -122,7 +122,7 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
     data-testid="modal-enviar"
   >
     <form class="flex flex-col gap-4" @submit.prevent="emit('enviar', { arquivo, categoria, processoId, tipo })">
-      <h2 id="enviar-doc-titulo" class="text-[length:var(--fs-title-sm)] font-extrabold">Enviar documento</h2>
+      <h2 id="enviar-doc-titulo" class="text-[length:var(--fs-title-sm)] font-bold">Enviar documento</h2>
 
       <div>
         <label for="enviar-doc-arquivo" :class="rotulo">Arquivo</label>

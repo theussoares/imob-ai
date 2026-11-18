@@ -85,7 +85,7 @@ async function excluir() {
 
 const campo =
   'min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
-const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[var(--shadow)] md:p-5'
+const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5'
 </script>
 
 <template>
@@ -93,7 +93,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <NuxtLink to="/gestao/imoveis" class="inline-flex min-h-11 items-center text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
-        <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-extrabold" data-testid="imovel-titulo-pagina">{{ imovel.title }}</h1>
+        <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-bold" data-testid="imovel-titulo-pagina">{{ imovel.title }}</h1>
         <p class="mt-1 text-[var(--ink-soft)]">{{ imovel.id }} · {{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(imovel.id, store.locacoes.value)] }}</p>
       </div>
       <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">Anúncio no site

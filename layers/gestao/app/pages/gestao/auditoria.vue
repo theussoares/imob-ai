@@ -34,7 +34,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 <template>
   <section class="[display:grid] gap-4">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Histórico de alterações</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Histórico de alterações</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Quem fez o quê, em vendas e locações, inclusive nos contratos arquivados.</p>
     </header>
 

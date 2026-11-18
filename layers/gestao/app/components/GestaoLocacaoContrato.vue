@@ -25,7 +25,7 @@ const botao =
 
 <template>
   <form class="[display:grid] gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" novalidate @submit.prevent="emit('salvar', { ...form })">
-    <h2 class="m-0 text-[length:var(--fs-body)] font-extrabold">Contrato e aluguel</h2>
+    <h2 class="m-0 text-[length:var(--fs-body)] font-bold">Contrato e aluguel</h2>
     <div class="[display:grid] gap-3 sm:grid-cols-3">
       <label :class="rotulo">Valor do aluguel (R$)<input v-model.number="form.valor" type="number" min="0" step="0.01" :class="campo" :disabled="!podeEditar" data-testid="contrato-valor" /></label>
       <label :class="rotulo">Dia de vencimento (1 a 28)<input v-model.number="form.diaVencimento" type="number" min="1" max="28" :class="campo" :disabled="!podeEditar" data-testid="contrato-dia" /></label>

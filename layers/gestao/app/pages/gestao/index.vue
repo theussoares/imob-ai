@@ -31,7 +31,7 @@ const TONS = {
 <template>
   <section class="[display:grid] gap-6">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Dashboard</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Dashboard</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Olá, {{ sessao?.nome }}. Este é o resumo dos contratos que você acompanha.</p>
     </header>
 
@@ -53,7 +53,7 @@ const TONS = {
     </div>
 
     <section class="[display:grid] gap-3" aria-labelledby="dash-atencao">
-      <h2 id="dash-atencao" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Precisa de atenção</h2>
+      <h2 id="dash-atencao" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Precisa de atenção</h2>
       <p v-if="!r.atencao.length" class="m-0 rounded-[14px] border border-dashed border-[var(--line-2)] bg-[var(--paper)] p-5 text-[var(--ink-soft)]" data-testid="dash-nada">
         Nada pendente por aqui.
       </p>

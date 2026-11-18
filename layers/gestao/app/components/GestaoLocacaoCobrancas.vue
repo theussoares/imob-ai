@@ -27,7 +27,7 @@ const botao =
 
 <template>
   <section class="[display:grid] gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" aria-labelledby="cobrancas-titulo">
-    <h2 id="cobrancas-titulo" class="m-0 text-[length:var(--fs-body)] font-extrabold">Cobranças e repasses</h2>
+    <h2 id="cobrancas-titulo" class="m-0 text-[length:var(--fs-body)] font-bold">Cobranças e repasses</h2>
     <form v-if="podeEditar" class="flex flex-wrap items-end gap-2" @submit.prevent="emit('gerar', competencia)">
       <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
         Competência

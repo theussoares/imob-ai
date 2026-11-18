@@ -188,7 +188,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
     :aria-label="`Etapa ${etapa}: ${ETAPAS_VENDA[etapa - 1]}`"
     :data-testid="`painel-etapa-${etapa}`"
   >
-    <h2 class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-extrabold">
+    <h2 class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-bold">
       Etapa {{ etapa }} · {{ ETAPAS_VENDA[etapa - 1] }}
     </h2>
 

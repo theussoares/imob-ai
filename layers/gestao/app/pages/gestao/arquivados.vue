@@ -49,7 +49,7 @@ async function restaurar(id: string, tipo: 'venda' | 'locacao') {
 <template>
   <div class="flex flex-col gap-4">
     <div>
-      <h1 class="m-0 text-[length:var(--fs-title)] font-extrabold">Arquivados</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] font-bold">Arquivados</h1>
       <p class="m-0 text-[var(--ink-soft)]">Contratos encerrados que saíram da lista. Nada é apagado: dá para restaurar.</p>
     </div>
 

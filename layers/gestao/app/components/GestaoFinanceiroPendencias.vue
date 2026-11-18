@@ -28,7 +28,7 @@ const botao =
 <template>
   <section class="[display:grid] gap-4" aria-labelledby="fin-pendencias" data-testid="fin-pendencias">
     <div>
-      <h2 id="fin-pendencias" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Pendências</h2>
+      <h2 id="fin-pendencias" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Pendências</h2>
       <p class="mt-1 text-[var(--ink-soft)]">O que ainda precisa de ação, de todos os meses. Registre aqui sem abrir o contrato.</p>
     </div>
 
@@ -36,7 +36,7 @@ const botao =
       { chave: 'receber', titulo: 'Aluguéis a receber', vazio: 'Nenhum aluguel em aberto.', itens: pendencias.receber },
       { chave: 'repassar', titulo: 'Repasses a fazer', vazio: 'Nenhum repasse pendente.', itens: pendencias.repassar },
     ]" :key="grupo.chave" class="[display:grid] gap-2">
-      <h3 class="m-0 text-[length:var(--fs-body)] font-extrabold">{{ grupo.titulo }} ({{ grupo.itens.length }})</h3>
+      <h3 class="m-0 text-[length:var(--fs-body)] font-bold">{{ grupo.titulo }} ({{ grupo.itens.length }})</h3>
       <p v-if="!grupo.itens.length" class="m-0 text-[var(--ink-soft)]">{{ grupo.vazio }}</p>
       <ul v-else class="m-0 flex list-none flex-col gap-2 p-0" :data-testid="`fin-pend-${grupo.chave}`">
         <li v-for="l in grupo.itens" :key="l.cobrancaId" class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-[var(--paper)] px-3 py-2" :class="l.situacao === 'atrasada' ? 'border-[#b91c1c]' : 'border-[var(--line)]'" :data-testid="`fin-pend-${grupo.chave}-item`">

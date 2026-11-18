@@ -125,7 +125,7 @@ const btn =
 
 <template>
   <div v-if="!locacao" class="mx-auto max-w-xl rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6" data-testid="nao-encontrado">
-    <h1 class="m-0 mb-2 text-[length:var(--fs-title)] font-extrabold">Locação não encontrada</h1>
+    <h1 class="m-0 mb-2 text-[length:var(--fs-title)] font-bold">Locação não encontrada</h1>
     <p class="m-0 mb-4 text-[var(--ink-soft)]">Essa locação não existe ou você não tem acesso a ela.</p>
     <NuxtLink to="/gestao/locacao" class="inline-flex min-h-11 items-center font-bold text-[var(--brand)] underline">← Voltar para a lista</NuxtLink>
   </div>
@@ -135,10 +135,10 @@ const btn =
       <NuxtLink to="/gestao/locacao" class="inline-flex min-h-11 w-fit items-center font-bold text-[var(--brand)] no-underline hover:underline">← Voltar para a lista</NuxtLink>
       <div class="min-w-0">
         <div class="mb-1 flex flex-wrap items-center gap-2">
-          <span class="rounded-full border border-[var(--line-2)] bg-[var(--paper)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-extrabold">{{ locacao.id }}</span>
+          <span class="rounded-full border border-[var(--line-2)] bg-[var(--paper)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold">{{ locacao.id }}</span>
           <GestaoStatusChip :status="locacao.status" />
         </div>
-        <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">{{ locacao.imovel }}</h1>
+        <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">{{ locacao.imovel }}</h1>
         <p class="m-0 text-[var(--ink-soft)]">{{ locacao.locador.nome }} · {{ locacao.locatario.nome }} · {{ nomeCorretor(locacao.corretorId) }}</p>
       </div>
       <p v-if="final" class="m-0 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 py-2 font-semibold" role="status" data-testid="aviso-final">
@@ -161,7 +161,7 @@ const btn =
 
     <div class="[display:grid] gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
       <div class="flex min-w-0 flex-col gap-3">
-        <h2 class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Etapa {{ etapaVista }}: {{ ETAPAS_LOCACAO[etapaVista - 1] }}</h2>
+        <h2 class="m-0 text-[length:var(--fs-title-sm)] font-bold">Etapa {{ etapaVista }}: {{ ETAPAS_LOCACAO[etapaVista - 1] }}</h2>
 
         <GestaoLocacaoAbertura v-if="etapaVista === 1" :key="locacao.updated" :locacao="locacao" :pode-editar="podeEditar" :corretor-travado="sessao?.perfil === 'corretor'" @salvar="(d) => executar('salvarAberturaLocacao', abertura(d), 'Abertura salva.')" />
         <GestaoLocacaoPessoa v-else-if="etapaVista === 2" :key="locacao.updated" titulo="Cadastro do locatário" :pessoa="locacao.locatario" :pode-editar="podeEditar" @salvar="salvarPessoa('locatario', $event)" />
@@ -241,7 +241,7 @@ const btn =
       </div>
 
       <aside class="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" aria-labelledby="hist-titulo">
-        <h2 id="hist-titulo" class="m-0 mb-2 text-[length:var(--fs-body)] font-extrabold">Histórico</h2>
+        <h2 id="hist-titulo" class="m-0 mb-2 text-[length:var(--fs-body)] font-bold">Histórico</h2>
         <ol class="m-0 flex list-none flex-col gap-2 p-0" data-testid="historico">
           <li v-for="(h, i) in locacao.hist" :key="i" class="border-b border-[var(--line)] pb-2 last:border-b-0">
             <span class="block font-semibold">{{ h.acao }}</span>

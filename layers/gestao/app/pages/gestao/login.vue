@@ -54,13 +54,13 @@ const campo =
   <GestaoAuthShell class="gestao-tema">
     <div class="flex w-full max-w-120 flex-col gap-4">
       <form
-        class="flex flex-col gap-4 rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow)] sm:p-7"
+        class="flex flex-col gap-4 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[0_1px_2px_rgba(20,22,26,0.05)] sm:p-7"
         novalidate
         @submit.prevent="enviar"
       >
         <div>
-          <p class="m-0 font-extrabold text-[var(--brand)]">{{ tenant?.name || 'Gestão' }}</p>
-          <h1 class="m-0 text-[length:var(--fs-title-lg)] font-extrabold">Entrar no sistema</h1>
+          <p class="m-0 font-bold text-[var(--brand)]">{{ tenant?.name || 'Gestão' }}</p>
+          <h1 class="m-0 text-[length:var(--fs-title-lg)] font-bold">Entrar no sistema</h1>
         </div>
 
         <p
@@ -73,7 +73,7 @@ const campo =
         </p>
 
         <div class="flex flex-col gap-1.5">
-          <label for="login-email" class="font-bold">E-mail</label>
+          <label for="login-email" class="font-semibold">E-mail</label>
           <input
             id="login-email"
             v-model="email"
@@ -105,7 +105,7 @@ const campo =
 
         <button
           type="submit"
-          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-extrabold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
+          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-bold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
           :disabled="!podeEnviar"
           data-testid="entrar-senha"
         >
@@ -119,13 +119,13 @@ const campo =
       <!-- Só com GESTAO_DEMO: sem a flag, nenhum atalho existe (spec, «Acesso e segurança»). -->
       <section
         v-if="auth.demo"
-        class="flex flex-col gap-3 rounded-[var(--r)] border-2 border-dashed border-[var(--accent)] bg-[var(--paper)] p-5"
+        class="flex flex-col gap-3 rounded-xl border-2 border-dashed border-[var(--accent)] bg-[var(--paper)] p-5"
         aria-labelledby="demo-titulo"
         data-testid="faixa-demo"
       >
         <div>
-          <p class="m-0 text-[length:var(--fs-caption)] font-extrabold tracking-wide text-[var(--accent)] uppercase">Demonstração</p>
-          <h2 id="demo-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Acesso rápido de demonstração</h2>
+          <p class="m-0 text-[length:var(--fs-caption)] font-bold tracking-wide text-[var(--accent)] uppercase">Demonstração</p>
+          <h2 id="demo-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Acesso rápido de demonstração</h2>
         </div>
         <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
           Pula senha e 2º fator para ver o que cada perfil enxerga. Para testar o fluxo completo, use um e-mail como
@@ -155,7 +155,7 @@ const campo =
           </fieldset>
           <button
             type="submit"
-            class="min-h-12 rounded-xl border-[1.5px] border-[var(--brand)] bg-[var(--paper)] font-extrabold text-[var(--brand)] enabled:cursor-pointer enabled:hover:bg-[var(--brand-ghost)] disabled:cursor-not-allowed disabled:border-[var(--line-2)] disabled:text-[var(--ink-soft)]"
+            class="min-h-12 rounded-xl border-[1.5px] border-[var(--brand)] bg-[var(--paper)] font-bold text-[var(--brand)] enabled:cursor-pointer enabled:hover:bg-[var(--brand-ghost)] disabled:cursor-not-allowed disabled:border-[var(--line-2)] disabled:text-[var(--ink-soft)]"
             :disabled="!escolhido"
             data-testid="entrar"
           >

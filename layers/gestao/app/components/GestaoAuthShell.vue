@@ -16,7 +16,7 @@ const predios = [
       aria-hidden="true"
     >
       <div class="relative z-10 flex items-center gap-2.5 font-bold">
-        <span class="[display:grid] size-9 place-items-center rounded-[9px] bg-[var(--gestao-amarelo)] font-extrabold text-[var(--brand)]">
+        <span class="[display:grid] size-9 place-items-center rounded-[9px] bg-[var(--gestao-amarelo)] font-bold text-[var(--brand)]">
           {{ (tenant?.name || 'G').slice(0, 1) }}
         </span>
         {{ tenant?.name || 'Gestão' }}

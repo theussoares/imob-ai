@@ -19,7 +19,7 @@ const avisos = computed(() => avisosLocacao(props.locacao, hojeISO()))
       <GestaoStatusChip :status="locacao.status" />
     </header>
 
-    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold">
+    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-bold">
       {{ locacao.locador.nome }} e {{ locacao.locatario.nome }}
     </h2>
 

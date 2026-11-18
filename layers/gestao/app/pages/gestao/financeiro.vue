@@ -57,7 +57,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 <template>
   <section class="[display:grid] gap-6">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Financeiro</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Financeiro</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Comissões das vendas e aluguéis, taxas e repasses das locações.</p>
     </header>
 
@@ -74,7 +74,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
     <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :demo="demo" @pagar="pagar" @repassar="repassar" />
 
     <section class="[display:grid] gap-3" aria-labelledby="fin-vendas">
-      <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Comissões de venda</h2>
+      <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Comissões de venda</h2>
       <div class="[display:grid] gap-3 sm:grid-cols-3">
         <GestaoIndicador rotulo="Comissão total" :valor="brl(vendas.comissaoTotal)" testid="fin-comissao-total" />
         <GestaoIndicador rotulo="Já adiantado" :valor="brl(vendas.adiantado)" testid="fin-comissao-adiantado" />
@@ -115,7 +115,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 
     <section class="[display:grid] gap-3" aria-labelledby="fin-locacoes">
       <div class="flex flex-wrap items-end justify-between gap-3">
-        <h2 id="fin-locacoes" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Aluguéis e repasses</h2>
+        <h2 id="fin-locacoes" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Aluguéis e repasses</h2>
         <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
           Competência
           <select v-model="competencia" :class="campo" data-testid="fin-competencia">

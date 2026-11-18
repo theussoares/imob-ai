@@ -50,26 +50,26 @@ const campo =
 <template>
   <GestaoAuthShell class="gestao-tema">
     <div
-      class="flex w-full max-w-130 flex-col gap-4 rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow)] sm:p-7"
+      class="flex w-full max-w-130 flex-col gap-4 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[0_1px_2px_rgba(20,22,26,0.05)] sm:p-7"
     >
-      <p class="m-0 font-extrabold text-[var(--brand)]">{{ tenant?.name || 'Gestão' }}</p>
+      <p class="m-0 font-bold text-[var(--brand)]">{{ tenant?.name || 'Gestão' }}</p>
 
       <!-- Convite inválido: expirado, usado, cancelado ou inexistente. -->
       <template v-if="!consulta.ok">
-        <h1 class="m-0 text-[length:var(--fs-title-lg)] font-extrabold">Convite indisponível</h1>
+        <h1 class="m-0 text-[length:var(--fs-title-lg)] font-bold">Convite indisponível</h1>
         <p role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="convite-invalido" :data-motivo="consulta.motivo">
           {{ consulta.erro }}
         </p>
         <NuxtLink
           to="/gestao/login"
-          class="[display:grid] min-h-12 place-items-center rounded-xl border-[1.5px] border-[var(--brand)] font-extrabold text-[var(--brand)] no-underline hover:bg-[var(--brand-ghost)]"
+          class="[display:grid] min-h-12 place-items-center rounded-xl border-[1.5px] border-[var(--brand)] font-bold text-[var(--brand)] no-underline hover:bg-[var(--brand-ghost)]"
         >
           Ir para o login
         </NuxtLink>
       </template>
 
       <form v-else class="flex flex-col gap-4" novalidate @submit.prevent="criar">
-        <h1 class="m-0 text-[length:var(--fs-title-lg)] font-extrabold">Crie seu acesso</h1>
+        <h1 class="m-0 text-[length:var(--fs-title-lg)] font-bold">Crie seu acesso</h1>
 
         <dl class="m-0 [display:grid] grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl bg-[var(--surface)] p-3.5">
           <dt class="text-[var(--ink-soft)]">E-mail</dt>
@@ -79,7 +79,7 @@ const campo =
         </dl>
 
         <div class="flex flex-col gap-1.5">
-          <label for="convite-nome" class="font-bold">Seu nome</label>
+          <label for="convite-nome" class="font-semibold">Seu nome</label>
           <input id="convite-nome" v-model="nome" type="text" autocomplete="name" required :class="campo" data-testid="nome" />
         </div>
 
@@ -106,7 +106,7 @@ const campo =
 
         <button
           type="submit"
-          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-extrabold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
+          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-bold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
           :disabled="!podeCriar"
           data-testid="criar-conta"
         >

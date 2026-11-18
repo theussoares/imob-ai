@@ -30,14 +30,14 @@ const capa = (fotos: { url: string; urlSm: string | null; isCover: boolean }[]) 
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] shadow-[var(--shadow)]'
+const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0_1px_2px_rgba(20,22,26,0.05)]'
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Imóveis</h1>
+        <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Imóveis</h1>
         <p class="mt-1 text-[var(--ink-soft)]">O que você cadastra aqui é o que aparece no site da imobiliária.</p>
       </div>
       <NuxtLink v-if="podeCriar" to="/gestao/imoveis/novo" class="inline-flex min-h-11 items-center rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] no-underline hover:opacity-90" data-testid="imovel-novo">

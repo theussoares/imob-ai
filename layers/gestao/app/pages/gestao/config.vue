@@ -32,18 +32,18 @@ async function salvar() {
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[var(--shadow)] md:p-5'
+const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5'
 </script>
 
 <template>
   <form class="flex flex-col gap-4" novalidate @submit.prevent="salvar">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Configurações</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Configurações</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Dados da imobiliária e padrões para contratos novos.</p>
     </header>
 
     <section :class="card" aria-labelledby="cfg-imob">
-      <h2 id="cfg-imob" class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-extrabold">Imobiliária</h2>
+      <h2 id="cfg-imob" class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-bold">Imobiliária</h2>
       <div class="[display:grid] gap-3 sm:grid-cols-2">
         <label :class="rotulo" class="sm:col-span-2">Nome
           <input v-model="form.imobiliaria.nome" :class="campo" autocomplete="organization" data-testid="cfg-nome" />
@@ -61,7 +61,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
     </section>
 
     <section :class="card" aria-labelledby="cfg-padroes">
-      <h2 id="cfg-padroes" class="m-0 mb-1 text-[length:var(--fs-title-sm)] font-extrabold">Padrões para contratos novos</h2>
+      <h2 id="cfg-padroes" class="m-0 mb-1 text-[length:var(--fs-title-sm)] font-bold">Padrões para contratos novos</h2>
       <p class="m-0 mb-3 text-[var(--ink-soft)]">Contratos já abertos mantêm o percentual que tinham.</p>
       <div class="[display:grid] gap-3 sm:grid-cols-2">
         <label :class="rotulo">Comissão da venda (%)

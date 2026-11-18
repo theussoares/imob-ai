@@ -72,14 +72,14 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
       <p class="m-0 text-[length:var(--fs-label)] font-bold text-[var(--ink-soft)]">
         Comissão total ({{ processo.pct }}% de {{ brl(processo.valor) }})
       </p>
-      <p class="m-0 text-[length:var(--fs-title)] font-extrabold" data-testid="comissao-total">
+      <p class="m-0 text-[length:var(--fs-title)] font-bold" data-testid="comissao-total">
         {{ brl(comissao.total) }}
       </p>
       <p class="m-0 text-[var(--ink-soft)]">
         Adiantado {{ brl(comissao.adiantado) }}
       </p>
       <p class="m-0 mt-2 text-[length:var(--fs-label)] font-bold text-[var(--ink-soft)]">Comissão final a receber</p>
-      <p class="m-0 text-[length:var(--fs-title-sm)] font-extrabold" data-testid="comissao-final">
+      <p class="m-0 text-[length:var(--fs-title-sm)] font-bold" data-testid="comissao-final">
         {{ brl(comissao.restante) }}
       </p>
     </div>
@@ -92,14 +92,14 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
         :data-testid="`parte-${p.resp}`"
       >
         <p class="m-0 font-bold">{{ ROTULO[p.resp] }} · {{ p.pct }}%</p>
-        <p class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">{{ brl(p.total) }}</p>
+        <p class="m-0 text-[length:var(--fs-title-sm)] font-bold">{{ brl(p.total) }}</p>
         <p class="m-0 text-[var(--ink-soft)]">Adiantado {{ brl(p.adiantado) }}</p>
         <p class="m-0 text-[var(--ink-soft)]">Restante {{ brl(p.restante) }}</p>
       </li>
     </ul>
 
     <div class="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4">
-      <h3 class="m-0 mb-3 text-[length:var(--fs-body)] font-extrabold">Adiantamentos</h3>
+      <h3 class="m-0 mb-3 text-[length:var(--fs-body)] font-bold">Adiantamentos</h3>
 
       <p v-if="!processo.adiantamentos.length" class="m-0 text-[var(--ink-soft)]">Nenhum adiantamento registrado.</p>
       <ul v-else class="m-0 flex list-none flex-col gap-2 p-0">

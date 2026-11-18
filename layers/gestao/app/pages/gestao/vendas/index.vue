@@ -39,7 +39,7 @@ const btn =
   <section class="[display:grid] gap-4">
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-[length:var(--fs-title)] leading-tight font-extrabold">Contratos de venda</h1>
+        <h1 class="text-[length:var(--fs-title)] leading-tight font-bold">Contratos de venda</h1>
         <p class="mt-1 text-[var(--ink-soft)]">Acompanhe cada venda da proposta ao registro.</p>
       </div>
       <div class="flex flex-wrap gap-2">

@@ -106,7 +106,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
     @click.self="fechar"
   >
     <form class="[display:grid] gap-3 p-5" novalidate @submit.prevent="enviar">
-      <h2 id="novo-processo-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold">
+      <h2 id="novo-processo-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-bold">
         Novo processo de venda
       </h2>
 

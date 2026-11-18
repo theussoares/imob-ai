@@ -46,10 +46,10 @@ const select =
 </script>
 
 <template>
-  <section class="rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[var(--shadow)] md:p-5" aria-labelledby="matriz-titulo">
+  <section class="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5" aria-labelledby="matriz-titulo">
     <div class="mb-3 flex flex-wrap items-start justify-between gap-2">
       <div>
-        <h2 id="matriz-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Permissões por perfil</h2>
+        <h2 id="matriz-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Permissões por perfil</h2>
         <p class="m-0 text-[var(--ink-soft)]">A mudança vale na hora para o menu e para as telas.</p>
       </div>
       <button

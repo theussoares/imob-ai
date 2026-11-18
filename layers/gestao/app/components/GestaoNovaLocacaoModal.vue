@@ -65,7 +65,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
     @click.self="fechar"
   >
     <form class="[display:grid] gap-3 p-5" novalidate @submit.prevent="enviar">
-      <h2 id="nova-locacao-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold">Nova locação</h2>
+      <h2 id="nova-locacao-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-bold">Nova locação</h2>
       <label :class="rotulo">
         Imóvel
         <select v-model="imovelId" :class="campo" data-testid="imovel">

@@ -18,7 +18,7 @@ const botao =
 
 <template>
   <form class="[display:grid] gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" novalidate @submit.prevent="emit('salvar', { tipo, detalhe })">
-    <h2 class="m-0 text-[length:var(--fs-body)] font-extrabold">Garantia</h2>
+    <h2 class="m-0 text-[length:var(--fs-body)] font-bold">Garantia</h2>
     <div class="[display:grid] gap-3 sm:grid-cols-2">
       <label :class="rotulo">
         Tipo

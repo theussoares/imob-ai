@@ -4,10 +4,10 @@ defineProps<{ titulo: string; descricao?: string }>()
 
 <template>
   <section
-    class="max-w-140 rounded-[var(--r)] border border-dashed border-[var(--line-2)] bg-[var(--paper)] p-7"
+    class="max-w-140 rounded-xl border border-dashed border-[var(--line-2)] bg-[var(--paper)] p-7"
     data-testid="em-breve"
   >
-    <h1 class="mb-2 text-[length:var(--fs-title)] font-extrabold">{{ titulo }}</h1>
+    <h1 class="mb-2 text-[length:var(--fs-title)] font-bold">{{ titulo }}</h1>
     <p class="mb-4 text-[var(--ink-soft)]">
       {{ descricao || 'Esta seção está no planejamento e não faz parte da demonstração de hoje.' }}
     </p>

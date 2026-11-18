@@ -97,13 +97,13 @@ const emailMascarado = computed(() => {
   <GestaoAuthShell class="gestao-tema">
     <div class="flex w-full max-w-120 flex-col gap-4">
       <form
-        class="flex flex-col gap-4 rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[var(--shadow)] sm:p-7"
+        class="flex flex-col gap-4 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 shadow-[0_1px_2px_rgba(20,22,26,0.05)] sm:p-7"
         novalidate
         @submit.prevent="enviar"
       >
         <div>
-          <p class="m-0 font-extrabold text-[var(--brand)]">{{ tenant?.name || 'Gestão' }}</p>
-          <h1 class="m-0 text-[length:var(--fs-title-lg)] font-extrabold">Confirme que é você</h1>
+          <p class="m-0 font-bold text-[var(--brand)]">{{ tenant?.name || 'Gestão' }}</p>
+          <h1 class="m-0 text-[length:var(--fs-title-lg)] font-bold">Confirme que é você</h1>
         </div>
         <p class="m-0 text-[var(--ink-soft)]">
           Enviamos um código de 6 dígitos para <strong class="text-[var(--ink)]">{{ emailMascarado }}</strong>. Ele vale
@@ -111,7 +111,7 @@ const emailMascarado = computed(() => {
         </p>
 
         <div class="flex flex-col gap-1.5">
-          <label for="verificar-codigo" class="font-bold">Código de verificação</label>
+          <label for="verificar-codigo" class="font-semibold">Código de verificação</label>
           <input
             id="verificar-codigo"
             v-model="codigo"
@@ -136,7 +136,7 @@ const emailMascarado = computed(() => {
 
         <button
           type="submit"
-          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-extrabold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
+          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-bold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
           :disabled="!podeEnviar"
           data-testid="verificar"
         >
@@ -167,13 +167,13 @@ const emailMascarado = computed(() => {
       <!-- Só com GESTAO_DEMO: não há provedor de e-mail, então o código aparece aqui. -->
       <section
         v-if="auth.demo"
-        class="rounded-[var(--r)] border-2 border-dashed border-[var(--accent)] bg-[var(--paper)] p-5"
+        class="rounded-xl border-2 border-dashed border-[var(--accent)] bg-[var(--paper)] p-5"
         aria-labelledby="demo-titulo"
         data-testid="faixa-demo"
       >
-        <p class="m-0 text-[length:var(--fs-caption)] font-extrabold tracking-wide text-[var(--accent)] uppercase">Demonstração</p>
-        <h2 id="demo-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Seu código (não há envio de e-mail no demo)</h2>
-        <p class="m-0 mt-2 font-mono text-[length:var(--fs-title)] font-extrabold tracking-[0.3em]" data-testid="codigo-demo">
+        <p class="m-0 text-[length:var(--fs-caption)] font-bold tracking-wide text-[var(--accent)] uppercase">Demonstração</p>
+        <h2 id="demo-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Seu código (não há envio de e-mail no demo)</h2>
+        <p class="m-0 mt-2 font-mono text-[length:var(--fs-title)] font-bold tracking-[0.3em]" data-testid="codigo-demo">
           {{ auth.codigoDemo.value ?? '— — — — — —' }}
         </p>
       </section>

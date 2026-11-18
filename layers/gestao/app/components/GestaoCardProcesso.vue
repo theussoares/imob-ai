@@ -24,7 +24,7 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
       <GestaoStatusChip :status="processo.status" />
     </header>
 
-    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold" data-testid="card-titulo">
+    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-bold" data-testid="card-titulo">
       {{ processo.vendedor.nome }} e {{ processo.comprador.nome }}
     </h2>
 

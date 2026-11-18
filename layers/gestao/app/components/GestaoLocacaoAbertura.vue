@@ -29,7 +29,7 @@ const botao =
 
 <template>
   <form class="[display:grid] gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" novalidate @submit.prevent="salvar">
-    <h2 class="m-0 text-[length:var(--fs-body)] font-extrabold">Abertura</h2>
+    <h2 class="m-0 text-[length:var(--fs-body)] font-bold">Abertura</h2>
     <div class="[display:grid] gap-3 sm:grid-cols-2">
       <label :class="rotulo">Locador (proprietário)<input v-model="locador.nome" :class="campo" :disabled="!podeEditar" autocomplete="off" data-testid="abertura-locador" /></label>
       <label :class="rotulo">CPF ou CNPJ do locador<input v-model="locador.cpf" :class="campo" :disabled="!podeEditar" inputmode="numeric" autocomplete="off" /></label>

@@ -64,7 +64,7 @@ const acao =
   >
     <div class="flex min-w-0 items-start gap-3">
       <span
-        class="[display:grid] size-11 flex-none place-items-center rounded-[10px] text-[length:var(--fs-caption)] font-extrabold"
+        class="[display:grid] size-11 flex-none place-items-center rounded-[10px] text-[length:var(--fs-caption)] font-bold"
         :class="ICONE[tipoArquivo(doc.nome)]"
         aria-hidden="true"
       >

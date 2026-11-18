@@ -231,7 +231,7 @@ const aba_ = (ativa: boolean) =>
 <template>
   <!-- Processo inexistente ou de outro corretor: nada do dado alheio é renderizado. -->
   <div v-if="!processo" class="mx-auto max-w-xl rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6" data-testid="nao-encontrado">
-    <h1 class="m-0 mb-2 text-[length:var(--fs-title)] font-extrabold">Processo não encontrado</h1>
+    <h1 class="m-0 mb-2 text-[length:var(--fs-title)] font-bold">Processo não encontrado</h1>
     <p class="m-0 mb-4 text-[var(--ink-soft)]">
       Esse processo não existe ou você não tem acesso a ele.
     </p>
@@ -249,12 +249,12 @@ const aba_ = (ativa: boolean) =>
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="mb-1 flex flex-wrap items-center gap-2">
-            <span class="rounded-full border border-[var(--line-2)] bg-[var(--paper)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-extrabold">
+            <span class="rounded-full border border-[var(--line-2)] bg-[var(--paper)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold">
               {{ processo.id }}
             </span>
             <GestaoStatusChip :status="processo.status" />
           </div>
-          <h1 class="m-0 text-[length:var(--fs-title)] font-extrabold leading-tight">{{ processo.imovel }}</h1>
+          <h1 class="m-0 text-[length:var(--fs-title)] font-bold leading-tight">{{ processo.imovel }}</h1>
           <p class="m-0 text-[var(--ink-soft)]">
             {{ processo.vendedor.nome }} · {{ processo.comprador.nome }} ·
             {{ nomeCorretor(processo.corretorId) }}
@@ -400,7 +400,7 @@ const aba_ = (ativa: boolean) =>
       </div>
 
       <aside class="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" aria-labelledby="hist-titulo">
-        <h2 id="hist-titulo" class="m-0 mb-2 text-[length:var(--fs-body)] font-extrabold">Histórico</h2>
+        <h2 id="hist-titulo" class="m-0 mb-2 text-[length:var(--fs-body)] font-bold">Histórico</h2>
         <p v-if="!processo.hist.length" class="m-0 text-[var(--ink-soft)]">Nenhum evento ainda.</p>
         <ol v-else class="m-0 flex list-none flex-col gap-2 p-0" data-testid="historico">
           <li v-for="(h, i) in processo.hist" :key="i" class="border-b border-[var(--line)] pb-2 last:border-b-0">
