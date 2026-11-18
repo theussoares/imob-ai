@@ -121,7 +121,7 @@ const btn =
 </script>
 
 <template>
-  <div class="gestao-tema flex min-h-dvh flex-col bg-[var(--surface)] text-[length:var(--fs-ui)] text-[var(--ink)]">
+  <div class="gestao-tema flex min-h-dvh flex-col md:h-dvh md:overflow-hidden bg-[var(--surface)] text-[length:var(--fs-ui)] text-[var(--ink)]">
     <a
       href="#gestao-conteudo"
       class="absolute -left-[999px] top-2 z-50 rounded-lg bg-[var(--paper)] px-3 py-2 focus:left-2"
@@ -224,7 +224,7 @@ const btn =
       <nav
         v-if="sessao"
         id="gestao-menu"
-        class="flex-none flex-col gap-1 border-[var(--line)] bg-[var(--paper)] p-3 md:static md:z-auto md:flex md:w-58 md:overflow-visible md:border-r md:shadow-none"
+        class="flex-none flex-col gap-1 border-[var(--line)] bg-[var(--paper)] p-3 md:static md:z-auto md:flex md:w-58 md:overflow-y-auto md:border-r md:shadow-none"
         :class="drawer ? 'fixed inset-y-0 left-0 z-50 flex w-72 overflow-y-auto shadow-[0_0_40px_rgba(20,22,26,0.3)]' : 'hidden'"
         aria-label="Seções do painel"
       >
@@ -264,7 +264,7 @@ const btn =
 
       <div v-if="drawer" class="fixed inset-0 z-40 bg-black/40 md:hidden" aria-hidden="true" @click="drawer = false" />
 
-      <main id="gestao-conteudo" class="min-w-0 flex-1 p-3 outline-none md:p-5" tabindex="-1">
+      <main id="gestao-conteudo" class="min-w-0 flex-1 p-3 outline-none md:overflow-y-auto md:p-5" tabindex="-1">
         <p
           v-if="store.erroCarga.value"
           role="alert"
