@@ -100,6 +100,13 @@ useHead(() => ({
       tem ferramentas de anúncio de terceiros.
     </p>
     <p>
+      O painel interno de gestão, usado só pela equipe da imobiliária, grava um
+      cookie de sessão <b>estritamente necessário</b> depois do login, para você
+      continuar conectado ao recarregar a página. Ele não é lido por scripts, não
+      serve a rastreamento ou publicidade e expira após 8 horas sem uso. Quem
+      apenas visita o site não recebe esse cookie.
+    </p>
+    <p>
       Medimos quantas pessoas visitam cada página sem cookies e sem um
       identificador que acompanhe você: a contagem usa um código que muda todo
       dia e não permite reconhecer você de um dia para o outro, nem em outros

@@ -7,6 +7,7 @@ import {
   exigirLimiteLogin,
   registrarFalhaLogin,
 } from '~~/server/utils/gestao-auth'
+import { gravarRefreshGestao } from '~~/server/utils/gestao-cookie'
 import { buscarMembroPorUsuario } from '~~/server/repositories/gestao-member.repository'
 
 /**
@@ -57,9 +58,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 429, statusMessage: envio.erro, data: { motivo: 'bloqueado', segundos: envio.segundos } })
   }
 
+  // O refresh token fica só no cookie HttpOnly (ver gestao-cookie.ts): o navegador não o recebe no corpo.
+  gravarRefreshGestao(event, data.session.refresh_token)
   return {
     accessToken: data.session.access_token,
-    refreshToken: data.session.refresh_token,
     expiresAt: data.session.expires_at ?? null,
     // `aguarde`: o código de menos de 60 s atrás continua valendo; a tela só mostra a contagem.
     codigo: envio.enviado ? { enviado: true, segundos: envio.segundos } : { enviado: false, segundos: envio.segundos, aviso: envio.erro },

@@ -203,7 +203,7 @@ formulários (contato e "Quero vender") ganharam o link no aviso de coleta.
   tecnologias semelhantes**, e pede consentimento para o que não é
   estritamente necessário, com botão de rejeitar tão visível quanto o de
   aceitar. O banner existe para coletar essa escolha.
-- Este site não tem o que pôr em escolha: não grava cookie, e a medição de
+- O site público não tem o que pôr em escolha: não grava cookie (o único é o de sessão do painel `/gestao`, estritamente necessário e só para a equipe logada, descrito na política), e a medição de
   audiência não usa cookie nem identificador persistente (hash de request que
   zera todo dia, sem rastrear entre dias nem entre sites). O próprio guia
   admite legítimo interesse para medição de audiência.

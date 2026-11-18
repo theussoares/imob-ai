@@ -60,13 +60,13 @@ export function useGestaoAuth() {
   async function entrarComSenhaHttp(email: string, senha: string, captcha: string) {
     if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA }
     try {
-      const r = await api!.post<{ accessToken: string; refreshToken: string; codigo: { segundos?: number } }>(
+      const r = await api!.post<{ accessToken: string; expiresAt: number | null; codigo: { segundos?: number } }>(
         '/api/gestao/auth/login',
         { email, senha },
         { semToken: true },
       )
-      // Tokens só em memória (ver tokensGestao.ts). Sozinhos não abrem nada: falta o código do e-mail.
-      await guardarTokens(r, { url: cfg.supabaseUrl as string, key: cfg.supabaseKey as string })
+      // Acesso em memória; o refresh fica no cookie HttpOnly (ver tokensGestao.ts). Sozinhos não abrem nada: falta o código do e-mail.
+      await guardarTokens(r)
       marcarReenvio(r.codigo?.segundos ?? 60)
       definirPendente(email.trim().toLowerCase())
       return { ok: true as const }
@@ -90,7 +90,7 @@ export function useGestaoAuth() {
 
   async function verificarHttp(codigo: string): Promise<{ ok: true; conta: ContaPublica } | { ok: false; erro: string; motivo: string; segundos?: number }> {
     if (!pendente.value || !tokenAtual()) {
-      // Recarregou a página no meio do login: o token (só em memória) se foi.
+      // Sem token: a renovação pelo cookie falhou (expirou ou nunca houve login).
       definirPendente(null)
       return { ok: false, erro: 'Sua sessão expirou. Entre de novo.', motivo: 'sem-pendente' }
     }

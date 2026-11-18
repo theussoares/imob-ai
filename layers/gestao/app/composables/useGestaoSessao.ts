@@ -3,7 +3,7 @@ import { type EstadoAuth, estadoAuthVazio } from '../../domain/auth'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { matrizPadrao, PERFIS, sessaoDoPerfil } from '../../domain/permissions'
 import type { MatrizPermissoes, Perfil, Sessao } from '../../domain/types'
-import { limparTokens } from '../services/tokensGestao'
+import { limparTokens, renovarSessao } from '../services/tokensGestao'
 
 const CHAVE = 'gestao-sessao'
 
@@ -57,6 +57,27 @@ export function useGestaoSessao() {
     }
   }
 
+  /**
+   * `http`: depois do F5, tenta reabrir a sessão pelo cookie HttpOnly (renova o token e lê
+   * `/sessao`). Uma vez por carregamento do SPA. Sem cookie, ou sem 2º fator cumprido (o `/sessao`
+   * responde 403), segue sem sessão e o middleware manda ao login; o token renovado fica em
+   * memória para quem parou na tela do código.
+   */
+  const tentada = useState<boolean>('gestao:restauracao-http', () => false)
+  async function restaurarHttp() {
+    if (!http || tentada.value || sessao.value || !import.meta.client) return
+    tentada.value = true
+    if (!(await renovarSessao())) return
+    try {
+      const api = useGestaoApi()
+      const r = await api.get<{ sessao: Sessao; matriz: MatrizPermissoes }>('/api/gestao/sessao')
+      sessao.value = r.sessao
+      useState<MatrizPermissoes | null>('gestao:matriz').value = r.matriz
+    } catch {
+      /* sem 2º fator (403) ou removido (401): fica deslogado */
+    }
+  }
+
   /** Só `mock`. */
   function entrar(perfil: Perfil) {
     sessao.value = sessaoDoPerfil(perfil)
@@ -86,5 +107,5 @@ export function useGestaoSessao() {
     }
   }
 
-  return { sessao, restaurar, entrar, definir, sair }
+  return { sessao, restaurar, restaurarHttp, entrar, definir, sair }
 }

@@ -43,7 +43,9 @@ function semComentarios(src: string): string {
 describe('privacidade: o que a política afirma continua verdade', () => {
   test('nenhum cookie novo', () => {
     // `dev_tenant`: só com `allowTenantSwitch`, que é falso em produção.
-    const PERMITIDOS = ['server/middleware/tenant.ts']
+    // `gestao-cookie.ts`: cookie de sessão do painel interno (/gestao), estritamente necessário, só
+    // depois do login de quem trabalha na imobiliária; visitante do site não o recebe.
+    const PERMITIDOS = ['server/middleware/tenant.ts', 'server/utils/gestao-cookie.ts']
     const usos = ['app', 'server', 'shared']
       .flatMap((d) => arquivos(d))
       .filter((f) => /\b(setCookie|useCookie)\s*\(|document\.cookie/.test(semComentarios(ler(f))))

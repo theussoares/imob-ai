@@ -134,7 +134,16 @@ describe('gestão: acesso às tabelas pelo código', () => {
    * consciente que aparece na revisão. O código e o reenvio usam `acessoGestao`
    * (sem o 2º fator, que é o que eles cumprem).
    */
-  const PUBLICOS = ['server/api/gestao/auth/convite/[token].get.ts', 'server/api/gestao/auth/aceitar.post.ts', 'server/api/gestao/auth/login.post.ts']
+  // `renovar` e `sair` se autenticam pelo cookie HttpOnly do refresh token (não há Bearer válido no F5);
+  // `renovar` ainda confere que o usuário é membro deste tenant, e o token que devolve só abre algo
+  // depois do 2º fator (`requireGestaoMember`). `sair` nunca falha e não devolve dado.
+  const PUBLICOS = [
+    'server/api/gestao/auth/convite/[token].get.ts',
+    'server/api/gestao/auth/aceitar.post.ts',
+    'server/api/gestao/auth/login.post.ts',
+    'server/api/gestao/auth/renovar.post.ts',
+    'server/api/gestao/auth/sair.post.ts',
+  ]
 
   test('todo endpoint do /api/gestao passa pela autenticação do gestão', () => {
     const endpoints = SERVER.filter((f) => rel(f).startsWith('server/api/gestao/'))
@@ -147,7 +156,9 @@ describe('gestão: acesso às tabelas pelo código', () => {
   })
 
   test('os públicos ainda conferem o recurso gestao do tenant', () => {
-    for (const f of PUBLICOS) {
+    // `sair` fica de fora de propósito: com o recurso desligado o usuário ainda precisa conseguir
+    // apagar o cookie; ela não lê nem devolve dado do tenant.
+    for (const f of PUBLICOS.filter((p) => !p.endsWith('/sair.post.ts'))) {
       expect(stripComments(readFileSync(join(process.cwd(), f), 'utf8')), f).toContain('gestaoAtiva(tenant.id)')
     }
   })
