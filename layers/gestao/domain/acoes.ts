@@ -48,6 +48,8 @@ export function proximoId(processos: Processo[], ano = new Date().getFullYear())
 
 export interface NovoProcesso {
   imovel: string
+  /** Imóvel do cadastro; o servidor exige e confere o tenant. */
+  imovelId?: string
   vendedor: string
   comprador: string
   corretorId: string
@@ -69,6 +71,7 @@ export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, q
     vendedor: { nome: dados.vendedor.trim(), cpf: '' },
     comprador: { nome: dados.comprador.trim(), cpf: '' },
     imovel: dados.imovel.trim(),
+    ...(dados.imovelId && { imovelId: dados.imovelId }),
     corretorId: dados.corretorId,
     captadorId: dados.captadorId ?? dados.corretorId,
     status: STATUS_INICIAL,

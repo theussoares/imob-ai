@@ -20,6 +20,11 @@ export interface Toast {
  * dispensar. Quando há decisão a tomar, o certo é [[useConfirm]].
  */
 const MAX_POR_TIPO = 2;
+/**
+ * Erro some depois de 12s (sucesso: 3,5s): tempo de ler e agir, mas não fica preso
+ * até a próxima navegação. O × continua dispensando antes.
+ */
+const TTL_ERRO = 12000;
 
 export function useToast() {
   const items = useState<Toast[]>("admin-toasts", () => []);
@@ -35,7 +40,7 @@ export function useToast() {
     // O mesmo erro de novo não empilha outro card: clicar "Salvar" três vezes
     // com o CPF errado deixava três avisos iguais para fechar um a um.
     const repetido = items.value.find((t) => t.kind === kind && t.message === message && !action);
-    if (repetido && ttl === null) return repetido.id;
+    if (repetido) return repetido.id;
     seq.value += 1;
     const id = seq.value;
     // No máximo MAX_POR_TIPO de cada tipo: os mais antigos saem. No teste de
@@ -63,10 +68,10 @@ export function useToast() {
     dismiss,
     clearErrors,
     /**
-     * Fica na tela até ser dispensado. Erro que some sozinho passa
-     * despercebido, e a pessoa segue achando que salvou.
+     * Fica 12s (ou até o ×). Antes não expirava: erros se acumulavam e cobriam
+     * o cabeçalho. Prazo maior que o do sucesso porque o erro exige leitura.
      */
-    error: (message: string) => push("error", message, null),
+    error: (message: string) => push("error", message, TTL_ERRO),
     /** Confirmação some sozinha: se perder, nada de ruim aconteceu. */
     success: (message: string) => push("success", message, 3500),
     /**

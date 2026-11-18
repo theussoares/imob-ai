@@ -7,6 +7,8 @@ import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
 import { contarPorStatus, paginar, POR_PAGINA, totalDePaginas, type PaginaComContagens } from '~~/layers/gestao/domain/paginacao'
 import { capacidades } from '~~/layers/gestao/domain/permissions'
 import type { Documento, MatrizPermissoes, Processo, Sessao } from '~~/layers/gestao/domain/types'
+import { imovelDoTenant } from '~~/server/repositories/gestao-locacao.repository'
+import { ehUuid } from '~~/server/mappers/gestao-locacao'
 import { recortarValores, type ProcessoSemValores, type Venda } from '~~/server/mappers/gestao-venda'
 import {
   buscarVenda,
@@ -198,6 +200,7 @@ export async function lerVendaDoMembro(ctx: CtxVendas, id: string): Promise<Vend
 
 const novoSchema = z.object({
   imovel: z.string().max(500),
+  imovelId: z.string().max(64),
   vendedor: z.string().max(500),
   comprador: z.string().max(500),
   corretorId: z.string().max(64).optional(),
@@ -223,6 +226,9 @@ export async function abrirVendaDoMembro(ctx: CtxVendas, corpo: unknown, deps: D
   const validos = await corretoresDoTenant(ctx.db, ctx.membro.tenantId, [corretorId, captadorId])
   if (!validos.has(corretorId) || !validos.has(captadorId)) throw invalido('Corretor inválido.')
 
+  // `imovelId` vem do corpo: só vale se o imóvel for DESTA imobiliária (mesma regra da locação).
+  if (!ehUuid(dados.imovelId) || !(await imovelDoTenant(ctx.db, ctx.membro.tenantId, dados.imovelId))) throw invalido('Escolha um imóvel desta imobiliária.')
+
   const quando = agora(agoraNoFuso((deps.agora ?? (() => new Date()))()))
   const pct = await deps.comissaoPadrao(ctx.db, ctx.membro.tenantId)
   const ator = { nome: ctx.membro.nome }
@@ -234,7 +240,7 @@ export async function abrirVendaDoMembro(ctx: CtxVendas, corpo: unknown, deps: D
     const estado: Estado = { processos: ids.map((id) => ({ id }) as Processo), documentos: [], locacoes: [] }
     const r = abrirProcesso(
       estado,
-      { imovel: dados.imovel, vendedor: dados.vendedor, comprador: dados.comprador, corretorId, captadorId, pct },
+      { imovel: dados.imovel, imovelId: dados.imovelId, vendedor: dados.vendedor, comprador: dados.comprador, corretorId, captadorId, pct },
       ator,
       quando,
     )

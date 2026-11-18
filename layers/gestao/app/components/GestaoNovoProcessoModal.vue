@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { rotuloImovel } from '../../domain/imoveis'
 import { validarContato, validarPdf } from '../../domain/novo-processo'
 
 const store = useGestaoStore()
+// A lista de imóveis só é buscada quando este formulário abre.
+onMounted(() => void store.carregar(false, ['imoveis']))
+// Só imóveis à venda: abrir venda de um imóvel só de aluguel não faria sentido.
+const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'venda'))
 const { sessao } = useGestaoSessao()
 const toast = useToast()
 
 const dialog = ref<HTMLDialogElement | null>(null)
-const imovel = ref('')
+const imovelId = ref('')
 const vendedor = ref('')
 const comprador = ref('')
 const corretorId = ref('')
@@ -16,6 +21,7 @@ const telComprador = ref('')
 const emailComprador = ref('')
 const arquivo = ref<File | null>(null)
 const erro = ref('')
+const enviando = ref(false)
 
 // Corretor logado abre processo só em nome próprio: deixar escolher outro
 // furaria a regra «corretor vê só os seus» (ele criaria um processo que some
@@ -23,7 +29,7 @@ const erro = ref('')
 const travado = computed(() => sessao.value?.perfil === 'corretor')
 
 function abrir() {
-  imovel.value = ''
+  imovelId.value = opcoes.value[0]?.id ?? ''
   vendedor.value = ''
   comprador.value = ''
   telVendedor.value = emailVendedor.value = telComprador.value = emailComprador.value = ''
@@ -43,6 +49,19 @@ function escolherArquivo(e: Event) {
 }
 
 async function enviar() {
+  if (enviando.value) return
+  // Limpa o erro da tentativa anterior: sem isto o banner velho («Informe o imóvel.») ficava
+  // na tela durante o envio do formulário já corrigido.
+  erro.value = ''
+  enviando.value = true
+  try {
+    await enviarProcesso()
+  } finally {
+    enviando.value = false
+  }
+}
+
+async function enviarProcesso() {
   // Valida antes de criar: senão o processo nasceria e o erro de formato
   // deixaria o usuário reenviando um formulário que já criou o registro.
   const invalido =
@@ -53,8 +72,10 @@ async function enviar() {
     erro.value = invalido
     return
   }
+  const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
   const r = await store.abrirProcesso({
-    imovel: imovel.value,
+    imovel: imovel ? rotuloImovel(imovel) : '',
+    imovelId: imovelId.value,
     vendedor: vendedor.value,
     comprador: comprador.value,
     corretorId: corretorId.value,
@@ -112,7 +133,9 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
 
       <label :class="rotulo">
         Imóvel
-        <input v-model="imovel" :class="campo" type="text" autocomplete="off" autofocus placeholder="Ex.: Apartamento 302 — Edifício Aurora" />
+        <select v-model="imovelId" :class="campo" data-testid="imovel">
+          <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
+        </select>
       </label>
       <label :class="rotulo">
         Vendedor
@@ -161,6 +184,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
         <span v-if="arquivo" class="text-[var(--ink-soft)]">Arquivo: {{ arquivo.name }}</span>
       </label>
 
+      <p v-if="!opcoes.length" class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">Nenhum imóvel à venda cadastrado.</p>
       <p v-if="erro" role="alert" class="rounded-lg bg-[#fee2e2] px-3 py-2 text-[length:var(--fs-label)] font-bold text-[#7f1d1d]">
         {{ erro }}
       </p>
@@ -175,9 +199,11 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
         </button>
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
+          :disabled="enviando"
+          :aria-busy="enviando"
+          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
         >
-          Abrir processo
+          {{ enviando ? 'Abrindo…' : 'Abrir processo' }}
         </button>
       </div>
     </form>

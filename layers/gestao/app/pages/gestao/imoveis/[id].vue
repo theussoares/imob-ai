@@ -10,7 +10,7 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 const { reduzir } = useRedimensionarFoto()
-await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'imoveis'])
+await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'vendas', 'imoveis'])
 
 // Só enxerga o que `imoveisVisiveis` devolve: corretor abrindo o imóvel de outro pela URL volta à lista.
 const imovel = computed(() => store.imoveisVisiveis.value.find((i) => i.id === String(route.params.id)) ?? null)
@@ -94,7 +94,7 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
       <div>
         <NuxtLink to="/gestao/imoveis" class="inline-flex min-h-11 items-center text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
         <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-bold" data-testid="imovel-titulo-pagina">{{ imovel.title }}</h1>
-        <p class="mt-1 text-[var(--ink-soft)]">{{ imovel.id }} · {{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(imovel.id, store.locacoes.value)] }}</p>
+        <p class="mt-1 text-[var(--ink-soft)]">{{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(imovel.id, store.locacoes.value, store.processos.value)] }}</p>
       </div>
       <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">Anúncio no site
         <select :value="imovel.status" :class="campo" :disabled="!permissoes.editar" data-testid="imovel-status-rapido" @change="mudarStatus">

@@ -16,6 +16,7 @@ const locador = ref('')
 const locatario = ref('')
 const corretorId = ref('')
 const erro = ref('')
+const enviando = ref(false)
 
 // Corretor logado abre locação só em nome próprio: escolher outro faria a locação
 // sumir da própria lista («corretor vê só as suas»).
@@ -33,6 +34,17 @@ function fechar() {
 }
 
 async function enviar() {
+  if (enviando.value) return
+  erro.value = ''
+  enviando.value = true
+  try {
+    await enviarLocacao()
+  } finally {
+    enviando.value = false
+  }
+}
+
+async function enviarLocacao() {
   const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
   const r = await store.abrirLocacao({
     locador: locador.value,
@@ -95,8 +107,8 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
         <button type="button" class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]" @click="fechar">
           Cancelar
         </button>
-        <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90">
-          Abrir locação
+        <button type="submit" :disabled="enviando" :aria-busy="enviando" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60">
+          {{ enviando ? 'Abrindo…' : 'Abrir locação' }}
         </button>
       </div>
     </form>

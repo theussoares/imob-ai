@@ -131,7 +131,7 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     if (metodo === 'GET' && rota === 'consultas') return out({ consultas: d.consultas })
 
     if (metodo === 'POST' && rota === 'vendas') {
-      const r = await repo.abrirVenda({ ...(corpo as { imovel: string; vendedor: string; comprador: string; corretorId: string }) })
+      const r = await repo.abrirVenda({ ...(corpo as { imovel: string; imovelId?: string; vendedor: string; comprador: string; corretorId: string }) })
       return r.ok ? out(venda(r.processo!.id)) : comoErro(r)
     }
     let m = /^vendas\/([^/]+)(\/acoes)?$/.exec(rota)

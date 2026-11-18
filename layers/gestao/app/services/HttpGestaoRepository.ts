@@ -209,7 +209,7 @@ export class HttpGestaoRepository implements GestaoRepository {
 
   abrirVenda(d: NovoProcesso): Promise<Resultado<Mudanca>> {
     // `pct` não vai: a comissão padrão é a das configurações, lida no servidor.
-    const corpo = { imovel: d.imovel, vendedor: d.vendedor, comprador: d.comprador, corretorId: d.corretorId, captadorId: d.captadorId }
+    const corpo = { imovel: d.imovel, imovelId: d.imovelId, vendedor: d.vendedor, comprador: d.comprador, corretorId: d.corretorId, captadorId: d.captadorId }
     return this.tentar(async () => ({ processo: this.guardarVenda(await this.api.post<RespostaVenda>('/api/gestao/vendas', corpo)) }))
   }
 

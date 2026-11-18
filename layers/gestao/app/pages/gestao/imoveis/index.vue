@@ -8,6 +8,7 @@ import {
   filtrarImoveis,
   rotuloTipoImovel,
   situacaoImovel,
+  type SituacaoImovel,
   type FiltroImoveis,
 } from '../../../../domain/imoveis'
 
@@ -16,10 +17,10 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Imóveis · Gestão' })
 
 const store = useGestaoStore()
-await store.carregar(false, ['base', 'corretores', 'locacoes', 'imoveis'])
+await store.carregar(false, ['base', 'corretores', 'locacoes', 'vendas', 'imoveis'])
 
 const filtro = reactive<FiltroImoveis>({ ...FILTRO_IMOVEIS_VAZIO })
-const lista = computed(() => filtrarImoveis(store.imoveisVisiveis.value, store.locacoes.value, filtro))
+const lista = computed(() => filtrarImoveis(store.imoveisVisiveis.value, store.locacoes.value, filtro, store.processos.value))
 const podeCriar = computed(() => store.permissoesDoImovel(null).criar)
 
 const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
@@ -30,6 +31,12 @@ const capa = (fotos: { url: string; urlSm: string | null; isCover: boolean }[]) 
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
+const TOM_SITUACAO: Record<SituacaoImovel, string> = {
+  disponivel: 'bg-[#d1fae5] text-[#064e3b]',
+  'em-locacao': 'bg-[#dbeafe] text-[#1e3a8a]',
+  'em-venda': 'bg-[#fef3c7] text-[#78350f]',
+  vendido: 'bg-[#e5e7eb] text-[#1f2937]',
+}
 const filtrosAbertos = ref(false)
 const filtrosAtivos = computed(() => [filtro.status, filtro.situacao, filtro.purpose].filter(Boolean).length)
 // `hidden` e `[display:grid]` empatam em especificidade; por isso o display não vem de `rotulo`.
@@ -97,9 +104,9 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0
               <span class="rounded-full bg-[var(--paper-2)] px-2.5 py-1" data-testid="imovel-status-selo">{{ ROTULO_STATUS_IMOVEL[i.status] }}</span>
               <span
                 class="rounded-full px-2.5 py-1"
-                :class="situacaoImovel(i.id, store.locacoes.value) === 'em-locacao' ? 'bg-[#dbeafe] text-[#1e3a8a]' : 'bg-[#d1fae5] text-[#064e3b]'"
+                :class="TOM_SITUACAO[situacaoImovel(i.id, store.locacoes.value, store.processos.value)]"
                 data-testid="imovel-situacao"
-              >{{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(i.id, store.locacoes.value)] }}</span>
+              >{{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(i.id, store.locacoes.value, store.processos.value)] }}</span>
             </span>
             <span v-if="nomeCorretor(i.brokerId) !== '—'" class="text-[length:var(--fs-label)] text-[var(--ink-soft)]">Corretor: {{ nomeCorretor(i.brokerId) }}</span>
           </span>

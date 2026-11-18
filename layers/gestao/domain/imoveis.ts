@@ -3,7 +3,8 @@ import { IMOVEIS_EXEMPLO } from './locacao-seed.ts'
 import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property-type'
 import type { Property, PropertyImage, PropertyPurpose, PropertyStatus } from '~~/shared/models/property'
 import type { PropertyType } from '~~/shared/models/property-type'
-import type { Locacao } from './types'
+import { statusFinal } from './status.ts'
+import type { Locacao, Processo } from './types'
 
 /**
  * Cadastro de imóveis da gestão — espelho do catálogo (`Property`). Em mock hoje; no backend a mesma
@@ -51,10 +52,12 @@ export const ROTULO_STATUS_IMOVEL: Record<PropertyStatus, string> = {
 export const rotuloTipoImovel = (t: PropertyType) => PROPERTY_TYPE_LABELS[t]
 
 /** Situação pelo contrato (derivada das locações), separada do status do anúncio. */
-export type SituacaoImovel = 'disponivel' | 'em-locacao'
+export type SituacaoImovel = 'disponivel' | 'em-locacao' | 'em-venda' | 'vendido'
 export const ROTULO_SITUACAO_IMOVEL: Record<SituacaoImovel, string> = {
   disponivel: 'Disponível',
   'em-locacao': 'Em locação',
+  'em-venda': 'Em venda',
+  vendido: 'Vendido',
 }
 
 /** Texto que vai para o contrato (o mesmo formato que as locações do seed já usam). */
@@ -105,9 +108,23 @@ export function imoveisSeed(): ImovelGestao[] {
   })
 }
 
-/** Em locação = há locação do imóvel que não foi encerrada nem arquivada. */
-export function situacaoImovel(imovelId: string, locacoes: Locacao[]): SituacaoImovel {
-  return locacoes.some((l) => l.imovelId === imovelId && l.status !== 'Encerrada' && !l.arquivado) ? 'em-locacao' : 'disponivel'
+/**
+ * Situação DERIVADA dos contratos, nunca gravada no imóvel: por isso volta sozinha a «Disponível»
+ * quando a locação é encerrada/arquivada ou a venda é cancelada/arquivada (sem estado para esquecer).
+ *
+ * - Em locação: há locação do imóvel que não foi encerrada nem arquivada.
+ * - Em venda: há venda em andamento (não concluída, não cancelada, não arquivada).
+ * - Vendido: há venda concluída não arquivada. Não mexe no `status` do anúncio (`sold`): tirar o
+ *   imóvel do site público é decisão de quem anuncia, e fazê-lo por efeito colateral de um status
+ *   de processo derrubaria uma vitrine sem aviso. Locação vence venda (contrato vigente).
+ * Venda sem `imovelId` (antigas, texto livre) não entra: não há vínculo confiável.
+ */
+export function situacaoImovel(imovelId: string, locacoes: Locacao[], processos: Processo[] = []): SituacaoImovel {
+  if (locacoes.some((l) => l.imovelId === imovelId && l.status !== 'Encerrada' && !l.arquivado)) return 'em-locacao'
+  const vendas = processos.filter((p) => p.imovelId === imovelId && !p.arquivado)
+  if (vendas.some((p) => !statusFinal(p.status))) return 'em-venda'
+  if (vendas.some((p) => p.status === 'Venda concluída')) return 'vendido'
+  return 'disponivel'
 }
 
 export interface FiltroImoveis {
@@ -118,10 +135,10 @@ export interface FiltroImoveis {
 }
 export const FILTRO_IMOVEIS_VAZIO: FiltroImoveis = { busca: '', situacao: '', purpose: '', status: '' }
 
-export function filtrarImoveis(imoveis: ImovelGestao[], locacoes: Locacao[], f: FiltroImoveis): ImovelGestao[] {
+export function filtrarImoveis(imoveis: ImovelGestao[], locacoes: Locacao[], f: FiltroImoveis, processos: Processo[] = []): ImovelGestao[] {
   const q = semAcento(f.busca.trim())
   return imoveis.filter((i) => {
-    if (f.situacao && situacaoImovel(i.id, locacoes) !== f.situacao) return false
+    if (f.situacao && situacaoImovel(i.id, locacoes, processos) !== f.situacao) return false
     if (f.purpose && i.purpose !== f.purpose) return false
     if (f.status && i.status !== f.status) return false
     return !q || semAcento(`${i.title} ${i.location ?? ''} ${i.neighborhood ?? ''} ${i.ownerName} ${i.id}`).includes(q)

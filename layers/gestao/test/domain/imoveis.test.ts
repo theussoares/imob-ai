@@ -59,3 +59,25 @@ describe('filtrarImoveis', () => {
     expect(livres).toHaveLength(imoveis.length)
   })
 })
+
+describe('situação derivada pelos contratos (locação e venda)', () => {
+  const loc = (status: string, arquivado = false) => [{ imovelId: 'i1', status, arquivado }] as never
+  const venda = (status: string, arquivado = false, imovelId = 'i1') => [{ imovelId, status, arquivado }] as never
+
+  it('locação ativa → em locação; encerrada ou arquivada → volta a disponível (sem estado gravado)', async () => {
+    const { situacaoImovel } = await import('../../domain/imoveis')
+    expect(situacaoImovel('i1', loc('Ativa'))).toBe('em-locacao')
+    expect(situacaoImovel('i1', loc('Ativa', true))).toBe('disponivel')
+    expect(situacaoImovel('i1', loc('Encerrada'))).toBe('disponivel')
+  })
+
+  it('venda em andamento → em venda; concluída → vendido; cancelada/arquivada/sem vínculo → disponível', async () => {
+    const { situacaoImovel } = await import('../../domain/imoveis')
+    expect(situacaoImovel('i1', [], venda('Em negociação'))).toBe('em-venda')
+    expect(situacaoImovel('i1', [], venda('Venda concluída'))).toBe('vendido')
+    expect(situacaoImovel('i1', [], venda('Venda cancelada'))).toBe('disponivel')
+    expect(situacaoImovel('i1', [], venda('Em negociação', true))).toBe('disponivel')
+    expect(situacaoImovel('i1', [], venda('Em negociação', false, 'outro'))).toBe('disponivel')
+    expect(situacaoImovel('i1', loc('Ativa'), venda('Em negociação'))).toBe('em-locacao')
+  })
+})

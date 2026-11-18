@@ -6,6 +6,8 @@
  * o do tenant — redefinir só --brand não os atualiza.
  */
 .gestao-tema {
+  /* Avisos (toasts) abaixo do cabeçalho: no topo eles cobriam o nome do usuário. */
+  --toasts-top: 84px;
   --gestao-amarelo: #facc15;
   --brand: #17171a;
   --brand-2: #2a2a2e;

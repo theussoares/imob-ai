@@ -307,11 +307,14 @@ describe('ações — permissão, regra, concorrência', () => {
 })
 
 describe('abrir processo', () => {
-  const corpo = { imovel: 'Casa 12', vendedor: 'Maria', comprador: 'João' }
+  const IMOVEL = '11111111-1111-4111-8111-111111111111'
+  const corpo = { imovel: 'Casa 12', imovelId: IMOVEL, vendedor: 'Maria', comprador: 'João' }
+  const imovelOk = { properties: { data: { id: IMOVEL }, error: null } }
 
   test('corretor abre sempre em seu nome, mesmo mandando outro corretorId; tenant e pct vêm do servidor', async () => {
     const { client, calls } = fakeSupabase({
       brokers: { data: [{ id: CORRETOR_A }], error: null },
+      ...imovelOk,
       gestao_vendas: [{ data: [{ id: `V-${ANO}-0007` }], error: null }, { data: null, error: null }],
     })
     const d = deps()
@@ -328,6 +331,7 @@ describe('abrir processo', () => {
   test('número tomado por abertura simultânea (23505): tenta de novo com o seguinte', async () => {
     const { client } = fakeSupabase({
       brokers: { data: [{ id: CORRETOR_A }], error: null },
+      ...imovelOk,
       gestao_vendas: [
         { data: [], error: null }, { data: null, error: { code: '23505' } },
         { data: [{ id: `V-${ANO}-0001` }], error: null }, { data: null, error: null },
@@ -343,8 +347,16 @@ describe('abrir processo', () => {
     const c = ctx('corretor', fora.client, CORRETOR_A)
     c.matriz.criar.corretor = 'nao'
     await expect(abrirVendaDoMembro(c, corpo, deps())).rejects.toMatchObject({ statusCode: 403 })
-    const ok = fakeSupabase({ brokers: { data: [{ id: CORRETOR_A }], error: null }, gestao_vendas: { data: [], error: null } })
+    const ok = fakeSupabase({ brokers: { data: [{ id: CORRETOR_A }], error: null },
+      ...imovelOk, gestao_vendas: { data: [], error: null } })
     await expect(abrirVendaDoMembro(ctx('recepcao', ok.client), { ...corpo, vendedor: ' ', corretorId: CORRETOR_A }, deps())).rejects.toMatchObject({ statusCode: 422, statusMessage: 'Informe o vendedor.' })
+  })
+
+  test('imóvel de outro tenant (ou inexistente) → 422 e nada é gravado; imovelId obrigatório', async () => {
+    const f = fakeSupabase({ brokers: { data: [{ id: CORRETOR_A }], error: null }, properties: { data: null, error: null }, gestao_vendas: { data: [], error: null } })
+    await expect(abrirVendaDoMembro(ctx('recepcao', f.client), { ...corpo, corretorId: CORRETOR_A }, deps())).rejects.toMatchObject({ statusCode: 422, statusMessage: 'Escolha um imóvel desta imobiliária.' })
+    expect(f.calls.some((c) => c.method === 'insert')).toBe(false)
+    await expect(abrirVendaDoMembro(ctx('recepcao', f.client), { ...corpo, imovelId: undefined, corretorId: CORRETOR_A }, deps())).rejects.toMatchObject({ statusCode: 400 })
   })
 })
 

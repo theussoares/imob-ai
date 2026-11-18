@@ -59,6 +59,7 @@ export const processoSchema = z.object({
   vendedor: pessoa,
   comprador: pessoa,
   imovel: z.string(),
+  imovelId: z.string().optional(),
   corretorId: z.string(),
   captadorId: z.string(),
   status: z.enum(STATUS_VENDA as [string, ...string[]]),

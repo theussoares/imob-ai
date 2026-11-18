@@ -98,6 +98,8 @@ export interface Processo {
   vendedor: Pessoa
   comprador: Pessoa
   imovel: string
+  /** Imóvel do cadastro (`properties.id`). Ausente nas vendas antigas, que tinham o imóvel em texto livre. */
+  imovelId?: string
   corretorId: string
   captadorId: string
   status: StatusVenda
