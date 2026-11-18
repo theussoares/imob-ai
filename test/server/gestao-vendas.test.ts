@@ -360,6 +360,28 @@ describe('abrir processo', () => {
   })
 })
 
+describe('fuso do histórico (Campo Grande, UTC-4)', () => {
+  const IMOVEL = '11111111-1111-4111-8111-111111111111'
+  const instante = new Date('2026-11-18T20:04:00Z') // 16:04 em Campo Grande
+
+  test('venda nova grava o rótulo em Campo Grande, não em UTC', async () => {
+    const { client } = fakeSupabase({
+      brokers: { data: [{ id: CORRETOR_A }], error: null },
+      properties: { data: { id: IMOVEL }, error: null },
+      gestao_vendas: [{ data: [], error: null }, { data: null, error: null }],
+    })
+    const r = await abrirVendaDoMembro(ctx('recepcao', client), { imovel: 'Casa', imovelId: IMOVEL, vendedor: 'M', comprador: 'J', corretorId: CORRETOR_A }, { ...deps(), agora: () => instante })
+    expect(r.processo.hist[0]!.quando).toBe('18/11/2026 16:04')
+    expect(r.processo.updated).toBe('18/11/2026 16:04')
+  })
+
+  test('o rótulo do domínio (usado também pela locação e pelo mock) é o mesmo, qualquer que seja o TZ do runtime', async () => {
+    const { agora } = await import('~~/layers/gestao/domain/acoes')
+    expect(agora(instante)).toBe('18/11/2026 16:04')
+    expect(agora(new Date('2026-11-18T03:30:00Z'))).toBe('17/11/2026 23:30')
+  })
+})
+
 describe('numeração: ids do ano', () => {
   test('lê só o maior id (order desc + limit 1): o PostgREST corta em 1000 linhas, e sem isso o número calculado repetia para sempre', async () => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: [{ id: 'V-2026-1203' }], error: null } })

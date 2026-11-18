@@ -283,7 +283,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <h3 class="m-0 text-[length:var(--fs-body)] font-bold">
           Cadastro do {{ quemPessoa }}: {{ processo[quemPessoa].nome }}
         </h3>
-        <div class="[display:grid] gap-3 sm:grid-cols-3">
+        <div class="[display:grid] items-start gap-3 sm:grid-cols-3">
           <label :class="rotuloCampo">
             CPF
             <input v-model="cpf" type="text" inputmode="numeric" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="pessoa-cpf" />

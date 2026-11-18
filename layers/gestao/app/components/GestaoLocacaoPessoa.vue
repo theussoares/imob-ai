@@ -16,7 +16,7 @@ const botao =
 <template>
   <form class="[display:grid] gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" novalidate @submit.prevent="emit('salvar', { ...form })">
     <h2 class="m-0 text-[length:var(--fs-body)] font-bold">{{ titulo }}</h2>
-    <div class="[display:grid] gap-3 sm:grid-cols-3">
+    <div class="[display:grid] items-start gap-3 sm:grid-cols-3">
       <label :class="rotulo">CPF ou CNPJ<input v-model="form.cpf" :class="campo" :disabled="!podeEditar" inputmode="numeric" autocomplete="off" data-testid="pessoa-cpf" /></label>
       <label :class="rotulo">Telefone<GestaoCampoTelefone v-model="form.telefone" :classe="campo" :disabled="!podeEditar" data-testid="pessoa-telefone" /></label>
       <label :class="rotulo">E-mail<input v-model="form.email" :class="campo" :disabled="!podeEditar" type="email" autocomplete="off" data-testid="pessoa-email" /></label>

@@ -51,7 +51,7 @@ const comQuartos = computed(() => (m.value.type ? temQuartos(m.value.type) : tru
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const secao = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5 [display:grid] gap-3 md:grid-cols-2'
+const secao = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5 [display:grid] items-start gap-3 md:grid-cols-2'
 const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 </script>
 
@@ -60,25 +60,25 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
     <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]"><span class="text-[var(--danger)]" aria-hidden="true">*</span> campo obrigatório</p>
     <fieldset :class="secao" class="m-0 min-w-0">
       <legend :class="titulo" class="float-left mb-2 w-full p-0">Anúncio</legend>
-      <label :class="rotulo" class="md:col-span-2">Título <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo" class="md:col-span-2"><span>Título<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.title" :class="campo" autocomplete="off" placeholder="Apartamento 3 quartos" v-bind="aria('title')" data-testid="imovel-titulo" />
         <span v-if="erros.title" id="e-title" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.title }}</span>
       </label>
-      <label :class="rotulo">Tipo <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Tipo<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <select v-model="m.type" :class="campo" v-bind="aria('type')" data-testid="imovel-tipo">
           <option value="" disabled>Escolha…</option>
           <option v-for="t in PROPERTY_TYPES" :key="t" :value="t">{{ PROPERTY_TYPE_LABELS[t] }}</option>
         </select>
         <span v-if="erros.type" id="e-type" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.type }}</span>
       </label>
-      <label :class="rotulo">Finalidade <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Finalidade<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <select v-model="m.purpose" :class="campo" v-bind="aria('purpose')" data-testid="imovel-finalidade">
           <option value="" disabled>Escolha…</option>
           <option v-for="(r, k) in ROTULO_FINALIDADE" :key="k" :value="k">{{ r }}</option>
         </select>
         <span v-if="erros.purpose" id="e-purpose" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.purpose }}</span>
       </label>
-      <label :class="rotulo">{{ m.purpose === 'aluguel' ? 'Aluguel mensal (R$)' : 'Preço (R$)' }} <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>{{ m.purpose === 'aluguel' ? 'Aluguel mensal (R$)' : 'Preço (R$)' }}<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input :value="m.price ?? ''" :class="campo" type="number" min="0" step="any" inputmode="decimal" v-bind="aria('price')" data-testid="imovel-preco" @input="m.price = num($event)" />
         <span v-if="erros.price" id="e-price" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.price }}</span>
       </label>
@@ -113,15 +113,15 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
       <label :class="rotulo">Número
         <input v-model="m.addressNumber" :class="campo" autocomplete="off" />
       </label>
-      <label :class="rotulo">Bairro <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Bairro<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.neighborhood" :class="campo" autocomplete="off" v-bind="aria('neighborhood')" data-testid="imovel-bairro" />
         <span v-if="erros.neighborhood" id="e-neighborhood" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.neighborhood }}</span>
       </label>
-      <label :class="rotulo">Cidade <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Cidade<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.city" :class="campo" autocomplete="off" v-bind="aria('city')" data-testid="imovel-cidade" />
         <span v-if="erros.city" id="e-city" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.city }}</span>
       </label>
-      <label :class="rotulo">UF <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>UF<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.state" :class="campo" maxlength="2" autocomplete="off" v-bind="aria('state')" data-testid="imovel-uf" />
         <span v-if="erros.state" id="e-state" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.state }}</span>
       </label>
@@ -132,7 +132,7 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 
     <fieldset :class="secao" class="m-0 min-w-0">
       <legend :class="titulo" class="float-left mb-2 w-full p-0">Medidas</legend>
-      <label :class="rotulo">Área (m²) <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Área (m²)<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input :value="m.area ?? ''" :class="campo" type="number" min="0" step="any" inputmode="decimal" v-bind="aria('area')" data-testid="imovel-area" @input="m.area = num($event)" />
         <span v-if="erros.area" id="e-area" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.area }}</span>
       </label>
@@ -158,15 +158,14 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 
     <fieldset :class="secao" class="m-0 min-w-0">
       <legend :class="titulo" class="float-left mb-2 w-full p-0">Interno (não vai para o site)</legend>
-      <label :class="rotulo">Proprietário <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Proprietário<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.ownerName" :class="campo" autocomplete="off" v-bind="aria('ownerName')" data-testid="imovel-proprietario" />
         <span v-if="erros.ownerName" id="e-ownerName" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.ownerName }}</span>
       </label>
       <label :class="rotulo">Telefone do proprietário
-        <GestaoCampoTelefone v-model="m.ownerPhone" :classe="campo" v-bind="aria('ownerPhone')" data-testid="imovel-telefone-proprietario" />
-        <span v-if="erros.ownerPhone" id="e-ownerPhone" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.ownerPhone }}</span>
+        <GestaoCampoTelefone v-model="m.ownerPhone" :classe="campo" :erro-externo="erros.ownerPhone" v-bind="aria('ownerPhone')" data-testid="imovel-telefone-proprietario" />
       </label>
-      <label :class="rotulo">Corretor vendedor <span class="text-[var(--danger)]" aria-hidden="true">*</span>
+      <label :class="rotulo"><span>Corretor vendedor<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <select v-model="m.brokerId" :class="campo" :disabled="!props.podeTrocarCorretor" v-bind="aria('brokerId')" data-testid="imovel-corretor">
           <option value="" disabled>Escolha…</option>
           <option v-for="c in props.corretores" :key="c.id" :value="c.id">{{ c.nome }}</option>

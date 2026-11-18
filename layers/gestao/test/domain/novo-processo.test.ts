@@ -54,3 +54,18 @@ describe('complemento do novo processo', () => {
     expect(completarProcesso({ processos: [], documentos: [], locacoes: [] }, 'x', { vendedor: vazio, comprador: vazio, pdf: false }).ok).toBe(false)
   })
 })
+
+describe('erros por campo dos modais', () => {
+  it('«Novo processo» vazio acusa imóvel, vendedor, comprador e corretor, nesta ordem', async () => {
+    const { errosNovoProcesso } = await import('../../domain/novo-processo')
+    const vazio = { imovelId: '', vendedor: '', telVendedor: '', emailVendedor: '', comprador: '', telComprador: '', emailComprador: '', corretorId: '' }
+    expect(Object.keys(errosNovoProcesso(vazio, null))).toEqual(['imovelId', 'vendedor', 'comprador', 'corretorId'])
+    expect(Object.keys(errosNovoProcesso({ ...vazio, imovelId: 'x', vendedor: 'a', comprador: 'b', corretorId: 'c', telVendedor: 'abc', emailComprador: 'x' }, null))).toEqual(['telVendedor', 'emailComprador'])
+  })
+
+  it('«Nova locação» exige imóvel escolhido (sem pré-seleção), locador, locatário e corretor', async () => {
+    const { errosNovaLocacao } = await import('../../domain/novo-processo')
+    expect(Object.keys(errosNovaLocacao({ imovelId: '', locador: '', locatario: '', corretorId: '' }))).toEqual(['imovelId', 'locador', 'locatario', 'corretorId'])
+    expect(errosNovaLocacao({ imovelId: 'i', locador: 'a', locatario: 'b', corretorId: 'c' })).toEqual({})
+  })
+})

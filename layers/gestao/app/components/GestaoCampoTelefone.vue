@@ -8,12 +8,13 @@ import { formatBrPhone, isValidBrPhone, onlyDigits } from '~~/shared/utils/phone
  * (`aria-invalid` + `aria-describedby`).
  */
 defineOptions({ inheritAttrs: false })
-const props = defineProps<{ modelValue: string; classe?: string; rotulo?: string }>()
+const props = defineProps<{ modelValue: string; classe?: string; rotulo?: string; erroExterno?: string }>()
 const emit = defineEmits<{ 'update:modelValue': [string] }>()
 
 const id = useId()
 const tocado = ref(false)
-const erro = computed(() => (tocado.value && props.modelValue.trim() && !isValidBrPhone(props.modelValue) ? 'Telefone inválido. Use DDD + número.' : ''))
+// `erroExterno`: o formulário que usa o campo (ao enviar) pode pedir o erro antes de o campo ser «tocado».
+const erro = computed(() => props.erroExterno || (tocado.value && props.modelValue.trim() && !isValidBrPhone(props.modelValue) ? 'Telefone inválido. Use DDD + número.' : ''))
 
 function digitar(e: Event) {
   const el = e.target as HTMLInputElement

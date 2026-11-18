@@ -1,4 +1,5 @@
 import { statusFinal, TOTAL_ETAPAS } from './status'
+import { rotuloQuando } from './fuso'
 import { requisitoPorChave, pendenciasEtapa } from './requisitos'
 import { STATUS_INICIAL } from './seed'
 import type { Documento, CategoriaDocumento, Locacao, Processo, StatusVenda } from './types'
@@ -24,10 +25,12 @@ export interface Ator {
 
 export type Resultado = { ok: true; estado: Estado } | { ok: false; erro: string }
 
-export const agora = (d = new Date()): string => {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
+/**
+ * Rótulo «dd/mm/aaaa hh:mm» do INSTANTE `d` no fuso do painel, em qualquer runtime (servidor em UTC,
+ * navegador em outro fuso, mock). Recebe o instante real: quem passava um `Date` já deslocado
+ * (`agoraBrasil`) seria deslocado duas vezes.
+ */
+export const agora = (d = new Date()): string => rotuloQuando(d.toISOString())
 
 function atualiza(estado: Estado, id: string, fn: (p: Processo) => Processo): Estado {
   return { ...estado, processos: estado.processos.map((p) => (p.id === id ? fn(p) : p)) }

@@ -173,14 +173,13 @@ export async function abrir(ctx: ContextoGestao, corpo: unknown): Promise<Respos
     throw createError({ statusCode: 422, statusMessage: 'Escolha um imóvel desta imobiliária.' })
   }
 
-  const hora = agoraBrasil()
   const ator = { nome: ctx.membro.nome }
   const ano = new Date().getFullYear() // o mesmo ano que `proximoIdLocacao` usa por padrão
   for (let i = 0; i < MAX_TENTATIVAS_NUMERO; i++) {
     const ultimo = await ultimoIdDoAno(ctx.db, tenantId, ano)
     // `proximoIdLocacao` olha só os ids: um esqueleto com o último basta para numerar.
     const estado: Estado = { processos: [], documentos: [], locacoes: ultimo ? [{ id: ultimo } as Locacao] : [] }
-    const r = abrirLocacao(estado, { locador: d.locador, locatario: d.locatario, imovelId: d.imovelId, imovel: d.imovel, corretorId }, ator, agora(hora))
+    const r = abrirLocacao(estado, { locador: d.locador, locatario: d.locatario, imovelId: d.imovelId, imovel: d.imovel, corretorId }, ator, agora())
     if (!r.ok) throw createError({ statusCode: 422, statusMessage: r.erro })
     const nova = r.estado.locacoes[0]!
     if ((await inserirLocacao(ctx.db, tenantId, nova)) === 'ok') {
@@ -261,7 +260,7 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
     // Ator e data vêm do servidor, amarrados aqui: `executarAcao` chama a ação com ator e data vazios
     // (como na venda). Sem o `amarrar`, o histórico da locação saía sem «quem» e sem «quando» — achado
     // no teste de navegador, que o teste de API não via por não ler o `hist`.
-    acao: amarrar((estado, ator, quando) => def.fn(estado, id, dados, ator, quando), { nome: membro.nome }, agora(agoraBrasil())),
+    acao: amarrar((estado, ator, quando) => def.fn(estado, id, dados, ator, quando), { nome: membro.nome }, agora()),
   })
 
   await auditar(ctx, c.data.acao, id)

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { rotuloImovel } from '../../domain/imoveis'
+import { errosNovaLocacao, type CampoNovaLocacao } from '../../domain/novo-processo'
 
 const store = useGestaoStore()
 // A lista de imóveis só é buscada quando este formulário abre (as listas de contratos não a carregam).
@@ -16,6 +17,15 @@ const locador = ref('')
 const locatario = ref('')
 const corretorId = ref('')
 const erro = ref('')
+const erros = ref<Partial<Record<CampoNovaLocacao, string>>>({})
+const tentou = ref(false)
+const form = () => ({ imovelId: imovelId.value, locador: locador.value, locatario: locatario.value, corretorId: corretorId.value })
+watch([imovelId, locador, locatario, corretorId], () => {
+  if (!tentou.value) return
+  erros.value = errosNovaLocacao(form())
+  erro.value = ''
+})
+const aria = (c: CampoNovaLocacao) => ({ id: `nl-${c}`, 'aria-invalid': erros.value[c] ? 'true' : undefined, 'aria-describedby': erros.value[c] ? `nl-e-${c}` : undefined })
 const enviando = ref(false)
 
 // Corretor logado abre locação só em nome próprio: escolher outro faria a locação
@@ -23,7 +33,9 @@ const enviando = ref(false)
 const travado = computed(() => sessao.value?.perfil === 'corretor')
 
 function abrir() {
-  imovelId.value = opcoes.value[0]?.id ?? ''
+  imovelId.value = ''
+  tentou.value = false
+  erros.value = {}
   locador.value = locatario.value = erro.value = ''
   corretorId.value = sessao.value?.corretorId ?? store.corretores.value[0]?.id ?? ''
   dialog.value?.showModal()
@@ -45,6 +57,13 @@ async function enviar() {
 }
 
 async function enviarLocacao() {
+  tentou.value = true
+  erros.value = errosNovaLocacao(form())
+  const primeiro = Object.keys(erros.value)[0]
+  if (primeiro) {
+    document.getElementById(`nl-${primeiro}`)?.focus()
+    return
+  }
   const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
   const r = await store.abrirLocacao({
     locador: locador.value,
@@ -81,25 +100,30 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
     <form class="[display:grid] gap-3 p-5" novalidate @submit.prevent="enviar">
       <h2 id="nova-locacao-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-bold">Nova locação</h2>
       <label :class="rotulo">
-        Imóvel
-        <select v-model="imovelId" :class="campo" data-testid="imovel">
+        <span>Imóvel<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <select v-model="imovelId" :class="campo" v-bind="aria('imovelId')" required data-testid="imovel">
+          <option value="" disabled>Escolha…</option>
           <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
         </select>
+        <span v-if="erros.imovelId" id="nl-e-imovelId" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.imovelId }}</span>
       </label>
       <label :class="rotulo">
-        Locador (proprietário)
-        <input v-model="locador" :class="campo" type="text" autocomplete="off" data-testid="locador" />
+        <span>Locador (proprietário)<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <input v-model="locador" :class="campo" v-bind="aria('locador')" type="text" autocomplete="off" data-testid="locador" />
+        <span v-if="erros.locador" id="nl-e-locador" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.locador }}</span>
       </label>
       <label :class="rotulo">
-        Locatário (inquilino)
-        <input v-model="locatario" :class="campo" type="text" autocomplete="off" data-testid="locatario" />
+        <span>Locatário (inquilino)<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <input v-model="locatario" :class="campo" v-bind="aria('locatario')" type="text" autocomplete="off" data-testid="locatario" />
+        <span v-if="erros.locatario" id="nl-e-locatario" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.locatario }}</span>
       </label>
       <label :class="rotulo">
-        Corretor
-        <select v-model="corretorId" :class="campo" :disabled="travado">
+        <span>Corretor<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <select v-model="corretorId" :class="campo" v-bind="aria('corretorId')" :disabled="travado">
           <option v-for="c in store.corretores.value" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </label>
+      <p class="m-0 text-[length:var(--fs-caption)] text-[var(--ink-soft)]"><span class="text-[var(--danger)]" aria-hidden="true">*</span> campo obrigatório</p>
       <p v-if="erro" role="alert" class="rounded-lg bg-[#fee2e2] px-3 py-2 text-[length:var(--fs-label)] font-bold text-[#7f1d1d]">
         {{ erro }}
       </p>

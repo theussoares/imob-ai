@@ -148,7 +148,7 @@ export async function consultar(ctx: ContextoGestao, corpo: unknown): Promise<Co
   const r = realizarConsulta(
     { documento, finalidade: finalidade as Finalidade, contratoId },
     { nome: ctx.membro.nome },
-    agora(agoraBrasil()),
+    agora(),
     proximoId,
   )
   if (!r.ok) throw createError({ statusCode: 422, statusMessage: r.erro })
