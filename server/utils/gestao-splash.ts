@@ -12,6 +12,8 @@
  * Cores fixas e neutras: neste ponto ainda não se sabe o tenant nem o tema escolhido.
  */
 export const GESTAO_SPLASH_HTML = `<div class="gestao-splash" aria-hidden="true">
+  <div class="gs-intro"><div class="gs-logo"></div><div class="gs-pred"><i style="height:32px;animation-delay:.1s"></i><i style="height:50px;animation-delay:.22s"></i><i style="height:40px;animation-delay:.34s"></i><i style="height:76px;animation-delay:.46s"></i><i style="height:46px;animation-delay:.58s"></i><i style="height:62px;animation-delay:.7s"></i></div></div>
+  <p class="gs-falha">Não foi possível carregar o painel. <a href="">Tentar de novo</a></p>
   <style>
     /* Esqueleto do painel: aparece no HTML inicial (a rota /gestao não renderiza no servidor), antes de
        qualquer JavaScript, para não haver tela branca. Cores fixas e neutras: ainda não se sabe o
@@ -28,11 +30,26 @@ export const GESTAO_SPLASH_HTML = `<div class="gestao-splash" aria-hidden="true"
     .gestao-splash .gs-logo:after{content:"";width:10px;height:10px;border-radius:3px;background:#facc15}
         .gestao-splash .gs-side>*:nth-child(1){animation-delay:.05s}.gestao-splash .gs-side>*:nth-child(2){animation-delay:.1s}.gestao-splash .gs-side>*:nth-child(3){animation-delay:.15s}.gestao-splash .gs-side>*:nth-child(4){animation-delay:.2s}.gestao-splash .gs-side>*:nth-child(5){animation-delay:.25s}.gestao-splash .gs-side>*:nth-child(6){animation-delay:.3s}
     .gestao-splash .gs-ct>*:nth-child(1){animation-delay:.15s}.gestao-splash .gs-ct>*:nth-child(2){animation-delay:.25s}.gestao-splash .gs-ct>*:nth-child(3){animation-delay:.35s}
+    /* Abertura: prédios sobem (1,5 s) e a camada some, revelando o esqueleto, que fica até o painel
+       estar pronto. Tudo em CSS, sem depender de JavaScript. */
+    .gestao-splash .gs-intro{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:#f4f4f5;animation:gs-intro-sai .35s ease 1.5s forwards}
+    .gestao-splash .gs-intro .gs-logo{width:52px;height:52px;border-radius:13px}
+    .gestao-splash .gs-intro .gs-logo:after{width:16px;height:16px;border-radius:4px}
+    .gestao-splash .gs-pred{display:flex;align-items:flex-end;gap:7px;height:76px}
+    .gestao-splash .gs-pred i{display:block;width:17px;background:#d4d4d8;border-radius:3px 3px 0 0;transform-origin:bottom;animation:gs-sobe .9s cubic-bezier(.2,.8,.2,1) backwards}
+    .gestao-splash .gs-pred i:after{content:"";display:block;width:9px;height:3px;margin:6px auto 0;border-radius:2px;background:#facc15;animation:gs-pisca 1s ease-in-out infinite}
+    @keyframes gs-sobe{from{transform:scaleY(0)}}
+    @keyframes gs-pisca{50%{opacity:.25}}
+    @keyframes gs-intro-sai{to{opacity:0;visibility:hidden}}
+    /* Se nada carregou depois de 20 s (rede caída, script bloqueado), diz isso em vez de ficar parado. */
+    .gestao-splash .gs-falha{position:absolute;left:0;right:0;bottom:32px;z-index:3;text-align:center;color:#52525b;font-size:14px;opacity:0;animation:gs-falha-mostra .3s ease 20s forwards}
+    .gestao-splash .gs-falha a{color:#17171a;font-weight:700}
+    @keyframes gs-falha-mostra{to{opacity:1}}
     @keyframes gs-entra{from{opacity:0;transform:translateY(8px)}}
     @keyframes gs-pulso{50%{transform:scale(.88)}}
     @keyframes gs-brilho{to{background-position:-200% 0}}
     @media (max-width:767px){.gestao-splash .gs-main{grid-template-columns:1fr}.gestao-splash .gs-side{display:none}}
-    @media (prefers-reduced-motion:reduce){.gestao-splash .gs,.gestao-splash .gs-logo{animation:none}}
+    @media (prefers-reduced-motion:reduce){.gestao-splash .gs,.gestao-splash .gs-logo,.gestao-splash .gs-pred i,.gestao-splash .gs-pred i:after{animation:none}.gestao-splash .gs-intro{animation-duration:.01s;animation-delay:.6s}}
   </style>
   <div class="gs-top"><div class="gs-logo"></div><div class="gs" style="width:140px;height:16px"></div></div>
   <div class="gs-main">
