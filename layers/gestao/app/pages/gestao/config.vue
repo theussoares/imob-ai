@@ -36,7 +36,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
 </script>
 
 <template>
-  <form class="mx-auto flex max-w-3xl flex-col gap-4" novalidate @submit.prevent="salvar">
+  <form class="flex flex-col gap-4" novalidate @submit.prevent="salvar">
     <header>
       <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Configurações</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Dados da imobiliária e padrões para contratos novos.</p>

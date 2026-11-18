@@ -151,7 +151,7 @@ const tab = (ativo: boolean) => [
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-5xl flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <NuxtLink
       :to="voltar.to"
       class="inline-flex min-h-11 w-fit items-center rounded-[10px] px-1 font-bold text-[var(--brand)] no-underline hover:underline"

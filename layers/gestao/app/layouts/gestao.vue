@@ -26,6 +26,33 @@ async function restaurarDados() {
   toast.success('Dados de exemplo restaurados.')
 }
 
+// Grupos do menu. Item sem grupo conhecido cai em Administração, para uma
+// chave nova nunca sumir do menu.
+const GRUPOS: { nome: string; chaves: string[] }[] = [
+  { nome: 'Operação', chaves: ['dashboard', 'imoveis', 'vendas', 'locacao'] },
+  { nome: 'Financeiro', chaves: ['financeiro', 'consulta'] },
+]
+const grupos = computed(() => {
+  const usados = new Set(GRUPOS.flatMap((g) => g.chaves))
+  const lista = GRUPOS.map((g) => ({ nome: g.nome, itens: itens.value.filter((m) => g.chaves.includes(m.chave)) }))
+  lista.push({ nome: 'Administração', itens: itens.value.filter((m) => !usados.has(m.chave)) })
+  return lista.filter((g) => g.itens.length)
+})
+
+// Ícones de linha (24x24, traço); um caminho por item.
+const ICONES: Record<string, string> = {
+  dashboard: 'M3 13h8V3H3v10Zm10 8h8V11h-8v10ZM3 21h8v-6H3v6Zm10-12h8V3h-8v6Z',
+  imoveis: 'M3 11 12 3l9 8M5 10v10h14V10M10 20v-5h4v5',
+  vendas: 'M6 3h9l3 3v15H6V3Zm3 7h6M9 14h6M9 18h4',
+  locacao: 'M15 7a4 4 0 1 1-3.9 5L3 20v-3l2-1v-2h2l1-1 3.1-.1A4 4 0 0 1 15 7Z',
+  financeiro: 'M4 20V10m6 10V4m6 16v-7m4 7H2',
+  consulta: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm9 16-4-4',
+  arquivados: 'M4 5h16v4H4V5Zm1 4v11h14V9M10 13h4',
+  auditoria: 'M12 7v5l3 2M3 12a9 9 0 1 0 3-6.7L3 8m0-4v4h4',
+  usuarios: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9a6 6 0 0 1 12 0M17 11a3 3 0 1 0 0-6m2 8a5 5 0 0 1 3 5',
+  config: 'M4 7h10m4 0h2M4 17h2m4 0h10M16 4v6M8 14v6',
+}
+
 const btn =
   'min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3.5 font-bold hover:bg-[var(--brand-ghost)]'
 </script>
@@ -73,20 +100,37 @@ const btn =
         class="flex flex-none gap-1 overflow-x-auto border-b border-[var(--line)] bg-[var(--paper)] p-2 md:w-58 md:flex-col md:overflow-visible md:border-r md:border-b-0 md:p-3"
         aria-label="Seções do painel"
       >
-        <NuxtLink
-          v-for="m in itens"
-          :key="m.chave"
-          :to="m.rota"
-          class="flex min-h-11 items-center whitespace-nowrap rounded-[10px] px-3 font-semibold no-underline hover:bg-[var(--surface)]"
-          :class="
-            ativo(m.rota)
-              ? 'bg-[var(--gestao-amarelo)] font-extrabold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
-              : 'text-[var(--ink-soft)]'
-          "
-          :aria-current="ativo(m.rota) ? 'page' : undefined"
-        >
-          {{ m.rotulo }}
-        </NuxtLink>
+        <div v-for="g in grupos" :key="g.nome" class="flex flex-none gap-1 md:flex-col">
+          <p class="m-0 hidden px-3 pb-1 pt-3 text-[length:var(--fs-caption)] font-semibold uppercase tracking-wide text-[var(--ink-soft)] md:block">
+            {{ g.nome }}
+          </p>
+          <NuxtLink
+            v-for="m in g.itens"
+            :key="m.chave"
+            :to="m.rota"
+            class="flex min-h-11 items-center gap-2.5 whitespace-nowrap rounded-[10px] px-3 font-semibold no-underline hover:bg-[var(--surface)]"
+            :class="
+              ativo(m.rota)
+                ? 'bg-[var(--gestao-amarelo)] font-extrabold text-[var(--brand)] shadow-[inset_3px_0_0_var(--brand)]'
+                : 'text-[var(--ink-soft)]'
+            "
+            :aria-current="ativo(m.rota) ? 'page' : undefined"
+          >
+            <svg
+              class="size-[18px] flex-none"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path :d="ICONES[m.chave]" />
+            </svg>
+            {{ m.rotulo }}
+          </NuxtLink>
+        </div>
       </nav>
 
       <main id="gestao-conteudo" class="min-w-0 flex-1 p-3 outline-none md:p-5" tabindex="-1">
@@ -99,7 +143,7 @@ const btn =
           {{ store.erroCarga.value }}
           <button type="button" class="ml-2 cursor-pointer font-bold underline" @click="store.carregar(true)">Tentar de novo</button>
         </p>
-        <slot />
+        <div class="mx-auto w-full max-w-6xl"><slot /></div>
       </main>
     </div>
 

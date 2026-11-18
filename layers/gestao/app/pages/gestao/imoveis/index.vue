@@ -34,7 +34,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] s
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-5xl flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Imóveis</h1>

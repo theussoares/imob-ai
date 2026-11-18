@@ -90,7 +90,7 @@ async function restaurar(id: string, tipo: 'venda' | 'locacao') {
       class="m-0 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 text-[var(--ink-soft)]"
       data-testid="arquivados-vazio"
     >
-      {{ q.trim() ? 'Nenhum arquivado encontrado para essa busca.' : 'Nenhum contrato arquivado. Contratos concluídos ou cancelados podem ser arquivados na etapa 8.' }}
+      {{ q.trim() ? 'Nenhum arquivado encontrado para essa busca.' : 'Nenhum contrato arquivado. Contratos concluídos ou cancelados podem ser arquivados a partir do detalhe.' }}
     </p>
 
     <ul v-else class="m-0 flex list-none flex-col gap-3 p-0" data-testid="arquivados-lista">

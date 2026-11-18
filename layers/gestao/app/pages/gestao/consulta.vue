@@ -48,7 +48,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-4xl flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <header>
       <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Consulta cadastral</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Verifique restrições de crédito de locatário, comprador ou fiador.</p>

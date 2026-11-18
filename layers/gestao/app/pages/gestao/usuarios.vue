@@ -97,7 +97,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-4xl flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <h1 class="m-0 text-[length:var(--fs-title)] font-extrabold">Usuários e permissões</h1>
 
     <p v-if="!caps?.convidar" role="alert" class="m-0 font-semibold text-[var(--danger)]">

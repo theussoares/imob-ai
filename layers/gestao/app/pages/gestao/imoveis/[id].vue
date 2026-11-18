@@ -89,7 +89,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
 </script>
 
 <template>
-  <div v-if="imovel && form" class="mx-auto flex max-w-3xl flex-col gap-4">
+  <div v-if="imovel && form" class="flex flex-col gap-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <NuxtLink to="/gestao/imoveis" class="inline-flex min-h-11 items-center text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
