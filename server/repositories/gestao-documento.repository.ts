@@ -120,6 +120,42 @@ export async function listarParaConferir(db: SupabaseClient, tenantId: string, a
   return linhas.map(toDocumentoGestao)
 }
 
+/** Teto da leitura que alimenta a tela Documentos (ela filtra e conta em memória; ver `paginaDeDocumentos`). */
+export const LIMITE_DOCS_PAGINA = 5000
+
+/**
+ * Documentos de VENDA do tenant, dentro e fora da lixeira, sem os `pendente`. `alvoIds` presente restringe
+ * aos processos dele (corretor, ou `?processo=`), em lotes de 100 ids; ausente = o tenant inteiro (quem
+ * chama descarta o que não for de processo visível). Lê em blocos de 1000 até `LIMITE_DOCS_PAGINA`;
+ * `truncado` avisa que passou do teto.
+ */
+export async function listarDocumentosDeVendas(
+  db: SupabaseClient,
+  tenantId: string,
+  alvoIds: string[] | null,
+): Promise<{ docs: DocumentoGestao[]; truncado: boolean }> {
+  const linhas: GestaoDocumentoRow[] = []
+  const lotes = alvoIds === null ? [null] : Array.from({ length: Math.ceil(alvoIds.length / LOTE_IDS) }, (_, i) => alvoIds.slice(i * LOTE_IDS, (i + 1) * LOTE_IDS))
+  for (const lote of lotes) {
+    for (let de = 0; ; de += BLOCO_DOCS) {
+      let q = db
+        .from('gestao_documentos')
+        .select(COLUNAS_DOCUMENTO)
+        .eq('tenant_id', tenantId)
+        .eq('alvo_tipo', 'venda')
+        .not('estado', 'eq', 'pendente')
+      if (lote) q = q.in('alvo_id', lote)
+      const { data, error } = await q.order('updated_at', { ascending: false }).order('id', { ascending: false }).range(de, de + BLOCO_DOCS - 1)
+      if (error) throw error
+      const bloco = (data ?? []) as unknown as GestaoDocumentoRow[]
+      linhas.push(...bloco)
+      if (linhas.length >= LIMITE_DOCS_PAGINA) return { docs: linhas.slice(0, LIMITE_DOCS_PAGINA).map(toDocumentoGestao), truncado: true }
+      if (bloco.length < BLOCO_DOCS) break
+    }
+  }
+  return { docs: linhas.map(toDocumentoGestao), truncado: false }
+}
+
 /** Uma linha por id, com o caminho — para confirmar, baixar, conferir e apagar. Inclui `pendente`. */
 export async function obterDocumento(
   db: SupabaseClient,

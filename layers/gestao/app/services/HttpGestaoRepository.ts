@@ -3,6 +3,7 @@ import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Perfil, Processo } from '../../domain/types'
+import { type FiltroListaDocumentos, type PaginaDocumentos, queryDosDocumentos } from '../../domain/documentos'
 import type { ResumoDashboard } from '../../domain/dashboard'
 import type { RespostaFinanceiro } from '../../domain/financeiro'
 import type { Pagina } from '../../domain/paginacao'
@@ -62,9 +63,11 @@ export interface FiltroPagina {
   pagina: number
   q: string
   status: string
+  /** Lista os arquivados (exige poder vê-los; o servidor repete a checagem). */
+  arquivados?: boolean
 }
 
-const consultaDaPagina = (f: FiltroPagina) => ({ pagina: f.pagina, ...(f.q.trim() ? { q: f.q.trim() } : {}), ...(f.status ? { status: f.status } : {}) })
+const consultaDaPagina = (f: FiltroPagina, chaveArquivados: 'arquivados' | 'arquivadas') => ({ pagina: f.pagina, ...(f.arquivados ? { [chaveArquivados]: 1 } : {}), ...(f.q.trim() ? { q: f.q.trim() } : {}), ...(f.status ? { status: f.status } : {}) })
 
 interface RespostaVenda {
   versao: number
@@ -150,13 +153,18 @@ export class HttpGestaoRepository implements GestaoRepository {
    * Uma página da lista de vendas, filtrada NO SERVIDOR: a tela só tem as 24 da página, não a carteira
    * inteira. Falha sobe (a tela mostra «tentar de novo»), como em `carregar`. `q` e `status` vazios não vão.
    */
+  /** Uma página da tela Documentos (abas, categoria, busca), filtrada no servidor. */
+  paginaDocumentos(f: FiltroListaDocumentos): Promise<PaginaDocumentos> {
+    return this.api.get<PaginaDocumentos>('/api/gestao/documentos/pagina', queryDosDocumentos(f))
+  }
+
   async paginaVendas(f: FiltroPagina): Promise<Pagina<Processo>> {
-    const r = await this.api.get<Pagina<RespostaVenda>>('/api/gestao/vendas', consultaDaPagina(f))
+    const r = await this.api.get<Pagina<RespostaVenda>>('/api/gestao/vendas', consultaDaPagina(f, 'arquivados'))
     return { ...r, itens: r.itens.map((i) => this.guardarVenda(i)) }
   }
 
   async paginaLocacoes(f: FiltroPagina): Promise<Pagina<Locacao>> {
-    const r = await this.api.get<Pagina<RespostaLocacao>>('/api/gestao/locacoes', consultaDaPagina(f))
+    const r = await this.api.get<Pagina<RespostaLocacao>>('/api/gestao/locacoes', consultaDaPagina(f, 'arquivadas'))
     return { ...r, itens: r.itens.map((i) => this.guardarLocacao(i)) }
   }
 

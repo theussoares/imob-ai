@@ -70,3 +70,19 @@ export function queryDaLista(f: FiltroLista): Record<string, string> {
     ...(f.status ? { status: f.status } : {}),
   }
 }
+
+/** Filtro da tela «Arquivados»: vendas e locações são duas listas, uma por vez (`?tipo=locacao&pagina=2&q=…`). */
+export interface FiltroArquivados {
+  pagina: number
+  q: string
+  tipo: 'venda' | 'locacao'
+}
+
+export function filtroArquivadosDaUrl(query: Record<string, unknown>): FiltroArquivados {
+  return { pagina: lerPagina(query.pagina), q: primeiro(query.q).slice(0, 100), tipo: primeiro(query.tipo) === 'locacao' ? 'locacao' : 'venda' }
+}
+
+export function queryDosArquivados(f: FiltroArquivados): Record<string, string> {
+  const q = f.q.trim()
+  return { ...(f.tipo === 'locacao' ? { tipo: 'locacao' } : {}), ...(q ? { q } : {}), ...(f.pagina > 1 ? { pagina: String(f.pagina) } : {}) }
+}

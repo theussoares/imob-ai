@@ -2,6 +2,7 @@ import { configuracoesPadrao } from '../../domain/configuracoes'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { matrizPadrao } from '../../domain/permissions'
 import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
+import { filtroDocumentosDaUrl, paginarDocumentos } from '../../domain/documentos'
 import { filtrarProcessos } from '../../domain/filtro'
 import { filtrarLocacoes } from '../../domain/filtro-locacao'
 import { paginar } from '../../domain/paginacao'
@@ -108,14 +109,18 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     if (metodo === 'GET' && rota === 'matriz') return out({ matriz: d.matriz })
     // Como o servidor: com `pagina` a resposta é uma Pagina; sem ela, o array/objeto de sempre.
     if (metodo === 'GET' && rota === 'vendas' && q.pagina !== undefined) {
-      const achadas = filtrarProcessos(d.processos.filter((p) => !p.arquivado), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusVenda | '' }, d.corretores)
+      const achadas = filtrarProcessos(d.processos.filter((p) => !!p.arquivado === !!q.arquivados), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusVenda | '' }, d.corretores)
       const pag = paginar(achadas, Number(q.pagina))
       return out({ ...pag, truncado: false, itens: pag.itens.map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })) })
     }
     if (metodo === 'GET' && rota === 'locacoes' && q.pagina !== undefined) {
-      const achadas = filtrarLocacoes(d.locacoes.filter((l) => !l.arquivado), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusLocacao | '' }, d.corretores)
+      const achadas = filtrarLocacoes(d.locacoes.filter((l) => !!l.arquivado === !!q.arquivadas), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusLocacao | '' }, d.corretores)
       const pag = paginar(achadas, Number(q.pagina))
       return out({ ...pag, truncado: false, itens: pag.itens.map((l) => locacao(l.id)) })
+    }
+    if (metodo === 'GET' && rota === 'documentos/pagina') {
+      const f = filtroDocumentosDaUrl(q, { podeApagar: true })
+      return out(paginarDocumentos(d.documentos, d.processos.filter((p) => !p.arquivado), f, { podeApagar: true }))
     }
     if (metodo === 'GET' && rota === 'vendas') return out(d.processos.filter((p) => !!p.arquivado === !!q.arquivados).map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })))
     if (metodo === 'GET' && rota === 'locacoes') return out({ locacoes: d.locacoes.filter((l) => !!l.arquivado === !!q.arquivadas).map((l) => locacao(l.id)) })

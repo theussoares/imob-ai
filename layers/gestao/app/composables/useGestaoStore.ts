@@ -2,7 +2,8 @@ import { agora, type Estado, type NovoProcesso } from '../../domain/acoes'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
-import { capacidades, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosVisiveis } from '../../domain/permissions'
+import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos } from '../../domain/documentos'
+import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
 import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
 import { imoveisVisiveis as filtrarImoveisVisiveis, permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
@@ -242,12 +243,20 @@ export function useGestaoStore() {
    */
   async function paginaDeVendas(f: FiltroPagina): Promise<Pagina<Processo>> {
     if (api) return (repo as HttpGestaoRepository).paginaVendas(f)
-    return paginar(filtrarProcessos(visiveis.value, { q: f.q, status: f.status as StatusVenda | '' }, corretores.value), f.pagina)
+    const base = f.arquivados && sessao.value ? processosArquivados(matriz.value, sessao.value, estado.value.processos) : visiveis.value
+    return paginar(filtrarProcessos(base, { q: f.q, status: f.status as StatusVenda | '' }, corretores.value), f.pagina)
   }
 
   async function paginaDeLocacoes(f: FiltroPagina): Promise<Pagina<Locacao>> {
     if (api) return (repo as HttpGestaoRepository).paginaLocacoes(f)
-    return paginar(filtrarLocacoes(locacoesVisiveis.value, { q: f.q, status: f.status as StatusLocacao | '' }, corretores.value), f.pagina)
+    const base = f.arquivados && sessao.value ? locacoesArquivadas(matriz.value, sessao.value, estado.value.locacoes) : locacoesVisiveis.value
+    return paginar(filtrarLocacoes(base, { q: f.q, status: f.status as StatusLocacao | '' }, corretores.value), f.pagina)
+  }
+
+  /** Página da tela Documentos. `http`: o servidor lê e filtra; `mock`: a mesma conta (`paginarDocumentos`) sobre o estado local. */
+  async function paginaDeDocumentos(f: FiltroListaDocumentos): Promise<PaginaDocumentos> {
+    if (api) return (repo as HttpGestaoRepository).paginaDocumentos(f)
+    return paginarDocumentos(estado.value.documentos, visiveis.value, f, { podeApagar: !!caps()?.apagarDocs })
   }
 
   // --- totais (Financeiro e Dashboard) ---------------------------------------------------------
@@ -440,6 +449,7 @@ export function useGestaoStore() {
     executar,
     carregarDetalhe,
     paginaDeVendas,
+    paginaDeDocumentos,
     lerFinanceiro,
     lerDashboard,
     paginaDeLocacoes,

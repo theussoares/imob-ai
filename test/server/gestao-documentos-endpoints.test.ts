@@ -142,7 +142,7 @@ describe('os endpoints não aceitam tenant, caminho nem autor do cliente', () =>
     readdirSync(dir).flatMap((n) => (statSync(join(dir, n)).isDirectory() ? arquivos(join(dir, n)) : [join(dir, n)]))
   const docs = arquivos(raizApi).filter((f) => f.includes('documentos'))
 
-  test('existem os 8 endpoints do plano', () => {
+  test('existem os 8 endpoints do plano, mais a página paginada da tela', () => {
     expect(docs.map((f) => f.slice(raizApi.length + 1)).sort()).toEqual([
       'documentos.get.ts',
       'documentos/[id]/apagar.post.ts',
@@ -151,6 +151,7 @@ describe('os endpoints não aceitam tenant, caminho nem autor do cliente', () =>
       'documentos/[id]/download.get.ts',
       'documentos/[id]/restaurar.post.ts',
       'documentos/lixeira.get.ts',
+      'documentos/pagina.get.ts',
       'documentos/upload.post.ts',
     ])
   })

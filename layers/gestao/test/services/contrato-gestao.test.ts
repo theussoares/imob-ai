@@ -221,6 +221,26 @@ describe('GestaoRepository — http: erros e concorrência', () => {
     expect(alem.total).toBe(pag.total)
   })
 
+  it('arquivados: a página pede `arquivados=1` (venda) e `arquivadas=1` (locação) e só traz arquivados', async () => {
+    const servidor = criarServidorFalso()
+    const repo = montarHttp(servidor) as HttpGestaoRepository
+    const v = await repo.paginaVendas({ pagina: 1, q: '', status: '', arquivados: true })
+    expect(servidor.consultas.at(-1)).toEqual({ pagina: 1, arquivados: 1 })
+    expect(v.itens.every((p) => p.arquivado)).toBe(true)
+    await repo.paginaLocacoes({ pagina: 2, q: 'x', status: '', arquivados: true })
+    expect(servidor.consultas.at(-1)).toEqual({ pagina: 2, arquivadas: 1, q: 'x' })
+  })
+
+  it('página de documentos: manda aba, categoria, busca e processo; recebe contagem das abas', async () => {
+    const servidor = criarServidorFalso()
+    const repo = montarHttp(servidor) as HttpGestaoRepository
+    const r = await repo.paginaDocumentos({ pagina: 1, q: 'rg', aba: 'documentos', categoria: 'pessoas', processo: '', de: '' })
+    expect(servidor.chamadas.at(-1)).toMatchObject({ metodo: 'GET', url: '/api/gestao/documentos/pagina' })
+    expect(servidor.consultas.at(-1)).toEqual({ categoria: 'pessoas', q: 'rg' })
+    expect(r.abas).toMatchObject({ documentos: expect.any(Number), lixeira: expect.any(Number), 'sem-pdf': expect.any(Number) })
+    expect(r.itens.every((d) => d.categoria === 'pessoas')).toBe(true)
+  })
+
   it('manda Authorization: Bearer em toda chamada autenticada', async () => {
     const servidor = criarServidorFalso()
     const repo = montarHttp(servidor)

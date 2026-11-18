@@ -82,7 +82,7 @@ const resposta = (v: Venda, podeValores: boolean): VendaResposta => ({
 /** Corretor sem `verTodos` só enxerga o que é seu; sem vínculo com corretor, nada. */
 const SEM_CORRETOR = '00000000-0000-0000-0000-000000000000'
 
-function escopoDe(ctx: CtxVendas): Escopo {
+export function escopoDe(ctx: CtxVendas): Escopo {
   const todos = ctx.matriz.verTodos?.[ctx.sessao.perfil] === 'sim'
   return { tenantId: ctx.membro.tenantId, ...(todos ? {} : { corretorId: ctx.membro.brokerId ?? SEM_CORRETOR }) }
 }

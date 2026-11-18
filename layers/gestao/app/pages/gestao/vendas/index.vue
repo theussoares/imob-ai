@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { filtroDaUrl, queryDaLista } from '../../../../domain/paginacao'
 import { documentosPendentes } from '../../../../domain/requisitos'
 import { STATUS_VENDA } from '../../../../domain/status'
 
@@ -9,9 +10,10 @@ const store = useGestaoStore()
 const modal = ref<{ abrir: () => void } | null>(null)
 
 // Página, busca e status vivem na URL (`useListaPaginada`): recarregar, voltar e colar o link mantêm a lista.
-const { filtro, resultado, falhou, q, carregar, irParaPagina, mudarStatus, limpar } = useListaPaginada(
+const { filtro, resultado, falhou, q, carregar, irParaPagina, mudar, limpar } = useListaPaginada(
   (f) => store.paginaDeVendas(f),
-  STATUS_VENDA,
+  (query) => filtroDaUrl(query, STATUS_VENDA),
+  queryDaLista,
 )
 const itens = computed(() => resultado.value?.itens ?? [])
 
@@ -68,7 +70,7 @@ const btn =
       </label>
       <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
         Status
-        <select :value="filtro.status" :class="campo" data-testid="filtro-status" @change="mudarStatus(($event.target as HTMLSelectElement).value)">
+        <select :value="filtro.status" :class="campo" data-testid="filtro-status" @change="mudar({ status: ($event.target as HTMLSelectElement).value })">
           <option value="">Todos os status</option>
           <option v-for="s in STATUS_VENDA" :key="s" :value="s">{{ s }}</option>
         </select>

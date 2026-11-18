@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filtroDaUrl, lerPagina, paginar, POR_PAGINA, queryDaLista, totalDePaginas } from '../../domain/paginacao'
+import { filtroArquivadosDaUrl, filtroDaUrl, lerPagina, paginar, POR_PAGINA, queryDaLista, queryDosArquivados, totalDePaginas } from '../../domain/paginacao'
 
 describe('lerPagina', () => {
   it.each([
@@ -66,5 +66,18 @@ describe('filtro na URL', () => {
   it('ida e volta: o que a tela escreve é o que ela lê', () => {
     const f = { pagina: 4, q: 'rua das flores', status: 'Em negociação' }
     expect(filtroDaUrl(queryDaLista(f), STATUS)).toEqual(f)
+  })
+})
+
+describe('filtro de Arquivados na URL', () => {
+  it('padrão é vendas, página 1; ida e volta', () => {
+    expect(filtroArquivadosDaUrl({})).toEqual({ pagina: 1, q: '', tipo: 'venda' })
+    expect(queryDosArquivados({ pagina: 1, q: '', tipo: 'venda' })).toEqual({})
+    const f = { pagina: 2, q: 'silva', tipo: 'locacao' as const }
+    expect(filtroArquivadosDaUrl(queryDosArquivados(f))).toEqual(f)
+  })
+
+  it('tipo desconhecido vira vendas', () => {
+    expect(filtroArquivadosDaUrl({ tipo: 'x' }).tipo).toBe('venda')
   })
 })
