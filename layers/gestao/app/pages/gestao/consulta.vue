@@ -77,7 +77,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       </label>
       <p v-if="erro" role="alert" class="m-0 font-semibold text-[var(--danger)] md:col-span-2" data-testid="consulta-erro">{{ erro }}</p>
       <div class="md:col-span-2">
-        <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-5 font-bold text-white hover:opacity-90" data-testid="consulta-enviar">
+        <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] hover:opacity-90" data-testid="consulta-enviar">
           Consultar
         </button>
       </div>

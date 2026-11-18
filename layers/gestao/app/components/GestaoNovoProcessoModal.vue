@@ -175,7 +175,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
         </button>
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
         >
           Abrir processo
         </button>

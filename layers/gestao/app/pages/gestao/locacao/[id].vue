@@ -228,7 +228,7 @@ const btn =
           <button
             v-if="etapaVista === locacao.etapa && etapaVista < TOTAL_ETAPAS_LOCACAO && !final && podeNaEtapa(etapaVista)"
             type="button"
-            class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="pendencias.length > 0"
             :aria-describedby="pendencias.length ? 'pendencias-etapa' : undefined"
             data-testid="concluir-etapa"

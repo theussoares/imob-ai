@@ -47,7 +47,7 @@ const btn =
         <button
           v-if="store.caps()?.criar"
           type="button"
-          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="novo-processo"
           @click="modal?.abrir()"
         >

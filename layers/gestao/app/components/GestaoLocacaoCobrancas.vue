@@ -33,7 +33,7 @@ const botao =
         Competência
         <input v-model="competencia" type="month" class="min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3" data-testid="cobranca-competencia" />
       </label>
-      <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90" data-testid="gerar-cobranca">Gerar cobrança</button>
+      <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90" data-testid="gerar-cobranca">Gerar cobrança</button>
     </form>
     <p v-if="!cobrancas.length" class="m-0 text-[var(--ink-soft)]">Nenhuma cobrança gerada.</p>
     <ul v-else class="m-0 flex list-none flex-col gap-2 p-0" data-testid="cobrancas">

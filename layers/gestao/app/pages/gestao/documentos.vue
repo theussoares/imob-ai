@@ -139,7 +139,7 @@ function verVersoes(d: Documento) {
 const chip = (ativo: boolean) => [
   'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]',
   ativo
-    ? 'border-[var(--brand)] bg-[var(--brand)] text-white'
+    ? 'border-[var(--brand)] bg-[var(--gestao-amarelo)] text-[var(--brand)]'
     : 'border-[var(--line-2)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--brand-ghost)]',
 ]
 const tab = (ativo: boolean) => [
@@ -168,7 +168,7 @@ const tab = (ativo: boolean) => [
       <button
         v-if="podeEnviar"
         type="button"
-        class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+        class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
         data-testid="enviar-documento"
         @click="abrirEnvio"
       >

@@ -44,7 +44,7 @@ const avisos = computed(() => avisosLocacao(props.locacao, hojeISO()))
 
     <NuxtLink
       :to="`/gestao/locacao/${locacao.id}`"
-      class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white! no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+      class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)]! no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
     >
       Abrir locação
     </NuxtLink>

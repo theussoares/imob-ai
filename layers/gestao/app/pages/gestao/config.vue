@@ -75,7 +75,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
 
     <p v-if="erro" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="cfg-erro">{{ erro }}</p>
     <div>
-      <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-5 font-bold text-white hover:opacity-90" data-testid="cfg-salvar">
+      <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] hover:opacity-90" data-testid="cfg-salvar">
         Salvar configurações
       </button>
     </div>

@@ -181,7 +181,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
         </label>
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="adiantamento-registrar"
         >
           Registrar

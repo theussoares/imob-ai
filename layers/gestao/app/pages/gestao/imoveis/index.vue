@@ -40,7 +40,7 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] s
         <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Imóveis</h1>
         <p class="mt-1 text-[var(--ink-soft)]">O que você cadastra aqui é o que aparece no site da imobiliária.</p>
       </div>
-      <NuxtLink v-if="podeCriar" to="/gestao/imoveis/novo" class="inline-flex min-h-11 items-center rounded-[10px] bg-[var(--brand)] px-5 font-bold text-white no-underline hover:opacity-90" data-testid="imovel-novo">
+      <NuxtLink v-if="podeCriar" to="/gestao/imoveis/novo" class="inline-flex min-h-11 items-center rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] no-underline hover:opacity-90" data-testid="imovel-novo">
         Cadastrar imóvel
       </NuxtLink>
     </header>

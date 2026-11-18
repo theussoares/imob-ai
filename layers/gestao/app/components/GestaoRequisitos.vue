@@ -105,7 +105,7 @@ const botao =
         <button
           v-if="podeConferir && doc?.estado === 'enviado'"
           type="button"
-          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-3 text-[length:var(--fs-ui)] font-bold text-white hover:opacity-90"
+          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-3 text-[length:var(--fs-ui)] font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="requisito-conferir"
           @click="emit('conferir', doc)"
         >

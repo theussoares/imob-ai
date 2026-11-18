@@ -106,7 +106,7 @@ const campo =
 
         <button
           type="submit"
-          class="min-h-12 rounded-xl bg-[var(--brand)] text-[length:var(--fs-body)] font-extrabold text-white enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
+          class="min-h-12 rounded-xl bg-[var(--gestao-amarelo)] text-[length:var(--fs-body)] font-extrabold text-[var(--brand)] enabled:cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--line-2)] disabled:text-[var(--ink-soft)]"
           :disabled="!podeCriar"
           data-testid="criar-conta"
         >

@@ -142,7 +142,7 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 
     <p v-if="props.erro" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="imovel-erro">{{ props.erro }}</p>
     <div>
-      <button type="submit" :disabled="props.salvando" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-5 font-bold text-white hover:opacity-90 disabled:opacity-60" data-testid="imovel-salvar">
+      <button type="submit" :disabled="props.salvando" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] hover:opacity-90 disabled:opacity-60" data-testid="imovel-salvar">
         {{ props.salvando ? 'Salvando…' : props.rotuloSalvar }}
       </button>
     </div>
