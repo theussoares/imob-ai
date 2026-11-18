@@ -128,7 +128,7 @@ export function enviarDocumento(
 ): Resultado {
   if (!dados.nome.trim()) return { ok: false, erro: 'Escolha um arquivo.' }
   if (!/\.(pdf|jpe?g|png|webp)$/i.test(dados.nome)) return { ok: false, erro: 'Use PDF, JPG, PNG ou WEBP.' }
-  if (dados.tamanho > 20 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 20 MB.' }
+  if (dados.tamanho > 15 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 15 MB.' }
   if (!estado.processos.some((p) => p.id === dados.processoId)) return { ok: false, erro: 'Escolha o processo do documento.' }
   const req = dados.requisito ? requisitoPorChave(dados.requisito) : undefined
   if (dados.requisito && !req) return { ok: false, erro: 'Item de checklist desconhecido.' }

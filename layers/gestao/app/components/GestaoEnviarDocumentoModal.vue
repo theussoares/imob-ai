@@ -136,7 +136,7 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
           @change="escolheu"
         />
         <p id="enviar-doc-ajuda" class="mt-1 text-[length:var(--fs-caption)] text-[var(--ink-soft)]">
-          PDF, JPG, PNG ou WEBP, até 20 MB.
+          PDF, JPG, PNG ou WEBP, até 15 MB.
         </p>
       </div>
 

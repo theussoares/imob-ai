@@ -21,7 +21,7 @@ import {
 import { registrarEvento } from '~~/server/repositories/gestao-evento.repository'
 import { listarDocumentosDoAlvo } from '~~/server/repositories/gestao-documento.repository'
 import { ACOES_LOCACAO, corpoAcaoSchema, permitidoNaLocacao } from '~~/server/utils/gestao-locacao-acoes'
-import { executarAcao } from '~~/server/utils/gestao-acoes'
+import { amarrar, executarAcao } from '~~/server/utils/gestao-acoes'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
 
@@ -247,7 +247,10 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
     paraEstado: (a) => ({ processos: [], documentos: a.documentos, locacoes: [a.locacao] }),
     doEstado: (e, antes) => ({ ...antes, locacao: e.locacoes.find((l) => l.id === antes.id)! }),
     gravar: (n, versaoAnterior) => gravarLocacao(ctx.db, tenantId, n.locacao, versaoAnterior),
-    acao: (estado, ator, quando) => def.fn(estado, id, dados, ator, quando),
+    // Ator e data vêm do servidor, amarrados aqui: `executarAcao` chama a ação com ator e data vazios
+    // (como na venda). Sem o `amarrar`, o histórico da locação saía sem «quem» e sem «quando» — achado
+    // no teste de navegador, que o teste de API não via por não ler o `hist`.
+    acao: amarrar((estado, ator, quando) => def.fn(estado, id, dados, ator, quando), { nome: membro.nome }, agora(agoraBrasil())),
   })
 
   await auditar(ctx, c.data.acao, id)

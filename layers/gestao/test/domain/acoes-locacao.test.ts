@@ -151,7 +151,7 @@ describe('documentos da locação', () => {
   })
   it('recusa extensão, tamanho, item desconhecido, locação inexistente e encerrada', () => {
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, nome: 'x.exe' }, ator))).toBe('Use PDF, JPG, PNG ou WEBP.')
-    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, tamanho: 21 * 1024 * 1024 }, ator))).toBe('O arquivo passa de 20 MB.')
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, tamanho: 16 * 1024 * 1024 }, ator))).toBe('O arquivo passa de 15 MB.')
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, requisito: 'x:y' }, ator))).toBe('Item de checklist desconhecido.')
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, processoId: 'nada' }, ator))).toBe('Locação não encontrada.')
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, processoId: ENCERRADA }, ator))).toBe('Esta locação está encerrada e só aceita consulta.')

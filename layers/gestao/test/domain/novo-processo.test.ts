@@ -25,11 +25,11 @@ describe('complemento do novo processo', () => {
     expect(validarContato('comprador', { telefone: '', email: 'x' })).toMatch(/E-mail do comprador/)
   })
 
-  it('PDF: só .pdf e até 20 MB; sem arquivo passa', () => {
+  it('PDF: só .pdf e até 15 MB; sem arquivo passa', () => {
     expect(validarPdf(null)).toBeNull()
     expect(validarPdf({ name: 'c.PDF', size: 1000 })).toBeNull()
     expect(validarPdf({ name: 'c.png', size: 1000 })).toMatch(/PDF/)
-    expect(validarPdf({ name: 'c.pdf', size: 21 * 1024 * 1024 })).toMatch(/20 MB/)
+    expect(validarPdf({ name: 'c.pdf', size: 16 * 1024 * 1024 })).toMatch(/15 MB/)
   })
 
   it('completa o processo recém-criado sem tocar nos outros', () => {

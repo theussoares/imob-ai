@@ -198,6 +198,19 @@ describe('ações: permissão, versão e 409', () => {
   })
 })
 
+describe('histórico das ações', () => {
+  // O despachante chama a ação com ator e data vazios; a locação não amarrava os do servidor e o
+  // histórico saía com «quem» e «quando» em branco (achado no teste de navegador). A auditoria da
+  // tela precisa dizer quem fez e quando, e isso nunca pode vir do cliente.
+  test('registra quem agiu e quando, vindos do servidor', async () => {
+    const { c } = ctx('juridico', null, { gestao_locacoes: [{ data: linha(ativa(), 5), error: null }, { data: [{ id: 'L-2026-0001' }], error: null }] })
+    const r = await agir(c, 'L-2026-0001', { acao: 'renovarLocacao', dados: {}, versao: 5 })
+    const ultima = (r.locacao as Locacao).hist[0]
+    expect(ultima.quem).toBe('Fulano')
+    expect(ultima.quando).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/)
+  })
+})
+
 describe('abrir', () => {
   const body = { locador: 'Ana', locatario: 'Bruno', imovelId: IMOVEL, imovel: 'Casa 1' }
 

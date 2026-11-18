@@ -36,5 +36,5 @@ Não se cria `gestao-auth.ts` aqui.
 | Linha nasce `estado = 'pendente'` e só vira `enviado` em `confirmar`; listas ignoram `pendente` | Gravar já como enviado | O upload é direto ao Storage; sem confirmar, o servidor não sabe o que chegou |
 | `confirmar` abre o objeto e decide o formato pelos primeiros bytes (`formatoPelaAssinatura`) | Confiar no `mime` do cliente | Mesmo incidente da 0052 (`.exe` renomeado) |
 | Versão nova = novo objeto em `…/<versao>`; confirmar faz `update … where versao = anterior` | Sobrescrever o objeto | Versão antiga continua no bucket; corrida entre duas abas vira 409 |
-| Limite 15 MB (plano), não 20 MB do `LIMITE_BYTES` do domínio/`acoes.ts` | Manter 20 MB | O plano fixa 15 MB no bucket; a tela hoje avisa 20 MB — ajustar na F7 |
+| Limite 15 MB (plano), não 20 MB do `LIMITE_BYTES` do domínio/`acoes.ts` | Manter 20 MB | O plano fixa 15 MB no bucket; a tela avisava 20 MB; unificada em 15 MB no domínio e na tela (achado no teste de navegador) |
 | Validação manual, sem Zod | Zod | Zod não está nas dependências do repo; o padrão de `server/utils/validate.ts` é manual |

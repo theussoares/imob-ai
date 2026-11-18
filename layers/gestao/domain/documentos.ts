@@ -170,7 +170,7 @@ export function listaVersoes(doc: Pick<Documento, 'versoes'>): { numero: number;
 export const ACEITA_ARQUIVO = '.pdf,.jpg,.jpeg,.png,.webp'
 
 const TIPOS_ACEITOS = /\.(pdf|jpe?g|png|webp)$/i
-export const LIMITE_BYTES = 20 * 1024 * 1024
+export const LIMITE_BYTES = 15 * 1024 * 1024
 
 /**
  * Mesma regra de `enviarDocumento`, para a SUBSTITUIÇÃO — que em `acoes.ts` não
@@ -180,7 +180,7 @@ export const LIMITE_BYTES = 20 * 1024 * 1024
  */
 export function validarArquivo(nome: string, tamanho: number): string | null {
   if (!TIPOS_ACEITOS.test(nome)) return 'Use PDF, JPG, PNG ou WEBP.'
-  if (tamanho > LIMITE_BYTES) return 'O arquivo passa de 20 MB.'
+  if (tamanho > LIMITE_BYTES) return 'O arquivo passa de 15 MB.'
   return null
 }
 

@@ -129,10 +129,10 @@ describe('arquivo', () => {
 })
 
 describe('validarArquivo', () => {
-  it('aceita PDF/JPG/PNG/WEBP até 20 MB e recusa o resto', () => {
+  it('aceita PDF/JPG/PNG/WEBP até 15 MB e recusa o resto', () => {
     expect(validarArquivo('a.PDF', 1000)).toBeNull()
-    expect(validarArquivo('a.jpeg', 20 * 1024 * 1024)).toBeNull()
+    expect(validarArquivo('a.jpeg', 15 * 1024 * 1024)).toBeNull()
     expect(validarArquivo('a.exe', 10)).toMatch(/PDF, JPG/)
-    expect(validarArquivo('a.pdf', 20 * 1024 * 1024 + 1)).toMatch(/20 MB/)
+    expect(validarArquivo('a.pdf', 15 * 1024 * 1024 + 1)).toMatch(/15 MB/)
   })
 })

@@ -9,7 +9,7 @@ import type { Pessoa } from './types'
  * (tudo síncrono, em memória), mas `abrirProcesso` deveria aceitar estes campos.
  */
 
-export const LIMITE_PDF = 20 * 1024 * 1024
+export const LIMITE_PDF = 15 * 1024 * 1024
 
 /** Só o formato mínimo (algo@algo.tld): confirmar a caixa postal é com o servidor. */
 export const emailValido = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim())
@@ -36,7 +36,7 @@ export function validarContato(rotulo: string, c: ContatoPessoa): string | null 
 export function validarPdf(arquivo: { name: string; size: number } | null): string | null {
   if (!arquivo) return null
   if (!/\.pdf$/i.test(arquivo.name)) return 'O contrato precisa ser um PDF.'
-  if (arquivo.size > LIMITE_PDF) return 'O PDF passa de 20 MB.'
+  if (arquivo.size > LIMITE_PDF) return 'O PDF passa de 15 MB.'
   return null
 }
 

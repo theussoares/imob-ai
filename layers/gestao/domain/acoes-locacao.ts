@@ -279,7 +279,7 @@ export function enviarDocumentoLocacao(
   quando = agora(),
 ): Resultado {
   if (!/\.(pdf|jpe?g|png|webp)$/i.test(dados.nome.trim())) return { ok: false, erro: 'Use PDF, JPG, PNG ou WEBP.' }
-  if (dados.tamanho > 20 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 20 MB.' }
+  if (dados.tamanho > 15 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 15 MB.' }
   const req = dados.requisito ? requisitoPorChave(dados.requisito) : undefined
   if (dados.requisito && !req) return { ok: false, erro: 'Item de checklist desconhecido.' }
   const r = alterar(estado, dados.processoId, ator, quando, (l) => ({
