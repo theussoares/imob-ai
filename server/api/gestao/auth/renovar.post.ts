@@ -29,7 +29,8 @@ export default defineEventHandler(async (event) => {
   const membro = await buscarMembroPorUsuario(serviceSupabase(), tenant.id, data.session.user.id)
   if (!membro) {
     limparRefreshGestao(event)
-    await serviceSupabase().auth.admin.signOut(data.session.access_token).catch(() => {})
+    // `local`: sem escopo seria `global` e derrubaria as sessões do mesmo usuário em outros tenants.
+    await serviceSupabase().auth.admin.signOut(data.session.access_token, 'local').catch(() => {})
     throw createError({ statusCode: 401, statusMessage: 'Sessão expirada.' })
   }
 

@@ -3,7 +3,7 @@ import { type EstadoAuth, estadoAuthVazio } from '../../domain/auth'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { matrizPadrao, PERFIS, sessaoDoPerfil } from '../../domain/permissions'
 import type { MatrizPermissoes, Perfil, Sessao } from '../../domain/types'
-import { limparTokens, renovarSessao } from '../services/tokensGestao'
+import { limparTokens, renovarSessao, tokenAtual } from '../services/tokensGestao'
 
 const CHAVE = 'gestao-sessao'
 
@@ -60,7 +60,7 @@ export function useGestaoSessao() {
   /**
    * `http`: depois do F5, tenta reabrir a sessão pelo cookie HttpOnly (renova o token e lê
    * `/sessao`). Uma vez por carregamento do SPA. Sem cookie, ou sem 2º fator cumprido (o `/sessao`
-   * responde 403), segue sem sessão e o middleware manda ao login; o token renovado fica em
+   * responde 401), segue sem sessão e o middleware manda ao login; o token renovado fica em
    * memória para quem parou na tela do código.
    */
   const tentada = useState<boolean>('gestao:restauracao-http', () => false)
@@ -69,12 +69,16 @@ export function useGestaoSessao() {
     tentada.value = true
     if (!(await renovarSessao())) return
     try {
-      const api = useGestaoApi()
-      const r = await api.get<{ sessao: Sessao; matriz: MatrizPermissoes }>('/api/gestao/sessao')
+      // `$fetch` direto, e não `useGestaoApi()`: quem parou na tela do código recebe 401
+      // («segundo_fator») aqui, e o cliente trata todo 401 como sessão vencida, apagando o
+      // cookie e mandando ao login — o F5 na verificação perderia o login já feito.
+      const r = await $fetch<{ sessao: Sessao; matriz: MatrizPermissoes }>('/api/gestao/sessao', {
+        headers: { authorization: `Bearer ${tokenAtual()}` },
+      })
       sessao.value = r.sessao
       useState<MatrizPermissoes | null>('gestao:matriz').value = r.matriz
     } catch {
-      /* sem 2º fator (403) ou removido (401): fica deslogado */
+      /* sem 2º fator (401) ou removido: fica deslogado */
     }
   }
 

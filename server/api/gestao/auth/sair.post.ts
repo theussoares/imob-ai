@@ -6,6 +6,13 @@ import { limparRefreshGestao } from '~~/server/utils/gestao-cookie'
  * nunca pode falhar para o usuário, e a resposta não revela se havia sessão.
  */
 export default defineEventHandler(async (event) => {
+  // Origin de outro site (formulário externo): não apaga o cookie, para ninguém forçar o logout alheio.
+  const origem = getHeader(event, 'origin')
+  const mesmaOrigem = !origem || (() => { try { return new URL(origem).host === getRequestHost(event) } catch { return false } })()
+  if (!mesmaOrigem) {
+    setResponseStatus(event, 204)
+    return null
+  }
   limparRefreshGestao(event)
   const bearer = getHeader(event, 'authorization')?.replace(/^Bearer\s+/i, '')
   // `local`: só esta sessão, como o signOut do client fazia; as de outros aparelhos seguem.
