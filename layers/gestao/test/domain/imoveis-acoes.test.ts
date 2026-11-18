@@ -158,3 +158,18 @@ describe('permissões do imóvel', () => {
     expect(podeExcluirImovel(im102, sessao('dono'), matriz, [])).toEqual({ ok: true })
   })
 })
+
+describe('errosImovel: todos os erros de uma vez, por campo', () => {
+  it('formulário vazio acusa todos os obrigatórios, na ordem do formulário', async () => {
+    const { errosImovel, formImovelVazio } = await import('../../domain/imoveis-acoes')
+    expect(Object.keys(errosImovel(formImovelVazio()))).toEqual(['title', 'type', 'purpose', 'price', 'neighborhood', 'city', 'state', 'area', 'ownerName', 'brokerId'])
+  })
+
+  it('validarImovel devolve o primeiro dos mesmos erros', async () => {
+    const { errosImovel, validarImovel, formImovelVazio } = await import('../../domain/imoveis-acoes')
+    const f = formImovelVazio()
+    const r = validarImovel(f)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.erro).toBe(Object.values(errosImovel(f))[0])
+  })
+})

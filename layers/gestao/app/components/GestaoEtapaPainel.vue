@@ -290,7 +290,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           </label>
           <label :class="rotuloCampo">
             Telefone
-            <input v-model="telefone" type="tel" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="pessoa-telefone" />
+            <GestaoCampoTelefone v-model="telefone" :disabled="!podeEditar" :classe="campo" data-testid="pessoa-telefone" />
           </label>
           <label :class="rotuloCampo">
             E-mail

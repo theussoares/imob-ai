@@ -144,7 +144,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
       <div class="[display:grid] gap-3 sm:grid-cols-2">
         <label :class="rotulo">
           Telefone do vendedor (opcional)
-          <input v-model="telVendedor" :class="campo" type="tel" inputmode="tel" autocomplete="off" data-testid="telefone-vendedor" />
+          <GestaoCampoTelefone v-model="telVendedor" :classe="campo" data-testid="telefone-vendedor" />
         </label>
         <label :class="rotulo">
           E-mail do vendedor (opcional)
@@ -158,7 +158,7 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
       <div class="[display:grid] gap-3 sm:grid-cols-2">
         <label :class="rotulo">
           Telefone do comprador (opcional)
-          <input v-model="telComprador" :class="campo" type="tel" inputmode="tel" autocomplete="off" data-testid="telefone-comprador" />
+          <GestaoCampoTelefone v-model="telComprador" :classe="campo" data-testid="telefone-comprador" />
         </label>
         <label :class="rotulo">
           E-mail do comprador (opcional)

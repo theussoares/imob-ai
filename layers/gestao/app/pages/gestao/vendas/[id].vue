@@ -364,19 +364,7 @@ const aba_ = (ativa: boolean) =>
             @conferir-doc="conferirArquivo"
           />
 
-          <!-- O que falta para concluir: o botão só habilita sem pendências. -->
-          <div
-            v-if="pendencias.length && etapaVista === processo.etapa && etapaVista < TOTAL_ETAPAS"
-            id="pendencias-etapa"
-            class="rounded-[10px] bg-[#fef3c7] px-3 py-2 text-[#78350f]"
-            role="note"
-            data-testid="pendencias-etapa"
-          >
-            <strong class="block">Para concluir a etapa {{ etapaVista }}:</strong>
-            <ul class="m-0 list-disc pl-5">
-              <li v-for="m in pendencias" :key="m">{{ m }}</li>
-            </ul>
-          </div>
+          
 
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" :class="btn" :disabled="etapaVista <= 1" @click="etapaVista--">← Etapa anterior</button>
@@ -392,6 +380,20 @@ const aba_ = (ativa: boolean) =>
               Concluir etapa {{ etapaVista }}
             </button>
             <button type="button" :class="btn" :disabled="etapaVista >= TOTAL_ETAPAS" @click="etapaVista++">Próxima etapa →</button>
+          </div>
+          <!-- Motivo do botão desabilitado, colado nele: antes ficava acima, fora da vista em tela pequena. -->
+          <!-- O que falta para concluir: o botão só habilita sem pendências. -->
+          <div
+            v-if="pendencias.length && etapaVista === processo.etapa && etapaVista < TOTAL_ETAPAS"
+            id="pendencias-etapa"
+            class="rounded-[10px] bg-[#fef3c7] px-3 py-2 text-[#78350f]"
+            role="note"
+            data-testid="pendencias-etapa"
+          >
+            <strong class="block">Para concluir a etapa {{ etapaVista }}:</strong>
+            <ul class="m-0 list-disc pl-5">
+              <li v-for="m in pendencias" :key="m">{{ m }}</li>
+            </ul>
           </div>
           <p v-if="!final && etapaVista === processo.etapa && etapaVista < TOTAL_ETAPAS && !podeNaEtapa(etapaVista)" class="m-0 text-[var(--ink-soft)]">
             Seu perfil não conclui a etapa {{ etapaVista }} ({{ ETAPAS_VENDA[etapaVista - 1] }}).

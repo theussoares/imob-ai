@@ -141,6 +141,7 @@ const btn =
         <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">{{ locacao.imovel }}</h1>
         <p class="m-0 text-[var(--ink-soft)]">{{ locacao.locador.nome }} · {{ locacao.locatario.nome }} · {{ nomeCorretor(locacao.corretorId) }}</p>
       </div>
+      <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]" data-testid="status-automatico">Status da locação: <strong class="text-[var(--ink)]">{{ locacao.status }}</strong> (definido pela etapa).</p>
       <p v-if="final" class="m-0 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 py-2 font-semibold" role="status" data-testid="aviso-final">
         Locação encerrada: somente consulta. Nada mais pode ser alterado.
       </p>
@@ -148,7 +149,24 @@ const btn =
 
     <GestaoAvisosLocacao :avisos="avisos" />
 
-    <p class="m-0 text-[length:var(--fs-label)] font-bold" data-testid="progresso-texto">{{ feitas }} de {{ TOTAL_ETAPAS_LOCACAO }} etapas concluídas</p>
+    <!-- Mesmo bloco da venda (rótulo, texto e barra). O seletor de status NÃO existe aqui de propósito:
+         o status da locação acompanha a etapa (`statusPorEtapa`); escolher à mão desligaria a regra. -->
+    <div>
+      <div class="mb-1 flex justify-between text-[length:var(--fs-label)] font-bold">
+        <span>Progresso</span>
+        <span data-testid="progresso-texto">{{ feitas }} de {{ TOTAL_ETAPAS_LOCACAO }} etapas concluídas</span>
+      </div>
+      <div
+        class="h-2.5 overflow-hidden rounded-full bg-[var(--line)]"
+        role="progressbar"
+        aria-label="Progresso da locação"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="Math.round((feitas / TOTAL_ETAPAS_LOCACAO) * 100)"
+      >
+        <div class="h-full bg-[var(--brand)]" :style="{ width: `${Math.round((feitas / TOTAL_ETAPAS_LOCACAO) * 100)}%` }" />
+      </div>
+    </div>
     <NuxtLink
       :to="`/gestao/documentos?processo=${locacao.id}&de=processo`"
       class="inline-flex min-h-11 w-fit items-center px-2 font-bold text-[var(--brand)] underline"
@@ -218,10 +236,7 @@ const btn =
           @conferir="conferirArquivo"
         />
 
-        <div v-if="pendencias.length && etapaVista === locacao.etapa && etapaVista < TOTAL_ETAPAS_LOCACAO && podeNaEtapa(etapaVista)" id="pendencias-etapa" class="rounded-[10px] bg-[#fef3c7] px-3 py-2 text-[#78350f]" role="note" data-testid="pendencias-etapa">
-          <strong class="block">Para concluir a etapa {{ etapaVista }}:</strong>
-          <ul class="m-0 list-disc pl-5"><li v-for="m in pendencias" :key="m">{{ m }}</li></ul>
-        </div>
+        
 
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" :class="btn" :disabled="etapaVista <= 1" @click="etapaVista--">← Etapa anterior</button>
@@ -238,6 +253,14 @@ const btn =
           </button>
           <button type="button" :class="btn" :disabled="etapaVista >= TOTAL_ETAPAS_LOCACAO" @click="etapaVista++">Próxima etapa →</button>
         </div>
+          <!-- Motivo do botão desabilitado, colado nele: antes ficava acima, fora da vista em tela pequena. -->
+          <div v-if="pendencias.length && etapaVista === locacao.etapa && etapaVista < TOTAL_ETAPAS_LOCACAO " id="pendencias-etapa" class="rounded-[10px] bg-[#fef3c7] px-3 py-2 text-[#78350f]" role="note" data-testid="pendencias-etapa">
+          <strong class="block">Para concluir a etapa {{ etapaVista }}:</strong>
+          <ul class="m-0 list-disc pl-5"><li v-for="m in pendencias" :key="m">{{ m }}</li></ul>
+        </div>
+        <p v-if="!final && etapaVista === locacao.etapa && etapaVista < TOTAL_ETAPAS_LOCACAO && !podeNaEtapa(etapaVista)" class="m-0 text-[var(--ink-soft)]">
+          Seu perfil não conclui a etapa {{ etapaVista }} ({{ ETAPAS_LOCACAO[etapaVista - 1] }}).
+        </p>
       </div>
 
       <aside class="rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4" aria-labelledby="hist-titulo">
