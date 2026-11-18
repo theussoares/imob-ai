@@ -120,7 +120,7 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     }
     if (metodo === 'GET' && rota === 'documentos/pagina') {
       const f = filtroDocumentosDaUrl(q, { podeApagar: true })
-      return out(paginarDocumentos(d.documentos, d.processos.filter((p) => !p.arquivado), f, { podeApagar: true }))
+      return out(paginarDocumentos(d.documentos, d.processos.filter((p) => !p.arquivado), f, { podeApagar: true }, d.locacoes.filter((l) => !l.arquivado)))
     }
     if (metodo === 'GET' && rota === 'vendas') return out(d.processos.filter((p) => !!p.arquivado === !!q.arquivados).map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })))
     if (metodo === 'GET' && rota === 'locacoes') return out({ locacoes: d.locacoes.filter((l) => !!l.arquivado === !!q.arquivadas).map((l) => locacao(l.id)) })

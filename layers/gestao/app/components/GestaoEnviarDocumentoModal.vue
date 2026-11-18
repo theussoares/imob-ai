@@ -8,13 +8,15 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  enviar: [dados: { arquivo: File | null; categoria: CategoriaDocumento; processoId: string }]
+  enviar: [dados: { arquivo: File | null; categoria: CategoriaDocumento; processoId: string; tipo: 'venda' | 'locacao' }]
 }>()
 
 const dialogo = ref<HTMLDialogElement | null>(null)
 const arquivo = ref<File | null>(null)
 const categoria = ref<CategoriaDocumento>('pessoas')
 const processoId = ref('')
+/** Venda ou locação: decide de onde vêm as opções e para onde o documento vai. */
+const tipo = ref<'venda' | 'locacao'>('venda')
 const entrada = ref<HTMLInputElement | null>(null)
 
 const CATEGORIAS_ESCOLHA = CATEGORIAS.filter((c) => c.chave !== 'todas') as { chave: CategoriaDocumento; rotulo: string }[]
@@ -28,6 +30,8 @@ function abrir(inicial = '') {
   arquivo.value = null
   categoria.value = 'pessoas'
   processoId.value = inicial
+  // O id diz o tipo: `L-…` é locação (a tela pode abrir já num processo, vindo de `?processo=`).
+  tipo.value = inicial.startsWith('L-') ? 'locacao' : 'venda'
   rotuloEscolhido.value = inicial
   buscaProcesso.value = ''
   pagina.value = 1
@@ -53,7 +57,8 @@ async function buscar() {
   const minha = ++seq
   falhouBusca.value = false
   try {
-    const r = await store.paginaDeVendas({ pagina: pagina.value, q: buscaProcesso.value, status: '' })
+    const f = { pagina: pagina.value, q: buscaProcesso.value, status: '' }
+    const r = tipo.value === 'venda' ? await store.paginaDeVendas(f) : await store.paginaDeLocacoes(f)
     if (minha !== seq) return
     opcoes.value = r.itens.map((p) => ({ id: p.id, rotulo: `${p.id} · ${p.imovel}` }))
     paginas.value = r.paginas
@@ -74,6 +79,15 @@ watch(buscaProcesso, () => {
   }, 300)
 })
 onBeforeUnmount(() => clearTimeout(timer))
+
+// Trocar o tipo troca a lista de onde se escolhe; o processo escolhido era de outro tipo e sai.
+watch(tipo, () => {
+  processoId.value = ''
+  rotuloEscolhido.value = ''
+  buscaProcesso.value = ''
+  pagina.value = 1
+  void buscar()
+})
 
 function irPara(p: number) {
   pagina.value = p
@@ -107,7 +121,7 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
     aria-labelledby="enviar-doc-titulo"
     data-testid="modal-enviar"
   >
-    <form class="flex flex-col gap-4" @submit.prevent="emit('enviar', { arquivo, categoria, processoId })">
+    <form class="flex flex-col gap-4" @submit.prevent="emit('enviar', { arquivo, categoria, processoId, tipo })">
       <h2 id="enviar-doc-titulo" class="text-[length:var(--fs-title-sm)] font-extrabold">Enviar documento</h2>
 
       <div>
@@ -134,7 +148,15 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
       </div>
 
       <div>
-        <label for="enviar-doc-processo" :class="rotulo">Processo</label>
+        <label for="enviar-doc-tipo" :class="rotulo">Tipo de contrato</label>
+        <select id="enviar-doc-tipo" v-model="tipo" :class="campo" data-testid="enviar-doc-tipo">
+          <option value="venda">Venda</option>
+          <option value="locacao">Locação</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="enviar-doc-processo" :class="rotulo">Contrato</label>
         <input
           id="enviar-doc-processo"
           v-model="buscaProcesso"
@@ -146,13 +168,13 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
           data-testid="enviar-doc-busca-processo"
         />
         <p id="enviar-doc-processo-escolhido" class="mt-1 text-[length:var(--fs-caption)] text-[var(--ink-soft)]" aria-live="polite" data-testid="enviar-doc-processo-escolhido">
-          {{ processoId ? `Escolhido: ${rotuloEscolhido}` : 'Nenhum processo escolhido.' }}
+          {{ processoId ? `Escolhido: ${rotuloEscolhido}` : 'Nenhum contrato escolhido.' }}
         </p>
         <p v-if="falhouBusca" role="alert" class="mt-2 font-semibold text-[#7f1d1d]">
-          Não foi possível buscar os processos.
+          Não foi possível buscar os contratos.
           <button type="button" class="cursor-pointer font-bold underline" @click="buscar">Tentar de novo</button>
         </p>
-        <ul v-else class="m-0 mt-2 flex max-h-48 list-none flex-col gap-1 overflow-y-auto p-0" role="listbox" aria-label="Processos" data-testid="enviar-doc-opcoes">
+        <ul v-else class="m-0 mt-2 flex max-h-48 list-none flex-col gap-1 overflow-y-auto p-0" role="listbox" aria-label="Contratos" data-testid="enviar-doc-opcoes">
           <li v-for="o in opcoes" :key="o.id" role="option" :aria-selected="o.id === processoId">
             <button
               type="button"
@@ -165,9 +187,9 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
               {{ o.rotulo }}
             </button>
           </li>
-          <li v-if="!opcoes.length" class="px-1 text-[var(--ink-soft)]">Nenhum processo encontrado.</li>
+          <li v-if="!opcoes.length" class="px-1 text-[var(--ink-soft)]">Nenhum contrato encontrado.</li>
         </ul>
-        <GestaoPaginacao class="mt-2" :pagina="pagina" :paginas="paginas" :total="total" rotulo="processos" @ir="irPara" />
+        <GestaoPaginacao class="mt-2" :pagina="pagina" :paginas="paginas" :total="total" rotulo="contratos" @ir="irPara" />
       </div>
 
       <p v-if="erro" role="alert" class="rounded-lg bg-[#fee2e2] px-3 py-2 font-semibold text-[#7f1d1d]">

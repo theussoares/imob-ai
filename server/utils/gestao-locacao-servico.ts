@@ -64,7 +64,7 @@ const verValores = (ctx: ContextoGestao) => ctx.matriz.valores?.[ctx.membro.perf
  * Corretor com `verTodos = proprio` só enxerga as suas. Devolve `undefined` (sem
  * filtro) só para quem vê todas; `null` = corretor sem vínculo, que não vê nenhuma.
  */
-function escopo(ctx: ContextoGestao): { corretorId?: string | null } {
+export function escopo(ctx: ContextoGestao): { corretorId?: string | null } {
   return ctx.matriz.verTodos?.[ctx.membro.perfil] === 'sim' ? {} : { corretorId: ctx.membro.brokerId }
 }
 

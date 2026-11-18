@@ -149,6 +149,14 @@ const btn =
     <GestaoAvisosLocacao :avisos="avisos" />
 
     <p class="m-0 text-[length:var(--fs-label)] font-bold" data-testid="progresso-texto">{{ feitas }} de {{ TOTAL_ETAPAS_LOCACAO }} etapas concluídas</p>
+    <NuxtLink
+      :to="`/gestao/documentos?processo=${locacao.id}&de=processo`"
+      class="inline-flex min-h-11 w-fit items-center px-2 font-bold text-[var(--brand)] underline"
+      data-testid="link-documentos"
+    >
+      Documentos da locação →
+    </NuxtLink>
+
     <GestaoStepper :nomes="ETAPAS_LOCACAO" :vista="etapaVista" :atual="locacao.etapa" :concluidas="locacao.concluidas" @ir="etapaVista = $event" />
 
     <div class="[display:grid] gap-4 lg:grid-cols-[1fr_320px] lg:items-start">

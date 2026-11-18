@@ -19,6 +19,34 @@ describe('filtro de Documentos na URL', () => {
   })
 })
 
+describe('locação na lista de documentos', () => {
+  const processos = processosSeed().filter((p) => !p.arquivado)
+  const locacoes = [{ id: 'L-2026-0001', imovel: 'Casa da praia' }]
+  const d = (id: string, processoId: string, over: Partial<Documento> = {}): Documento => ({
+    id, nome: `${id}.pdf`, categoria: 'locacao', processoId, estado: 'enviado', tamanho: 1, versoes: 1, enviadoPor: 'Ana', apagado: null, ...over,
+  })
+  const f = { aba: 'documentos' as const, categoria: 'todas' as const, q: '', processo: '', pagina: 1 }
+
+  it('documento de locação aparece e conta nas abas; sem a locação visível, some', () => {
+    const docs = [d('a', 'L-2026-0001'), d('b', 'L-2026-0001', { apagado: { quem: 'Ana', quando: 'x' } }), d('c', 'L-2026-0099')]
+    const r = paginarDocumentos(docs, processos, f, { podeApagar: true }, locacoes)
+    expect(r.itens.map((x) => x.id)).toEqual(['a'])
+    expect(r.abas).toMatchObject({ documentos: 1, lixeira: 1 })
+    expect(r.imoveis).toEqual({ 'L-2026-0001': 'Casa da praia' })
+    expect(paginarDocumentos(docs, processos, f, { podeApagar: true }).itens).toEqual([])
+  })
+
+  it('a busca acha pelo imóvel da locação; «sem PDF» não inclui locação', () => {
+    const docs = [d('a', 'L-2026-0001')]
+    expect(paginarDocumentos(docs, processos, { ...f, q: 'praia' }, { podeApagar: true }, locacoes).itens).toHaveLength(1)
+    expect(paginarDocumentos(docs, processos, { ...f, aba: 'sem-pdf' }, { podeApagar: true }, locacoes).contratos.every((c) => c.id.startsWith('V-'))).toBe(true)
+  })
+
+  it('URL aceita ?processo=L-…', () => {
+    expect(filtroDocumentosDaUrl({ processo: 'L-2026-0001', de: 'processo' }, { podeApagar: true })).toMatchObject({ processo: 'L-2026-0001', de: 'processo' })
+  })
+})
+
 describe('paginarDocumentos (a conta do servidor e do mock)', () => {
   const processos = processosSeed().filter((p) => !p.arquivado)
   const alvo = processos[0]!

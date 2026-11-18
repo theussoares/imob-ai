@@ -57,8 +57,14 @@ function doProcesso(processoId: string | null | undefined) {
   return (d: Documento) => !processoId || d.processoId === processoId
 }
 
-/** Documento de processo visível; sem isso o corretor veria arquivo de colega. */
-function visivel(processos: Processo[]) {
+/** O que a lista de documentos precisa saber de um contrato (venda ou locação): o id e o imóvel. */
+export interface AlvoDocumento {
+  id: string
+  imovel: string
+}
+
+/** Documento de contrato visível; sem isso o corretor veria arquivo de colega. */
+function visivel(processos: AlvoDocumento[]) {
   const ids = new Set(processos.map((p) => p.id))
   return (d: Documento) => ids.has(d.processoId)
 }
@@ -70,7 +76,7 @@ function visivel(processos: Processo[]) {
  */
 export function filtrarDocumentos(
   documentos: Documento[],
-  processos: Processo[],
+  processos: AlvoDocumento[],
   aba: AbaDocumentos,
   filtro: FiltroDocumentos = {},
 ): Documento[] {
@@ -118,11 +124,14 @@ export function contarAbas(
   documentos: Documento[],
   processos: Processo[],
   processoId?: string | null,
+  locacoes: AlvoDocumento[] = [],
 ): Record<AbaDocumentos, number> {
   const base = { processoId }
+  // Documento de locação conta nas abas Documentos e Lixeira; «Contratos sem PDF» é só de venda (locação não tem `pdf`).
+  const alvos = [...processos, ...locacoes]
   return {
-    documentos: filtrarDocumentos(documentos, processos, 'documentos', base).length,
-    lixeira: filtrarDocumentos(documentos, processos, 'lixeira', base).length,
+    documentos: filtrarDocumentos(documentos, alvos, 'documentos', base).length,
+    lixeira: filtrarDocumentos(documentos, alvos, 'lixeira', base).length,
     'sem-pdf': contratosSemPdf(processos, base).length,
   }
 }
@@ -183,7 +192,7 @@ export interface FiltroListaDocumentos {
   q: string
   aba: AbaDocumentos
   categoria: FiltroCategoria
-  /** Id de venda; '' = todos. */
+  /** Id de venda (V-…) ou locação (L-…); '' = todos. */
   processo: string
   /** `processo` = veio da tela do processo (o «voltar» leva para lá). Só vale com `processo`. */
   de: '' | 'processo'
@@ -203,14 +212,14 @@ export interface PaginaDocumentos {
 }
 
 const ABAS_VALIDAS: readonly AbaDocumentos[] = ['documentos', 'lixeira', 'sem-pdf']
-const ID_VENDA_URL = /^V-\d{4}-\d{4,}$/
+const ID_CONTRATO_URL = /^[VL]-\d{4}-\d{4,}$/
 const um = (v: unknown): string => (Array.isArray(v) ? String(v[0] ?? '') : typeof v === 'string' ? v : '')
 
 /** URL → filtro. Valor inválido vira o padrão; a lixeira some da URL de quem não pode apagar documento. */
 export function filtroDocumentosDaUrl(query: Record<string, unknown>, opcoes: { podeApagar: boolean }): FiltroListaDocumentos {
   const aba = um(query.aba) as AbaDocumentos
   const categoria = um(query.categoria) as FiltroCategoria
-  const processo = ID_VENDA_URL.test(um(query.processo)) ? um(query.processo) : ''
+  const processo = ID_CONTRATO_URL.test(um(query.processo)) ? um(query.processo) : ''
   return {
     pagina: lerPagina(query.pagina),
     q: um(query.q).slice(0, 100),
@@ -243,16 +252,18 @@ export function paginarDocumentos(
   processos: Processo[],
   f: Pick<FiltroListaDocumentos, 'aba' | 'categoria' | 'q' | 'processo' | 'pagina'>,
   opcoes: { podeApagar: boolean },
+  locacoes: AlvoDocumento[] = [],
 ): PaginaDocumentos {
   const processoId = f.processo || null
-  const abas = contarAbas(documentos, processos, processoId)
+  const abas = contarAbas(documentos, processos, processoId, locacoes)
   if (!opcoes.podeApagar) abas.lixeira = 0
-  const imovelDe = new Map(processos.map((p) => [p.id, p.imovel]))
+  const alvos = [...processos, ...locacoes]
+  const imovelDe = new Map(alvos.map((p) => [p.id, p.imovel]))
   if (f.aba === 'sem-pdf') {
     const pag = paginar(contratosSemPdf(processos, { busca: f.q, processoId }), f.pagina)
     return { ...pag, itens: [], contratos: pag.itens.map((p) => ({ id: p.id, imovel: p.imovel, status: p.status })), abas, imoveis: {}, truncado: false }
   }
-  const pag = paginar(filtrarDocumentos(documentos, processos, f.aba, { categoria: f.categoria, busca: f.q, processoId }), f.pagina)
+  const pag = paginar(filtrarDocumentos(documentos, alvos, f.aba, { categoria: f.categoria, busca: f.q, processoId }), f.pagina)
   const ids = [...new Set(pag.itens.map((d) => d.processoId))].filter((i) => imovelDe.has(i))
   return { ...pag, contratos: [], abas, imoveis: Object.fromEntries(ids.map((i) => [i, imovelDe.get(i)!])), truncado: false }
 }

@@ -256,7 +256,7 @@ export function useGestaoStore() {
   /** Página da tela Documentos. `http`: o servidor lê e filtra; `mock`: a mesma conta (`paginarDocumentos`) sobre o estado local. */
   async function paginaDeDocumentos(f: FiltroListaDocumentos): Promise<PaginaDocumentos> {
     if (api) return (repo as HttpGestaoRepository).paginaDocumentos(f)
-    return paginarDocumentos(estado.value.documentos, visiveis.value, f, { podeApagar: !!caps()?.apagarDocs })
+    return paginarDocumentos(estado.value.documentos, visiveis.value, f, { podeApagar: !!caps()?.apagarDocs }, locacoesVisiveis.value)
   }
 
   // --- totais (Financeiro e Dashboard) ---------------------------------------------------------

@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest'
 import { matrizPadrao } from '~~/layers/gestao/domain/permissions'
 import { processosSeed } from '~~/layers/gestao/domain/seed'
 import type { Perfil, Processo } from '~~/layers/gestao/domain/types'
+import { abrirLocacao } from '~~/layers/gestao/domain/acoes-locacao'
+import { toLocacaoRow } from '~~/server/mappers/gestao-locacao'
 import { paginaDeDocumentos, type FiltroPaginaDocumentos } from '~~/server/utils/gestao-documentos-pagina'
 import { memoriaSupabase } from '../helpers/memoria-supabase'
 
@@ -134,5 +136,70 @@ describe('documentos paginados', () => {
     const r = await paginaDeDocumentos(ctx('dono', null, m.db), F)
     expect(r.truncado).toBe(true)
     expect(r.total).toBe(5000)
+  })
+})
+
+describe('documentos de locação', () => {
+  const L_A = 'L-2026-0001'
+  const L_B = 'L-2026-0002'
+  const L_OUTRO = 'L-2026-0900'
+
+  function loc(id: string, corretorId: string, over: { arquivado?: boolean } = {}, tenant = T) {
+    const r = abrirLocacao({ processos: [], documentos: [], locacoes: [] }, { locador: 'Ana', locatario: 'Bruno', imovelId: '22222222-2222-4222-8222-222222222222', imovel: `Casa ${id}`, corretorId }, { nome: 'C' }, '17/11/2026 10:00')
+    if (!r.ok) throw new Error(r.erro)
+    return { ...toLocacaoRow({ ...r.estado.locacoes[0]!, id, ...over }, tenant), versao: 1, updated_at: '2026-11-17T10:00:00Z' }
+  }
+  const dl = (alvo: string, over: Record<string, unknown> = {}, tenant = T) => doc(alvo, { alvo_tipo: 'locacao', ...over }, tenant)
+
+  function banco() {
+    return memoriaSupabase({
+      gestao_vendas: [venda(A, 'V-2026-0001')],
+      gestao_locacoes: [loc(L_A, A), loc(L_B, B), loc('L-2026-0003', A, { arquivado: true }), loc(L_OUTRO, A, {}, OUTRO)],
+      gestao_documentos: [
+        doc('V-2026-0001', { nome: 'Da venda.pdf' }),
+        dl(L_A, { nome: 'Contrato de locação.pdf', categoria: 'locacao' }),
+        dl(L_A, { nome: 'Velho de locação.pdf', apagado_em: '2026-11-10T10:00:00Z', apagado_por: 'Ana' }),
+        dl(L_B, { nome: 'Da locação do colega.pdf' }),
+        dl('L-2026-0003', { nome: 'De locação arquivada.pdf' }),
+        dl(L_OUTRO, { nome: 'De outro tenant.pdf' }, OUTRO),
+        dl(L_A, { nome: 'Pendente.pdf', estado: 'pendente' }),
+      ],
+    })
+  }
+
+  test('dono vê documentos de venda e de locação ativas; sem arquivada, outro tenant ou pendente', async () => {
+    const r = await paginaDeDocumentos(ctx('dono', null, banco().db), F)
+    expect(nomes(r)).toEqual(['Contrato de locação.pdf', 'Da locação do colega.pdf', 'Da venda.pdf'])
+    expect(r.abas).toMatchObject({ documentos: 3, lixeira: 1 })
+    expect(r.imoveis[L_A]).toBe(`Casa ${L_A}`)
+  })
+
+  test('corretor só vê documento das próprias locações (e vendas)', async () => {
+    const r = await paginaDeDocumentos(ctx('corretor', A, banco().db), F)
+    expect(nomes(r)).toEqual(['Contrato de locação.pdf', 'Da venda.pdf'])
+  })
+
+  test('?processo=L-…: só aquela locação; a de outro corretor não aparece', async () => {
+    const m = banco()
+    expect(nomes(await paginaDeDocumentos(ctx('dono', null, m.db), { ...F, processo: L_B }))).toEqual(['Da locação do colega.pdf'])
+    expect((await paginaDeDocumentos(ctx('corretor', A, m.db), { ...F, processo: L_B })).itens).toEqual([])
+    expect((await paginaDeDocumentos(ctx('dono', null, m.db), { ...F, processo: L_OUTRO })).itens).toEqual([])
+  })
+
+  test('lixeira inclui locação; «sem PDF» continua só de venda', async () => {
+    const m = banco()
+    expect(nomes(await paginaDeDocumentos(ctx('dono', null, m.db), { ...F, aba: 'lixeira' }))).toEqual(['Velho de locação.pdf'])
+    const sem = await paginaDeDocumentos(ctx('dono', null, m.db), { ...F, aba: 'sem-pdf' })
+    expect(sem.contratos.every((c) => c.id.startsWith('V-'))).toBe(true)
+  })
+
+  test('busca pelo imóvel da locação', async () => {
+    expect(nomes(await paginaDeDocumentos(ctx('dono', null, banco().db), { ...F, q: `casa ${L_B}` }))).toEqual(['Da locação do colega.pdf'])
+  })
+
+  test('toda query leva o tenant', async () => {
+    const m = banco()
+    await paginaDeDocumentos(ctx('corretor', A, m.db), F)
+    expect(m.consultas.filter((c) => ['gestao_vendas', 'gestao_locacoes', 'gestao_documentos'].includes(c.table)).every((c) => c.eq.tenant_id === T)).toBe(true)
   })
 })

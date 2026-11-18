@@ -36,7 +36,7 @@ const processoFiltro = computed(() => filtro.value.processo || null)
 const veioDoProcesso = computed(() => filtro.value.de === 'processo')
 const voltar = computed(() =>
   veioDoProcesso.value
-    ? { rotulo: `← Voltar ao processo ${processoFiltro.value}`, to: `/gestao/vendas/${processoFiltro.value}` }
+    ? { rotulo: `← Voltar ao processo ${processoFiltro.value}`, to: `/gestao/${processoFiltro.value?.startsWith('L-') ? 'locacao' : 'vendas'}/${processoFiltro.value}` }
     : { rotulo: '← Voltar para a lista', to: '/gestao/vendas' },
 )
 // Sem `de` também: sem processo, o «voltar ao processo» não teria alvo.
@@ -46,7 +46,7 @@ const abas = computed(() => resultado.value?.abas ?? { documentos: 0, lixeira: 0
 const lista = computed(() => resultado.value?.itens ?? [])
 const semPdf = computed(() => resultado.value?.contratos ?? [])
 
-// O card mostra «V-… · imóvel»: o imóvel vem do servidor (a lista do store não tem todos os processos).
+// O card mostra «V-…/L-… · imóvel»: o imóvel vem do servidor (a lista do store não tem todos os processos).
 const rotuloDoDocumento = (id: string) => (resultado.value?.imoveis[id] ? `${id} · ${resultado.value.imoveis[id]}` : id)
 
 // --- ações ------------------------------------------------------------------
@@ -104,11 +104,11 @@ function abrirEnvio() {
   modal.value?.abrir(processoFiltro.value ?? '')
 }
 
-async function enviar(dados: { arquivo: File | null; categoria: CategoriaDocumento; processoId: string }) {
+async function enviar(dados: { arquivo: File | null; categoria: CategoriaDocumento; processoId: string; tipo: 'venda' | 'locacao' }) {
   const { arquivo } = dados
   // Nenhum arquivo escolhido chega como nome vazio; o domínio (mock) e o servidor (http) validam o resto.
   const r = await store.enviarDocumento(
-    'venda',
+    dados.tipo,
     dados.processoId,
     { name: arquivo?.name ?? '', size: arquivo?.size ?? 0, ...(arquivo && { file: arquivo }) },
     { categoria: dados.categoria },

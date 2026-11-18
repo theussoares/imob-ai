@@ -1,6 +1,8 @@
 import { paginarDocumentos, type AbaDocumentos, type FiltroCategoria, type PaginaDocumentos } from '~~/layers/gestao/domain/documentos'
-import { listarDocumentosDeVendas } from '~~/server/repositories/gestao-documento.repository'
+import { listarDocumentosDosContratos } from '~~/server/repositories/gestao-documento.repository'
+import { listarTodasLocacoes } from '~~/server/repositories/gestao-locacao.repository'
 import { listarTodasVendas } from '~~/server/repositories/gestao-venda.repository'
+import { escopo as escopoLocacao } from '~~/server/utils/gestao-locacao-servico'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
 import { escopoDe } from '~~/server/utils/gestao-vendas'
 
@@ -32,14 +34,18 @@ export async function paginaDeDocumentos(ctx: ContextoGestao, f: FiltroPaginaDoc
   if (f.aba === 'lixeira' && !podeLixeira) exigirPermissao(ctx, 'apagarDocs')
 
   const tenantId = ctx.membro.tenantId
-  const { vendas, truncado: vendasTruncado } = await listarTodasVendas(ctx.db, escopoDe(ctx), { arquivado: false })
+  const [{ vendas, truncado: vendasTruncado }, { locacoes: locs, truncado: locsTruncado }] = await Promise.all([
+    listarTodasVendas(ctx.db, escopoDe(ctx), { arquivado: false }),
+    listarTodasLocacoes(ctx.db, tenantId, { arquivadas: false, ...escopoLocacao(ctx) }),
+  ])
   const processos = vendas.map((v) => v.processo)
-  const visiveis = new Set(processos.map((p) => p.id))
+  const locacoes = locs.map((l) => ({ id: l.locacao.id, imovel: l.locacao.imovel }))
+  const visiveis = new Set([...processos.map((p) => p.id), ...locacoes.map((l) => l.id)])
 
   // Só documentos de processo visível: corretor lê os dos seus ids; quem vê tudo lê o tenant e o domínio descarta
   // o que for de processo arquivado. Com `?processo=`, o único id pedido (se não for visível, o domínio esvazia).
   const ids = f.processo ? [f.processo] : ctx.matriz.verTodos?.[ctx.membro.perfil] === 'sim' ? null : [...visiveis]
-  const { docs, truncado: docsTruncado } = await listarDocumentosDeVendas(ctx.db, tenantId, ids)
+  const { docs, truncado: docsTruncado } = await listarDocumentosDosContratos(ctx.db, tenantId, ids)
 
-  return { ...paginarDocumentos(docs, processos, { ...f, processo: f.processo ?? '' }, { podeApagar: podeLixeira }), truncado: vendasTruncado || docsTruncado }
+  return { ...paginarDocumentos(docs, processos, { ...f, processo: f.processo ?? '' }, { podeApagar: podeLixeira }, locacoes), truncado: vendasTruncado || locsTruncado || docsTruncado }
 }

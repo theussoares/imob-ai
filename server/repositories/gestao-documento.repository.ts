@@ -124,12 +124,12 @@ export async function listarParaConferir(db: SupabaseClient, tenantId: string, a
 export const LIMITE_DOCS_PAGINA = 5000
 
 /**
- * Documentos de VENDA do tenant, dentro e fora da lixeira, sem os `pendente`. `alvoIds` presente restringe
- * aos processos dele (corretor, ou `?processo=`), em lotes de 100 ids; ausente = o tenant inteiro (quem
- * chama descarta o que não for de processo visível). Lê em blocos de 1000 até `LIMITE_DOCS_PAGINA`;
+ * Documentos de VENDA e LOCAÇÃO do tenant, dentro e fora da lixeira, sem os `pendente`. `alvoIds` presente
+ * restringe aos contratos dele (corretor, ou `?processo=`), em lotes de 100 ids; ausente = o tenant inteiro
+ * (quem chama descarta o que não for de contrato visível). Os ids são únicos entre os tipos (`V-…`/`L-…`). Lê em blocos de 1000 até `LIMITE_DOCS_PAGINA`;
  * `truncado` avisa que passou do teto.
  */
-export async function listarDocumentosDeVendas(
+export async function listarDocumentosDosContratos(
   db: SupabaseClient,
   tenantId: string,
   alvoIds: string[] | null,
@@ -142,7 +142,6 @@ export async function listarDocumentosDeVendas(
         .from('gestao_documentos')
         .select(COLUNAS_DOCUMENTO)
         .eq('tenant_id', tenantId)
-        .eq('alvo_tipo', 'venda')
         .not('estado', 'eq', 'pendente')
       if (lote) q = q.in('alvo_id', lote)
       const { data, error } = await q.order('updated_at', { ascending: false }).order('id', { ascending: false }).range(de, de + BLOCO_DOCS - 1)
