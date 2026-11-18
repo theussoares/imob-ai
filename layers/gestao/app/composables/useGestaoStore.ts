@@ -61,7 +61,7 @@ export function useGestaoStore() {
   const http = useGestaoHttp()
   const estado = useState<Estado>('gestao:estado', () => ({ processos: [], documentos: [], locacoes: [] }))
   const matriz = useState<MatrizPermissoes>('gestao:matriz', () => matrizPadrao())
-  const config = useState<ConfiguracoesGestao>('gestao:config', () => configuracoesPadrao())
+  const config = useState<ConfiguracoesGestao>('gestao:config', () => configuracoesPadrao(useTenant().value?.name))
   const consultas = useState<ConsultaFeita[]>('gestao:consultas', () => [])
   const imoveis = useState<ImovelGestao[]>('gestao:imoveis', () => [])
   const corretores = useState<Corretor[]>('gestao:corretores', () => CORRETORES)

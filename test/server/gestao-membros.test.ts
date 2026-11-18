@@ -186,6 +186,8 @@ describe('gestao-settings', () => {
 
   test('config salva inválida volta ao padrão', () => {
     expect(configDoBanco({ comissaoPct: 500 })).toEqual(configuracoesPadrao())
+    // Sem linha salva, o nome da imobiliária é o do tenant.
+    expect(configDoBanco(null, 'Aurora Imóveis').imobiliaria.nome).toBe('Aurora Imóveis')
     expect(configDoBanco({ ...configuracoesPadrao(), comissaoPct: 6 }).comissaoPct).toBe(6)
   })
 

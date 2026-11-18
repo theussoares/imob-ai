@@ -17,6 +17,8 @@ type Client = SupabaseClient<Database>
 export async function lerSettings(
   db: Client,
   tenantId: string,
+  /** nome do tenant: vira o nome da imobiliária enquanto a config nunca foi salva */
+  nomeTenant?: string,
 ): Promise<{ matriz: MatrizPermissoes; config: ConfiguracoesGestao }> {
   const { data, error } = await db
     .from('gestao_settings')
@@ -27,7 +29,7 @@ export async function lerSettings(
     logError('gestao.settings_leitura_falhou', { tenant: tenantId, reason: errMessage(error) })
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível carregar as permissões.' })
   }
-  return { matriz: matrizDoBanco(data?.matriz), config: configDoBanco(data?.config) }
+  return { matriz: matrizDoBanco(data?.matriz), config: configDoBanco(data?.config, nomeTenant) }
 }
 
 /** Upsert só da coluna `matriz`: o merge do PostgREST não toca `config` na linha existente. */

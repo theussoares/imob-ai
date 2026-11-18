@@ -5,5 +5,5 @@ import { lerSettings } from '~~/server/repositories/gestao-settings.repository'
 export default defineEventHandler(async (event) => {
   const ctx = await requireGestaoMember(event)
   exigirPermissao(ctx, 'admin')
-  return { config: (await lerSettings(ctx.db, ctx.tenant.id)).config }
+  return { config: (await lerSettings(ctx.db, ctx.tenant.id, ctx.tenant.name)).config }
 })

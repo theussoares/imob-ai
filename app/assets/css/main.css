@@ -32,6 +32,10 @@
   --danger: #b91c1c;
   --danger-line: #fca5a5;
   --danger-ghost: #fef2f2;
+  /* Fundo de botão destrutivo cheio. `--danger` é cor de TEXTO e, no tema escuro do painel, vira rosa claro:
+     como fundo, o «Remover» parecia desabilitado. */
+  --danger-solid: #b91c1c;
+  --on-danger: #fff;
   /* Verde de "tudo certo" do painel. Fixo, e não derivado de --wa: aquela é a
      cor do botão de WhatsApp, que o tenant customiza — com um tema vermelho,
      "Tudo certo" saía em vermelho. Mesmo tom do toast de sucesso. */
@@ -1722,7 +1726,15 @@ a.btn-detail:hover {
   border: 1.5px solid var(--line-2);
 }
 .admin-btn.danger {
-  background: var(--danger);
+  background: var(--danger-solid);
+  color: var(--on-danger);
+}
+.admin-btn.danger:hover {
+  background: color-mix(in srgb, var(--danger-solid) 82%, #000);
+}
+.admin-btn.danger:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
 }
 /* Destrutivo SECUNDÁRIO: para excluir em lista, onde a ação vive ao lado da
    principal. Vermelho para dizer o que é, sem o peso de botão cheio. */

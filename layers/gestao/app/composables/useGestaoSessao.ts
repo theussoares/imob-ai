@@ -17,7 +17,7 @@ function zerarEstadoDaSessao() {
   useState<boolean>('gestao:carregado').value = false
   useState<unknown[]>('gestao:imoveis').value = []
   useState<MatrizPermissoes>('gestao:matriz').value = matrizPadrao()
-  useState<ConfiguracoesGestao>('gestao:config').value = configuracoesPadrao()
+  useState<ConfiguracoesGestao>('gestao:config').value = configuracoesPadrao(useTenant().value?.name)
   useState<unknown[]>('gestao:consultas').value = []
   useState<Record<string, number>>('gestao:versoes').value = {}
   useState<unknown[]>('gestao:corretores').value = []

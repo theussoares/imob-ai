@@ -43,6 +43,8 @@ html.gestao-escuro .gestao-tema {
   --danger: #fca5a5;
   --danger-line: #7f1d1d;
   --danger-ghost: #2a1212;
+  --danger-solid: #dc2626;
+  --on-danger: #fff;
 }
 html.gestao-escuro .gestao-tema [class*="bg-[var(--gestao-amarelo)]"] {
   color: #17171a !important;

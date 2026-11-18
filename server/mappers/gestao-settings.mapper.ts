@@ -35,8 +35,8 @@ export function matrizDoBanco(salva: unknown): MatrizPermissoes {
 }
 
 /** Config gravada → config válida; qualquer coisa que não passe em `validarConfiguracoes` volta ao padrão inteiro. */
-export function configDoBanco(salva: unknown): ConfiguracoesGestao {
-  const padrao = configuracoesPadrao()
+export function configDoBanco(salva: unknown, nomePadrao?: string): ConfiguracoesGestao {
+  const padrao = configuracoesPadrao(nomePadrao)
   if (!objeto(salva) || !objeto(salva.imobiliaria)) return padrao
   const im = salva.imobiliaria
   const texto = (v: unknown) => (typeof v === 'string' ? v : '')
