@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { abrirProcesso, agora, type Estado } from '~~/layers/gestao/domain/acoes'
+import { filtrarProcessos } from '~~/layers/gestao/domain/filtro'
+import { paginar, POR_PAGINA, totalDePaginas, type Pagina } from '~~/layers/gestao/domain/paginacao'
 import { capacidades } from '~~/layers/gestao/domain/permissions'
 import type { Documento, MatrizPermissoes, Processo, Sessao } from '~~/layers/gestao/domain/types'
 import { recortarValores, type ProcessoSemValores, type Venda } from '~~/server/mappers/gestao-venda'
@@ -10,9 +12,12 @@ import {
   gravarVenda,
   idsDoAno,
   inserirVenda,
+  listarTodasVendas,
   listarVendas,
+  listarVendasPagina,
   type Escopo,
 } from '~~/server/repositories/gestao-venda.repository'
+import { listBrokerNames } from '~~/server/repositories/broker.repository'
 import { amarrar, executarAcao, MSG_CONFLITO_VERSAO } from '~~/server/utils/gestao-acoes'
 import { ACOES_VENDA, nomeAcaoValido } from '~~/server/utils/gestao-vendas-acoes'
 
@@ -110,6 +115,48 @@ export async function listarVendasDoMembro(
   if (filtro.arquivados && !(c.arquivar || c.apagarDocs)) throw proibido()
   const vendas = await listarVendas(ctx.db, escopoDe(ctx), { arquivado: filtro.arquivados })
   return vendas.map((v) => mascarada(resposta(v, c.valores)))
+}
+
+export interface FiltroPaginaVendas {
+  arquivados: boolean
+  pagina: number
+  /** Busca livre (a mesma da tela). Vazio = sem busca. */
+  q: string
+  /** Vazio = todos os status. Já validado pelo endpoint contra `STATUS_VENDA`. */
+  status: string
+}
+
+export type PaginaVendas = Pagina<VendaResposta> & {
+  /** Só na busca por texto: havia mais linhas que o teto e o resultado cobre as mais recentes. */
+  truncado: boolean
+}
+
+/**
+ * Uma página da lista de vendas. Sem busca de texto, status, escopo e página são do banco (`range` +
+ * contagem), e o custo não cresce com o tamanho da carteira. Com busca, o banco não casa nome/CPF do
+ * `jsonb` sem acento, então as linhas do filtro vêm (até `LIMITE_BUSCA`), a MESMA `filtrarProcessos`
+ * da tela casa o texto e a fatia sai dela: o resultado é o que o mock mostra. Alternativa descartada:
+ * `ilike` no `jsonb` — acha «Jose» mas não «José», e CPF mascarado/pontuado diverge.
+ */
+export async function listarVendasPaginaDoMembro(ctx: CtxVendas, filtro: FiltroPaginaVendas): Promise<PaginaVendas> {
+  const c = capacidades(ctx.matriz, ctx.sessao)
+  if (filtro.arquivados && !(c.arquivar || c.apagarDocs)) throw proibido()
+  const escopo = escopoDe(ctx)
+  const base = { arquivado: filtro.arquivados, ...(filtro.status ? { status: filtro.status } : {}) }
+  const paraResposta = (v: Venda) => mascarada(resposta(v, c.valores))
+
+  if (!filtro.q.trim()) {
+    const { vendas, total } = await listarVendasPagina(ctx.db, escopo, base, filtro.pagina, POR_PAGINA)
+    return { itens: vendas.map(paraResposta), total, pagina: filtro.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: false }
+  }
+
+  const [{ vendas, truncado }, corretores] = await Promise.all([
+    listarTodasVendas(ctx.db, escopo, base),
+    listBrokerNames(ctx.db, ctx.membro.tenantId),
+  ])
+  const achadas = new Set(filtrarProcessos(vendas.map((v) => v.processo), { q: filtro.q, status: '' }, corretores).map((p) => p.id))
+  const pag = paginar(vendas.filter((v) => achadas.has(v.id)), filtro.pagina)
+  return { ...pag, itens: pag.itens.map(paraResposta), truncado }
 }
 
 /** Formato de `proximoId`. Id fora dele nem chega ao banco: 404 igual a «não existe». */

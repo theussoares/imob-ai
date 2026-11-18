@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import { abrirLocacao } from '~~/layers/gestao/domain/acoes-locacao'
 import { agora, type Estado } from '~~/layers/gestao/domain/acoes'
+import { filtrarLocacoes } from '~~/layers/gestao/domain/filtro-locacao'
+import { paginar, POR_PAGINA, totalDePaginas, type Pagina } from '~~/layers/gestao/domain/paginacao'
+import { listBrokerNames } from '~~/server/repositories/broker.repository'
 import { avisosLocacao, hojeISO, type AvisoLocacao } from '~~/layers/gestao/domain/avisos-locacao'
 import type { Documento, Locacao } from '~~/layers/gestao/domain/types'
 import { ehUuid, paraPerfil, type LocacaoSemValores, type LocacaoVersionada } from '~~/server/mappers/gestao-locacao'
@@ -11,6 +14,8 @@ import {
   imovelDoTenant,
   inserirLocacao,
   listarLocacoes,
+  listarLocacoesPagina,
+  listarTodasLocacoes,
   ultimoIdDoAno,
 } from '~~/server/repositories/gestao-locacao.repository'
 import { registrarEvento } from '~~/server/repositories/gestao-evento.repository'
@@ -80,6 +85,33 @@ export async function listar(ctx: ContextoGestao, arquivadas: boolean): Promise<
   if (arquivadas && !veArquivadas(ctx)) throw createError({ statusCode: 403, statusMessage: 'Sem permissão para ver os arquivados.' })
   const itens = await listarLocacoes(ctx.db, ctx.membro.tenantId, { arquivadas, ...escopo(ctx) })
   return itens.map((i) => resposta(ctx, i))
+}
+
+export interface FiltroPaginaLocacoes {
+  arquivadas: boolean
+  pagina: number
+  q: string
+  /** Vazio = todos. Já validado pelo endpoint contra `STATUS_LOCACAO`. */
+  status: string
+}
+
+export type PaginaLocacoes = Pagina<RespostaLocacao> & { truncado: boolean }
+
+/** Mesma estratégia de `listarVendasPaginaDoMembro`: banco pagina sem busca; com busca, a `filtrarLocacoes` da tela casa o texto. */
+export async function listarPagina(ctx: ContextoGestao, filtro: FiltroPaginaLocacoes): Promise<PaginaLocacoes> {
+  if (filtro.arquivadas && !veArquivadas(ctx)) throw createError({ statusCode: 403, statusMessage: 'Sem permissão para ver os arquivados.' })
+  const tenantId = ctx.membro.tenantId
+  const base = { arquivadas: filtro.arquivadas, ...escopo(ctx), ...(filtro.status ? { status: filtro.status } : {}) }
+
+  if (!filtro.q.trim()) {
+    const { locacoes, total } = await listarLocacoesPagina(ctx.db, tenantId, base, filtro.pagina, POR_PAGINA)
+    return { itens: locacoes.map((i) => resposta(ctx, i)), total, pagina: filtro.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: false }
+  }
+
+  const [{ locacoes, truncado }, corretores] = await Promise.all([listarTodasLocacoes(ctx.db, tenantId, base), listBrokerNames(ctx.db, tenantId)])
+  const achadas = new Set(filtrarLocacoes(locacoes.map((i) => i.locacao), { q: filtro.q, status: '' }, corretores).map((l) => l.id))
+  const pag = paginar(locacoes.filter((i) => achadas.has(i.locacao.id)), filtro.pagina)
+  return { ...pag, itens: pag.itens.map((i) => resposta(ctx, i)), truncado }
 }
 
 export async function ler(ctx: ContextoGestao, id: string): Promise<RespostaLocacao> {

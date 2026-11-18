@@ -3,6 +3,7 @@ import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Perfil, Processo } from '../../domain/types'
+import type { Pagina } from '../../domain/paginacao'
 import { type ClienteGestao, ErroGestao, paraFalha } from './clienteGestao'
 import type { ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from './GestaoRepository'
 
@@ -53,6 +54,15 @@ export function normalizarLocacao(l: Locacao): Locacao {
     cobrancas: (l.cobrancas ?? []).map((c) => ({ ...c, valor: c.valor ?? 0 })),
   }
 }
+
+/** O que a lista paginada pede ao servidor. */
+export interface FiltroPagina {
+  pagina: number
+  q: string
+  status: string
+}
+
+const consultaDaPagina = (f: FiltroPagina) => ({ pagina: f.pagina, ...(f.q.trim() ? { q: f.q.trim() } : {}), ...(f.status ? { status: f.status } : {}) })
 
 interface RespostaVenda {
   versao: number
@@ -123,6 +133,20 @@ export class HttpGestaoRepository implements GestaoRepository {
       consultas: consultas.consultas,
       corretores: corretores.corretores,
     }
+  }
+
+  /**
+   * Uma página da lista de vendas, filtrada NO SERVIDOR: a tela só tem as 24 da página, não a carteira
+   * inteira. Falha sobe (a tela mostra «tentar de novo»), como em `carregar`. `q` e `status` vazios não vão.
+   */
+  async paginaVendas(f: FiltroPagina): Promise<Pagina<Processo>> {
+    const r = await this.api.get<Pagina<RespostaVenda>>('/api/gestao/vendas', consultaDaPagina(f))
+    return { ...r, itens: r.itens.map((i) => this.guardarVenda(i)) }
+  }
+
+  async paginaLocacoes(f: FiltroPagina): Promise<Pagina<Locacao>> {
+    const r = await this.api.get<Pagina<RespostaLocacao>>('/api/gestao/locacoes', consultaDaPagina(f))
+    return { ...r, itens: r.itens.map((i) => this.guardarLocacao(i)) }
   }
 
   abrirVenda(d: NovoProcesso): Promise<Resultado<Mudanca>> {

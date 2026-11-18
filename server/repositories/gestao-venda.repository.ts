@@ -25,26 +25,80 @@ export interface Escopo {
   corretorId?: string
 }
 
-export async function listarVendas(
-  db: Client,
-  escopo: Escopo,
-  filtro: { arquivado: boolean },
-): Promise<Venda[]> {
-  let q = db.from('gestao_vendas').select(COLUNAS).eq('tenant_id', escopo.tenantId).eq('arquivado', filtro.arquivado)
-  if (escopo.corretorId) q = q.eq('corretor_id', escopo.corretorId)
-  const { data, error } = await q.order('updated_at', { ascending: false }).limit(LIMITE_LISTA)
-  if (error) throw error
+/** Linhas → modelo. Uma linha corrompida não derruba a lista do tenant: sai do resultado, com só o id no log. */
+function paraModelos(rows: VendaRow[], tenantId: string): Venda[] {
   const vendas: Venda[] = []
-  for (const row of (data ?? []) as VendaRow[]) {
+  for (const row of rows) {
     try {
       vendas.push(toVendaModel(row))
     } catch {
-      // Uma linha corrompida não pode derrubar a lista inteira do tenant; sem
-      // dado da linha no log (nome e CPF das partes), só o identificador.
-      logError('gestao_venda_invalida', { tenantId: escopo.tenantId, id: row.id })
+      // Sem dado da linha no log (nome e CPF das partes), só o identificador.
+      logError('gestao_venda_invalida', { tenantId, id: row.id })
     }
   }
   return vendas
+}
+
+export interface FiltroVendas {
+  arquivado: boolean
+  /** Ausente = todos os status. Coluna própria: filtra no banco, não depois. */
+  status?: string
+}
+
+function consulta(db: Client, escopo: Escopo, filtro: FiltroVendas, opcoes?: { count: 'exact'; head?: boolean }) {
+  let q = db.from('gestao_vendas').select(COLUNAS, opcoes).eq('tenant_id', escopo.tenantId).eq('arquivado', filtro.arquivado)
+  if (escopo.corretorId) q = q.eq('corretor_id', escopo.corretorId)
+  if (filtro.status) q = q.eq('status', filtro.status)
+  // `id` desempata: com `updated_at` igual a página seguinte repetiria ou pularia linhas.
+  return q.order('updated_at', { ascending: false }).order('id', { ascending: false })
+}
+
+export async function listarVendas(db: Client, escopo: Escopo, filtro: FiltroVendas): Promise<Venda[]> {
+  const { data, error } = await consulta(db, escopo, filtro).limit(LIMITE_LISTA)
+  if (error) throw error
+  return paraModelos((data ?? []) as VendaRow[], escopo.tenantId)
+}
+
+/** Uma página, com o total que casa com o filtro (contagem do banco, sem trazer as linhas). */
+export async function listarVendasPagina(
+  db: Client,
+  escopo: Escopo,
+  filtro: FiltroVendas,
+  pagina: number,
+  porPagina: number,
+): Promise<{ vendas: Venda[]; total: number }> {
+  const de = (pagina - 1) * porPagina
+  const { data, error, count } = await consulta(db, escopo, filtro, { count: 'exact' }).range(de, de + porPagina - 1)
+  if (error) {
+    // Página além do fim: o PostgREST responde 416 (PGRST103) em vez de lista vazia. A tela precisa
+    // do total para ir à última página, então ele vem de uma contagem sem linhas.
+    if ((error as { code?: string }).code !== 'PGRST103') throw error
+    const { count: total, error: erroContagem } = await consulta(db, escopo, filtro, { count: 'exact', head: true })
+    if (erroContagem) throw erroContagem
+    return { vendas: [], total: total ?? 0 }
+  }
+  return { vendas: paraModelos((data ?? []) as VendaRow[], escopo.tenantId), total: count ?? 0 }
+}
+
+/** Teto da busca por texto: ela lê as linhas do filtro para casar nome/CPF em memória (ver `listarVendasDoMembro`). */
+export const LIMITE_BUSCA = 5000
+const BLOCO = 1000
+
+/**
+ * Todas as linhas do filtro, em blocos de 1000 (o PostgREST corta ali) até `LIMITE_BUSCA`. Serve à busca
+ * por texto: nome e CPF moram no `jsonb` e a busca ignora acento, o que o banco não faz sem extensão
+ * nova. `truncado` avisa que passou do teto.
+ */
+export async function listarTodasVendas(db: Client, escopo: Escopo, filtro: FiltroVendas): Promise<{ vendas: Venda[]; truncado: boolean }> {
+  const rows: VendaRow[] = []
+  for (let de = 0; de < LIMITE_BUSCA; de += BLOCO) {
+    const { data, error } = await consulta(db, escopo, filtro).range(de, de + BLOCO - 1)
+    if (error) throw error
+    const bloco = (data ?? []) as VendaRow[]
+    rows.push(...bloco)
+    if (bloco.length < BLOCO) return { vendas: paraModelos(rows, escopo.tenantId), truncado: false }
+  }
+  return { vendas: paraModelos(rows, escopo.tenantId), truncado: true }
 }
 
 export async function buscarVenda(db: Client, escopo: Escopo, id: string): Promise<Venda | null> {

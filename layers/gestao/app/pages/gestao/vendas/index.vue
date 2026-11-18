@@ -1,35 +1,19 @@
 <script setup lang="ts">
-import { filtrarProcessos } from '../../../../domain/filtro'
 import { documentosPendentes } from '../../../../domain/requisitos'
 import { STATUS_VENDA } from '../../../../domain/status'
-import type { StatusVenda } from '../../../../domain/types'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
 const store = useGestaoStore()
 
-const q = ref('')
-const status = ref<StatusVenda | ''>('')
-const falhou = ref(false)
 const modal = ref<{ abrir: () => void } | null>(null)
 
-// O layout já espera `carregar()`; este caminho cobre só a falha tardia (ex.:
-// «Restaurar dados» refazendo o carregamento) sem deixar a tela muda.
-async function carregar() {
-  falhou.value = false
-  try {
-    await store.carregar()
-  } catch {
-    falhou.value = true
-  }
-}
-onMounted(() => {
-  if (!store.carregado.value) carregar()
-})
-
-const filtrados = computed(() =>
-  filtrarProcessos(store.visiveis.value, { q: q.value, status: status.value }, store.corretores.value),
+// Página, busca e status vivem na URL (`useListaPaginada`): recarregar, voltar e colar o link mantêm a lista.
+const { filtro, resultado, falhou, q, carregar, irParaPagina, mudarStatus, limpar } = useListaPaginada(
+  (f) => store.paginaDeVendas(f),
+  STATUS_VENDA,
 )
+const itens = computed(() => resultado.value?.itens ?? [])
 
 const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 
@@ -37,13 +21,8 @@ const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id ===
 // não contam como enviados: apagar o arquivo reabre a pendência.
 const pendencias = computed(() => {
   const docs = store.documentos.value
-  return new Map(store.visiveis.value.map((p) => [p.id, documentosPendentes(p, docs)]))
+  return new Map(itens.value.map((p) => [p.id, documentosPendentes(p, docs)]))
 })
-
-function limpar() {
-  q.value = ''
-  status.value = ''
-}
 
 // `[display:grid]` e não `grid`: o main.css do site público define `.grid` própria
 // (colunas fixas por breakpoint) e ela vence o utilitário do Tailwind, quebrando
@@ -89,13 +68,13 @@ const btn =
       </label>
       <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
         Status
-        <select v-model="status" :class="campo" data-testid="filtro-status">
+        <select :value="filtro.status" :class="campo" data-testid="filtro-status" @change="mudarStatus(($event.target as HTMLSelectElement).value)">
           <option value="">Todos os status</option>
           <option v-for="s in STATUS_VENDA" :key="s" :value="s">{{ s }}</option>
         </select>
       </label>
-      <p v-if="store.carregado.value" class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite">
-        {{ filtrados.length }} {{ filtrados.length === 1 ? 'contrato' : 'contratos' }}
+      <p v-if="resultado" class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite">
+        {{ resultado.total }} {{ resultado.total === 1 ? 'contrato' : 'contratos' }}
       </p>
     </div>
 
@@ -108,7 +87,7 @@ const btn =
       <button type="button" :class="btn" @click="carregar">Tentar de novo</button>
     </div>
 
-    <div v-else-if="!store.carregado.value" class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+    <div v-else-if="!resultado" class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
       <div
         v-for="n in 3"
         :key="n"
@@ -118,7 +97,7 @@ const btn =
     </div>
 
     <div
-      v-else-if="!filtrados.length"
+      v-else-if="!itens.length"
       class="[display:grid] justify-items-start gap-3 rounded-[14px] border border-dashed border-[var(--line-2)] bg-[var(--paper)] p-6"
       data-testid="vazio"
     >
@@ -129,13 +108,22 @@ const btn =
 
     <div v-else class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3">
       <GestaoCardProcesso
-        v-for="p in filtrados"
+        v-for="p in itens"
         :key="p.id"
         :processo="p"
         :corretor="nomeCorretor(p.corretorId)"
         :pendencias="pendencias.get(p.id) ?? 0"
       />
     </div>
+
+    <GestaoPaginacao
+      v-if="resultado"
+      :pagina="resultado.pagina"
+      :paginas="resultado.paginas"
+      :total="resultado.total"
+      rotulo="contratos"
+      @ir="irParaPagina"
+    />
 
     <GestaoNovoProcessoModal ref="modal" />
   </section>

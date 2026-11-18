@@ -9,8 +9,11 @@ import type { FotoNova } from '../../domain/imoveis-fotos'
 import type { PropertyStatus } from '~~/shared/models/property'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
-import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Processo } from '../../domain/types'
-import { HttpGestaoRepository } from '../services/HttpGestaoRepository'
+import { filtrarLocacoes } from '../../domain/filtro-locacao'
+import { filtrarProcessos } from '../../domain/filtro'
+import { paginar, type Pagina } from '../../domain/paginacao'
+import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Processo, StatusLocacao, StatusVenda } from '../../domain/types'
+import { type FiltroPagina, HttpGestaoRepository } from '../services/HttpGestaoRepository'
 import { HttpImoveisRepository } from '../services/HttpImoveisRepository'
 import type { ArmazemGestao, ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from '../services/GestaoRepository'
 import type { ImoveisRepository } from '../services/ImoveisRepository'
@@ -227,6 +230,23 @@ export function useGestaoStore() {
     return r
   }
 
+  // --- listas paginadas ------------------------------------------------------------------------
+
+  /**
+   * Página da lista de contratos de venda. `http`: o servidor filtra e conta (a carteira pode passar dos
+   * 200 que o store guarda). `mock`: a carteira toda está em memória, então filtra e fatia aqui com as
+   * MESMAS funções do servidor (`filtrarProcessos`, `paginar`) — o demo mostra o que o servidor mostraria.
+   */
+  async function paginaDeVendas(f: FiltroPagina): Promise<Pagina<Processo>> {
+    if (api) return (repo as HttpGestaoRepository).paginaVendas(f)
+    return paginar(filtrarProcessos(visiveis.value, { q: f.q, status: f.status as StatusVenda | '' }, corretores.value), f.pagina)
+  }
+
+  async function paginaDeLocacoes(f: FiltroPagina): Promise<Pagina<Locacao>> {
+    if (api) return (repo as HttpGestaoRepository).paginaLocacoes(f)
+    return paginar(filtrarLocacoes(locacoesVisiveis.value, { q: f.q, status: f.status as StatusLocacao | '' }, corretores.value), f.pagina)
+  }
+
   // --- documentos ---------------------------------------------------------------------------
 
   const tipoDoAlvo = (id: string): TipoAlvo => (estado.value.processos.some((p) => p.id === id) ? 'venda' : 'locacao')
@@ -392,6 +412,8 @@ export function useGestaoStore() {
     restaurar,
     executar,
     carregarDetalhe,
+    paginaDeVendas,
+    paginaDeLocacoes,
     abrirProcesso,
     abrirLocacao,
     carregarDocumentos,

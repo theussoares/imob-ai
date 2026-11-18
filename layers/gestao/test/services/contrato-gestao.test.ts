@@ -187,6 +187,40 @@ describe('GestaoRepository — http: erros e concorrência', () => {
     expect(servidor.chamadas.slice(antes).some((c) => /vendas\//.test(c.url))).toBe(false)
   })
 
+  it('página de vendas: o servidor filtra e conta; q e status vazios nem vão na query', async () => {
+    const servidor = criarServidorFalso()
+    const repo = montarHttp(servidor) as HttpGestaoRepository
+    await repo.carregar()
+    const r = await repo.paginaVendas({ pagina: 1, q: '  ', status: '' })
+    expect(r).toMatchObject({ pagina: 1, porPagina: 24 })
+    expect(r.total).toBeGreaterThan(0)
+    const chamada = servidor.chamadas.at(-1)!
+    expect(chamada).toMatchObject({ metodo: 'GET', url: '/api/gestao/vendas' })
+    expect(servidor.consultas.at(-1)).toEqual({ pagina: 1 })
+
+    const filtrada = await repo.paginaVendas({ pagina: 1, q: ' Roberto ', status: 'Em negociação' })
+    expect(servidor.consultas.at(-1)).toEqual({ pagina: 1, q: 'Roberto', status: 'Em negociação' })
+    expect(filtrada.total).toBeLessThanOrEqual(r.total)
+  })
+
+  it('página de vendas: guarda a versão de cada item, então agir direto da lista não toma 409', async () => {
+    const repo = montarHttp(criarServidorFalso()) as HttpGestaoRepository
+    const pag = await repo.paginaVendas({ pagina: 1, q: '', status: '' })
+    const p = pag.itens.find((x) => !x.arquivado)!
+    expect((await repo.executar('venda', p.id, 'salvarObservacao', { obs: 'da lista' })).ok).toBe(true)
+  })
+
+  it('página de locações: mesma forma, sem arquivadas', async () => {
+    const repo = montarHttp(criarServidorFalso()) as HttpGestaoRepository
+    const pag = await repo.paginaLocacoes({ pagina: 1, q: '', status: '' })
+    expect(pag.itens.length).toBeGreaterThan(0)
+    expect(pag.itens.every((l) => !l.arquivado)).toBe(true)
+    expect(pag).toMatchObject({ pagina: 1, porPagina: 24, paginas: 1 })
+    const alem = await repo.paginaLocacoes({ pagina: 9, q: '', status: '' })
+    expect(alem.itens).toEqual([])
+    expect(alem.total).toBe(pag.total)
+  })
+
   it('manda Authorization: Bearer em toda chamada autenticada', async () => {
     const servidor = criarServidorFalso()
     const repo = montarHttp(servidor)

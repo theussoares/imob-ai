@@ -28,21 +28,71 @@ export interface FiltroLocacoes {
   arquivadas: boolean
   /** Presente = escopo do corretor («só os meus»). */
   corretorId?: string | null
+  /** Ausente = todos os status. */
+  status?: string
 }
 
 function falha(error: { message?: string } | null, o: string): never {
   throw createError({ statusCode: 500, statusMessage: `Falha ao ${o} locações.`, message: error?.message })
 }
 
+function consulta(db: SupabaseClient, tenantId: string, filtro: FiltroLocacoes, opcoes?: { count: 'exact'; head?: boolean }) {
+  let q = db.from('gestao_locacoes').select(COLUNAS, opcoes).eq('tenant_id', tenantId).eq('arquivado', filtro.arquivadas)
+  if (filtro.corretorId) q = q.eq('corretor_id', filtro.corretorId)
+  if (filtro.status) q = q.eq('status', filtro.status)
+  // `id` desempata: com `updated_at` igual a página seguinte repetiria ou pularia linhas.
+  return q.order('updated_at', { ascending: false }).order('id', { ascending: false })
+}
+
 export async function listarLocacoes(db: SupabaseClient, tenantId: string, filtro: FiltroLocacoes): Promise<LocacaoVersionada[]> {
   // Corretor sem vínculo (`brokerId` nulo) não tem «os meus»: lista vazia, e não a
   // lista de todos por esquecimento do filtro.
   if (filtro.corretorId === null) return []
-  let q = db.from('gestao_locacoes').select(COLUNAS).eq('tenant_id', tenantId).eq('arquivado', filtro.arquivadas)
-  if (filtro.corretorId) q = q.eq('corretor_id', filtro.corretorId)
-  const { data, error } = await q.order('updated_at', { ascending: false }).limit(LIMITE_LISTA)
+  const { data, error } = await consulta(db, tenantId, filtro).limit(LIMITE_LISTA)
   if (error) falha(error, 'listar')
   return ((data ?? []) as GestaoLocacaoRow[]).map(toLocacaoModel)
+}
+
+/** Uma página, com o total que casa com o filtro (contagem do banco). */
+export async function listarLocacoesPagina(
+  db: SupabaseClient,
+  tenantId: string,
+  filtro: FiltroLocacoes,
+  pagina: number,
+  porPagina: number,
+): Promise<{ locacoes: LocacaoVersionada[]; total: number }> {
+  if (filtro.corretorId === null) return { locacoes: [], total: 0 }
+  const de = (pagina - 1) * porPagina
+  const { data, error, count } = await consulta(db, tenantId, filtro, { count: 'exact' }).range(de, de + porPagina - 1)
+  if (error) {
+    // Página além do fim: o PostgREST responde 416 (PGRST103) em vez de lista vazia; o total vem de uma contagem sem linhas.
+    if ((error as { code?: string }).code !== 'PGRST103') falha(error, 'listar')
+    const { count: total, error: erroContagem } = await consulta(db, tenantId, filtro, { count: 'exact', head: true })
+    if (erroContagem) falha(erroContagem, 'listar')
+    return { locacoes: [], total: total ?? 0 }
+  }
+  return { locacoes: ((data ?? []) as GestaoLocacaoRow[]).map(toLocacaoModel), total: count ?? 0 }
+}
+
+/** Teto e bloco da busca por texto: mesma razão de `listarTodasVendas`. */
+export const LIMITE_BUSCA = 5000
+const BLOCO = 1000
+
+export async function listarTodasLocacoes(
+  db: SupabaseClient,
+  tenantId: string,
+  filtro: FiltroLocacoes,
+): Promise<{ locacoes: LocacaoVersionada[]; truncado: boolean }> {
+  if (filtro.corretorId === null) return { locacoes: [], truncado: false }
+  const rows: GestaoLocacaoRow[] = []
+  for (let de = 0; de < LIMITE_BUSCA; de += BLOCO) {
+    const { data, error } = await consulta(db, tenantId, filtro).range(de, de + BLOCO - 1)
+    if (error) falha(error, 'listar')
+    const bloco = (data ?? []) as GestaoLocacaoRow[]
+    rows.push(...bloco)
+    if (bloco.length < BLOCO) return { locacoes: rows.map(toLocacaoModel), truncado: false }
+  }
+  return { locacoes: rows.map(toLocacaoModel), truncado: true }
 }
 
 /**

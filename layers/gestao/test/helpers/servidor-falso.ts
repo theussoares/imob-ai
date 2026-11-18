@@ -2,7 +2,10 @@ import { configuracoesPadrao } from '../../domain/configuracoes'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { matrizPadrao } from '../../domain/permissions'
 import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
-import type { Documento } from '../../domain/types'
+import { filtrarProcessos } from '../../domain/filtro'
+import { filtrarLocacoes } from '../../domain/filtro-locacao'
+import { paginar } from '../../domain/paginacao'
+import type { Documento, StatusLocacao, StatusVenda } from '../../domain/types'
 import type { Fetcher } from '../../app/services/clienteGestao'
 import type { ArmazemGestao, DadosGestao } from '../../app/services/GestaoRepository'
 import { MockGestaoRepository } from '../../app/services/MockGestaoRepository'
@@ -52,6 +55,8 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
   const versoes = new Map<string, number>()
   const pendentes = new Map<string, { alvo: { tipo: 'venda' | 'locacao'; id: string }; categoria: string; requisito?: string; documentoId?: string; nome: string; tamanho: number }>()
   const chamadas: { metodo: string; url: string; auth: string | undefined }[] = []
+  /** A query de cada chamada, na mesma ordem de `chamadas`: o teste afirma o que de fato foi pedido. */
+  const consultas: Record<string, unknown>[] = []
   let n = 0
 
   const ver = (chave: string) => versoes.get(chave) ?? 1
@@ -91,6 +96,7 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     const metodo = o.method ?? 'GET'
     const autorizacao = o.headers?.Authorization
     chamadas.push({ metodo, url, auth: autorizacao })
+    consultas.push({ ...(o.query ?? {}) })
     const rota = url.replace('/api/gestao/', '')
     const livre = rota.startsWith('auth/login') || rota.startsWith('auth/aceitar') || rota.startsWith('auth/convite')
     if (!livre && autorizacao !== `Bearer ${opts.tokenValido ?? 'tok'}`) throw new ErroFetchFalso(401, 'Sessão inválida.')
@@ -100,6 +106,17 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     const out = (x: unknown) => x as T
 
     if (metodo === 'GET' && rota === 'matriz') return out({ matriz: d.matriz })
+    // Como o servidor: com `pagina` a resposta é uma Pagina; sem ela, o array/objeto de sempre.
+    if (metodo === 'GET' && rota === 'vendas' && q.pagina !== undefined) {
+      const achadas = filtrarProcessos(d.processos.filter((p) => !p.arquivado), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusVenda | '' }, d.corretores)
+      const pag = paginar(achadas, Number(q.pagina))
+      return out({ ...pag, truncado: false, itens: pag.itens.map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })) })
+    }
+    if (metodo === 'GET' && rota === 'locacoes' && q.pagina !== undefined) {
+      const achadas = filtrarLocacoes(d.locacoes.filter((l) => !l.arquivado), { q: String(q.q ?? ''), status: (q.status ?? '') as StatusLocacao | '' }, d.corretores)
+      const pag = paginar(achadas, Number(q.pagina))
+      return out({ ...pag, truncado: false, itens: pag.itens.map((l) => locacao(l.id)) })
+    }
     if (metodo === 'GET' && rota === 'vendas') return out(d.processos.filter((p) => !!p.arquivado === !!q.arquivados).map((p) => ({ versao: ver(`venda:${p.id}`), processo: p })))
     if (metodo === 'GET' && rota === 'locacoes') return out({ locacoes: d.locacoes.filter((l) => !!l.arquivado === !!q.arquivadas).map((l) => locacao(l.id)) })
     if (metodo === 'GET' && rota === 'corretores') return out({ corretores: d.corretores })
@@ -181,5 +198,5 @@ export function criarServidorFalso(opts: { tokenValido?: string } = {}) {
     throw new ErroFetchFalso(404, `Rota sem servidor falso: ${metodo} ${url}`)
   }
 
-  return { fetcher, banco, chamadas, subidas: [] as string[] }
+  return { fetcher, banco, chamadas, consultas, subidas: [] as string[] }
 }
