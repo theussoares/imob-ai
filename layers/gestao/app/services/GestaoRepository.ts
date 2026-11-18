@@ -11,6 +11,14 @@ export type Resultado<T extends object = object> = ({ ok: true } & T) | Falha
 
 export type TipoAlvo = 'venda' | 'locacao'
 
+/**
+ * Fatias do carregamento em `http`. Cada tela pede só as que usa: abrir o painel disparava 9 requisições
+ * (matriz, vendas, locações e seus arquivados, corretores, configurações, consultas, imóveis) mesmo
+ * quando a aba precisava de uma. `mock` ignora: lê tudo do armazém local, sem custo de rede.
+ */
+export type EscopoCarga = 'base' | 'corretores' | 'vendas' | 'locacoes' | 'imoveis' | 'config' | 'consultas'
+export const ESCOPOS_TODOS: readonly EscopoCarga[] = ['base', 'corretores', 'vendas', 'locacoes', 'imoveis', 'config', 'consultas']
+
 /** Tudo que a tela lê. Em `http`, `documentos` vem vazio: carrega por processo (`documentosDoAlvo`). */
 export interface DadosGestao {
   processos: Processo[]

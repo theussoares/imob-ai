@@ -1,3 +1,4 @@
+import { ESCOPOS_TODOS, type EscopoCarga } from '../services/GestaoRepository'
 import { agora, type Estado, type NovoProcesso } from '../../domain/acoes'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
@@ -156,7 +157,47 @@ export function useGestaoStore() {
         () => `ft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       )
 
-  async function carregar(forcar = false) {
+  // Fatias já carregadas em `http` (ver `EscopoCarga`). `mock` carrega tudo de uma vez e ignora isto.
+  const escoposCarregados = useState<EscopoCarga[]>('gestao:escopos', () => [])
+
+  async function carregarFatias(escopos: readonly EscopoCarga[], forcar: boolean) {
+    const faltam = escopos.filter((e) => forcar || !escoposCarregados.value.includes(e))
+    if (!faltam.length) return
+    erroCarga.value = ''
+    try {
+      const d = await (repo as HttpGestaoRepository).carregarParcial(faltam.filter((e) => e !== 'imoveis'), matriz.value)
+      estado.value = {
+        processos: d.processos ?? estado.value.processos,
+        locacoes: d.locacoes ?? estado.value.locacoes,
+        documentos: estado.value.documentos,
+      }
+      if (d.matriz) matriz.value = d.matriz
+      if (d.config) config.value = d.config
+      if (d.consultas) consultas.value = d.consultas
+      if (d.corretores) corretores.value = d.corretores
+    } catch (e) {
+      erroCarga.value = (e as { message?: string } | null)?.message || 'Não foi possível carregar os dados.'
+      return
+    }
+    if (faltam.includes('imoveis')) {
+      try {
+        imoveis.value = await imoveisRepo.listar()
+      } catch {
+        imoveis.value = []
+        erroCarga.value = 'Não foi possível carregar os imóveis.'
+        return
+      }
+    }
+    escoposCarregados.value = [...new Set([...escoposCarregados.value, ...faltam])]
+    if (escoposCarregados.value.includes('base')) carregado.value = true
+  }
+
+  /**
+   * `escopos` só vale em `http`: cada tela pede as fatias que usa (padrão: todas, o comportamento antigo).
+   * Fatia já carregada não é pedida de novo; `forcar` recarrega as pedidas.
+   */
+  async function carregar(forcar = false, escopos: readonly EscopoCarga[] = ESCOPOS_TODOS) {
+    if (http) return carregarFatias(escopos, forcar)
     if (carregado.value && !forcar) return
     erroCarga.value = ''
     // Lido ANTES: `repo.carregar()` regrava o guardado e, nesse instante, `imoveis` ainda está vazio.

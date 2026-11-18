@@ -7,7 +7,7 @@ const { sessao, sair } = useGestaoSessao()
 const store = useGestaoStore()
 const toast = useToast()
 
-await store.carregar()
+await store.carregar(false, ['base'])
 
 const itens = computed(() =>
   sessao.value ? MENU.filter((m) => menuVisivel(store.matriz.value, sessao.value!.perfil, m.chave)) : [],

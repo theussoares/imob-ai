@@ -21,7 +21,7 @@ const toast = useToast()
 const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 const { askConfirm } = useConfirm()
 
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'config', 'vendas'])
 await Promise.all([store.carregarDetalhe('venda', String(route.params.id)), store.carregarDocumentos('venda', String(route.params.id))])
 
 // Só enxerga o que `visiveis` devolve: corretor com «só os meus» pedindo o

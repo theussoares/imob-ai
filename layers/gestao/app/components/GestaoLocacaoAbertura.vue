@@ -7,6 +7,8 @@ const props = defineProps<{ locacao: Locacao; podeEditar: boolean; corretorTrava
 const emit = defineEmits<{ salvar: [dados: DadosAberturaLocacao] }>()
 
 const store = useGestaoStore()
+// A lista de imóveis só é buscada quando este formulário abre (as listas de contratos não a carregam).
+onMounted(() => void store.carregar(false, ['imoveis']))
 // Só imóvel que pode ser alugado; o já vinculado fica na lista mesmo se o cadastro mudou depois.
 const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'aluguel' || i.id === props.locacao.imovelId))
 

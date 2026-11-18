@@ -8,7 +8,7 @@ import type { ResumoDashboard } from '../../domain/dashboard'
 import type { RespostaFinanceiro } from '../../domain/financeiro'
 import type { PaginaComContagens } from '../../domain/paginacao'
 import { type ClienteGestao, ErroGestao, paraFalha } from './clienteGestao'
-import type { ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from './GestaoRepository'
+import type { ArquivoGestao, DadosGestao, EscopoCarga, GestaoRepository, Mudanca, Resultado, TipoAlvo } from './GestaoRepository'
 
 /** Onde ficam as versões lidas (`useState`, compartilhado entre componentes): `venda:V-…` / `locacao:L-…`. */
 export interface ArmazemVersoes {
@@ -109,6 +109,45 @@ export class HttpGestaoRepository implements GestaoRepository {
   private guardarLocacao(r: RespostaLocacao): Locacao {
     this.versoes.gravar(`locacao:${r.locacao.id}`, r.versao)
     return normalizarLocacao(r.locacao)
+  }
+
+  /**
+   * Carrega só as fatias pedidas. `matrizAtual` é a que o store já tem: sem 'base' na lista, ela decide o
+   * que o perfil pode ler (arquivados, configurações, consultas) sem outra ida ao servidor.
+   * Cada fatia só aparece no retorno se foi buscada; o store mescla.
+   */
+  async carregarParcial(escopos: readonly EscopoCarga[], matrizAtual: MatrizPermissoes): Promise<Partial<DadosGestao>> {
+    const quer = new Set(escopos)
+    const out: Partial<DadosGestao> = {}
+    const matriz = quer.has('base') ? (await this.api.get<{ matriz: MatrizPermissoes }>('/api/gestao/matriz')).matriz : matrizAtual
+    if (quer.has('base')) out.matriz = matriz
+    const perfil = this.perfil()
+    const tem = (k: keyof MatrizPermissoes) => !!perfil && matriz[k]?.[perfil] === 'sim'
+    const veArquivados = tem('arquivar') || tem('apagarDocs')
+
+    const tarefas: Promise<void>[] = []
+    if (quer.has('vendas')) {
+      tarefas.push(Promise.all([
+        this.api.get<RespostaVenda[]>('/api/gestao/vendas'),
+        veArquivados ? this.api.get<RespostaVenda[]>('/api/gestao/vendas', { arquivados: 1 }) : Promise.resolve([] as RespostaVenda[]),
+      ]).then(([a, b]) => { out.processos = [...a, ...b].map((r) => this.guardarVenda(r)) }))
+    }
+    if (quer.has('locacoes')) {
+      tarefas.push(Promise.all([
+        this.api.get<{ locacoes: RespostaLocacao[] }>('/api/gestao/locacoes'),
+        veArquivados ? this.api.get<{ locacoes: RespostaLocacao[] }>('/api/gestao/locacoes', { arquivadas: 1 }) : Promise.resolve({ locacoes: [] as RespostaLocacao[] }),
+      ]).then(([a, b]) => { out.locacoes = [...a.locacoes, ...b.locacoes].map((r) => this.guardarLocacao(r)) }))
+    }
+    if (quer.has('corretores')) tarefas.push(this.api.get<{ corretores: Corretor[] }>('/api/gestao/corretores').then((r) => { out.corretores = r.corretores }))
+    if (quer.has('config')) {
+      // Só o Dono lê as configurações (a tela também é só dele); os demais ficam com o padrão.
+      tarefas.push((tem('admin') ? this.api.get<{ config: ConfiguracoesGestao }>('/api/gestao/configuracoes') : Promise.resolve({ config: configuracoesPadrao() })).then((r) => { out.config = r.config }))
+    }
+    if (quer.has('consultas')) {
+      tarefas.push((tem('consulta') ? this.api.get<{ consultas: ConsultaFeita[] }>('/api/gestao/consultas') : Promise.resolve({ consultas: [] as ConsultaFeita[] })).then((r) => { out.consultas = r.consultas }))
+    }
+    await Promise.all(tarefas)
+    return out
   }
 
   async carregar(): Promise<DadosGestao> {

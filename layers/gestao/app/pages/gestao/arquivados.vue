@@ -9,7 +9,7 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'vendas', 'locacoes'])
 
 const podeRestaurar = computed(() => !!store.caps()?.arquivar)
 

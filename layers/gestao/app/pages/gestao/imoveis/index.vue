@@ -16,7 +16,7 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Imóveis · Gestão' })
 
 const store = useGestaoStore()
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'locacoes', 'imoveis'])
 
 const filtro = reactive<FiltroImoveis>({ ...FILTRO_IMOVEIS_VAZIO })
 const lista = computed(() => filtrarImoveis(store.imoveisVisiveis.value, store.locacoes.value, filtro))

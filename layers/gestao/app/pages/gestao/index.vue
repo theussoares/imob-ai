@@ -5,7 +5,7 @@ useHead({ title: 'Dashboard · Gestão' })
 
 const store = useGestaoStore()
 const { sessao } = useGestaoSessao()
-await store.carregar()
+await store.carregar(false, ['base'])
 
 // Listas já filtradas por perfil: o corretor vê o painel só dos contratos dele.
 // Contagens do servidor (`http`, sobre todos os contratos) ou calculadas aqui (`mock`): ver `store.lerDashboard`.

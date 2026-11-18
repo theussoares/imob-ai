@@ -12,7 +12,7 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Consulta cadastral · Gestão' })
 
 const store = useGestaoStore()
-await store.carregar()
+await store.carregar(false, ['base', 'vendas', 'locacoes', 'consultas'])
 
 const documento = ref('')
 const finalidade = ref<Finalidade | ''>('')

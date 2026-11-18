@@ -34,7 +34,7 @@ export function useListaPaginada<R extends Pagina<unknown>, F extends { pagina: 
     const minha = ++seq
     falhou.value = false
     try {
-      await store.carregar()
+      await store.carregar(false, ['base', 'corretores', 'config'])
       const r = await buscar(filtro.value)
       if (minha !== seq) return
       // Página além da última (lista encolheu, ou link antigo): vai para a última em vez de mostrar «nada».

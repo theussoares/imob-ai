@@ -7,7 +7,7 @@ useHead({ title: 'Configurações · Gestão' })
 
 const store = useGestaoStore()
 const toast = useToast()
-await store.carregar()
+await store.carregar(false, ['base', 'config'])
 
 // Cópia de trabalho: o que é digitado só vira configuração ao salvar e passar na validação.
 const form = reactive(structuredClone(toRaw(store.config.value)))

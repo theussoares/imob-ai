@@ -12,7 +12,7 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Histórico de alterações · Gestão' })
 
 const store = useGestaoStore()
-await store.carregar()
+await store.carregar(false, ['base', 'vendas', 'locacoes'])
 
 // Todos os contratos, inclusive arquivados: `store.processos` e `store.locacoes` não filtram.
 const todos = computed(() => eventosAuditoria(store.processos.value, store.locacoes.value))

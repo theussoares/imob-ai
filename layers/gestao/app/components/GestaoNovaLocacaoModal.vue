@@ -2,6 +2,8 @@
 import { rotuloImovel } from '../../domain/imoveis'
 
 const store = useGestaoStore()
+// A lista de imóveis só é buscada quando este formulário abre (as listas de contratos não a carregam).
+onMounted(() => void store.carregar(false, ['imoveis']))
 const { sessao } = useGestaoSessao()
 const toast = useToast()
 

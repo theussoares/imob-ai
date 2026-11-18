@@ -9,7 +9,7 @@ useHead({ title: 'Financeiro · Gestão' })
 const store = useGestaoStore()
 const toast = useToast()
 const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
-await store.carregar()
+await store.carregar(false, ['base'])
 
 const competencia = ref('')
 

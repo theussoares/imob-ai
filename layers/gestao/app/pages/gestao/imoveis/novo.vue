@@ -7,7 +7,7 @@ useHead({ title: 'Cadastrar imóvel · Gestão' })
 const store = useGestaoStore()
 const toast = useToast()
 const { sessao } = useGestaoSessao()
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'config', 'imoveis'])
 
 // Sem permissão de criar, a tela não abre (a guarda de rota só conhece a seção).
 if (!store.permissoesDoImovel(null).criar) await navigateTo('/gestao/imoveis')

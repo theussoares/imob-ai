@@ -10,7 +10,7 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 const { reduzir } = useRedimensionarFoto()
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'imoveis'])
 
 // Só enxerga o que `imoveisVisiveis` devolve: corretor abrindo o imóvel de outro pela URL volta à lista.
 const imovel = computed(() => store.imoveisVisiveis.value.find((i) => i.id === String(route.params.id)) ?? null)
