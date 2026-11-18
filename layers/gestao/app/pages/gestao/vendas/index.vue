@@ -90,11 +90,7 @@ const btn =
     </div>
 
     <div v-else-if="!resultado" class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
-      <div
-        v-for="n in 3"
-        :key="n"
-        class="h-60 animate-pulse rounded-[14px] border border-[var(--line)] bg-[var(--paper)]"
-      />
+      <GestaoSkeletonCard v-for="n in 3" :key="n" />
       <span class="sr-only">Carregando contratos…</span>
     </div>
 
