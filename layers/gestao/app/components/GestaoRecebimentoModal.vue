@@ -138,7 +138,10 @@ const OBR = ' *'
         />
       </label>
       <p class="m-0 text-[length:var(--fs-caption)] text-[var(--ink-soft)]"><span class="text-[var(--danger)]" aria-hidden="true">*</span> campo obrigatório</p>
-      <p v-if="erro" role="alert" class="m-0 rounded-lg bg-[#fee2e2] px-3 py-2 text-[length:var(--fs-label)] font-bold text-[#7f1d1d]" data-testid="rc-erro">{{ erro }}</p>
+      <!-- Espaço do erro sempre reservado: com ele aparecendo o modal crescia e o botão «Registrar» saía de baixo do cursor. -->
+      <div class="min-h-[4.5rem]" aria-live="assertive">
+        <p v-if="erro" role="alert" class="m-0 rounded-lg border border-[var(--danger-line)] bg-[var(--danger-ghost)] px-3 py-2 text-[length:var(--fs-label)] font-bold text-[var(--danger)]" data-testid="rc-erro">{{ erro }}</p>
+      </div>
       <div class="mt-1 flex justify-end gap-2">
         <button type="button" class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]" @click="fechar">Cancelar</button>
         <button type="submit" :disabled="enviando" :aria-busy="enviando" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60" data-testid="rc-confirmar">

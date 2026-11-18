@@ -220,7 +220,16 @@ export class HttpGestaoRepository implements GestaoRepository {
 
   executar(tipo: TipoAlvo, id: string, acao: string, dados: unknown = {}): Promise<Resultado<Mudanca>> {
     return this.tentar(async () => {
-      const versao = this.versoes.ler(`${tipo}:${id}`)
+      let versao: number | undefined = this.versoes.ler(`${tipo}:${id}`)
+      if (versao === undefined) {
+        // Contrato que a tela nunca leu por inteiro (ex.: pagar pela fila do Financeiro, que só traz as linhas):
+        // sem a versão o servidor recusa («expected number, received undefined»). Lê agora e age sobre ela.
+        const base = `/api/gestao/${tipo === 'venda' ? 'vendas' : 'locacoes'}/${encodeURIComponent(id)}`
+        const lido = await this.api.get<{ versao: number } & (RespostaVenda | RespostaLocacao)>(base)
+        if (tipo === 'venda') this.guardarVenda(lido as RespostaVenda)
+        else this.guardarLocacao(lido as RespostaLocacao)
+        versao = lido.versao
+      }
       if (tipo === 'venda') {
         // O servidor exige a `versao` que a tela leu (sem ela, 422; defasada, 409), nos dois tipos.
         const r = await this.api.post<RespostaVenda>(`/api/gestao/vendas/${encodeURIComponent(id)}/acoes`, { acao, dados, versao })

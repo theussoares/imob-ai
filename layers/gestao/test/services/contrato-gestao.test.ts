@@ -131,6 +131,26 @@ describe.each(fabricas)('GestaoRepository — $nome', ({ criar }) => {
 })
 
 describe('GestaoRepository — http: erros e concorrência', () => {
+  it('age num contrato que a tela nunca leu (fila do Financeiro): lê a versão antes, em vez de enviar `versao` vazia', async () => {
+    const servidor = criarServidorFalso()
+    const id = (await montarHttp(servidor).carregar()).locacoes[0]!.id
+    const enviados: { versao?: unknown }[] = []
+    const espiao = { ...servidor, fetcher: ((url: string, opts?: { method?: string; body?: unknown }) => {
+      if (opts?.method === 'POST') enviados.push(opts.body as { versao?: unknown })
+      return (servidor.fetcher as (u: string, o?: unknown) => unknown)(url, opts)
+    }) as typeof servidor.fetcher }
+    const semLeitura = montarHttp(espiao) // nenhuma versão guardada
+    const r = await semLeitura.executar('locacao', id, 'salvarGarantia', { tipo: 'Caução', detalhe: 'a' })
+    expect(r.ok).toBe(true)
+    expect(typeof enviados.at(-1)?.versao).toBe('number')
+  })
+
+  it('erro cru de validação (inglês) nunca chega à tela', async () => {
+    const { paraFalha } = await import('../../app/services/clienteGestao')
+    const f = paraFalha({ statusCode: 422, statusMessage: 'Invalid input: expected number, received undefined' })
+    expect(f.ok === false && f.erro).toBe('Dados inválidos. Confira os campos e tente de novo.')
+  })
+
   it('409 de versão vira conflito com a frase «alterado por outra pessoa»', async () => {
     const servidor = criarServidorFalso()
     const aba1 = montarHttp(servidor)

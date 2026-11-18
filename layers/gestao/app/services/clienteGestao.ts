@@ -61,11 +61,14 @@ export function traduzirErro(e: unknown): ErroGestao {
   })
 }
 
+/** Mensagem crua de validação (Zod, em inglês) nunca vai para a tela. */
+const soEmPortugues = (m: string): string => (/^(invalid|expected|required)\b|expected .* received/i.test(m) ? 'Dados inválidos. Confira os campos e tente de novo.' : m)
+
 export function paraFalha(e: unknown): Falha {
   const t = traduzirErro(e)
   return {
     ok: false,
-    erro: t.status === 409 && !/alterad[oa]/i.test(t.message) ? MSG_CONFLITO : t.message,
+    erro: t.status === 409 && !/alterad[oa]/i.test(t.message) ? MSG_CONFLITO : soEmPortugues(t.message),
     ...(t.status === 409 && { conflito: true as const }),
     ...(t.status === 401 && { sessaoExpirada: true as const }),
     ...(t.extra.segundos !== undefined && { segundos: t.extra.segundos }),

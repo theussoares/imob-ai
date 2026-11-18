@@ -145,7 +145,10 @@ const aberturaSchema = z.object({
 })
 
 function corpoInvalido(erro: z.ZodError): never {
-  throw createError({ statusCode: 422, statusMessage: erro.issues[0]?.message ?? 'Dados inválidos.' })
+  // Só mensagem NOSSA (`custom`) sobe para a tela; a do próprio Zod («Invalid input: expected number…») é inglês
+  // e técnica: virava o erro que o usuário via no modal de pagamento.
+  const i = erro.issues[0]
+  throw createError({ statusCode: 422, statusMessage: i?.code === 'custom' && i.message ? i.message : 'Dados inválidos. Confira os campos e tente de novo.' })
 }
 
 const MAX_TENTATIVAS_NUMERO = 3

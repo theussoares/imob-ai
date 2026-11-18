@@ -60,10 +60,10 @@ const botao =
         <li v-for="l in grupo.itens" :key="l.cobrancaId" class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border bg-[var(--paper)] px-3 py-2" :class="l.diasAtraso > 0 ? 'border-[#b91c1c]' : 'border-[var(--line)]'" :data-testid="`fin-pend-${grupo.chave}-item`">
           <div class="min-w-0 flex-1">
             <NuxtLink :to="`/gestao/locacao/${l.locacaoId}`" class="font-bold text-[var(--brand)]">{{ l.imovel }}</NuxtLink>
-            <small class="block text-[var(--ink-soft)]">{{ l.locacaoId }} · {{ mes(l.competencia) }} · vence em {{ dia(l.vencimento) }}</small>
+            <small class="block text-[var(--ink-soft)]">{{ l.locacaoId }} · {{ mes(l.competencia) }} · <span class="whitespace-nowrap">vence em {{ dia(l.vencimento) }}</span></small>
           </div>
           <strong :title="grupo.chave === 'receber' && l.diasAtraso ? `Original ${brl(l.valor)} + multa ${brl(l.multa)} + juros ${brl(l.juros)}` : undefined">{{ brl(grupo.chave === 'receber' ? l.saldo : l.repasseSaldo) }}</strong>
-          <small v-if="grupo.chave === 'receber' && l.diasAtraso" class="text-[#7f1d1d]">{{ l.diasAtraso }} dias de atraso, com multa e juros</small>
+          <small v-if="grupo.chave === 'receber' && l.diasAtraso" class="font-semibold text-[var(--danger)]">{{ l.diasAtraso }} dias de atraso, com multa e juros</small>
           <span v-if="grupo.chave === 'receber'" class="rounded-full px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold" 
  :class="l.situacao === 'atrasada' ? 'bg-[#fee2e2] text-[#7f1d1d]' : l.situacao === 'parcial' ? 'bg-[#dbeafe] text-[#1e3a8a]' : 'bg-[#fef3c7] text-[#78350f]'">{{ ROTULO_SITUACAO[l.situacao] }}</span>
           <template v-if="podeEditar">

@@ -70,8 +70,8 @@ const botao =
       <li v-for="c in cobrancas" :key="c.id" class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-3 py-2" :class="emAtraso(c) ? 'border-[#b91c1c]' : 'border-[var(--line)]'" :data-testid="`cobranca-${c.competencia}`" :data-situacao="dev(c).situacao">
         <div class="min-w-0 flex-1">
           <strong class="block">{{ c.competencia }} · {{ brl(c.valor) }}</strong>
-          <small class="text-[var(--ink-soft)]">Vence em {{ dia(c.vencimento) }}</small>
-          <small v-if="dev(c).encargos.dias && !c.pago" class="block text-[#7f1d1d]" data-testid="encargos">
+          <small class="whitespace-nowrap text-[var(--ink-soft)]">Vence em {{ dia(c.vencimento) }}</small>
+          <small v-if="dev(c).encargos.dias && !c.pago" class="block font-semibold text-[var(--danger)]" data-testid="encargos">
             {{ dev(c).encargos.dias }} {{ dev(c).encargos.dias === 1 ? 'dia' : 'dias' }} de atraso · original {{ brl(c.valor) }} + multa {{ brl(dev(c).encargos.multa) }} + juros {{ brl(dev(c).encargos.juros) }} = <strong>{{ brl(dev(c).encargos.atualizado) }}</strong>
           </small>
           <small v-if="dev(c).pago && !c.pago" class="block text-[var(--ink-soft)]" data-testid="parcial">Pago {{ brl(dev(c).pago) }} · falta {{ brl(dev(c).saldo) }}</small>
