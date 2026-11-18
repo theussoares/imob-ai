@@ -3,8 +3,6 @@ import { ACEITA_ARQUIVO, CATEGORIAS } from '../../domain/documentos'
 import type { CategoriaDocumento } from '../../domain/types'
 
 defineProps<{
-  /** Processos entre os quais escolher (já filtrados por visibilidade). */
-  processos: { id: string; rotulo: string }[]
   /** Erro devolvido por `enviarDocumento`, mostrado como veio. */
   erro: string
 }>()
@@ -30,7 +28,61 @@ function abrir(inicial = '') {
   arquivo.value = null
   categoria.value = 'pessoas'
   processoId.value = inicial
+  rotuloEscolhido.value = inicial
+  buscaProcesso.value = ''
+  pagina.value = 1
+  void buscar()
   dialogo.value?.showModal()
+}
+
+// --- escolha do processo: busca paginada no servidor ------------------------------------------
+// A carteira pode passar dos 200 processos que o store guarda, e um `<select>` com todos não escala. O
+// seletor pede a página ao mesmo endpoint das listas (só os visíveis a quem pergunta) e filtra pelo que
+// a pessoa digita (código, imóvel, nome, CPF).
+const store = useGestaoStore()
+const buscaProcesso = ref('')
+const pagina = ref(1)
+const opcoes = ref<{ id: string; rotulo: string }[]>([])
+const paginas = ref(1)
+const total = ref(0)
+const falhouBusca = ref(false)
+const rotuloEscolhido = ref('')
+
+let seq = 0
+async function buscar() {
+  const minha = ++seq
+  falhouBusca.value = false
+  try {
+    const r = await store.paginaDeVendas({ pagina: pagina.value, q: buscaProcesso.value, status: '' })
+    if (minha !== seq) return
+    opcoes.value = r.itens.map((p) => ({ id: p.id, rotulo: `${p.id} · ${p.imovel}` }))
+    paginas.value = r.paginas
+    total.value = r.total
+    const atual = opcoes.value.find((o) => o.id === processoId.value)
+    if (atual) rotuloEscolhido.value = atual.rotulo
+  } catch {
+    if (minha === seq) falhouBusca.value = true
+  }
+}
+
+let timer: ReturnType<typeof setTimeout> | undefined
+watch(buscaProcesso, () => {
+  clearTimeout(timer)
+  timer = setTimeout(() => {
+    pagina.value = 1
+    void buscar()
+  }, 300)
+})
+onBeforeUnmount(() => clearTimeout(timer))
+
+function irPara(p: number) {
+  pagina.value = p
+  void buscar()
+}
+
+function escolher(o: { id: string; rotulo: string }) {
+  processoId.value = o.id
+  rotuloEscolhido.value = o.rotulo
 }
 
 function fechar() {
@@ -83,10 +135,39 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
 
       <div>
         <label for="enviar-doc-processo" :class="rotulo">Processo</label>
-        <select id="enviar-doc-processo" v-model="processoId" :class="campo">
-          <option value="" disabled>Escolha o processo…</option>
-          <option v-for="p in processos" :key="p.id" :value="p.id">{{ p.rotulo }}</option>
-        </select>
+        <input
+          id="enviar-doc-processo"
+          v-model="buscaProcesso"
+          type="search"
+          :class="campo"
+          placeholder="Buscar por código, imóvel, nome ou CPF"
+          autocomplete="off"
+          aria-describedby="enviar-doc-processo-escolhido"
+          data-testid="enviar-doc-busca-processo"
+        />
+        <p id="enviar-doc-processo-escolhido" class="mt-1 text-[length:var(--fs-caption)] text-[var(--ink-soft)]" aria-live="polite" data-testid="enviar-doc-processo-escolhido">
+          {{ processoId ? `Escolhido: ${rotuloEscolhido}` : 'Nenhum processo escolhido.' }}
+        </p>
+        <p v-if="falhouBusca" role="alert" class="mt-2 font-semibold text-[#7f1d1d]">
+          Não foi possível buscar os processos.
+          <button type="button" class="cursor-pointer font-bold underline" @click="buscar">Tentar de novo</button>
+        </p>
+        <ul v-else class="m-0 mt-2 flex max-h-48 list-none flex-col gap-1 overflow-y-auto p-0" role="listbox" aria-label="Processos" data-testid="enviar-doc-opcoes">
+          <li v-for="o in opcoes" :key="o.id" role="option" :aria-selected="o.id === processoId">
+            <button
+              type="button"
+              :class="[
+                'min-h-11 w-full cursor-pointer rounded-[10px] border px-3 text-left',
+                o.id === processoId ? 'border-[var(--brand)] bg-[var(--brand-ghost)] font-bold' : 'border-[var(--line-2)] bg-[var(--paper)] hover:bg-[var(--brand-ghost)]',
+              ]"
+              @click="escolher(o)"
+            >
+              {{ o.rotulo }}
+            </button>
+          </li>
+          <li v-if="!opcoes.length" class="px-1 text-[var(--ink-soft)]">Nenhum processo encontrado.</li>
+        </ul>
+        <GestaoPaginacao class="mt-2" :pagina="pagina" :paginas="paginas" :total="total" rotulo="processos" @ir="irPara" />
       </div>
 
       <p v-if="erro" role="alert" class="rounded-lg bg-[#fee2e2] px-3 py-2 font-semibold text-[#7f1d1d]">

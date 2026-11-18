@@ -48,11 +48,6 @@ const semPdf = computed(() => resultado.value?.contratos ?? [])
 
 // O card mostra «V-… · imóvel»: o imóvel vem do servidor (a lista do store não tem todos os processos).
 const rotuloDoDocumento = (id: string) => (resultado.value?.imoveis[id] ? `${id} · ${resultado.value.imoveis[id]}` : id)
-const rotuloProcesso = (id: string) => {
-  const p = store.processos.value.find((x) => x.id === id)
-  return p ? `${p.id} · ${p.imovel}` : id
-}
-const opcoesProcesso = computed(() => store.visiveis.value.map((p) => ({ id: p.id, rotulo: rotuloProcesso(p.id) })))
 
 // --- ações ------------------------------------------------------------------
 // `mock`: sem Storage, ver/baixar só avisam (link de arquivo falso levaria a um 404).
@@ -335,7 +330,7 @@ const tab = (ativo: boolean) => [
       @ir="irParaPagina"
     />
 
-    <GestaoEnviarDocumentoModal ref="modal" :processos="opcoesProcesso" :erro="erroEnvio" @enviar="enviar" />
+    <GestaoEnviarDocumentoModal ref="modal" :erro="erroEnvio" @enviar="enviar" />
 
     <dialog
       ref="dialogoVersoes"
