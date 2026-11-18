@@ -139,7 +139,7 @@ function verVersoes(d: Documento) {
 const chip = (ativo: boolean) => [
   'inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 font-bold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]',
   ativo
-    ? 'border-[var(--brand)] bg-[var(--brand)] text-white'
+    ? 'border-[var(--brand)] bg-[var(--brand)] text-[var(--on-brand)]'
     : 'border-[var(--line-2)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--brand-ghost)]',
 ]
 const tab = (ativo: boolean) => [

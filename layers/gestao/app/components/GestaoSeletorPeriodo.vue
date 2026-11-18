@@ -87,7 +87,7 @@ const atalho =
           v-for="a in ATALHOS_PERIODO"
           :key="a.id"
           type="button"
-          :class="[atalho, ativo === a.id ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-[var(--line-2)] text-[var(--ink)]']"
+          :class="[atalho, ativo === a.id ? 'border-[var(--brand)] bg-[var(--brand)] text-[var(--on-brand)]' : 'border-[var(--line-2)] text-[var(--ink)]']"
           :aria-pressed="ativo === a.id"
           :data-testid="`periodo-${a.id}`"
           @click="aplicar(a.id)"

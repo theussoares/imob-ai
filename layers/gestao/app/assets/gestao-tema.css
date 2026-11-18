@@ -16,6 +16,40 @@
   --ink-soft: #52525b;
   --line: #e4e4e7;
   --line-2: #d4d4d8;
+  --on-brand: #ffffff;
+  --danger: #b91c1c;
+  --danger-line: #fca5a5;
+  --danger-ghost: #fef2f2;
+}
+
+/* Tema escuro. A classe fica no <html> (não no layout) para o esqueleto do HTML inicial e as telas de
+   login seguirem a mesma escolha. Aqui --brand vira claro (é a cor de realce de links, barras e
+   interruptores); por isso o texto sobre ele usa --on-brand e o texto dos botões amarelos é fixado
+   em preto abaixo — eles escreviam `text-[var(--brand)]`, que no escuro ficaria claro sobre amarelo. */
+html.gestao-escuro .gestao-tema {
+  color-scheme: dark;
+  --brand: #f4f4f5;
+  --brand-2: #d4d4d8;
+  --brand-ghost: #2b2814;
+  --surface: #111113;
+  --paper: #1c1c1f;
+  --ink: #f4f4f5;
+  --ink-soft: #a1a1aa;
+  --line: #2e2e33;
+  --line-2: #44444b;
+  --on-brand: #17171a;
+  --danger: #fca5a5;
+  --danger-line: #7f1d1d;
+  --danger-ghost: #2a1212;
+}
+html.gestao-escuro .gestao-tema [class*="bg-[var(--gestao-amarelo)]"] {
+  color: #17171a !important;
+}
+html.gestao-escuro .gestao-tema input,
+html.gestao-escuro .gestao-tema select,
+html.gestao-escuro .gestao-tema textarea {
+  background-color: var(--paper);
+  color: var(--ink);
 }
 
 /* Entrada do painel depois do esqueleto (plugin gestao-splash.client.ts). */

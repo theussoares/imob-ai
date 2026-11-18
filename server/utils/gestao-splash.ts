@@ -9,9 +9,9 @@
  * Alternativa descartada: `app.spaLoadingTemplate` do Nuxt — só vale com `ssr: false` global; com
  * `routeRules` por rota (o nosso caso) o template não é emitido.
  *
- * Cores fixas e neutras: neste ponto ainda não se sabe o tenant nem o tema escolhido.
+ * O tema (claro/escuro) é lido da mesma chave do localStorage que `useGestaoTema` usa; o tenant ainda não é conhecido, então as cores são neutras.
  */
-export const GESTAO_SPLASH_HTML = `<div class="gestao-splash" aria-hidden="true">
+export const GESTAO_SPLASH_HTML = `<script>try{var t=localStorage.getItem('gestao_tema');if(t==='escuro'||(t!=='claro'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('gestao-escuro')}catch(e){}</script><div class="gestao-splash" aria-hidden="true">
   <div class="gs-intro"><div class="gs-logo"></div><div class="gs-pred"><i style="height:32px;animation-delay:.2s"></i><i style="height:50px;animation-delay:.45s"></i><i style="height:40px;animation-delay:1.45s"></i><i style="height:76px;animation-delay:.95s"></i><i style="height:46px;animation-delay:1.2s"></i><i style="height:62px;animation-delay:1.45s"></i></div></div>
   <p class="gs-falha">Não foi possível carregar o painel. <a href="">Tentar de novo</a></p>
   <style>
@@ -51,6 +51,15 @@ export const GESTAO_SPLASH_HTML = `<div class="gestao-splash" aria-hidden="true"
     @keyframes gs-brilho{to{background-position:-200% 0}}
     @media (max-width:767px){.gestao-splash .gs-main{grid-template-columns:1fr}.gestao-splash .gs-side{display:none}}
     @media (prefers-reduced-motion:reduce){.gestao-splash .gs,.gestao-splash .gs-logo,.gestao-splash .gs-pred i,.gestao-splash .gs-pred i:after{animation:none}.gestao-splash .gs-intro{animation-duration:.01s;animation-delay:.6s}}
+    /* Tema escuro: a classe é posta no <html> pelo script acima, antes do primeiro quadro. */
+    html.gestao-escuro .gestao-splash,html.gestao-escuro .gestao-splash .gs-intro{background:#111113}
+    html.gestao-escuro .gestao-splash .gs-top,html.gestao-escuro .gestao-splash .gs-side{background:#1c1c1f;border-color:#2e2e33}
+    html.gestao-escuro .gestao-splash .gs{background:linear-gradient(90deg,#2e2e33 25%,#3a3a40 50%,#2e2e33 75%);background-size:200% 100%}
+    html.gestao-escuro .gestao-splash .gs-acento{background:#facc15}
+    html.gestao-escuro .gestao-splash .gs-pred i{background:#44444b}
+    html.gestao-escuro .gestao-splash .gs-logo{background:#f4f4f5}
+    html.gestao-escuro .gestao-splash .gs-falha{color:#a1a1aa}
+    html.gestao-escuro .gestao-splash .gs-falha a{color:#f4f4f5}
   </style>
   <div class="gs-top"><div class="gs-logo"></div><div class="gs" style="width:140px;height:16px"></div></div>
   <div class="gs-main">

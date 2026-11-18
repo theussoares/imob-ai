@@ -30,7 +30,7 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
           class="flex min-h-11 min-w-32 cursor-pointer lg:h-full lg:w-full lg:min-w-0 flex-col items-start justify-center rounded-[10px] border px-3 py-1.5 text-left"
           :class="
             vista === i + 1
-              ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
+              ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--on-brand)]'
               : 'border-[var(--line-2)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--brand-ghost)]'
           "
           @click="emit('ir', i + 1)"
@@ -42,7 +42,7 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
           <!-- Estado em texto: cor/ícone sozinhos não bastam (daltonismo, leitor de tela). -->
           <span
             class="text-[length:var(--fs-caption)]"
-            :class="vista === i + 1 ? 'text-white/85' : 'text-[var(--ink-soft)]'"
+            :class="vista === i + 1 ? 'text-[var(--on-brand)] opacity-85' : 'text-[var(--ink-soft)]'"
           >
             {{ concluidas[i] ? 'concluída' : i + 1 === atual ? 'em andamento' : 'pendente' }}
           </span>

@@ -56,6 +56,12 @@ const ICONES: Record<string, string> = {
 // Menu do avatar e paleta de navegação (Ctrl/Cmd+K). Fecham com Esc ou clique fora.
 const menuAberto = ref(false)
 const drawer = ref(false)
+const tema = useGestaoTema()
+const TEMAS = [
+  { v: 'sistema', r: 'Sistema' },
+  { v: 'claro', r: 'Claro' },
+  { v: 'escuro', r: 'Escuro' },
+] as const
 watch(() => route.path, () => { drawer.value = false })
 const buscaAberta = ref(false)
 const termo = ref('')
@@ -119,7 +125,7 @@ const btn =
           <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <span
-          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-bold text-white"
+          class="[display:grid] size-8 place-items-center rounded-lg bg-[var(--brand)] font-bold text-[var(--on-brand)]"
           aria-hidden="true"
         >
           {{ (tenant?.name || 'G').slice(0, 1) }}
@@ -153,7 +159,7 @@ const btn =
             data-testid="menu-avatar"
             @click="menuAberto = !menuAberto"
           >
-            <span class="[display:grid] size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-white" aria-hidden="true">
+            <span class="[display:grid] size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-[var(--on-brand)]" aria-hidden="true">
               {{ sessao.nome.slice(0, 1) }}
             </span>
             <span class="hidden flex-col text-left leading-tight sm:flex">
@@ -167,6 +173,20 @@ const btn =
             class="absolute right-0 z-40 mt-2 flex w-56 flex-col gap-1 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-2 shadow-[0_8px_24px_rgba(20,22,26,0.12)]"
           >
             <p class="m-0 px-3 py-1 text-[var(--ink-soft)]">{{ PERFIS[sessao.perfil].nome }}</p>
+            <div role="group" aria-label="Tema" class="flex gap-1 px-1 pb-1" data-testid="tema">
+              <button
+                v-for="t in TEMAS"
+                :key="t.v"
+                type="button"
+                class="min-h-9 flex-1 cursor-pointer rounded-lg border px-2 text-[length:var(--fs-caption)] font-semibold"
+                :class="tema.preferencia.value === t.v ? 'border-[var(--brand)] bg-[var(--brand)] text-[var(--on-brand)]' : 'border-[var(--line-2)] text-[var(--ink-soft)]'"
+                :aria-pressed="tema.preferencia.value === t.v"
+                :data-testid="`tema-${t.v}`"
+                @click="tema.definir(t.v)"
+              >
+                {{ t.r }}
+              </button>
+            </div>
             <button v-if="!store.http" type="button" role="menuitem" class="min-h-11 cursor-pointer rounded-lg border-0 bg-transparent px-3 text-left font-semibold hover:bg-[var(--surface)]" @click="menuAberto = false; restaurarDados()">
               Restaurar dados
             </button>

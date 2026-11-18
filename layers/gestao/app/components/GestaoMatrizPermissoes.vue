@@ -100,7 +100,7 @@ const col = (p: Perfil) => (p === perfilMovel.value ? '' : 'hidden md:table-cell
                 @click="mudar(d.chave, p, store.matriz.value[d.chave][p] === 'sim' ? 'nao' : 'sim')"
               >
                 <span
-                  class="absolute top-0.5 left-0.5 size-6 rounded-full bg-white transition-transform"
+                  class="absolute top-0.5 left-0.5 size-6 rounded-full bg-[var(--paper)] transition-transform"
                   :class="store.matriz.value[d.chave][p] === 'sim' ? 'translate-x-5' : ''"
                 />
               </button>
@@ -113,7 +113,7 @@ const col = (p: Perfil) => (p === perfilMovel.value ? '' : 'hidden md:table-cell
                   :aria-checked="store.matriz.value[d.chave][p] === e"
                   :disabled="permissaoFixa(d.chave, p)"
                   class="min-h-8 cursor-pointer whitespace-nowrap rounded-full border px-2.5 text-[length:var(--fs-caption)] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                  :class="store.matriz.value[d.chave][p] === e ? 'border-[var(--brand)] bg-[var(--brand)] text-white' : 'border-[var(--line-2)] text-[var(--ink-soft)]'"
+                  :class="store.matriz.value[d.chave][p] === e ? 'border-[var(--brand)] bg-[var(--brand)] text-[var(--on-brand)]' : 'border-[var(--line-2)] text-[var(--ink-soft)]'"
                   @click="mudar(d.chave, p, e)"
                 >
                   {{ ROTULO_VALOR[e] }}

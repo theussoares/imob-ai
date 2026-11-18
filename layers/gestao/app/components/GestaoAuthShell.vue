@@ -12,7 +12,7 @@ const predios = [
 <template>
   <div class="[display:grid] min-h-dvh bg-[var(--surface)] lg:grid-cols-[1.05fr_1fr]">
     <aside
-      class="relative hidden overflow-hidden bg-[var(--brand)] p-12 text-white lg:flex lg:flex-col"
+      class="relative hidden overflow-hidden bg-[#17171a] p-12 text-white lg:flex lg:flex-col"
       aria-hidden="true"
     >
       <div class="relative z-10 flex items-center gap-2.5 font-bold">

@@ -104,7 +104,9 @@ useHead(() => ({
       cookie de sessão <b>estritamente necessário</b> depois do login, para você
       continuar conectado ao recarregar a página. Ele não é lido por scripts, não
       serve a rastreamento ou publicidade e expira após 8 horas sem uso. Quem
-      apenas visita o site não recebe esse cookie.
+      apenas visita o site não recebe esse cookie. O painel também lembra, só no
+      seu navegador, se você prefere o tema claro ou escuro; essa escolha não é
+      enviada a nenhum servidor.
     </p>
     <p>
       Medimos quantas pessoas visitam cada página sem cookies e sem um
