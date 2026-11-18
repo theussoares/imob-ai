@@ -8,7 +8,6 @@ useHead({ title: 'Financeiro · Gestão' })
 
 const store = useGestaoStore()
 const toast = useToast()
-const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 await store.carregar(false, ['base'])
 
 const competencia = ref('')
@@ -35,15 +34,13 @@ watch(competencia, atualizar)
 const podeValores = computed(() => !!store.caps(null)?.valores)
 
 // Mesma ação do contrato (etapa 7): a regra e o histórico da locação são os mesmos nos dois lugares.
-async function registrar(loc: string, acao: 'registrarPagamento' | 'registrarRepasse', cobrancaId: string, comprovante: string, sucesso: string) {
-  const r = await store.executar('locacao', loc, acao, { cobrancaId, data: new Date().toISOString().slice(0, 10), comprovante })
-  if (r.ok) {
-    toast.success(sucesso)
-    await atualizar()
-  } else toast.error(r.erro)
+async function registrar(acao: 'pagar' | 'repassar', loc: string, cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }): Promise<string | null> {
+  const r = await store.executar('locacao', loc, acao === 'pagar' ? 'registrarPagamento' : 'registrarRepasse', { cobrancaId, ...d })
+  if (!r.ok) return r.erro
+  toast.success(acao === 'pagar' ? 'Pagamento registrado.' : 'Repasse registrado.')
+  await atualizar()
+  return null
 }
-const pagar = (loc: string, cb: string, comp: string) => registrar(loc, 'registrarPagamento', cb, comp, 'Pagamento registrado.')
-const repassar = (loc: string, cb: string, comp: string) => registrar(loc, 'registrarRepasse', cb, comp, 'Repasse registrado.')
 
 const mes = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
 const dia = (iso: string) => iso.split('-').reverse().join('/')
@@ -76,7 +73,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       Há mais de 5000 contratos de cada tipo: os totais cobrem só os mais recentes.
     </p>
 
-    <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :demo="demo" @pagar="pagar" @repassar="repassar" />
+    <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :registrar="registrar" />
 
     <div role="tablist" aria-label="Seções do financeiro" class="flex gap-1 border-b border-[var(--line)]">
       <button
@@ -175,7 +172,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
               </td>
               <td :class="td">{{ mes(l.competencia) }}</td>
               <td :class="td">{{ dia(l.vencimento) }}</td>
-              <td :class="td">{{ brl(l.valor) }}</td>
+              <td :class="td">{{ brl(l.valor) }}<div v-if="l.diasAtraso && l.situacao !== 'paga'" class="text-[length:var(--fs-caption)] text-[#7f1d1d]">com multa e juros: {{ brl(l.atualizado) }}</div></td>
               <td :class="td" class="font-bold">{{ ROTULO_SITUACAO[l.situacao] }}</td>
               <td :class="td">{{ brl(l.taxa) }}</td>
               <td :class="td">{{ brl(l.repasse) }}<div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ ROTULO_REPASSE[l.repasseSituacao] }}</div></td>

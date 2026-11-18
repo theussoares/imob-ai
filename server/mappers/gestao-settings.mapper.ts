@@ -44,6 +44,8 @@ export function configDoBanco(salva: unknown): ConfiguracoesGestao {
     imobiliaria: { nome: texto(im.nome), cnpj: texto(im.cnpj), email: texto(im.email), telefone: texto(im.telefone) },
     comissaoPct: salva.comissaoPct as number,
     taxaLocacaoPct: salva.taxaLocacaoPct as number,
+    multaAtrasoPct: salva.multaAtrasoPct as number | undefined,
+    jurosMesPct: salva.jurosMesPct as number | undefined,
   })
   return r.ok ? r.config : padrao
 }

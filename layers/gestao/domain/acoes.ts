@@ -1,5 +1,6 @@
 import { statusFinal, TOTAL_ETAPAS } from './status'
 import { rotuloQuando } from './fuso'
+import type { EncargosConfig } from './cobranca'
 import { requisitoPorChave, pendenciasEtapa } from './requisitos'
 import { STATUS_INICIAL } from './seed'
 import type { Documento, CategoriaDocumento, Locacao, Processo, StatusVenda } from './types'
@@ -17,6 +18,8 @@ export interface Estado {
   processos: Processo[]
   documentos: Documento[]
   locacoes: Locacao[]
+  /** Multa e juros em vigor (configurações). Ausente = padrão. Só o pagamento de cobrança lê. */
+  encargos?: EncargosConfig
 }
 
 export interface Ator {

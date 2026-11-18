@@ -35,7 +35,18 @@ const def = <D>(d: DefAcao<D>): DefAcao<unknown> => d as unknown as DefAcao<unkn
 const vazio = z.object({})
 const iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
-const comprovada = z.object({ cobrancaId: z.string().max(40), data: iso, comprovante: z.string().max(300) })
+/**
+ * Pagamento e repasse: valor, data, forma e comprovante OPCIONAL. Valor e data entram soltos
+ * (`unknown`/string) para a função do domínio devolver a frase certa («Informe um valor maior que
+ * zero.»), como no contrato; `hoje` para «data não futura» vem do relógio do servidor, nunca do corpo.
+ */
+const recebimento = z.object({
+  cobrancaId: z.string().max(40),
+  valor: z.unknown(),
+  data: iso,
+  forma: z.string().max(20),
+  comprovante: z.string().max(300).nullish(),
+})
 
 /**
  * Números do contrato entram como `unknown`: a função do domínio já checa tipo e
@@ -87,13 +98,13 @@ export const ACOES_LOCACAO: Record<string, DefAcao<unknown>> = {
   }),
   registrarPagamento: def({
     permissao: () => ['valores'],
-    schema: comprovada,
-    fn: (e, id, d, a, q) => acoes.registrarPagamento(e, id, d.cobrancaId, { data: d.data, comprovante: d.comprovante }, a, q),
+    schema: recebimento,
+    fn: (e, id, d, a, q) => acoes.registrarPagamento(e, id, d.cobrancaId, d as never, a, q),
   }),
   registrarRepasse: def({
     permissao: () => ['valores'],
-    schema: comprovada,
-    fn: (e, id, d, a, q) => acoes.registrarRepasse(e, id, d.cobrancaId, { data: d.data, comprovante: d.comprovante }, a, q),
+    schema: recebimento,
+    fn: (e, id, d, a, q) => acoes.registrarRepasse(e, id, d.cobrancaId, d as never, a, q),
   }),
   concluirEtapaLocacao: def({
     permissao: (d: { etapa: number }) => (d.etapa === 7 ? ['valores'] : ['editar']),

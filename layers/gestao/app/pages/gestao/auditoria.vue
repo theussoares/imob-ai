@@ -90,7 +90,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
             <td :class="td">{{ e.quem }}</td>
             <td :class="td">{{ e.acao }}</td>
             <td :class="td">
-              <NuxtLink :to="href(e)" class="font-bold text-[var(--brand)]">{{ e.contratoId }}</NuxtLink>
+              <NuxtLink :to="href(e)" class="font-bold whitespace-nowrap text-[var(--brand)]">{{ e.contratoId }}</NuxtLink>
               <span v-if="e.arquivado" class="ml-1 text-[length:var(--fs-caption)] text-[var(--ink-soft)]">(arquivado)</span>
               <div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ e.imovel }}</div>
             </td>

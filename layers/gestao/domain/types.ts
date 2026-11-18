@@ -214,10 +214,27 @@ export interface ContratoLocacao {
   taxaPct: number
 }
 
-export interface Repasse {
+export type FormaPagamentoCobranca = 'PIX' | 'Dinheiro' | 'Transferência' | 'Boleto' | 'Outro'
+
+/** Um recebimento da cobrança. Só cresce (nunca editado nem apagado): o histórico do dinheiro. */
+export interface Pagamento {
+  id: string
   valor: number
+  /** ISO yyyy-mm-dd */
+  data: string
+  forma: FormaPagamentoCobranca
+  /** Opcional: o comprovante deixou de ser obrigatório. */
+  comprovante?: string | null
+}
+
+export interface Repasse {
+  /** devido ao locador: aluguel menos a taxa. */
+  valor: number
+  /** já repassado (soma dos repasses; pode ser parcial). Ausente = 0, ou `valor` se `feito` for legado. */
+  repassado?: number
   feito: boolean
   data?: string
+  forma?: FormaPagamentoCobranca
   comprovante?: string | null
 }
 
@@ -228,7 +245,10 @@ export interface Cobranca {
   valor: number
   /** ISO yyyy-mm-dd */
   vencimento: string
+  /** Quitada: marcador que avisos e recortes já usavam. `comprovante` pode ser vazio (opcional). */
   pago?: { data: string; comprovante: string }
+  /** Recebimentos, inclusive parciais (a cobrança só vira `pago` quando a soma cobre o valor atualizado). */
+  pagamentos?: Pagamento[]
   repasse?: Repasse
 }
 

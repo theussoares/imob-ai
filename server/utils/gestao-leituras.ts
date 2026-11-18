@@ -17,6 +17,8 @@ import { buscarVenda, listarTodasVendas } from '~~/server/repositories/gestao-ve
 import { registrarEvento, listarEventos } from '~~/server/repositories/gestao-evento.repository'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
+import { encargosDaConfig } from '~~/layers/gestao/domain/configuracoes'
+import { lerSettings } from '~~/server/repositories/gestao-settings.repository'
 
 /**
  * Leituras agregadas do gestão (financeiro, dashboard, auditoria, consulta cadastral).
@@ -66,11 +68,12 @@ export async function financeiro(ctx: ContextoGestao, competencia: string): Prom
   }
   const { processos, locacoes, truncado } = await contratosVisiveis(ctx)
   const h = hoje()
+  const enc = encargosDaConfig((await lerSettings(ctx.db, ctx.membro.tenantId)).config)
   return {
     vendas: resumoVendas(processos),
-    locacoes: resumoLocacoes(locacoes, h, competencia),
+    locacoes: resumoLocacoes(locacoes, h, competencia, enc),
     competencias: competenciasDisponiveis(locacoes),
-    pendencias: pendenciasFinanceiras(locacoes, h),
+    pendencias: pendenciasFinanceiras(locacoes, h, enc),
     truncado,
   }
 }

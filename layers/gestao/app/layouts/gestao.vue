@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { semAcento } from '../../domain/imoveis'
 import { MENU, menuVisivel, PERFIS } from '../../domain/permissions'
 
 const route = useRoute()
@@ -66,15 +67,35 @@ watch(() => route.path, () => { drawer.value = false })
 const buscaAberta = ref(false)
 const termo = ref('')
 const campoBusca = ref<HTMLInputElement | null>(null)
+// Telas (sempre) + contratos e imóveis (a partir da 1ª letra): por id, imóvel e nomes das partes.
+// Só procura no que já está carregado; abrir a busca pede as fatias que faltam (ver `abrirBusca`).
+const POR_GRUPO = 5
 const resultados = computed(() => {
   const t = termo.value.trim().toLowerCase()
-  return itens.value.filter((m) => !t || m.rotulo.toLowerCase().includes(t))
+  const telas = itens.value.filter((m) => !t || m.rotulo.toLowerCase().includes(t)).map((m) => ({ ...m, grupo: '' }))
+  if (!t) return telas
+  const q = semAcento(t)
+  const casa = (...campos: (string | null | undefined)[]) => semAcento(campos.filter(Boolean).join(' ')).includes(q)
+  const vendas = store.processos.value
+    .filter((p) => casa(p.id, p.imovel, p.vendedor.nome, p.comprador.nome))
+    .slice(0, POR_GRUPO)
+    .map((p) => ({ chave: `v-${p.id}`, rotulo: `${p.id} · ${p.imovel}`, rota: `/gestao/vendas/${p.id}`, grupo: 'Vendas' }))
+  const locs = store.locacoes.value
+    .filter((l) => casa(l.id, l.imovel, l.locador.nome, l.locatario.nome))
+    .slice(0, POR_GRUPO)
+    .map((l) => ({ chave: `l-${l.id}`, rotulo: `${l.id} · ${l.imovel}`, rota: `/gestao/locacao/${l.id}`, grupo: 'Locações' }))
+  const imoveis = store.imoveis.value
+    .filter((i) => casa(i.title, i.location, i.neighborhood, i.ownerName))
+    .slice(0, POR_GRUPO)
+    .map((i) => ({ chave: `i-${i.id}`, rotulo: i.title, rota: `/gestao/imoveis/${i.id}`, grupo: 'Imóveis' }))
+  return [...telas, ...vendas, ...locs, ...imoveis]
 })
 async function abrirBusca() {
   menuAberto.value = false
   drawer.value = false
   buscaAberta.value = true
   termo.value = ''
+  void store.carregar(false, ['vendas', 'locacoes', 'imoveis'])
   await nextTick()
   campoBusca.value?.focus()
 }
@@ -263,14 +284,16 @@ const btn =
           ref="campoBusca"
           v-model="termo"
           type="search"
-          placeholder="Ir para… (Dashboard, Imóveis, Financeiro)"
+          placeholder="Telas, contratos (V-/L-), imóveis ou nomes…"
           class="min-h-12 w-full border-0 border-b border-[var(--line)] px-4 text-[length:var(--fs-body)] outline-none"
           data-testid="busca-global-campo"
           @keydown.enter="resultados[0] && ir(resultados[0].rota)"
         />
         <ul class="m-0 max-h-72 list-none overflow-y-auto p-2">
           <li v-for="m in resultados" :key="m.chave">
-            <button type="button" class="min-h-11 w-full cursor-pointer rounded-lg border-0 bg-transparent px-3 text-left font-semibold hover:bg-[var(--brand-ghost)]" @click="ir(m.rota)">{{ m.rotulo }}</button>
+            <button type="button" class="min-h-11 w-full cursor-pointer rounded-lg border-0 bg-transparent px-3 text-left font-semibold hover:bg-[var(--brand-ghost)]" @click="ir(m.rota)">
+              <small v-if="m.grupo" class="mr-2 font-bold text-[var(--ink-soft)]">{{ m.grupo }}</small>{{ m.rotulo }}
+            </button>
           </li>
           <li v-if="!resultados.length" class="px-3 py-3 text-[var(--ink-soft)]">Nada encontrado.</li>
         </ul>

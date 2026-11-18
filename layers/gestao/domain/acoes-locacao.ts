@@ -2,6 +2,7 @@ import { agora, type Ator, type Estado, type Resultado } from './acoes.ts'
 import { pendenciasEtapaLocacao } from './locacao-requisitos.ts'
 import { locacaoFinal, statusPorEtapa, TOTAL_ETAPAS_LOCACAO } from './locacao-status.ts'
 import { requisitoPorChave } from './requisitos.ts'
+import { aplicarPagamento, totalPago, validarPagamento, type DadosPagamento } from './cobranca.ts'
 import type { CategoriaDocumento, Cobranca, ContratoLocacao, Documento, Locacao, Pessoa, TipoGarantia, Vistoria } from './types'
 
 /**
@@ -168,39 +169,62 @@ function naCobranca(l: Locacao, cobrancaId: string, fn: (c: Cobranca) => Cobranc
   return { ok: true, acao: c.competencia, locacao: { ...l, cobrancas: l.cobrancas.map((x) => (x.id === cobrancaId ? r : x)) } }
 }
 
-interface Comprovada {
-  data: string
-  comprovante: string
+/** Hoje (ISO) no fuso do painel, tirado do rótulo `dd/mm/aaaa hh:mm` que o servidor/mock já passa. */
+const hojeDe = (quando: string): string => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(quando)
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : ''
 }
+const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function registrarPagamento(estado: Estado, id: string, cobrancaId: string, d: Comprovada, ator: Ator, quando = agora()): Resultado {
+export type DadosRecebimento = DadosPagamento
+
+/**
+ * Registra um recebimento (parcial ou total). Só quita — marca `pago` e libera o repasse — quando a
+ * soma recebida cobre o valor atualizado na data do pagamento; até lá a cobrança fica «Parcial» com
+ * o saldo em aberto. Repasse só depois de quitada (o mais simples: sem repasse proporcional, que
+ * obrigaria a refazer a conta a cada parcela). O comprovante é opcional.
+ */
+export function registrarPagamento(estado: Estado, id: string, cobrancaId: string, d: DadosRecebimento & { cobrancaId?: string }, ator: Ator, quando = agora()): Resultado {
   return alterar(estado, id, ator, quando, (l) => {
-    if (!d.comprovante.trim()) return { ok: false, erro: 'Anexe o comprovante para marcar como pago.' }
-    if (!ISO.test(d.data)) return { ok: false, erro: 'Informe a data do pagamento.' }
+    const erro = validarPagamento(d, hojeDe(quando))
+    if (erro) return { ok: false, erro }
     const taxa = l.contrato?.taxaPct ?? 0
-    const r = naCobranca(l, cobrancaId, (c) =>
-      c.pago
-        ? 'Esta cobrança já está paga.'
-        : {
-            ...c,
-            pago: { data: d.data, comprovante: d.comprovante.trim() },
-            repasse: { valor: arredonda(c.valor - (c.valor * taxa) / 100), feito: false },
-          },
-    )
-    return r.ok ? { ...r, acao: `Registrou o pagamento de ${r.acao}` } : r
+    const r = naCobranca(l, cobrancaId, (c) => {
+      if (c.pago) return 'Esta cobrança já está paga.'
+      const comprovante = d.comprovante?.trim() || null
+      const idPag = `pg-${(c.pagamentos?.length ?? 0) + 1}`
+      const { cobranca, quitou, atualizado } = aplicarPagamento(c, { id: idPag, valor: arredonda(d.valor), data: d.data, forma: d.forma, comprovante }, estado.encargos)
+      if (totalPago(cobranca) > atualizado + 0.004) return `O valor passa do total devido (${brl(arredonda(atualizado - totalPago(c)))}).`
+      if (!quitou) return cobranca
+      return {
+        ...cobranca,
+        pago: { data: d.data, comprovante: cobranca.pagamentos!.find((p) => p.comprovante)?.comprovante ?? '' },
+        repasse: { valor: arredonda(c.valor - (c.valor * taxa) / 100), feito: false },
+      }
+    })
+    if (!r.ok) return r
+    const c = r.locacao.cobrancas.find((x) => x.id === cobrancaId)!
+    const parcial = !c.pago
+    // Sem o valor no texto: o `hist` chega inteiro a perfis sem `valores` (o recorte só cobre contrato e cobranças).
+    return { ...r, acao: `${parcial ? 'Registrou pagamento parcial' : 'Registrou o pagamento'} de ${r.acao} (${d.forma})` }
   })
 }
 
-export function registrarRepasse(estado: Estado, id: string, cobrancaId: string, d: Comprovada, ator: Ator, quando = agora()): Resultado {
+/** Repasse ao locador: só depois de quitada; pode ser parcial; `feito` quando a soma cobre o devido. */
+export function registrarRepasse(estado: Estado, id: string, cobrancaId: string, d: DadosRecebimento & { cobrancaId?: string }, ator: Ator, quando = agora()): Resultado {
   return alterar(estado, id, ator, quando, (l) => {
+    const erro = validarPagamento(d, hojeDe(quando))
+    if (erro) return { ok: false, erro }
     const r = naCobranca(l, cobrancaId, (c) => {
-      if (!c.pago || !c.repasse) return 'Registre o pagamento antes do repasse.'
+      if (!c.pago || !c.repasse) return 'Quite a cobrança antes do repasse.'
       if (c.repasse.feito) return 'O repasse desta cobrança já foi feito.'
-      if (!d.comprovante.trim()) return 'Anexe o comprovante do repasse.'
-      if (!ISO.test(d.data)) return 'Informe a data do repasse.'
-      return { ...c, repasse: { ...c.repasse, feito: true, data: d.data, comprovante: d.comprovante.trim() } }
+      const ja = c.repasse.repassado ?? 0
+      const falta = arredonda(c.repasse.valor - ja)
+      if (d.valor > falta + 0.004) return `O repasse passa do que falta repassar (${brl(falta)}).`
+      const repassado = arredonda(ja + d.valor)
+      return { ...c, repasse: { ...c.repasse, repassado, feito: repassado + 0.004 >= c.repasse.valor, data: d.data, forma: d.forma, comprovante: d.comprovante?.trim() || null } }
     })
-    return r.ok ? { ...r, acao: `Registrou o repasse de ${r.acao}` } : r
+    return r.ok ? { ...r, acao: `Registrou o repasse de ${r.acao} (${d.forma})` } : r
   })
 }
 

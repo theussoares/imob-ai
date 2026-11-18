@@ -39,8 +39,10 @@ export function calcularComissao(
     const ultima = i === ordem.length - 1
     const valor = ultima ? centavos(total - acumulado) : centavos((total * divisao[resp]) / 100)
     acumulado = centavos(acumulado + valor)
+    // Só o PAGO abate o restante: adiantamento «Não pago» é promessa, e contá-lo mostrava um restante menor
+    // que o dinheiro de fato entregue. `pago` ausente (processo antigo, anterior ao checkbox) vale como pago.
     const adiantado = centavos(
-      p.adiantamentos.filter((a) => a.resp === resp).reduce((t, a) => t + a.valor, 0),
+      p.adiantamentos.filter((a) => a.resp === resp && a.pago !== false).reduce((t, a) => t + a.valor, 0),
     )
     return { resp, pct: divisao[resp], total: valor, adiantado, restante: centavos(valor - adiantado) }
   })
@@ -58,7 +60,10 @@ export function validarAdiantamento(
   if (!(novo.valor > 0)) return { ok: false, erro: 'Informe um valor maior que zero.' }
   const parte = calcularComissao(p).partes.find((x) => x.resp === novo.resp)
   if (!parte) return { ok: false, erro: 'Responsável inválido.' }
-  if (novo.valor > parte.restante) {
+  // O limite considera também os «Não pago» já lançados: eles não abatem o restante exibido, mas
+  // lançar dois acima do total deixaria um deles impossível de pagar depois.
+  const prometido = centavos(p.adiantamentos.filter((a) => a.resp === novo.resp && a.pago === false).reduce((t, a) => t + a.valor, 0))
+  if (novo.valor > centavos(parte.restante - prometido)) {
     return { ok: false, erro: 'O adiantamento não pode passar do que resta dessa parte da comissão.' }
   }
   return { ok: true }

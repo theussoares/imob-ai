@@ -26,7 +26,8 @@ const pago = ref(false)
 // Só o NOME do arquivo é guardado: a demonstração não envia o binário.
 const comprovante = ref<string | null>(null)
 const inputArquivo = ref<HTMLInputElement | null>(null)
-const erro = ref('')
+const erroValor = ref('')
+const erroComprovante = ref('')
 
 const ROTULO_MOMENTO = { adiantamento: 'Adiantamento', 'fim-contrato': 'Fim de contrato' }
 
@@ -37,16 +38,15 @@ function escolherArquivo(e: Event) {
 function registrar() {
   // Valida aqui para mostrar o erro junto do campo; a ação pura valida de novo
   // (é ela a fonte da regra, a tela só antecipa a mensagem).
-  if (pago.value && !comprovante.value) {
-    erro.value = MSG_PAGO_SEM_COMPROVANTE
-    return
-  }
+  // Cada erro junto do SEU campo (e o foco nele), não numa linha solta no fim do formulário.
+  erroValor.value = erroComprovante.value = ''
   const v = validarAdiantamento(props.processo, { resp: resp.value, valor: valor.value ?? 0 })
-  if (!v.ok) {
-    erro.value = v.erro
+  if (!v.ok) erroValor.value = v.erro
+  if (pago.value && !comprovante.value) erroComprovante.value = MSG_PAGO_SEM_COMPROVANTE
+  if (erroValor.value || erroComprovante.value) {
+    document.getElementById(erroValor.value ? 'adi-valor' : 'adi-comprovante')?.focus()
     return
   }
-  erro.value = ''
   emit('registrar', {
     resp: resp.value,
     valor: valor.value ?? 0,
@@ -76,7 +76,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
         {{ brl(comissao.total) }}
       </p>
       <p class="m-0 text-[var(--ink-soft)]">
-        Adiantado {{ brl(comissao.adiantado) }}
+        Adiantado (só o pago) {{ brl(comissao.adiantado) }}
       </p>
       <p class="m-0 mt-2 text-[length:var(--fs-label)] font-bold text-[var(--ink-soft)]">Comissão final a receber</p>
       <p class="m-0 text-[length:var(--fs-title-sm)] font-bold" data-testid="comissao-final">
@@ -93,7 +93,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
       >
         <p class="m-0 font-bold">{{ ROTULO[p.resp] }} · {{ p.pct }}%</p>
         <p class="m-0 text-[length:var(--fs-title-sm)] font-bold">{{ brl(p.total) }}</p>
-        <p class="m-0 text-[var(--ink-soft)]">Adiantado {{ brl(p.adiantado) }}</p>
+        <p class="m-0 text-[var(--ink-soft)]">Adiantado (pago) {{ brl(p.adiantado) }}</p>
         <p class="m-0 text-[var(--ink-soft)]">Restante {{ brl(p.restante) }}</p>
       </li>
     </ul>
@@ -133,7 +133,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
         </li>
       </ul>
 
-      <form v-if="editavel" class="mt-4 [display:grid] gap-3 sm:grid-cols-3 sm:items-end" novalidate @submit.prevent="registrar">
+      <form v-if="editavel" class="mt-4 [display:grid] items-start gap-3 sm:grid-cols-2" novalidate @submit.prevent="registrar">
         <label :class="rotuloCampo">
           Responsável
           <select v-model="resp" :class="campo" data-testid="adiantamento-resp">
@@ -149,10 +149,13 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
             step="0.01"
             inputmode="decimal"
             :class="campo"
+            id="adi-valor"
             data-testid="adiantamento-valor"
-            :aria-invalid="erro ? 'true' : undefined"
-            aria-describedby="adiantamento-erro"
+            :aria-invalid="erroValor ? 'true' : undefined"
+            :aria-describedby="erroValor ? 'adi-e-valor' : undefined"
+            @input="erroValor = ''"
           />
+          <span v-if="erroValor" id="adi-e-valor" class="font-semibold text-[var(--danger)]" role="alert" data-testid="adiantamento-erro">{{ erroValor }}</span>
         </label>
         <label :class="rotuloCampo">
           Data
@@ -171,9 +174,13 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
             type="file"
             accept=".pdf,.jpg,.jpeg,.png,.webp"
             class="min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-2 py-2 text-[length:var(--fs-ui)]"
+            id="adi-comprovante"
             data-testid="adiantamento-comprovante-arquivo"
-            @change="escolherArquivo"
+            :aria-invalid="erroComprovante ? 'true' : undefined"
+            :aria-describedby="erroComprovante ? 'adi-e-comprovante' : undefined"
+            @change="escolherArquivo(); erroComprovante = ''"
           />
+          <span v-if="erroComprovante" id="adi-e-comprovante" class="font-semibold text-[var(--danger)]" role="alert">{{ erroComprovante }}</span>
         </label>
         <label class="flex min-h-11 cursor-pointer items-center gap-3 font-bold">
           <input v-model="pago" type="checkbox" class="size-5 accent-[var(--brand)]" data-testid="adiantamento-pago-check" />
@@ -181,19 +188,11 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
         </label>
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 sm:col-span-2 sm:w-fit"
           data-testid="adiantamento-registrar"
         >
           Registrar
         </button>
-        <p
-          id="adiantamento-erro"
-          class="m-0 font-semibold text-[var(--danger)] sm:col-span-3"
-          role="alert"
-          data-testid="adiantamento-erro"
-        >
-          {{ erro }}
-        </p>
       </form>
       <p v-else class="m-0 mt-3 text-[var(--ink-soft)]">Processo encerrado: adiantamentos só para consulta.</p>
     </div>

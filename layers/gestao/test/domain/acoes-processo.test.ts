@@ -30,11 +30,14 @@ function ok(r: ReturnType<typeof registrarAdiantamento>) {
 
 describe('registrarAdiantamento', () => {
   it('registra dentro do que resta, com autor e histórico', () => {
-    const e = ok(registrarAdiantamento(novo(), ABERTO, { resp: 'vendedor', valor: 3600, data: '2026-11-15' }, ator, quando))
+    const e = ok(registrarAdiantamento(novo(), ABERTO, { resp: 'vendedor', valor: 3600, data: '2026-11-15', pago: true, comprovante: 'c.pdf' }, ator, quando))
     const p = proc(e, ABERTO)
     expect(p.adiantamentos).toHaveLength(2)
     expect(p.adiantamentos.at(-1)).toMatchObject({ resp: 'vendedor', valor: 3600, quem: 'Paulo Ribeiro' })
     expect(calcularComissao(p).partes[0]!.restante).toBe(0)
+    // «Não pago» registra, mas não abate o restante.
+    const naoPago = proc(ok(registrarAdiantamento(novo(), ABERTO, { resp: 'vendedor', valor: 3600, data: '2026-11-15' }, ator, quando)), ABERTO)
+    expect(calcularComissao(naoPago).partes[0]!.restante).toBeGreaterThan(0)
     expect(p.hist[0]).toMatchObject({ quem: 'Paulo Ribeiro', quando })
     expect(p.hist[0]!.acao).toContain('adiantamento')
     expect(p.updated).toBe(quando)

@@ -36,7 +36,7 @@ describe('mapa de ações da locação', () => {
 
   test('dados inválidos são recusados', () => {
     expect(ACOES_LOCACAO.salvarGarantia!.schema.safeParse({ tipo: 'Hipoteca', detalhe: '' }).success).toBe(false)
-    expect(ACOES_LOCACAO.registrarPagamento!.schema.safeParse({ cobrancaId: 'x', data: '17/11', comprovante: 'a' }).success).toBe(false)
+    expect(ACOES_LOCACAO.registrarPagamento!.schema.safeParse({ cobrancaId: 'x', valor: 1, data: '17/11/2026', forma: 'PIX' }).success).toBe(false)
     expect(corpoAcaoSchema.safeParse({ acao: 'arquivarLocacao' }).success).toBe(false) // sem versao
     expect(corpoAcaoSchema.safeParse({ acao: 'arquivarLocacao', versao: 0 }).success).toBe(false)
   })

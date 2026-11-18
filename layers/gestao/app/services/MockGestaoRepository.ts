@@ -1,4 +1,5 @@
 import * as acoes from '../../domain/acoes'
+import { encargosDaConfig } from '../../domain/configuracoes'
 import { agora as agoraDominio, type Ator, type Estado, type NovoProcesso, type Resultado as ResultadoDominio } from '../../domain/acoes'
 import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '../../domain/acoes-ciclo'
 import * as loc from '../../domain/acoes-locacao'
@@ -53,8 +54,8 @@ const LOCACAO: Record<string, Fn> = {
   salvarVistoria: (e, id, d, a) => loc.salvarVistoria(e, id, d.quando, d.vistoria, a),
   salvarContrato: (e, id, d, a) => loc.salvarContrato(e, id, d, a),
   gerarCobranca: (e, id, d, a) => loc.gerarCobranca(e, id, d.competencia, a),
-  registrarPagamento: (e, id, d, a) => loc.registrarPagamento(e, id, d.cobrancaId, { data: d.data, comprovante: d.comprovante }, a),
-  registrarRepasse: (e, id, d, a) => loc.registrarRepasse(e, id, d.cobrancaId, { data: d.data, comprovante: d.comprovante }, a),
+  registrarPagamento: (e, id, d, a) => loc.registrarPagamento(e, id, d.cobrancaId, { valor: d.valor, data: d.data, forma: d.forma, comprovante: d.comprovante }, a),
+  registrarRepasse: (e, id, d, a) => loc.registrarRepasse(e, id, d.cobrancaId, { valor: d.valor, data: d.data, forma: d.forma, comprovante: d.comprovante }, a),
   concluirEtapaLocacao: (e, id, d, a) => loc.concluirEtapaLocacao(e, id, d.etapa, a),
   renovarLocacao: (e, id, _d, a) => loc.renovarLocacao(e, id, a),
   encerrarLocacao: (e, id, _d, a) => loc.encerrarLocacao(e, id, a),
@@ -105,7 +106,8 @@ export class MockGestaoRepository implements GestaoRepository {
   }
 
   private estado(d: DadosGestao): Estado {
-    return { processos: d.processos, documentos: d.documentos, locacoes: d.locacoes }
+    // `config` ausente (dado antigo do localStorage): o domínio usa multa e juros padrão.
+    return { processos: d.processos, documentos: d.documentos, locacoes: d.locacoes, ...(d.config && { encargos: encargosDaConfig(d.config) }) }
   }
 
   private guardar<T extends object>(d: DadosGestao, r: Extract<ResultadoDominio, { ok: true }>, id: string, extra?: T): Resultado<Mudanca> {

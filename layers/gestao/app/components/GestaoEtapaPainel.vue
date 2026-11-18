@@ -376,7 +376,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
 
     <!-- 5 · Checklist comercial -->
     <form v-else-if="etapa === 5" class="flex flex-col gap-4" novalidate @submit.prevent="emit('salvarFinanceiro', dadosForm)">
-      <div class="[display:grid] gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="[display:grid] items-start gap-3 sm:grid-cols-2">
         <label :class="rotuloCampo">
           Valor da venda (R$)
           <input v-model.number="valor" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-valor" />

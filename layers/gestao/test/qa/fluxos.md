@@ -200,7 +200,8 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
 5. Etapa 7: valor 3000, início e fim (fim depois do início), salvar; concluir → etapa 8, status «Ativa».
    Dia de vencimento 29 → toast «O dia de vencimento deve ficar entre 1 e 28.»
 6. Voltar à etapa 7: gerar cobrança da mesma competência duas vezes → segunda recusada.
-   `pagar-exemplo` → «Paga» e «Repasse R$ 2.700,00 · pendente»; `repassar-exemplo` → «feito».
+   `pagar` abre o modal (valor, data, forma, comprovante opcional): valor menor que o devido → «Parcial» com saldo;
+   quitar → «Paga» e «Repasse R$ 2.700,00 · pendente»; `repassar` → modal → «feito». Vencida mostra multa e juros.
 7. Etapa 8: `encerrar` com repasse pendente ou sem vistoria de saída → recusa; com tudo certo →
    `aviso-final` e nenhum campo editável. `renovar` antes de encerrar: `fim` +12 meses.
 8. Dono/jurídico: `arquivar` só em locação encerrada; ela sai da lista e aparece em «Arquivados»

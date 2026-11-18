@@ -88,6 +88,7 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0
 
     <p v-if="!lista.length" class="m-0 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 text-[var(--ink-soft)]" data-testid="imovel-vazio">
       Nenhum imóvel encontrado com esse filtro.
+      <button v-if="filtrosAtivos || filtro.busca" type="button" class="ml-2 min-h-11 cursor-pointer border-0 bg-transparent font-bold text-[var(--brand)] underline" data-testid="imovel-limpar-filtros" @click="Object.assign(filtro, FILTRO_IMOVEIS_VAZIO)">Limpar filtros</button>
     </p>
     <ul v-else class="m-0 list-none [display:grid] gap-3 p-0 md:grid-cols-2" data-testid="imovel-lista">
       <li v-for="i in lista" :key="i.id" :class="card" class="overflow-hidden" data-testid="imovel-card">

@@ -8,19 +8,33 @@
  * foi pago.
  */
 
+import { ENCARGOS_PADRAO, type EncargosConfig } from './cobranca.ts'
+
 export interface ConfiguracoesGestao {
   imobiliaria: { nome: string; cnpj: string; email: string; telefone: string }
   /** % de comissão sobre o valor de uma venda nova, 0..100 */
   comissaoPct: number
   /** % de taxa da imobiliária sobre o aluguel de um contrato novo, 0..100 */
   taxaLocacaoPct: number
+  /** Multa por atraso do aluguel, % do valor (única). Ausente = padrão (2%). Padrão a confirmar com o cliente. */
+  multaAtrasoPct?: number
+  /** Juros por mês de atraso, %, pro rata por dia. Ausente = padrão (1%). */
+  jurosMesPct?: number
 }
+
+/** Multa e juros em vigor: o configurado ou, se nunca configurado, o padrão. */
+export const encargosDaConfig = (c: Pick<ConfiguracoesGestao, 'multaAtrasoPct' | 'jurosMesPct'>): EncargosConfig => ({
+  multaPct: c.multaAtrasoPct ?? ENCARGOS_PADRAO.multaPct,
+  jurosMesPct: c.jurosMesPct ?? ENCARGOS_PADRAO.jurosMesPct,
+})
 
 export function configuracoesPadrao(): ConfiguracoesGestao {
   return {
     imobiliaria: { nome: 'OLMI Imóveis', cnpj: '', email: '', telefone: '' },
     comissaoPct: 5,
     taxaLocacaoPct: 10,
+    multaAtrasoPct: ENCARGOS_PADRAO.multaPct,
+    jurosMesPct: ENCARGOS_PADRAO.jurosMesPct,
   }
 }
 
@@ -60,5 +74,10 @@ export function validarConfiguracoes(c: ConfiguracoesGestao): ResultadoConfig {
   }
   if (!pctValido(c.comissaoPct)) return { ok: false, erro: 'A comissão padrão deve ficar entre 0 e 100%.' }
   if (!pctValido(c.taxaLocacaoPct)) return { ok: false, erro: 'A taxa da locação deve ficar entre 0 e 100%.' }
-  return { ok: true, config: { imobiliaria: im, comissaoPct: c.comissaoPct, taxaLocacaoPct: c.taxaLocacaoPct } }
+  // Ausente (config salva antes de existirem) vale o padrão; presente tem de ser 0..100.
+  const multaAtrasoPct = c.multaAtrasoPct ?? ENCARGOS_PADRAO.multaPct
+  const jurosMesPct = c.jurosMesPct ?? ENCARGOS_PADRAO.jurosMesPct
+  if (!pctValido(multaAtrasoPct)) return { ok: false, erro: 'A multa por atraso deve ficar entre 0 e 100%.' }
+  if (!pctValido(jurosMesPct)) return { ok: false, erro: 'Os juros ao mês devem ficar entre 0 e 100%.' }
+  return { ok: true, config: { imobiliaria: im, comissaoPct: c.comissaoPct, taxaLocacaoPct: c.taxaLocacaoPct, multaAtrasoPct, jurosMesPct } }
 }

@@ -26,6 +26,8 @@ import { ACOES_LOCACAO, corpoAcaoSchema, permitidoNaLocacao } from '~~/server/ut
 import { amarrar, executarAcao } from '~~/server/utils/gestao-acoes'
 import { exigirPermissao, type ContextoGestao } from '~~/server/utils/gestao-auth'
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
+import { encargosDaConfig } from '~~/layers/gestao/domain/configuracoes'
+import { lerSettings } from '~~/server/repositories/gestao-settings.repository'
 
 /**
  * Casos de uso de locação do gestão: o que os endpoints de `server/api/gestao/locacoes*`
@@ -238,6 +240,8 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
 
   const tenantId = membro.tenantId
   let versaoLida = 0
+  // Multa e juros em vigor só pesam em «registrar pagamento» (valor atualizado na data): nas outras ações a leitura seria à toa.
+  const encargos = c.data.acao === 'registrarPagamento' ? encargosDaConfig((await lerSettings(ctx.db, tenantId)).config) : undefined
 
   const novo = await executarAcao<Agregado>({
     carregar: async () => {
@@ -254,7 +258,7 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
       const documentos = c.data.acao === 'concluirEtapaLocacao' ? await listarDocumentosDoAlvo(ctx.db, tenantId, { tipo: 'locacao', id }) : []
       return { id, versao: item.versao, locacao: item.locacao, documentos }
     },
-    paraEstado: (a) => ({ processos: [], documentos: a.documentos, locacoes: [a.locacao] }),
+    paraEstado: (a) => ({ processos: [], documentos: a.documentos, locacoes: [a.locacao], ...(encargos && { encargos }) }),
     doEstado: (e, antes) => ({ ...antes, locacao: e.locacoes.find((l) => l.id === antes.id)! }),
     gravar: (n, versaoAnterior) => gravarLocacao(ctx.db, tenantId, n.locacao, versaoAnterior),
     // Ator e data vêm do servidor, amarrados aqui: `executarAcao` chama a ação com ator e data vazios

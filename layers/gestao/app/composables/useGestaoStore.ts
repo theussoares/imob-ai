@@ -1,7 +1,7 @@
 import { ESCOPOS_TODOS, type EscopoCarga } from '../services/GestaoRepository'
 import { agora, type Estado, type NovoProcesso } from '../../domain/acoes'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
-import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
+import { configuracoesPadrao, encargosDaConfig, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos } from '../../domain/documentos'
 import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
@@ -12,6 +12,7 @@ import type { PropertyStatus } from '~~/shared/models/property'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
 import { hojeISO } from '../../domain/avisos-locacao'
+import { agoraBrasilData } from '../../domain/periodo'
 import { resumoDashboard, type ResumoDashboard } from '../../domain/dashboard'
 import { competenciasDisponiveis, pendenciasFinanceiras, type RespostaFinanceiro, resumoLocacoes, resumoVendas } from '../../domain/financeiro'
 import { filtrarLocacoes } from '../../domain/filtro-locacao'
@@ -315,13 +316,14 @@ export function useGestaoStore() {
    */
   async function lerFinanceiro(competencia: string): Promise<RespostaFinanceiro> {
     if (api) return (repo as HttpGestaoRepository).financeiro(competencia)
-    const h = hojeISO()
+    const h = hojeISO(agoraBrasilData())
     const l = locacoesVisiveis.value
+    const enc = encargosDaConfig(config.value)
     return {
       vendas: resumoVendas(visiveis.value),
-      locacoes: resumoLocacoes(l, h, competencia),
+      locacoes: resumoLocacoes(l, h, competencia, enc),
       competencias: competenciasDisponiveis(l),
-      pendencias: pendenciasFinanceiras(l, h),
+      pendencias: pendenciasFinanceiras(l, h, enc),
       truncado: false,
     }
   }

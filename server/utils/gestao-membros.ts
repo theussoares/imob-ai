@@ -82,6 +82,8 @@ export function validarConfigPedido(v: unknown): ResultadoConfig {
     imobiliaria: { nome: texto(im.nome, 120), cnpj: texto(im.cnpj, 20), email: texto(im.email, 160), telefone: texto(im.telefone, 20) },
     comissaoPct: v.comissaoPct as number,
     taxaLocacaoPct: v.taxaLocacaoPct as number,
+    multaAtrasoPct: v.multaAtrasoPct as number | undefined,
+    jurosMesPct: v.jurosMesPct as number | undefined,
   })
 }
 

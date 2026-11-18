@@ -230,7 +230,7 @@ const aba_ = (ativa: boolean) =>
 
 <template>
   <!-- Processo inexistente ou de outro corretor: nada do dado alheio é renderizado. -->
-  <div v-if="!processo" class="mx-auto max-w-xl rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6" data-testid="nao-encontrado">
+  <div v-if="!processo" class="mx-auto w-full max-w-xl rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6" data-testid="nao-encontrado">
     <h1 class="m-0 mb-2 text-[length:var(--fs-title)] font-bold">Processo não encontrado</h1>
     <p class="m-0 mb-4 text-[var(--ink-soft)]">
       Esse processo não existe ou você não tem acesso a ele.

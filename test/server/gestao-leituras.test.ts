@@ -79,7 +79,8 @@ describe('financeiro', () => {
     const r = await financeiro(ctx('juridico', null, mem.db), '')
     expect(r.vendas.linhas.map((l) => l.id).sort()).toEqual(['V-2026-0142', 'V-2026-0143'])
     expect(r.locacoes.linhas.map((l) => l.locacaoId).sort()).toEqual(['L-2026-0001', 'L-2026-0002'])
-    expect(r.locacoes.emAtraso).toBe(6400)
+    // 2 × R$ 3.200 vencidos em 2020 (2504 dias): 3.200 + multa 64 + juros 2.670,93 = 5.934,93 cada
+    expect(r.locacoes.emAtraso).toBe(11869.86)
     expect(mem.consultas.every((c) => c.eq.tenant_id === T)).toBe(true)
   })
 

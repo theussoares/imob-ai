@@ -35,13 +35,18 @@ test('dono registra pagamento e repasse pela fila, sem abrir o contrato', async 
   await expect(repassar).toHaveCount(1)
 
   // Pagar o aluguel atrasado: sai de «a receber» e o repasse dele entra na fila.
-  await receber.first().getByTestId('fin-pagar-exemplo').click()
+  // O modal vem com o valor atualizado (multa e juros) sugerido: basta escolher a forma e registrar.
+  await receber.first().getByTestId('fin-pagar').click()
+  await page.getByTestId('rc-forma').selectOption('PIX')
+  await page.getByTestId('rc-confirmar').click()
   await expect(page.getByText('Pagamento registrado.')).toBeVisible()
   await expect(receber).toHaveCount(0)
   await expect(repassar).toHaveCount(2)
 
   // Repassar um deles: a fila encolhe.
-  await repassar.first().getByTestId('fin-repassar-exemplo').click()
+  await repassar.first().getByTestId('fin-repassar').click()
+  await page.getByTestId('rc-forma').selectOption('PIX')
+  await page.getByTestId('rc-confirmar').click()
   await expect(page.getByText('Repasse registrado.')).toBeVisible()
   await expect(repassar).toHaveCount(1)
 
@@ -50,6 +55,7 @@ test('dono registra pagamento e repasse pela fila, sem abrir o contrato', async 
   await page.waitForLoadState('networkidle')
   await page.getByTestId('etapa-7').click()
   await expect(page.getByTestId('cobrancas').getByText('Em aberto')).toHaveCount(0)
+  await expect(page.getByTestId('cobrancas').getByText('Em atraso')).toHaveCount(0)
 })
 
 test('recepção não vê o Financeiro nem a fila', async ({ page }) => {

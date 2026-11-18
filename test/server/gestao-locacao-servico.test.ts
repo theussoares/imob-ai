@@ -103,7 +103,7 @@ describe('ações: permissão, versão e 409', () => {
 
   test('recepção não registra pagamento: 403 antes de tocar no banco', async () => {
     const { c, calls } = ctx('recepcao', null, {})
-    const e = await status(agir(c, 'L-2026-0001', corpo('registrarPagamento', { cobrancaId: 'cb-2026-10', data: '2026-11-01', comprovante: 'a.pdf' })))
+    const e = await status(agir(c, 'L-2026-0001', corpo('registrarPagamento', { cobrancaId: 'cb-2026-10', valor: 100, data: '2026-11-01', forma: 'PIX' })))
     expect(e?.statusCode).toBe(403)
     expect(calls).toHaveLength(0)
   })

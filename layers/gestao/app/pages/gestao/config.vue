@@ -73,6 +73,19 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
       </div>
     </section>
 
+    <section :class="card" aria-labelledby="cfg-encargos">
+      <h2 id="cfg-encargos" class="m-0 mb-1 text-[length:var(--fs-title-sm)] font-bold">Atraso do aluguel</h2>
+      <p class="m-0 mb-3 text-[var(--ink-soft)]">Multa e juros cobrados sobre o aluguel vencido. Os valores iniciais (2% de multa e 1% ao mês) são só um ponto de partida: <strong>ajuste conforme o contrato da imobiliária</strong>. Os juros contam por dia, a partir do dia seguinte ao vencimento.</p>
+      <div class="[display:grid] gap-3 sm:grid-cols-2">
+        <label :class="rotulo">Multa por atraso (%)
+          <input v-model.number="form.multaAtrasoPct" :class="campo" type="number" min="0" max="100" step="0.1" data-testid="cfg-multa" />
+        </label>
+        <label :class="rotulo">Juros ao mês (%)
+          <input v-model.number="form.jurosMesPct" :class="campo" type="number" min="0" max="100" step="0.1" data-testid="cfg-juros" />
+        </label>
+      </div>
+    </section>
+
     <p v-if="erro" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="cfg-erro">{{ erro }}</p>
     <div>
       <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] hover:opacity-90" data-testid="cfg-salvar">

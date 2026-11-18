@@ -38,10 +38,22 @@ export const contratoSchema = z.object({
   taxaPct: z.number().min(0).max(100),
 })
 
+const forma = z.enum(['PIX', 'Dinheiro', 'Transferência', 'Boleto', 'Outro'])
+
+const pagamento = z.object({
+  id: texto(40),
+  valor: z.number().finite(),
+  data: iso,
+  forma,
+  comprovante: texto(300).nullable().optional(),
+})
+
 const repasse = z.object({
   valor: z.number().finite(),
+  repassado: z.number().finite().optional(),
   feito: z.boolean(),
   data: iso.optional(),
+  forma: forma.optional(),
   comprovante: texto(300).nullable().optional(),
 })
 
@@ -51,6 +63,7 @@ const cobranca = z.object({
   valor: z.number().finite(),
   vencimento: iso,
   pago: z.object({ data: iso, comprovante: texto(300) }).optional(),
+  pagamentos: z.array(pagamento).max(200).optional(),
   repasse: repasse.optional(),
 })
 
@@ -149,7 +162,7 @@ export function toLocacaoRow(locacao: Locacao, tenantId: string): Omit<GestaoLoc
 }
 
 export type ContratoSemValores = Omit<ContratoLocacao, 'valor' | 'taxaPct'>
-export type CobrancaSemValores = Omit<Cobranca, 'valor' | 'repasse' | 'pago'> & {
+export type CobrancaSemValores = Omit<Cobranca, 'valor' | 'repasse' | 'pago' | 'pagamentos'> & {
   /** só se foi paga e quando: o comprovante e o valor ficam com quem vê valores */
   pago?: { data: string }
   repasseFeito?: boolean

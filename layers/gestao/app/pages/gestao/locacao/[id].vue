@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { avisosLocacao, hojeISO } from '../../../../domain/avisos-locacao'
+import { agoraBrasilData } from '../../../../domain/periodo'
+import { encargosDaConfig } from '../../../../domain/configuracoes'
 import { validarArquivo } from '../../../../domain/documentos'
 import { pendenciasEtapaLocacao, requisitosDaEtapaLocacao } from '../../../../domain/locacao-requisitos'
 import { ETAPAS_LOCACAO, locacaoFinal, TOTAL_ETAPAS_LOCACAO } from '../../../../domain/locacao-status'
@@ -30,7 +32,7 @@ const etapaVista = ref(locacao.value?.etapa ?? 1)
 const podeEditar = computed(() => !final.value && !!caps.value?.editar)
 const podeValores = computed(() => !final.value && !!caps.value?.valores)
 const feitas = computed(() => locacao.value?.concluidas.filter(Boolean).length ?? 0)
-const avisos = computed(() => (locacao.value ? avisosLocacao(locacao.value, hojeISO()) : []))
+const avisos = computed(() => (locacao.value ? avisosLocacao(locacao.value, hojeISO(agoraBrasilData())) : []))
 const pendencias = computed(() =>
   locacao.value && !final.value ? pendenciasEtapaLocacao(locacao.value, store.documentos.value, etapaVista.value) : [],
 )
@@ -82,7 +84,14 @@ function salvarVistoria(quando: 'entrada' | 'saida', v: Vistoria) {
 
 const salvarContrato = (c: ContratoLocacao) => executar('salvarContrato', c, 'Contrato salvo.')
 
-const hoje = () => new Date().toISOString().slice(0, 10)
+/** Pagamento/repasse: devolve a frase de erro (o modal a mostra) ou `null` quando registrou. */
+async function registrarRecebimento(acao: 'pagar' | 'repassar', cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }): Promise<string | null> {
+  const nome = acao === 'pagar' ? 'registrarPagamento' : 'registrarRepasse'
+  const r = await store.executar('locacao', id(), nome, { cobrancaId, ...d })
+  if (!r.ok) return r.erro
+  toast.success(acao === 'pagar' ? 'Pagamento registrado.' : 'Repasse registrado.')
+  return null
+}
 
 async function enviarArquivo(r: Requisito, arq: ArquivoEscolhido) {
   const erro = validarArquivo(arq.name, arq.size)
@@ -124,7 +133,7 @@ const btn =
 </script>
 
 <template>
-  <div v-if="!locacao" class="mx-auto max-w-xl rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6" data-testid="nao-encontrado">
+  <div v-if="!locacao" class="mx-auto w-full max-w-xl rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6" data-testid="nao-encontrado">
     <h1 class="m-0 mb-2 text-[length:var(--fs-title)] font-bold">Locação não encontrada</h1>
     <p class="m-0 mb-4 text-[var(--ink-soft)]">Essa locação não existe ou você não tem acesso a ela.</p>
     <NuxtLink to="/gestao/locacao" class="inline-flex min-h-11 items-center font-bold text-[var(--brand)] underline">← Voltar para a lista</NuxtLink>
@@ -196,10 +205,9 @@ const btn =
             <GestaoLocacaoCobrancas
               :cobrancas="locacao.cobrancas"
               :pode-editar="podeValores && !!locacao.contrato"
-              :demo="demo"
+              :encargos="encargosDaConfig(store.config.value)"
+              :registrar="registrarRecebimento"
               @gerar="(c) => executar('gerarCobranca', { competencia: c }, 'Cobrança gerada.')"
-              @pagar="(cb, comp) => executar('registrarPagamento', { cobrancaId: cb, data: hoje(), comprovante: comp }, 'Pagamento registrado.')"
-              @repassar="(cb, comp) => executar('registrarRepasse', { cobrancaId: cb, data: hoje(), comprovante: comp }, 'Repasse registrado.')"
             />
           </template>
         </template>
