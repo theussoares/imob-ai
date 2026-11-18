@@ -50,6 +50,11 @@ const dia = (iso: string) => iso.split('-').reverse().join('/')
 
 const campo =
   'min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
+const aba = ref<'vendas' | 'locacoes'>('vendas')
+const ABAS = [
+  { chave: 'vendas', rotulo: 'Comissões de venda' },
+  { chave: 'locacoes', rotulo: 'Aluguéis e repasses' },
+] as const
 const th = 'px-3 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]'
 const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 </script>
@@ -73,7 +78,23 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 
     <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :demo="demo" @pagar="pagar" @repassar="repassar" />
 
-    <section class="[display:grid] gap-3" aria-labelledby="fin-vendas">
+    <div role="tablist" aria-label="Seções do financeiro" class="flex gap-1 border-b border-[var(--line)]">
+      <button
+        v-for="a in ABAS"
+        :key="a.chave"
+        type="button"
+        role="tab"
+        :aria-selected="aba === a.chave"
+        class="-mb-px min-h-11 cursor-pointer border-b-[3px] px-4 font-semibold"
+        :class="aba === a.chave ? 'border-[var(--gestao-amarelo)] text-[var(--ink)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'"
+        :data-testid="`fin-aba-${a.chave}`"
+        @click="aba = a.chave"
+      >
+        {{ a.rotulo }}
+      </button>
+    </div>
+
+    <section v-show="aba === 'vendas'" class="[display:grid] gap-3" aria-labelledby="fin-vendas">
       <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Comissões de venda</h2>
       <div class="[display:grid] gap-3 sm:grid-cols-3">
         <GestaoIndicador rotulo="Comissão total" :valor="brl(vendas.comissaoTotal)" testid="fin-comissao-total" />
@@ -113,7 +134,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       </div>
     </section>
 
-    <section class="[display:grid] gap-3" aria-labelledby="fin-locacoes">
+    <section v-show="aba === 'locacoes'" class="[display:grid] gap-3" aria-labelledby="fin-locacoes">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <h2 id="fin-locacoes" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Aluguéis e repasses</h2>
         <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">

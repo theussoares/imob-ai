@@ -76,7 +76,9 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0
       <li v-for="i in lista" :key="i.id" :class="card" class="overflow-hidden" data-testid="imovel-card">
         <NuxtLink :to="`/gestao/imoveis/${i.id}`" class="flex gap-3 p-3 text-inherit no-underline hover:bg-[var(--paper-2)]">
           <img v-if="capa(i.images)" :src="capa(i.images)!" :alt="`Capa de ${i.title}`" class="size-24 shrink-0 rounded-lg object-cover" />
-          <span v-else class="flex size-24 shrink-0 items-center justify-center rounded-lg bg-[var(--paper-2)] text-[length:var(--fs-caption)] text-[var(--ink-soft)]">Sem foto</span>
+          <span v-else class="flex size-24 shrink-0 items-center justify-center rounded-lg bg-[var(--surface)] text-[var(--line-2)]" role="img" aria-label="Sem foto">
+            <svg class="size-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10M10 20v-5h4v5" /></svg>
+          </span>
           <span class="flex min-w-0 flex-col gap-1">
             <strong class="truncate text-[length:var(--fs-body)]">{{ i.title }}</strong>
             <span class="text-[var(--ink-soft)]">{{ i.neighborhood }} · {{ rotuloTipoImovel(i.type) }} · {{ ROTULO_FINALIDADE[i.purpose] }}</span>
@@ -89,7 +91,7 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] shadow-[0
                 data-testid="imovel-situacao"
               >{{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(i.id, store.locacoes.value)] }}</span>
             </span>
-            <span class="text-[length:var(--fs-label)] text-[var(--ink-soft)]">Corretor: {{ nomeCorretor(i.brokerId) }}</span>
+            <span v-if="nomeCorretor(i.brokerId) !== '—'" class="text-[length:var(--fs-label)] text-[var(--ink-soft)]">Corretor: {{ nomeCorretor(i.brokerId) }}</span>
           </span>
         </NuxtLink>
       </li>
