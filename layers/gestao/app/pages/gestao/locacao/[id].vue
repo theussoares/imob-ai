@@ -85,7 +85,13 @@ function salvarVistoria(quando: 'entrada' | 'saida', v: Vistoria) {
 const salvarContrato = (c: ContratoLocacao) => executar('salvarContrato', c, 'Contrato salvo.')
 
 /** Pagamento/repasse: devolve a frase de erro (o modal a mostra) ou `null` quando registrou. */
-async function registrarRecebimento(acao: 'pagar' | 'repassar', cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }): Promise<string | null> {
+async function registrarRecebimento(acao: 'pagar' | 'repassar', cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }, arquivo: File | null): Promise<string | null> {
+  // O arquivo sobe antes: se falhar, nada é registrado e o modal mostra o erro (sem pagamento "com comprovante" sem arquivo).
+  if (arquivo) {
+    const up = await store.subirComprovante('locacao', id(), arquivo)
+    if (!up.ok) return up.erro
+    d = { ...d, comprovante: up.nome }
+  }
   const nome = acao === 'pagar' ? 'registrarPagamento' : 'registrarRepasse'
   const r = await store.executar('locacao', id(), nome, { cobrancaId, ...d })
   if (!r.ok) return r.erro
@@ -93,8 +99,10 @@ async function registrarRecebimento(acao: 'pagar' | 'repassar', cobrancaId: stri
   return null
 }
 
-async function anexarComprovante(cobrancaId: string, d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string; comprovante: string }) {
-  const r = await store.executar('locacao', id(), 'anexarComprovante', { cobrancaId, ...d })
+async function anexarComprovante(cobrancaId: string, d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string }, arquivo: File) {
+  const up = await store.subirComprovante('locacao', id(), arquivo)
+  if (!up.ok) return void toast.error(up.erro)
+  const r = await store.executar('locacao', id(), 'anexarComprovante', { cobrancaId, ...d, comprovante: up.nome })
   if (r.ok) toast.success('Comprovante anexado.')
   else toast.error(r.erro)
 }

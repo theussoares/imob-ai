@@ -202,14 +202,29 @@ async function conferirArquivo(d: Documento) {
   else toast.error(res.erro)
 }
 
-function registrar(dados: NovoAdiantamento) {
-  const p = processo.value
-  if (p) void executar(p.id, 'registrarAdiantamento', dados, `Adiantamento de ${brl(dados.valor)} registrado.`)
+/** Sobe o comprovante antes de gravar; se o envio falhar, nada é registrado. Devolve o nome, `null` (sem arquivo) ou `undefined` (falhou, já avisou). */
+async function subirComprovante(p: { id: string }, arquivo: File | null): Promise<string | null | undefined> {
+  if (!arquivo) return null
+  const up = await store.subirComprovante('venda', p.id, arquivo)
+  if (up.ok) return up.nome
+  toast.error(up.erro)
+  return undefined
 }
 
-function pagarAdiantamento(adId: string, comprovante: string | null) {
+async function registrar(dados: NovoAdiantamento, arquivo: File | null) {
   const p = processo.value
-  if (p) void executar(p.id, 'marcarAdiantamentoPago', { adiantamentoId: adId, comprovante }, 'Adiantamento marcado como pago.')
+  if (!p) return
+  const nome = await subirComprovante(p, arquivo)
+  if (nome === undefined) return
+  void executar(p.id, 'registrarAdiantamento', { ...dados, comprovante: nome ?? dados.comprovante }, `Adiantamento de ${brl(dados.valor)} registrado.`)
+}
+
+async function pagarAdiantamento(adId: string, arquivo: File | null) {
+  const p = processo.value
+  if (!p) return
+  const comprovante = await subirComprovante(p, arquivo)
+  if (comprovante === undefined) return
+  void executar(p.id, 'marcarAdiantamentoPago', { adiantamentoId: adId, comprovante }, 'Adiantamento marcado como pago.')
 }
 
 async function remover(adId: string) {

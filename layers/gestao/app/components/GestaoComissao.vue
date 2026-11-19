@@ -8,7 +8,7 @@ const props = defineProps<{
   /** false em processo final: lista só para consulta */
   editavel: boolean
 }>()
-const emit = defineEmits<{ registrar: [dados: NovoAdiantamento]; remover: [id: string]; pagar: [id: string, comprovante: string | null] }>()
+const emit = defineEmits<{ registrar: [dados: NovoAdiantamento, arquivo: File | null]; remover: [id: string]; pagar: [id: string, arquivo: File | null] }>()
 
 const ROTULO: Record<ResponsavelAdiantamento, string> = {
   vendedor: 'Vendedor',
@@ -23,8 +23,9 @@ const valor = ref<number | null>(null)
 const data = ref(new Date().toISOString().slice(0, 10))
 const momento = ref<'adiantamento' | 'fim-contrato'>('adiantamento')
 const pago = ref(false)
-// Só o NOME do arquivo é guardado: a demonstração não envia o binário.
+// O arquivo sobe pela tela do processo (que sabe o id); o registro guarda o nome.
 const comprovante = ref<string | null>(null)
+const arquivoComprovante = ref<File | null>(null)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erroValor = ref('')
 const erroComprovante = ref('')
@@ -32,7 +33,8 @@ const erroComprovante = ref('')
 const ROTULO_MOMENTO = { adiantamento: 'Adiantamento', 'fim-contrato': 'Fim de contrato' }
 
 function escolherArquivo(e: Event) {
-  comprovante.value = (e.target as HTMLInputElement).files?.[0]?.name ?? null
+  arquivoComprovante.value = (e.target as HTMLInputElement).files?.[0] ?? null
+  comprovante.value = arquivoComprovante.value?.name ?? null
 }
 
 function registrar() {
@@ -54,18 +56,19 @@ function registrar() {
     momento: momento.value,
     pago: pago.value,
     comprovante: comprovante.value,
-  })
+  }, arquivoComprovante.value)
   valor.value = null
   pago.value = false
   comprovante.value = null
+  arquivoComprovante.value = null
   if (inputArquivo.value) inputArquivo.value.value = ''
 }
 
 function pagarComArquivo(e: Event, id: string) {
   const el = e.target as HTMLInputElement
-  const nome = el.files?.[0]?.name ?? null
+  const arquivo = el.files?.[0] ?? null
   el.value = ''
-  if (nome) emit('pagar', id, nome)
+  if (arquivo) emit('pagar', id, arquivo)
 }
 
 const botaoPagar =

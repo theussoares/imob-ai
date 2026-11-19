@@ -11,7 +11,7 @@ import type { FormaPagamentoCobranca } from '../../domain/types'
  * (o servidor nunca confia na tela). O valor sugerido é o que falta (com multa e juros, no pagamento)
  * e pode ser editado: pagamento menor que o devido fica como parcial.
  */
-const props = defineProps<{ enviar: (d: DadosRecebimentoForm) => Promise<string | null> }>()
+const props = defineProps<{ enviar: (d: DadosRecebimentoForm, arquivo: File | null) => Promise<string | null> }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
 const ctx = ref<ContextoRecebimento | null>(null)
@@ -20,6 +20,7 @@ const valor = ref<number | null>(null)
 const data = ref(hoje.value)
 const forma = ref<FormaPagamentoCobranca | ''>('')
 const comprovante = ref('')
+const arquivo = ref<File | null>(null)
 const erros = ref<Partial<Record<'valor' | 'data' | 'forma', string>>>({})
 const erro = ref('')
 const tentou = ref(false)
@@ -32,6 +33,7 @@ function abrir(c: ContextoRecebimento) {
   data.value = hoje.value
   forma.value = ''
   comprovante.value = ''
+  arquivo.value = null
   erros.value = {}
   erro.value = ''
   tentou.value = false
@@ -61,8 +63,9 @@ watch([valor, data, forma], () => {
 })
 
 function escolherArquivo(e: Event) {
-  // O demo não sobe binário: o comprovante é o nome do arquivo escolhido.
-  comprovante.value = (e.target as HTMLInputElement).files?.[0]?.name ?? ''
+  // Quem sobe o arquivo é a tela (precisa saber a locação); aqui só se guarda o escolhido.
+  arquivo.value = (e.target as HTMLInputElement).files?.[0] ?? null
+  comprovante.value = arquivo.value?.name ?? ''
 }
 
 async function confirmar() {
@@ -77,7 +80,7 @@ async function confirmar() {
   }
   enviando.value = true
   try {
-    const falha = await props.enviar({ valor: valor.value!, data: data.value, forma: forma.value as FormaPagamentoCobranca, comprovante: comprovante.value || null })
+    const falha = await props.enviar({ valor: valor.value!, data: data.value, forma: forma.value as FormaPagamentoCobranca, comprovante: comprovante.value || null }, arquivo.value)
     if (falha) erro.value = falha
     else fechar()
   } finally {
@@ -148,7 +151,7 @@ const OBR = ' *'
       <div class="mt-1 flex justify-end gap-2">
         <button type="button" class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]" @click="fechar">Cancelar</button>
         <button type="submit" :disabled="enviando" :aria-busy="enviando" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60" data-testid="rc-confirmar">
-          {{ enviando ? 'Registrando…' : 'Registrar' }}
+          {{ enviando ? (arquivo ? 'Enviando…' : 'Registrando…') : 'Registrar' }}
         </button>
       </div>
     </form>

@@ -3,7 +3,7 @@ import { agora, type Estado, type NovoProcesso } from '../../domain/acoes'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, encargosDaConfig, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
-import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos } from '../../domain/documentos'
+import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos, validarArquivo } from '../../domain/documentos'
 import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
 import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
 import { imoveisVisiveis as filtrarImoveisVisiveis, permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
@@ -386,6 +386,17 @@ export function useGestaoStore() {
   }
   const enviarDocumento = (tipo: TipoAlvo, id: string, arquivo: ArquivoGestao, extra: { categoria: CategoriaDocumento; requisito?: string }) =>
     comEnvio(async () => comAplicar(await repo.enviarDocumento({ tipo, id }, arquivo, extra)))
+  /**
+   * Comprovante de pagamento, repasse ou adiantamento: sobe como documento da categoria Financeiro do
+   * processo (mesma validação e mesma URL assinada de qualquer documento), e o registro guarda o nome.
+   * Assim o arquivo existe de verdade e aparece em Documentos, em vez de ficar só um texto digitado.
+   */
+  const subirComprovante = async (tipo: TipoAlvo, id: string, arquivo: File): Promise<{ ok: true; nome: string } | { ok: false; erro: string }> => {
+    const erro = validarArquivo(arquivo.name, arquivo.size)
+    if (erro) return { ok: false, erro }
+    const r = await enviarDocumento(tipo, id, { name: arquivo.name, size: arquivo.size, file: arquivo }, { categoria: 'financeiro' })
+    return r.ok ? { ok: true, nome: arquivo.name } : { ok: false, erro: r.erro }
+  }
   const novaVersaoDocumento = (doc: Documento, arquivo: ArquivoGestao) =>
     comEnvio(async () => comAplicar(await repo.novaVersaoDocumento(doc, tipoDoAlvo(doc.processoId), arquivo)))
   const conferirDocumento = async (doc: Documento) => comAplicar(await repo.conferirDocumento(doc))
@@ -533,6 +544,7 @@ export function useGestaoStore() {
     carregarDocumentosDaPagina,
     enviandoDocumentos,
     enviarDocumento,
+    subirComprovante,
     novaVersaoDocumento,
     conferirDocumento,
     apagarDocumento,
