@@ -1,5 +1,6 @@
 import { enviarLembretesDeLeadsParados } from '~~/server/utils/lead-alert'
 import { purgeOldWhatsappClicks } from '~~/server/repositories/whatsapp-click.repository'
+import { purgeAcessoAntigo } from '~~/server/repositories/gestao-acesso.repository'
 import { purgeStaleLeads } from '~~/server/repositories/lead.repository'
 import { corteDeRetencaoDeLeads } from '~~/shared/models/lead'
 
@@ -56,6 +57,17 @@ export default defineEventHandler(async (event) => {
     logError('lead.retencao_falhou', { reason: errMessage(e) })
   }
 
-  return { ...resultado, cliquesLimpos, leadsExpurgados }
+  // Códigos de 2º fator vencidos há mais de 1 dia e sessões verificadas há mais de 90 dias (/gestao).
+  // Mesmo cron, mesma regra: falha grita no log mas não esconde o lembrete.
+  let acessoLimpo = true
+  try {
+    const dia = 24 * 60 * 60 * 1000
+    await purgeAcessoAntigo(serviceSupabase(), new Date(Date.now() - dia).toISOString(), new Date(Date.now() - 90 * dia).toISOString())
+  } catch (e) {
+    acessoLimpo = false
+    logError('gestao.retencao_acesso_falhou', { reason: errMessage(e) })
+  }
+
+  return { ...resultado, cliquesLimpos, leadsExpurgados, acessoLimpo }
 })
 

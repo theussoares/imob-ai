@@ -9,10 +9,20 @@ ligar `gestao` no tenant → `http`. Cada passo abaixo diz como conferir e como
 desfazer. Não pule a ordem: com `http` ligado e sem as tabelas, o painel responde
 500; sem o Dono, ninguém entra.
 
-> ⚠️ **Nada daqui foi aplicado.** As migrations 0059–0063 estão commitadas e
-> testadas contra um banco falso (`test/server/gestao-*migration*.test.ts`). Quem
-> aplica é uma pessoa, na ordem abaixo — develop e produção dividem o mesmo banco
-> (`supabase/migrations/README.md`), então um erro aqui é erro em produção.
+> ✅ **Aplicado em produção (19/11/2026) para a Olmi.** Migrations 0059–0063 no
+> banco real, `NUXT_PUBLIC_GESTAO_BACKEND=http`, `NUXT_PUBLIC_GESTAO_DEMO=false`,
+> captcha Turnstile ativo (`NUXT_PUBLIC_TURNSTILE_SITE_KEY` + `NUXT_TURNSTILE_SECRET`)
+> e remetente `suporte@olmiimoveis.com.br` em `tenant_mail_sender`. O roteiro abaixo
+> segue valendo para ligar o **próximo** cliente — develop e produção dividem o mesmo
+> banco (`supabase/migrations/README.md`), então um erro aqui é erro em produção.
+
+### Alertas de erro em produção (a configurar na Vercel)
+
+O projeto não tem alerta ativo: erro 500 só aparece se alguém olhar o log. Na Vercel,
+em **Observability → Alerts** (ou Settings → Notifications), criar alerta de taxa de
+erro 5xx e de falha de função para o projeto, com destino no e-mail de quem opera.
+Logs úteis: `gestao.*`, `cron.*`, `lead.retencao_falhou`, `gestao.retencao_acesso_falhou`.
+Requer conta com permissão de dono do projeto; não dá para fazer pelo código.
 
 ## 0. Antes de começar
 

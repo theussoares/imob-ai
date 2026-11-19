@@ -33,6 +33,7 @@ Verificado no código e no banco em 25/09.
 | Formulário de contato e "Quero vender" | nome, telefone, mensagem, imóvel de interesse; no "Quero vender", tipo e bairro do imóvel | `leads` (Supabase, São Paulo) | **Sem prazo.** Fica até a imobiliária apagar |
 | Anti-abuso dos formulários | hash do IP com sal (sha256), não o IP | `leads.ip_hash` | junto com o lead |
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |
+| Código de 2º fator e sessão verificada do `/gestao` (só IDs e hashes, sem dado de pessoa do site) | usuário, tenant, HMAC do código | `gestao_otp`, `gestao_sessions` | código: 1 dia após vencer; sessão: 90 dias, pelo cron diário. `gestao_login_falhas` se limpa a cada gravação (1 dia) |
 | Verificação anti-robô no login do painel (/gestao) | IP e sinais do navegador de quem faz login (equipe da imobiliária; o visitante do site não passa por ela) | Cloudflare Turnstile (EUA), só com a site key configurada | conforme a Cloudflare; o servidor guarda só o resultado, nunca o token |
 | Aviso de lead novo para a imobiliária | nome e telefone do lead | e-mail enviado pela Resend (EUA) | caixa de entrada da imobiliária |
 | Estatísticas de visita | URL visitada (sem query exceto `utm_*`), país, navegador, dispositivo; visitante identificado por hash do request que **zera todo dia** | Vercel Web Analytics e Speed Insights | conforme a Vercel |

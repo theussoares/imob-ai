@@ -154,3 +154,15 @@ export async function registrarFalhas(db: Client, tenantId: string, chaves: stri
     .lt('created_at', new Date(agora - 24 * 60 * 60 * 1000).toISOString())
   if (velhas.error) logWarn('gestao.falhas_limpeza', { tenant: tenantId, reason: errMessage(velhas.error) })
 }
+
+/**
+ * Retenção dos controles de acesso do /gestao. Código vencido não serve a ninguém; sessão verificada
+ * muito antiga só é apagada depois de `sessaoAntesDe` (o custo de apagar cedo é pedir o código de novo
+ * a quem ainda estava logado, então o prazo é folgado). `gestao_login_falhas` já se limpa ao gravar.
+ */
+export async function purgeAcessoAntigo(db: Client, codigosAntesDe: string, sessoesAntesDe: string): Promise<void> {
+  const otp = await db.from('gestao_otp').delete().lt('expires_at', codigosAntesDe)
+  if (otp.error) throw otp.error
+  const sessoes = await db.from('gestao_sessions').delete().lt('verified_at', sessoesAntesDe)
+  if (sessoes.error) throw sessoes.error
+}
