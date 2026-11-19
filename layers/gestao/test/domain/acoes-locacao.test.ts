@@ -80,6 +80,25 @@ describe('contrato e cobranças', () => {
     expect(erro(a.registrarPagamento(e, ATIVA, id, pag(10), ator, Q))).toMatch(/já está paga/i)
   })
 
+  it('comprovante anexado depois: só preenche o vazio, não troca o que existe e não muda a situação', () => {
+    const e0 = ok(a.gerarCobranca(novo(), ATIVA, '2026-12', ator, Q))
+    const id = 'cb-2026-12'
+    const e1 = ok(a.registrarPagamento(e0, ATIVA, id, pag(2500), ator, Q))
+    const antes = loc(e1, ATIVA).cobrancas.find((x) => x.id === id)!
+    expect(antes.pagamentos![0]!.comprovante).toBeNull()
+    expect(erro(a.anexarComprovante(e1, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-1', comprovante: ' ' }, ator, Q))).toMatch(/escolha o arquivo/i)
+    expect(erro(a.anexarComprovante(e1, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-9', comprovante: 'x.pdf' }, ator, Q))).toBe('Pagamento não encontrado.')
+    const e2 = ok(a.anexarComprovante(e1, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-1', comprovante: 'pix.pdf' }, ator, Q))
+    const c = loc(e2, ATIVA).cobrancas.find((x) => x.id === id)!
+    expect(c.pagamentos![0]).toMatchObject({ valor: 2500, comprovante: 'pix.pdf' })
+    expect(c.pago).toEqual({ data: '2026-11-10', comprovante: 'pix.pdf' })
+    expect(erro(a.anexarComprovante(e2, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-1', comprovante: 'outro.pdf' }, ator, Q))).toMatch(/já tem comprovante/)
+    expect(erro(a.anexarComprovante(e1, ATIVA, id, { alvo: 'repasse', comprovante: 'r.pdf' }, ator, Q))).toMatch(/ainda não foi registrado/)
+    const e3 = ok(a.registrarRepasse(e2, ATIVA, id, pag(2250), ator, Q))
+    const e4 = ok(a.anexarComprovante(e3, ATIVA, id, { alvo: 'repasse', comprovante: 'rep.pdf' }, ator, Q))
+    expect(loc(e4, ATIVA).cobrancas.find((x) => x.id === id)!.repasse).toMatchObject({ feito: true, comprovante: 'rep.pdf' })
+  })
+
   it('pagamento parcial: fica «Parcial» com saldo; repasse só depois de quitar; passar do devido é recusado', () => {
     const e0 = ok(a.gerarCobranca(novo(), ATIVA, '2026-12', ator, Q))
     const id = 'cb-2026-12'

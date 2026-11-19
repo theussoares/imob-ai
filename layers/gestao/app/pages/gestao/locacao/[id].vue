@@ -93,6 +93,12 @@ async function registrarRecebimento(acao: 'pagar' | 'repassar', cobrancaId: stri
   return null
 }
 
+async function anexarComprovante(cobrancaId: string, d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string; comprovante: string }) {
+  const r = await store.executar('locacao', id(), 'anexarComprovante', { cobrancaId, ...d })
+  if (r.ok) toast.success('Comprovante anexado.')
+  else toast.error(r.erro)
+}
+
 async function enviarArquivo(r: Requisito, arq: ArquivoEscolhido) {
   const erro = validarArquivo(arq.name, arq.size)
   if (erro) return void toast.error(erro)
@@ -207,6 +213,7 @@ const btn =
               :pode-editar="podeValores && !!locacao.contrato"
               :encargos="encargosDaConfig(store.config.value)"
               :registrar="registrarRecebimento"
+              :anexar="anexarComprovante"
               @gerar="(c) => executar('gerarCobranca', { competencia: c }, 'Cobrança gerada.')"
             />
           </template>

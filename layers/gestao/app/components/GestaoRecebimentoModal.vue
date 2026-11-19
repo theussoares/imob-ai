@@ -137,6 +137,9 @@ const OBR = ' *'
           @change="escolherArquivo"
         />
       </label>
+      <p v-if="!comprovante" class="m-0 rounded-lg bg-[var(--brand-ghost)] px-3 py-2 text-[length:var(--fs-label)] font-semibold" data-testid="rc-aviso-sem-comprovante">
+        Sem comprovante: o registro fica marcado assim, e você pode anexá-lo depois.
+      </p>
       <p class="m-0 text-[length:var(--fs-caption)] text-[var(--ink-soft)]"><span class="text-[var(--danger)]" aria-hidden="true">*</span> campo obrigatório</p>
       <!-- Espaço do erro sempre reservado: com ele aparecendo o modal crescia e o botão «Registrar» saía de baixo do cursor. -->
       <div class="min-h-[4.5rem]" aria-live="assertive">

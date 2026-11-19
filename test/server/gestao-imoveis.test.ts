@@ -153,8 +153,8 @@ describe('imóveis vinculados aos contratos do corretor', () => {
     const { ctx, calls } = montar('corretor', res(), vinculados())
     expect((await listarImoveis(ctx)).map((i) => i.id).sort()).toEqual([IMOVEL_A, IMOVEL_B].sort())
     const alheio = (await listarImoveis(montar('corretor', res(), vinculados()).ctx)).find((i) => i.id === IMOVEL_B)!
-    // Sem a carteira de quem captou: proprietário, telefone e referência interna.
-    expect(alheio).toMatchObject({ ownerName: '', ownerPhone: null, location: null })
+    // Proprietário e telefone ficam (o corretor abre o contrato); a referência interna não.
+    expect(alheio).toMatchObject({ ownerName: 'Helena', ownerPhone: null, location: null })
     const porId = calls.find((c) => c.table === 'properties' && c.method === 'in' && c.args[0] === 'id')
     expect(porId?.args[1]).toEqual([IMOVEL_B])
     expect(calls.filter((c) => c.method === 'eq' && c.args[0] === 'tenant_id').length).toBeGreaterThanOrEqual(2)
@@ -173,7 +173,7 @@ describe('imóveis vinculados aos contratos do corretor', () => {
   test('GET por id abre o vinculado; um id que não é do captador nem de contrato dele segue 404', async () => {
     const outro = { properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null }, brokers: { data: [corretorB], error: null } }
     const v = await obterImovel(montar('corretor', outro, vinculados()).ctx, IMOVEL_B)
-    expect(v).toMatchObject({ id: IMOVEL_B, ownerName: '', ownerPhone: null, location: null })
+    expect(v).toMatchObject({ id: IMOVEL_B, ownerName: 'Helena', location: null })
     expect(await status(obterImovel(montar('corretor', outro, { imoveisDosContratos: async () => new Set() }).ctx, IMOVEL_B))).toBe(404)
   })
 

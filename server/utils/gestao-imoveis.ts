@@ -86,11 +86,13 @@ async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGesta
 
 /**
  * Imóvel vinculado que o corretor NÃO captou: o id pode ser escolhido por ele ao abrir um contrato (só se confere o
- * tenant), então a ficha sai sem o que é da carteira de quem captou: proprietário, telefone e referência interna.
+ * tenant), então a ficha sai sem a referência interna (`location`). Proprietário e telefone ficam: é o corretor
+ * quem abre o contrato e precisa dos dados do proprietário (decisão do cliente); o custo é que ele alcança esses
+ * dados de qualquer imóvel do tenant que vincular a um contrato, o que o cliente aceitou.
  * Alternativa descartada: exigir que o corretor só use imóvel captado por ele; trava o fluxo que o pedido quer abrir.
  */
 function semCarteiraAlheia(i: ImovelGestao): ImovelGestao {
-  return { ...i, ownerName: '', ownerPhone: null, location: null }
+  return { ...i, location: null }
 }
 
 /**

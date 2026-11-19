@@ -6,10 +6,10 @@ import { ACOES_LOCACAO, corpoAcaoSchema, permitidoNaLocacao } from '~~/server/ut
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
 
 describe('mapa de ações da locação', () => {
-  test('cobre as 12 ações do plano, e só elas', () => {
+  test('cobre as 13 ações do plano, e só elas', () => {
     expect(Object.keys(ACOES_LOCACAO).sort()).toEqual(
       [
-        'arquivarLocacao', 'concluirEtapaLocacao', 'encerrarLocacao', 'gerarCobranca', 'registrarPagamento',
+        'anexarComprovante', 'arquivarLocacao', 'concluirEtapaLocacao', 'encerrarLocacao', 'gerarCobranca', 'registrarPagamento',
         'registrarRepasse', 'renovarLocacao', 'restaurarLocacao', 'salvarAberturaLocacao', 'salvarContrato',
         'salvarGarantia', 'salvarVistoria',
       ].sort(),
@@ -17,7 +17,7 @@ describe('mapa de ações da locação', () => {
   })
 
   test('toda ação financeira exige «valores»; arquivar exige «arquivar»', () => {
-    for (const a of ['salvarContrato', 'gerarCobranca', 'registrarPagamento', 'registrarRepasse']) {
+    for (const a of ['salvarContrato', 'gerarCobranca', 'registrarPagamento', 'registrarRepasse', 'anexarComprovante']) {
       expect(ACOES_LOCACAO[a]!.permissao({})).toEqual(['valores'])
     }
     expect(ACOES_LOCACAO.arquivarLocacao!.permissao({})).toEqual(['arquivar'])

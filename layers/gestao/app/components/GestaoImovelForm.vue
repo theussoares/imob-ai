@@ -160,11 +160,11 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
 
     <fieldset :class="secao" class="m-0 min-w-0">
       <legend :class="titulo" class="float-left mb-2 w-full p-0">Interno (não vai para o site)</legend>
-      <label v-if="!props.somenteLeitura" :class="rotulo"><span>Proprietário<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+      <label :class="rotulo"><span>Proprietário<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.ownerName" :class="campo" autocomplete="off" v-bind="aria('ownerName')" data-testid="imovel-proprietario" />
         <span v-if="erros.ownerName" id="e-ownerName" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.ownerName }}</span>
       </label>
-      <label v-if="!props.somenteLeitura" :class="rotulo">Telefone do proprietário
+      <label :class="rotulo">Telefone do proprietário
         <GestaoCampoTelefone v-model="m.ownerPhone" :classe="campo" :erro-externo="erros.ownerPhone" v-bind="aria('ownerPhone')" data-testid="imovel-telefone-proprietario" />
       </label>
       <label :class="rotulo"><span>Corretor vendedor<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>

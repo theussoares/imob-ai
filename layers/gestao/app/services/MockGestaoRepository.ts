@@ -56,6 +56,7 @@ const LOCACAO: Record<string, Fn> = {
   gerarCobranca: (e, id, d, a) => loc.gerarCobranca(e, id, d.competencia, a),
   registrarPagamento: (e, id, d, a) => loc.registrarPagamento(e, id, d.cobrancaId, { valor: d.valor, data: d.data, forma: d.forma, comprovante: d.comprovante }, a),
   registrarRepasse: (e, id, d, a) => loc.registrarRepasse(e, id, d.cobrancaId, { valor: d.valor, data: d.data, forma: d.forma, comprovante: d.comprovante }, a),
+  anexarComprovante: (e, id, d, a) => loc.anexarComprovante(e, id, d.cobrancaId, d, a),
   concluirEtapaLocacao: (e, id, d, a) => loc.concluirEtapaLocacao(e, id, d.etapa, a),
   renovarLocacao: (e, id, _d, a) => loc.renovarLocacao(e, id, a),
   encerrarLocacao: (e, id, _d, a) => loc.encerrarLocacao(e, id, a),

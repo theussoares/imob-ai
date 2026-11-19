@@ -12,6 +12,8 @@ const props = defineProps<{
   encargos?: EncargosConfig
   /** Registra e devolve a frase de erro (ou `null`): o modal fica aberto com o erro até dar certo. */
   registrar: (acao: 'pagar' | 'repassar', cobrancaId: string, d: DadosRecebimentoForm) => Promise<string | null>
+  /** Anexa o comprovante depois de registrado sem ele. */
+  anexar?: (cobrancaId: string, d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string; comprovante: string }) => Promise<void> | void
 }>()
 const emit = defineEmits<{ gerar: [competencia: string] }>()
 
@@ -51,6 +53,15 @@ function abrirRepasse(c: Cobranca) {
   modal.value?.abrir({ modo: 'repasse', titulo: `Repasse ao locador de ${c.competencia} (aluguel menos a taxa).`, sugerido: falta, resumo: [{ rotulo: 'A repassar', valor: c.repasse.valor }, { rotulo: 'Falta repassar', valor: falta }] })
 }
 
+function escolher(e: Event, cobrancaId: string, alvo: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string }) {
+  const el = e.target as HTMLInputElement
+  // O demo não sobe binário: o comprovante é o nome do arquivo escolhido (como no modal de pagamento).
+  const nome = el.files?.[0]?.name
+  el.value = ''
+  if (nome) void props.anexar?.(cobrancaId, { ...alvo, comprovante: nome })
+}
+const botaoAnexo =
+  'inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-label)] font-bold hover:bg-[var(--brand-ghost)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--brand)]'
 const botao =
   'inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 font-bold hover:bg-[var(--brand-ghost)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]'
 </script>
@@ -76,8 +87,22 @@ const botao =
           </small>
           <small v-if="dev(c).pago && !c.pago" class="block text-[var(--ink-soft)]" data-testid="parcial">Pago {{ brl(dev(c).pago) }} · falta {{ brl(dev(c).saldo) }}</small>
           <small v-if="c.pagamentos?.length" class="block text-[var(--ink-soft)]">
-            Recebido: <span v-for="(p, i) in c.pagamentos" :key="p.id">{{ i ? '; ' : '' }}{{ brl(p.valor) }} em {{ dia(p.data) }} ({{ p.forma }})</span>
+            Recebido: <span v-for="(p, i) in c.pagamentos" :key="p.id">{{ i ? '; ' : '' }}{{ brl(p.valor) }} em {{ dia(p.data) }} ({{ p.forma }})<template v-if="p.comprovante"> · comprovante: {{ p.comprovante }}</template></span>
           </small>
+          <div v-for="p in c.pagamentos?.filter((x) => !x.comprovante)" :key="`sc-${p.id}`" class="mt-1 flex flex-wrap items-center gap-2" data-testid="sem-comprovante">
+            <span class="rounded-full bg-[#fef3c7] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold text-[#78350f]">Sem comprovante: pagamento de {{ brl(p.valor) }} em {{ dia(p.data) }}</span>
+            <label v-if="podeEditar && anexar" :class="botaoAnexo">
+              Anexar comprovante<span class="sr-only"> do pagamento de {{ c.competencia }}</span>
+              <input type="file" class="sr-only" data-testid="anexar-pagamento" @change="escolher($event, c.id, { alvo: 'pagamento', pagamentoId: p.id })" />
+            </label>
+          </div>
+          <div v-if="c.repasse?.data && !c.repasse.comprovante" class="mt-1 flex flex-wrap items-center gap-2" data-testid="sem-comprovante-repasse">
+            <span class="rounded-full bg-[#fef3c7] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold text-[#78350f]">Sem comprovante: repasse</span>
+            <label v-if="podeEditar && anexar" :class="botaoAnexo">
+              Anexar comprovante<span class="sr-only"> do repasse de {{ c.competencia }}</span>
+              <input type="file" class="sr-only" data-testid="anexar-repasse" @change="escolher($event, c.id, { alvo: 'repasse' })" />
+            </label>
+          </div>
         </div>
         <span class="rounded-full px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold" :class="TOM[dev(c).situacao]" data-testid="situacao-cobranca">
           {{ ROTULO_SITUACAO_COBRANCA[dev(c).situacao] }}

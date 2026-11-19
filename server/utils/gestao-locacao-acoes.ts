@@ -106,6 +106,16 @@ export const ACOES_LOCACAO: Record<string, DefAcao<unknown>> = {
     schema: recebimento,
     fn: (e, id, d, a, q) => acoes.registrarRepasse(e, id, d.cobrancaId, d as never, a, q),
   }),
+  anexarComprovante: def({
+    permissao: () => ['valores'],
+    schema: z.object({
+      cobrancaId: z.string().max(40),
+      alvo: z.enum(['pagamento', 'repasse']),
+      pagamentoId: z.string().max(20).optional(),
+      comprovante: z.string().min(1).max(300),
+    }),
+    fn: (e, id, d, a, q) => acoes.anexarComprovante(e, id, d.cobrancaId, d, a, q),
+  }),
   concluirEtapaLocacao: def({
     permissao: (d: { etapa: number }) => (d.etapa === 7 ? ['valores'] : ['editar']),
     schema: z.object({ etapa: z.number().int() }),

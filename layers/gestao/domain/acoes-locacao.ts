@@ -228,6 +228,40 @@ export function registrarRepasse(estado: Estado, id: string, cobrancaId: string,
   })
 }
 
+/**
+ * Anexa o comprovante a um pagamento ou repasse registrado sem ele. Só preenche o que está vazio: o histórico
+ * do dinheiro não se reescreve (trocar um comprovante já anexado esconderia o original). Não mexe em valor,
+ * data nem situação da cobrança.
+ */
+export function anexarComprovante(
+  estado: Estado,
+  id: string,
+  cobrancaId: string,
+  d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string; comprovante: string },
+  ator: Ator,
+  quando = agora(),
+): Resultado {
+  return alterar(estado, id, ator, quando, (l) => {
+    const nome = d.comprovante?.trim()
+    if (!nome) return { ok: false, erro: 'Escolha o arquivo do comprovante.' }
+    const r = naCobranca(l, cobrancaId, (c) => {
+      if (d.alvo === 'repasse') {
+        if (!c.repasse?.data) return 'Este repasse ainda não foi registrado.'
+        if (c.repasse.comprovante) return 'Este repasse já tem comprovante.'
+        return { ...c, repasse: { ...c.repasse, comprovante: nome } }
+      }
+      const p = c.pagamentos?.find((x) => x.id === d.pagamentoId)
+      if (!p) return 'Pagamento não encontrado.'
+      if (p.comprovante) return 'Este pagamento já tem comprovante.'
+      const pagamentos = c.pagamentos!.map((x) => (x.id === p.id ? { ...x, comprovante: nome } : x))
+      // `pago.comprovante` espelha o primeiro comprovante da cobrança (ver registrarPagamento).
+      const pago = c.pago && !c.pago.comprovante ? { ...c.pago, comprovante: nome } : c.pago
+      return { ...c, pagamentos, ...(pago ? { pago } : {}) }
+    })
+    return r.ok ? { ...r, acao: `Anexou o comprovante ${d.alvo === 'repasse' ? 'do repasse' : 'do pagamento'} de ${r.acao}` } : r
+  })
+}
+
 export function concluirEtapaLocacao(estado: Estado, id: string, etapa: number, ator: Ator, quando = agora()): Resultado {
   return alterar(estado, id, ator, quando, (l) => {
     if (etapa < 1 || etapa >= TOTAL_ETAPAS_LOCACAO) return { ok: false, erro: 'Esta etapa não se conclui; use renovar ou encerrar.' }
