@@ -208,9 +208,14 @@ export default defineNuxtConfig({
     // quebra de um dump em segundos). Trocar invalida convites e códigos em
     // aberto — só isso: nada permanente depende dele.
     gestaoOtpPepper: '',
+    // Secret key do Cloudflare Turnstile (NUXT_TURNSTILE_SECRET), usada em `server/utils/gestao-captcha.ts`.
+    // Vazia = o servidor não verifica captcha (demo). Entra junto com `public.turnstileSiteKey`.
+    turnstileSecret: '',
     // Trocar de modelo é variável de ambiente, não deploy de código.
     aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {
+      // Site key do Turnstile (NUXT_PUBLIC_TURNSTILE_SITE_KEY): chave pública por desenho. Vazia = desafio simulado do demo.
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY || '',
       // Não existe URL canônica global: cada tenant se auto-canonicaliza no
       // próprio host (ver app.vue). Por isso não há `siteUrl` aqui.
       // Anon key + URL (públicas) — usadas só pelo painel /admin, sob demanda.
@@ -289,7 +294,8 @@ export default defineNuxtConfig({
             "default-src 'self'",
             // va.vercel-scripts.com: o @vercel/speed-insights injeta esse script
             // em runtime (não aparece no HTML inicial — só o navegador revela).
-            "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+            // challenges.cloudflare.com: widget do Turnstile no login do /gestao (script e iframe).
+            "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://challenges.cloudflare.com",
             "style-src 'self' 'unsafe-inline'", // <style id="tenant-theme"> + style= nos cards
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:", // fontes são self-hosted pelo @nuxt/fonts
@@ -306,7 +312,7 @@ export default defineNuxtConfig({
             // uma coordenada da Olmi digitada sem o sinal de menos.
             // Os dois hosts porque maps.google.com responde 301 para
             // www.google.com/maps/embed, e o CSP confere cada salto.
-            "frame-src https://maps.google.com https://www.google.com",
+            "frame-src https://maps.google.com https://www.google.com https://challenges.cloudflare.com",
             "frame-ancestors 'self'", // sucessor do X-Frame-Options
             "base-uri 'self'", // bloqueia injeção de <base> pra sequestrar URLs relativas
             "form-action 'self'",

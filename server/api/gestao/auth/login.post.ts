@@ -7,6 +7,7 @@ import {
   exigirLimiteLogin,
   registrarFalhaLogin,
 } from '~~/server/utils/gestao-auth'
+import { exigirCaptcha } from '~~/server/utils/gestao-captcha'
 import { gravarRefreshGestao } from '~~/server/utils/gestao-cookie'
 import { buscarMembroPorUsuario } from '~~/server/repositories/gestao-member.repository'
 
@@ -25,10 +26,13 @@ export default defineEventHandler(async (event) => {
   const tenant = useTenantContext(event)
   if (!(await gestaoAtiva(tenant.id))) throw createError({ statusCode: 404, statusMessage: 'Página não encontrada.' })
 
-  const body = await readBody<{ email?: unknown; senha?: unknown }>(event)
+  const body = await readBody<{ email?: unknown; senha?: unknown; captcha?: unknown }>(event)
   const email = normalizarEmail(typeof body?.email === 'string' ? body.email : '')
   const senha = typeof body?.senha === 'string' ? body.senha : ''
   if (!emailValido(email) || !senha || senha.length > 200) throw createError({ statusCode: 401, statusMessage: ERRO_LOGIN })
+
+  // Antes de qualquer consulta ao banco ou ao Auth: um robô barrado aqui não gasta tentativa nem consulta.
+  await exigirCaptcha(event, body?.captcha)
 
   const db = serviceSupabase()
   const pepper = pepperDoOtp()

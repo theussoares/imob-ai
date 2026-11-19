@@ -62,7 +62,7 @@ export function useGestaoAuth() {
     try {
       const r = await api!.post<{ accessToken: string; expiresAt: number | null; codigo: { segundos?: number } }>(
         '/api/gestao/auth/login',
-        { email, senha },
+        { email, senha, captcha },
         { semToken: true },
       )
       // Acesso em memória; o refresh fica no cookie HttpOnly (ver tokensGestao.ts). Sozinhos não abrem nada: falta o código do e-mail.
@@ -167,7 +167,7 @@ export function useGestaoAuth() {
   async function aceitarHttp(token: string, nome: string, senha: string, captcha: string) {
     if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA, motivo: 'captcha' }
     try {
-      await api!.post('/api/gestao/auth/aceitar', { token, nome, senha }, { semToken: true })
+      await api!.post('/api/gestao/auth/aceitar', { token, nome, senha, captcha }, { semToken: true })
       return { ok: true as const }
     } catch (e) {
       const f = paraFalha(e)

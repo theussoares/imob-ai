@@ -1,3 +1,4 @@
+import { exigirCaptcha } from '~~/server/utils/gestao-captcha'
 import { validarSenha } from '~~/layers/gestao/domain/auth'
 import { consultarConviteGestao } from '~~/server/utils/gestao-convite'
 import { chaveDeFalha, pepperDoOtp } from '~~/server/utils/gestao-otp'
@@ -24,12 +25,14 @@ export default defineEventHandler(async (event) => {
   const tenant = useTenantContext(event)
   if (!(await gestaoAtiva(tenant.id))) throw createError({ statusCode: 404, statusMessage: 'Página não encontrada.' })
 
-  const body = await readBody<{ token?: unknown; nome?: unknown; senha?: unknown }>(event)
+  const body = await readBody<{ token?: unknown; nome?: unknown; senha?: unknown; captcha?: unknown }>(event)
   const token = typeof body?.token === 'string' ? body.token : ''
   const nome = typeof body?.nome === 'string' ? body.nome.trim().replace(/\s+/g, ' ') : ''
   const senha = typeof body?.senha === 'string' ? body.senha : ''
   if (nome.length < 2 || nome.length > 120) throw createError({ statusCode: 422, statusMessage: 'Informe seu nome.' })
   if (!senha || senha.length > 200) throw createError({ statusCode: 422, statusMessage: 'A senha não cumpre os requisitos.' })
+
+  await exigirCaptcha(event, body?.captcha)
 
   const db = serviceSupabase()
   const pepper = pepperDoOtp()

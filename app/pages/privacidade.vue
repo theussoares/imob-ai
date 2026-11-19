@@ -204,6 +204,13 @@ useHead(() => ({
         estatísticas de visita, nos Estados Unidos.
       </li>
       <li><b>Resend:</b> envio de e-mails, nos Estados Unidos.</li>
+      <li>
+        <b>Cloudflare (Turnstile):</b> verificação “não sou um robô” na tela de
+        login do painel interno de gestão, usada só pela equipe da imobiliária.
+        Recebe o seu endereço de internet (IP) e sinais do navegador para
+        distinguir pessoas de programas automáticos. Quem apenas visita o site
+        não passa por ela. Nos Estados Unidos.
+      </li>
       <!--
         Asaas (0051): só quando a imobiliária conecta a cobrança. A conta é
         DELA no Asaas; recebe nome, CPF/CNPJ, e-mail e telefone do inquilino
@@ -220,7 +227,7 @@ useHead(() => ({
       Transferência internacional (LGPD art. 33): as funções rodam em `gru1`
       (São Paulo, nuxt.config.ts), então o formulário e o hash de IP são
       processados no Brasil. O que sai do país é o e-mail de aviso (Resend),
-      coberto pelo art. 33, IX, e as estatísticas anonimizadas da Vercel — ver
+      coberto pelo art. 33, IX, a verificação do Cloudflare Turnstile no login do painel, e as estatísticas anonimizadas da Vercel — ver
       Q3 em docs/runbooks/lgpd-site-publico.md. Não afirmar aqui garantia
       contratual que ninguém verificou.
     -->
