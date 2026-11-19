@@ -90,14 +90,14 @@ const botao =
             Recebido: <span v-for="(p, i) in c.pagamentos" :key="p.id">{{ i ? '; ' : '' }}{{ brl(p.valor) }} em {{ dia(p.data) }} ({{ p.forma }})<template v-if="p.comprovante"> · comprovante: {{ p.comprovante }}</template></span>
           </small>
           <div v-for="p in c.pagamentos?.filter((x) => !x.comprovante)" :key="`sc-${p.id}`" class="mt-1 flex flex-wrap items-center gap-2" data-testid="sem-comprovante">
-            <span class="rounded-full bg-[#fef3c7] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold text-[#78350f]">Sem comprovante: pagamento de {{ brl(p.valor) }} em {{ dia(p.data) }}</span>
+            <span class="rounded-lg bg-[#fef3c7] px-2.5 py-1 text-[length:var(--fs-caption)] font-bold text-[#78350f]">Sem comprovante: pagamento de {{ brl(p.valor) }} em {{ dia(p.data) }}</span>
             <label v-if="podeEditar && anexar" :class="botaoAnexo">
               Anexar comprovante<span class="sr-only"> do pagamento de {{ c.competencia }}</span>
               <input type="file" class="sr-only" data-testid="anexar-pagamento" @change="escolher($event, c.id, { alvo: 'pagamento', pagamentoId: p.id })" />
             </label>
           </div>
           <div v-if="c.repasse?.data && !c.repasse.comprovante" class="mt-1 flex flex-wrap items-center gap-2" data-testid="sem-comprovante-repasse">
-            <span class="rounded-full bg-[#fef3c7] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold text-[#78350f]">Sem comprovante: repasse</span>
+            <span class="rounded-lg bg-[#fef3c7] px-2.5 py-1 text-[length:var(--fs-caption)] font-bold text-[#78350f]">Sem comprovante: repasse</span>
             <label v-if="podeEditar && anexar" :class="botaoAnexo">
               Anexar comprovante<span class="sr-only"> do repasse de {{ c.competencia }}</span>
               <input type="file" class="sr-only" data-testid="anexar-repasse" @change="escolher($event, c.id, { alvo: 'repasse' })" />
