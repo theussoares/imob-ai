@@ -33,9 +33,11 @@ function arquivosTs(dir: string): string[] {
 
 /**
  * `[code]` é o código do imóvel, escolhido pela imobiliária — texto, não uuid.
- * É o único parâmetro de rota que não é id de tabela.
+ * `[token]` é o token do convite do /gestao (64 hex), conferido pela forma em
+ * `consultarConviteGestao` antes de ir ao banco. São os únicos parâmetros de
+ * rota que não são id de tabela.
  */
-const NAO_E_ID = /getRouterParam\(event, 'code'\)/
+const NAO_E_ID = /getRouterParam\(event, '(code|token)'\)/
 
 describe('idDeRota', () => {
   test('devolve o uuid limpo', () => {
@@ -83,7 +85,9 @@ describe('varredura: todo endpoint com id de rota confere a forma', () => {
       // com `descricao.post.ts` no round anterior: a checagem real morava em
       // outro arquivo, e o texto do comentário bastava para passar aqui.
       const fonte = stripComments(readFileSync(caminho, 'utf8'))
-      const confere = fonte.includes('idDeRota(') || fonte.includes('ehUuid(')
+      // `idDeVenda(`/`idDeLocacao(`: os ids do gestão são V-AAAA-NNNN e L-AAAA-NNNN
+      // (texto, não uuid), cada um com validador próprio; ver test/server/gestao-*.test.ts.
+      const confere = ['idDeRota(', 'ehUuid(', 'idDeVenda(', 'idDeLocacao('].some((f) => fonte.includes(f))
       expect(confere, `${rel}: id de rota vai ao banco sem conferir a forma`).toBe(true)
     })
   }

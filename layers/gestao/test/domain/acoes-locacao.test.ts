@@ -62,19 +62,73 @@ describe('contrato e cobranças', () => {
     expect(erro(a.gerarCobranca(novo(), ATIVA, '12/2026', ator))).toBeTruthy()
     expect(erro(a.gerarCobranca(novo(), ABERTURA, '2026-12', ator))).toBe('Salve os dados do contrato antes de gerar cobranças.')
   })
-  it('pagamento exige comprovante e gera repasse pendente líquido da taxa', () => {
+  const pag = (valor: number, data = '2026-11-10', extra = {}) => ({ valor, data, forma: 'PIX' as const, ...extra })
+
+  it('pagamento: valor > 0, data não futura, forma válida; comprovante é opcional', () => {
     const e0 = ok(a.gerarCobranca(novo(), ATIVA, '2026-12', ator, Q))
-    expect(erro(a.registrarPagamento(e0, ATIVA, 'cb-2026-12', { data: '2026-12-09', comprovante: ' ' }, ator))).toBe('Anexe o comprovante para marcar como pago.')
-    const e = ok(a.registrarPagamento(e0, ATIVA, 'cb-2026-12', { data: '2026-12-09', comprovante: 'c.pdf' }, ator, Q))
-    expect(loc(e, ATIVA).cobrancas.find((c) => c.id === 'cb-2026-12')!.repasse).toEqual({ valor: 2250, feito: false })
-    expect(erro(a.registrarPagamento(e, ATIVA, 'cb-2026-12', { data: '2026-12-09', comprovante: 'c.pdf' }, ator))).toMatch(/já está paga/i)
+    const id = 'cb-2026-12'
+    expect(erro(a.registrarPagamento(e0, ATIVA, id, pag(0), ator, Q))).toBe('Informe um valor maior que zero.')
+    expect(erro(a.registrarPagamento(e0, ATIVA, id, pag(2500, '2026-11-17'), ator, Q))).toBe('A data não pode ser futura.')
+    expect(erro(a.registrarPagamento(e0, ATIVA, id, { ...pag(2500), forma: 'Cheque' as never }, ator, Q))).toBe('Escolha a forma de pagamento.')
+    const e = ok(a.registrarPagamento(e0, ATIVA, id, pag(2500), ator, Q)) // sem comprovante
+    const c = loc(e, ATIVA).cobrancas.find((x) => x.id === id)!
+    expect(c.pago).toEqual({ data: '2026-11-10', comprovante: '' })
+    expect(c.repasse).toEqual({ valor: 2250, feito: false })
+    expect(loc(e, ATIVA).hist[0]!.acao).toContain('Registrou o pagamento')
+    // O `hist` chega a perfis sem `valores`: nenhum R$ nele.
+    expect(loc(e, ATIVA).hist.map((h) => h.acao).join(' ')).not.toContain('R$')
+    expect(erro(a.registrarPagamento(e, ATIVA, id, pag(10), ator, Q))).toMatch(/já está paga/i)
   })
-  it('repasse só depois do pagamento e uma vez', () => {
-    expect(erro(a.registrarRepasse(novo(), ATIVA, 'cb-2026-11', { data: '2026-12-01', comprovante: 'r.pdf' }, ator))).toBe('Registre o pagamento antes do repasse.')
-    const e = ok(a.registrarRepasse(novo(), ATIVA, 'cb-2026-10', { data: '2026-12-01', comprovante: 'r.pdf' }, ator, Q))
-    expect(loc(e, ATIVA).cobrancas.find((c) => c.id === 'cb-2026-10')!.repasse).toMatchObject({ feito: true, valor: 2250 })
-    expect(erro(a.registrarRepasse(e, ATIVA, 'cb-2026-10', { data: '2026-12-01', comprovante: 'r.pdf' }, ator))).toMatch(/já foi feito/i)
-    expect(erro(a.registrarRepasse(novo(), ATIVA, 'cb-2026-10', { data: '2026-12-01', comprovante: '' }, ator))).toBe('Anexe o comprovante do repasse.')
+
+  it('comprovante anexado depois: só preenche o vazio, não troca o que existe e não muda a situação', () => {
+    const e0 = ok(a.gerarCobranca(novo(), ATIVA, '2026-12', ator, Q))
+    const id = 'cb-2026-12'
+    const e1 = ok(a.registrarPagamento(e0, ATIVA, id, pag(2500), ator, Q))
+    const antes = loc(e1, ATIVA).cobrancas.find((x) => x.id === id)!
+    expect(antes.pagamentos![0]!.comprovante).toBeNull()
+    expect(erro(a.anexarComprovante(e1, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-1', comprovante: ' ' }, ator, Q))).toMatch(/escolha o arquivo/i)
+    expect(erro(a.anexarComprovante(e1, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-9', comprovante: 'x.pdf' }, ator, Q))).toBe('Pagamento não encontrado.')
+    const e2 = ok(a.anexarComprovante(e1, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-1', comprovante: 'pix.pdf' }, ator, Q))
+    const c = loc(e2, ATIVA).cobrancas.find((x) => x.id === id)!
+    expect(c.pagamentos![0]).toMatchObject({ valor: 2500, comprovante: 'pix.pdf' })
+    expect(c.pago).toEqual({ data: '2026-11-10', comprovante: 'pix.pdf' })
+    expect(erro(a.anexarComprovante(e2, ATIVA, id, { alvo: 'pagamento', pagamentoId: 'pg-1', comprovante: 'outro.pdf' }, ator, Q))).toMatch(/já tem comprovante/)
+    expect(erro(a.anexarComprovante(e1, ATIVA, id, { alvo: 'repasse', comprovante: 'r.pdf' }, ator, Q))).toMatch(/ainda não foi registrado/)
+    const e3 = ok(a.registrarRepasse(e2, ATIVA, id, pag(2250), ator, Q))
+    const e4 = ok(a.anexarComprovante(e3, ATIVA, id, { alvo: 'repasse', comprovante: 'rep.pdf' }, ator, Q))
+    expect(loc(e4, ATIVA).cobrancas.find((x) => x.id === id)!.repasse).toMatchObject({ feito: true, comprovante: 'rep.pdf' })
+  })
+
+  it('pagamento parcial: fica «Parcial» com saldo; repasse só depois de quitar; passar do devido é recusado', () => {
+    const e0 = ok(a.gerarCobranca(novo(), ATIVA, '2026-12', ator, Q))
+    const id = 'cb-2026-12'
+    const e1 = ok(a.registrarPagamento(e0, ATIVA, id, pag(1000), ator, Q))
+    const c1 = loc(e1, ATIVA).cobrancas.find((x) => x.id === id)!
+    expect(c1.pago).toBeUndefined()
+    expect(c1.repasse).toBeUndefined()
+    expect(loc(e1, ATIVA).hist[0]!.acao).toContain('pagamento parcial')
+    expect(erro(a.registrarRepasse(e1, ATIVA, id, pag(100), ator, Q))).toBe('Quite a cobrança antes do repasse.')
+    expect(erro(a.registrarPagamento(e1, ATIVA, id, pag(2000), ator, Q))).toMatch(/passa do total devido/)
+    const e2 = ok(a.registrarPagamento(e1, ATIVA, id, pag(1500), ator, Q))
+    expect(loc(e2, ATIVA).cobrancas.find((x) => x.id === id)!.pago).toBeTruthy()
+  })
+
+  it('cobrança vencida só quita com multa e juros (valor atualizado na data do pagamento)', () => {
+    // vencimento 2026-10-10; pago em 2026-11-09 = 30 dias: multa 2% (50) + juros 1% (25) = 2575
+    const e0 = ok(a.gerarCobranca(novo(), ATIVA, '2026-09', ator, Q))
+    const id = 'cb-2026-09'
+    const e1 = ok(a.registrarPagamento(e0, ATIVA, id, pag(2500, '2026-10-12'), ator, Q))
+    expect(loc(e1, ATIVA).cobrancas.find((x) => x.id === id)!.pago).toBeUndefined() // 2 dias de atraso: faltam encargos
+  })
+
+  it('repasse: só depois de quitar; valor, data e forma; parcial até cobrir; comprovante opcional', () => {
+    expect(erro(a.registrarRepasse(novo(), ATIVA, 'cb-2026-11', pag(100), ator, Q))).toBe('Quite a cobrança antes do repasse.')
+    const e1 = ok(a.registrarRepasse(novo(), ATIVA, 'cb-2026-10', pag(1000), ator, Q))
+    expect(loc(e1, ATIVA).cobrancas.find((c) => c.id === 'cb-2026-10')!.repasse).toMatchObject({ feito: false, repassado: 1000, valor: 2250 })
+    expect(erro(a.registrarRepasse(e1, ATIVA, 'cb-2026-10', pag(1500), ator, Q))).toMatch(/passa do que falta repassar/)
+    const e2 = ok(a.registrarRepasse(e1, ATIVA, 'cb-2026-10', pag(1250), ator, Q))
+    expect(loc(e2, ATIVA).cobrancas.find((c) => c.id === 'cb-2026-10')!.repasse).toMatchObject({ feito: true, repassado: 2250, forma: 'PIX', comprovante: null })
+    expect(erro(a.registrarRepasse(e2, ATIVA, 'cb-2026-10', pag(1), ator, Q))).toMatch(/já foi feito/i)
   })
 })
 
@@ -116,7 +170,7 @@ describe('acompanhamento', () => {
     expect(erro(a.encerrarLocacao(novo(), ATIVA, ator))).toBe('Registre a vistoria de saída antes de encerrar.')
     let e = ok(a.salvarVistoria(novo(), ATIVA, 'saida', { data: '2027-08-10', responsavel: 'M', fotos: ['s.jpg'], observacao: '' }, ator))
     expect(erro(a.encerrarLocacao(e, ATIVA, ator))).toBe('Há repasse pendente ao proprietário.')
-    e = ok(a.registrarRepasse(e, ATIVA, 'cb-2026-10', { data: '2026-12-01', comprovante: 'r.pdf' }, ator))
+    e = ok(a.registrarRepasse(e, ATIVA, 'cb-2026-10', { valor: 2250, data: '2026-11-10', forma: 'PIX' }, ator, Q))
     e = ok(a.encerrarLocacao(e, ATIVA, ator, Q))
     expect(loc(e, ATIVA).status).toBe('Encerrada')
   })
@@ -151,7 +205,7 @@ describe('documentos da locação', () => {
   })
   it('recusa extensão, tamanho, item desconhecido, locação inexistente e encerrada', () => {
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, nome: 'x.exe' }, ator))).toBe('Use PDF, JPG, PNG ou WEBP.')
-    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, tamanho: 21 * 1024 * 1024 }, ator))).toBe('O arquivo passa de 20 MB.')
+    expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, tamanho: 16 * 1024 * 1024 }, ator))).toBe('O arquivo passa de 15 MB.')
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, requisito: 'x:y' }, ator))).toBe('Item de checklist desconhecido.')
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, processoId: 'nada' }, ator))).toBe('Locação não encontrada.')
     expect(erro(a.enviarDocumentoLocacao(novo(), { ...dados, processoId: ENCERRADA }, ator))).toBe('Esta locação está encerrada e só aceita consulta.')

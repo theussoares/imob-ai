@@ -1,7 +1,7 @@
 import { calcularComissao } from './commission.ts'
-import { diasEntre } from './avisos-locacao.ts'
 import { locacaoFinal } from './locacao-status.ts'
-import type { Locacao, Processo } from './types'
+import { devidoDaCobranca, ENCARGOS_PADRAO, ROTULO_SITUACAO_COBRANCA, type EncargosConfig, type SituacaoCobranca } from './cobranca.ts'
+import type { Cobranca, Locacao, Processo } from './types'
 
 /**
  * Financeiro: visão única do dinheiro das vendas (comissão) e das locações (aluguel,
@@ -51,7 +51,8 @@ export function resumoVendas(processos: Processo[]): ResumoVendas {
 
 // -------------------------------------------------------------- locações
 
-export type SituacaoAluguel = 'paga' | 'aberta' | 'atrasada'
+/** Mesma situação da tela da locação: vem de `cobranca.ts`, a única regra. */
+export type SituacaoAluguel = SituacaoCobranca
 export type SituacaoRepasse = 'sem-pagamento' | 'pendente' | 'feito'
 
 export interface LinhaAluguel {
@@ -60,12 +61,24 @@ export interface LinhaAluguel {
   imovel: string
   competencia: string
   vencimento: string
+  /** valor original do aluguel */
   valor: number
   situacao: SituacaoAluguel
+  diasAtraso: number
+  multa: number
+  juros: number
+  /** original + multa + juros */
+  atualizado: number
+  /** já recebido (soma dos pagamentos; legado quitado sem lista = valor) */
+  recebido: number
+  /** o que falta receber, com encargos */
+  saldo: number
   /** taxa da imobiliária sobre este aluguel */
   taxa: number
   /** valor a repassar ao proprietário (aluguel menos a taxa) */
   repasse: number
+  /** o que ainda falta repassar */
+  repasseSaldo: number
   repasseSituacao: SituacaoRepasse
 }
 
@@ -73,6 +86,7 @@ export interface ResumoLocacoes {
   linhas: LinhaAluguel[]
   recebido: number
   emAberto: number
+  /** saldo atualizado (com multa e juros) do que já venceu e não foi quitado */
   emAtraso: number
   taxaRecebida: number
   repasseFeito: number
@@ -84,18 +98,21 @@ export function competenciasDisponiveis(locacoes: Locacao[]): string[] {
   return [...new Set(locacoes.flatMap((l) => l.cobrancas.map((c) => c.competencia)))].sort().reverse()
 }
 
+const repassado = (c: Cobranca) => (c.repasse ? (c.repasse.feito ? (c.repasse.repassado ?? c.repasse.valor) : (c.repasse.repassado ?? 0)) : 0)
+
 /**
- * Cobranças de todas as locações, opcionalmente de uma competência. O repasse vem da
- * cobrança (valor já calculado quando o pagamento foi registrado); quando falta, cai na
- * conta aluguel menos taxa, para a linha nunca ficar sem número.
+ * Cobranças de todas as locações, opcionalmente de uma competência. Situação, encargos e saldo vêm de
+ * `devidoDaCobranca` (a mesma da tela da locação). A taxa da imobiliária só conta de cobrança QUITADA
+ * (a que libera o repasse); multa e juros não entram na taxa nem no repasse (ver `cobranca.ts`).
  */
-export function resumoLocacoes(locacoes: Locacao[], hoje: string, competencia = ''): ResumoLocacoes {
+export function resumoLocacoes(locacoes: Locacao[], hoje: string, competencia = '', cfg: EncargosConfig = ENCARGOS_PADRAO): ResumoLocacoes {
   const linhas: LinhaAluguel[] = []
   for (const l of locacoes) {
     for (const c of l.cobrancas) {
       if (competencia && c.competencia !== competencia) continue
       const taxa = centavos((c.valor * (l.contrato?.taxaPct ?? 0)) / 100)
-      const situacao: SituacaoAluguel = c.pago ? 'paga' : diasEntre(hoje, c.vencimento) < 0 ? 'atrasada' : 'aberta'
+      const d = devidoDaCobranca(c, hoje, cfg)
+      const repasse = c.repasse?.valor ?? centavos(c.valor - taxa)
       linhas.push({
         locacaoId: l.id,
         cobrancaId: c.id,
@@ -103,9 +120,16 @@ export function resumoLocacoes(locacoes: Locacao[], hoje: string, competencia = 
         competencia: c.competencia,
         vencimento: c.vencimento,
         valor: c.valor,
-        situacao,
+        situacao: d.situacao,
+        diasAtraso: d.encargos.dias,
+        multa: d.encargos.multa,
+        juros: d.encargos.juros,
+        atualizado: d.encargos.atualizado,
+        recebido: d.pago || (c.pago ? c.valor : 0),
+        saldo: d.saldo,
         taxa,
-        repasse: c.repasse?.valor ?? centavos(c.valor - taxa),
+        repasse,
+        repasseSaldo: !c.pago ? 0 : c.repasse?.feito ? 0 : centavos(repasse - (c.repasse?.repassado ?? 0)),
         repasseSituacao: !c.pago ? 'sem-pagamento' : c.repasse?.feito ? 'feito' : 'pendente',
       })
     }
@@ -113,14 +137,19 @@ export function resumoLocacoes(locacoes: Locacao[], hoje: string, competencia = 
   linhas.sort((a, b) => b.competencia.localeCompare(a.competencia) || a.locacaoId.localeCompare(b.locacaoId))
   const soma = (f: (l: LinhaAluguel) => boolean, v: (l: LinhaAluguel) => number) =>
     centavos(linhas.filter(f).reduce((t, l) => t + v(l), 0))
+  const vencidaNaoQuitada = (l: LinhaAluguel) => l.situacao !== 'paga' && l.diasAtraso > 0
+  const porId = new Map(locacoes.flatMap((l) => l.cobrancas.map((c) => [`${l.id}/${c.id}`, c] as const)))
   return {
     linhas,
-    recebido: soma((l) => l.situacao === 'paga', (l) => l.valor),
-    emAberto: soma((l) => l.situacao === 'aberta', (l) => l.valor),
-    emAtraso: soma((l) => l.situacao === 'atrasada', (l) => l.valor),
+    recebido: soma(() => true, (l) => l.recebido),
+    emAberto: soma((l) => l.situacao !== 'paga' && !vencidaNaoQuitada(l), (l) => l.saldo),
+    emAtraso: soma(vencidaNaoQuitada, (l) => l.saldo),
     taxaRecebida: soma((l) => l.situacao === 'paga', (l) => l.taxa),
-    repasseFeito: soma((l) => l.repasseSituacao === 'feito', (l) => l.repasse),
-    repassePendente: soma((l) => l.repasseSituacao === 'pendente', (l) => l.repasse),
+    repasseFeito: soma(() => true, (l) => {
+      const c = porId.get(`${l.locacaoId}/${l.cobrancaId}`)
+      return c ? repassado(c) : 0
+    }),
+    repassePendente: soma((l) => l.repasseSituacao === 'pendente', (l) => l.repasseSaldo),
   }
 }
 
@@ -136,19 +165,29 @@ export interface PendenciasFinanceiras {
  * Locação encerrada fica de fora porque o domínio só aceita consulta nela; a linha
  * apareceria com botão que sempre falha.
  */
-export function pendenciasFinanceiras(locacoes: Locacao[], hoje: string): PendenciasFinanceiras {
+export function pendenciasFinanceiras(locacoes: Locacao[], hoje: string, cfg: EncargosConfig = ENCARGOS_PADRAO): PendenciasFinanceiras {
   const abertas = locacoes.filter((l) => !locacaoFinal(l.status))
-  const { linhas } = resumoLocacoes(abertas, hoje)
+  const { linhas } = resumoLocacoes(abertas, hoje, '', cfg)
   const porVencimento = (a: LinhaAluguel, b: LinhaAluguel) => a.vencimento.localeCompare(b.vencimento)
   return {
-    receber: linhas.filter((l) => l.situacao !== 'paga').sort((a, b) => Number(b.situacao === 'atrasada') - Number(a.situacao === 'atrasada') || porVencimento(a, b)),
+    receber: linhas.filter((l) => l.situacao !== 'paga').sort((a, b) => Number(b.diasAtraso > 0) - Number(a.diasAtraso > 0) || porVencimento(a, b)),
     repassar: linhas.filter((l) => l.repasseSituacao === 'pendente').sort(porVencimento),
   }
 }
 
-export const ROTULO_SITUACAO: Record<SituacaoAluguel, string> = { paga: 'Paga', aberta: 'Em aberto', atrasada: 'Em atraso' }
+export const ROTULO_SITUACAO = ROTULO_SITUACAO_COBRANCA
 export const ROTULO_REPASSE: Record<SituacaoRepasse, string> = {
   'sem-pagamento': 'Aguarda pagamento',
   pendente: 'Repasse pendente',
   feito: 'Repasse feito',
+}
+
+/** O que a tela Financeiro lê: do servidor em `http`, calculado localmente em `mock` (mesmas funções). */
+export interface RespostaFinanceiro {
+  vendas: ResumoVendas
+  locacoes: ResumoLocacoes
+  competencias: string[]
+  pendencias: PendenciasFinanceiras
+  /** `true` = passou de 5000 contratos por tipo; os totais cobrem só os mais recentes. */
+  truncado: boolean
 }

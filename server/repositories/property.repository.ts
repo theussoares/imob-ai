@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
-import type { Property, PropertyCard, PropertyInput } from '~~/shared/models/property'
+import type { Property, PropertyCard, PropertyInput, PropertyStatus } from '~~/shared/models/property'
 import type { Broker, PublicBroker } from '~~/shared/models/broker'
 import {
   toPropertyModel,
@@ -155,15 +155,59 @@ export async function listActivePropertyCards(client: Client, tenantId: string):
   return (data ?? []).map((row) => toPropertyCardModel(row, row.property_images ?? []))
 }
 
-/** Todos os imóveis do tenant (painel — qualquer status). */
-export async function listAllProperties(client: Client, tenantId: string): Promise<Property[]> {
-  const { data, error } = await client
-    .from('properties')
-    .select(`*, ${IMAGES_EMBED}`)
-    .eq('tenant_id', tenantId)
-    .order('created_at', { ascending: false })
+/**
+ * Todos os imóveis do tenant (painel — qualquer status).
+ *
+ * `opts` existe para o painel de gestão (`/api/gestao/imoveis`), que não é o
+ * `/admin`: `brokerId` restringe ao corretor vendedor (perfil que só vê os
+ * próprios), `limite` + `recentes` dão a listagem de 200 por `updated_at`.
+ * Sem `opts` o comportamento do `/admin` é o de sempre.
+ */
+export async function listAllProperties(
+  client: Client,
+  tenantId: string,
+  opts: { brokerId?: string; limite?: number; recentes?: boolean } = {},
+): Promise<Property[]> {
+  let query = client.from('properties').select(`*, ${IMAGES_EMBED}`).eq('tenant_id', tenantId)
+  if (opts.brokerId) query = query.eq('broker_id', opts.brokerId)
+  query = query.order(opts.recentes ? 'updated_at' : 'created_at', { ascending: false })
+  if (opts.limite) query = query.limit(opts.limite)
+  const { data, error } = await query
   if (error) throw error
   return attachBrokersAdmin(client, tenantId, data ?? [])
+}
+
+/** Imóveis do tenant por id (em lotes de 100), mesmas colunas e embed de `listAllProperties`. Lista vazia não vai ao banco. */
+export async function listPropertiesByIds(client: Client, tenantId: string, ids: string[]): Promise<Property[]> {
+  const out: Property[] = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await client
+      .from('properties')
+      .select(`*, ${IMAGES_EMBED}`)
+      .eq('tenant_id', tenantId)
+      .in('id', ids.slice(i, i + 100))
+    if (error) throw error
+    out.push(...(await attachBrokersAdmin(client, tenantId, data ?? [])))
+  }
+  return out
+}
+
+/**
+ * Identidade mínima de todos os imóveis do tenant: o que o gestão precisa para
+ * gerar o próximo código e recusar título+endereço repetido, sem trazer a ficha
+ * inteira. Colunas listadas à mão — nenhuma interna além de `location`, que só
+ * serve para comparar e nunca sai na resposta.
+ */
+export async function listPropertyIdentities(
+  client: Client,
+  tenantId: string,
+): Promise<{ id: string; code: string; title: string; location: string | null }[]> {
+  const { data, error } = await client
+    .from('properties')
+    .select('id, code, title, location')
+    .eq('tenant_id', tenantId)
+  if (error) throw error
+  return (data ?? []).map((r) => ({ id: r.id, code: r.code, title: r.title, location: r.location }))
 }
 
 export async function getPropertyByCode(client: Client, tenantId: string, code: string): Promise<Property | null> {
@@ -341,6 +385,37 @@ export async function updateProperty(
   expectedUpdatedAt?: string | null,
   updatedBy?: string,
 ): Promise<Property> {
+  return applyPropertyUpdate(client, tenantId, id, input, expectedUpdatedAt, updatedBy, true)
+}
+
+/**
+ * Atualiza só os dados do imóvel e NÃO mexe em `property_images`.
+ *
+ * Existe para o painel de gestão, cujo formulário não carrega as fotos (elas
+ * têm endpoints próprios). Passar as imagens relidas para `updateProperty`
+ * serviria, mas `replaceImages` apaga tudo e reinsere: um upload concorrente
+ * ficaria sem foto, e cada salvamento de texto trocaria os ids de todas elas.
+ */
+export async function updatePropertySemImagens(
+  client: Client,
+  tenantId: string,
+  id: string,
+  input: PropertyInput,
+  expectedUpdatedAt?: string | null,
+  updatedBy?: string,
+): Promise<Property> {
+  return applyPropertyUpdate(client, tenantId, id, input, expectedUpdatedAt, updatedBy, false)
+}
+
+async function applyPropertyUpdate(
+  client: Client,
+  tenantId: string,
+  id: string,
+  input: PropertyInput,
+  expectedUpdatedAt: string | null | undefined,
+  updatedBy: string | undefined,
+  trocarImagens: boolean,
+): Promise<Property> {
   // Quem editou por último. Vem do usuário autenticado no endpoint, nunca do
   // payload — o cliente poderia dizer que foi outra pessoa.
   const row = { ...toPropertyRow(input, tenantId), updated_by: updatedBy ?? null }
@@ -371,7 +446,7 @@ export async function updateProperty(
     )
   }
 
-  await replaceImages(client, id, input)
+  if (trocarImagens) await replaceImages(client, id, input)
   return (await getPropertyById(client, tenantId, id))!
 }
 
@@ -393,4 +468,88 @@ export async function updatePropertyFeatured(
     .eq('id', id)
   if (error) throw error
   return (await getPropertyById(client, tenantId, id))!
+}
+
+/** Muda só o status (anúncio). Quem editou por último é gravado, como no `updateProperty`. */
+export async function updatePropertyStatus(
+  client: Client,
+  tenantId: string,
+  id: string,
+  status: PropertyStatus,
+  updatedBy?: string,
+): Promise<Property> {
+  const { error } = await client
+    .from('properties')
+    .update({ status, updated_by: updatedBy ?? null })
+    .eq('tenant_id', tenantId)
+    .eq('id', id)
+  if (error) throw error
+  return (await getPropertyById(client, tenantId, id))!
+}
+
+/**
+ * Fotos, uma operação por vez. `property_images` não tem `tenant_id`: o isolamento
+ * é conferir ANTES que o imóvel é do tenant, e filtrar cada mudança por
+ * `property_id`. Sem a conferência, um `propertyId` de outra imobiliária deixaria
+ * o painel de uma escrever foto na outra (service_role ignora RLS).
+ */
+async function assertPropertyInTenant(client: Client, tenantId: string, propertyId: string): Promise<void> {
+  const { data, error } = await client
+    .from('properties')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('id', propertyId)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw createError({ statusCode: 404, statusMessage: 'Imóvel não encontrado.' })
+}
+
+export async function insertPropertyImages(
+  client: Client,
+  tenantId: string,
+  propertyId: string,
+  images: { url: string; urlSm: string | null; alt: string | null; position: number; isCover: boolean }[],
+): Promise<void> {
+  await assertPropertyInTenant(client, tenantId, propertyId)
+  if (!images.length) return
+  const rows = images.map((i) => ({
+    property_id: propertyId,
+    url: i.url,
+    url_sm: i.urlSm,
+    alt: i.alt,
+    position: i.position,
+    is_cover: i.isCover,
+  }))
+  const { error } = await client.from('property_images').insert(rows)
+  if (error) throw error
+}
+
+/** Regrava `position`/`is_cover` das fotos informadas (capa e ordem). */
+export async function updatePropertyImageOrder(
+  client: Client,
+  tenantId: string,
+  propertyId: string,
+  images: { id: string; position: number; isCover: boolean }[],
+): Promise<void> {
+  await assertPropertyInTenant(client, tenantId, propertyId)
+  for (const i of images) {
+    const { error } = await client
+      .from('property_images')
+      .update({ position: i.position, is_cover: i.isCover })
+      .eq('property_id', propertyId)
+      .eq('id', i.id)
+    if (error) throw error
+  }
+}
+
+/** Remove a linha da foto. O objeto no Storage fica: a varredura de órfãos o recolhe, como no `/admin`. */
+export async function deletePropertyImage(
+  client: Client,
+  tenantId: string,
+  propertyId: string,
+  imageId: string,
+): Promise<void> {
+  await assertPropertyInTenant(client, tenantId, propertyId)
+  const { error } = await client.from('property_images').delete().eq('property_id', propertyId).eq('id', imageId)
+  if (error) throw error
 }

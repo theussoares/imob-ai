@@ -12,7 +12,7 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Histórico de alterações · Gestão' })
 
 const store = useGestaoStore()
-await store.carregar()
+await store.carregar(false, ['base', 'vendas', 'locacoes'])
 
 // Todos os contratos, inclusive arquivados: `store.processos` e `store.locacoes` não filtram.
 const todos = computed(() => eventosAuditoria(store.processos.value, store.locacoes.value))
@@ -34,7 +34,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 <template>
   <section class="[display:grid] gap-4">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Histórico de alterações</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Histórico de alterações</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Quem fez o quê, em vendas e locações, inclusive nos contratos arquivados.</p>
     </header>
 
@@ -58,14 +58,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
           <option value="locacao">Locações</option>
         </select>
       </label>
-      <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
-        De
-        <input v-model="filtro.de" type="date" :class="campo" data-testid="aud-de" />
-      </label>
-      <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
-        Até
-        <input v-model="filtro.ate" type="date" :class="campo" data-testid="aud-ate" />
-      </label>
+      <GestaoSeletorPeriodo v-model:de="filtro.de" v-model:ate="filtro.ate" testid="aud-periodo" />
       <p class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite" data-testid="aud-total">
         {{ lista.length }} {{ lista.length === 1 ? 'registro' : 'registros' }}
       </p>
@@ -97,7 +90,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
             <td :class="td">{{ e.quem }}</td>
             <td :class="td">{{ e.acao }}</td>
             <td :class="td">
-              <NuxtLink :to="href(e)" class="font-bold text-[var(--brand)]">{{ e.contratoId }}</NuxtLink>
+              <NuxtLink :to="href(e)" class="font-bold whitespace-nowrap text-[var(--brand)]">{{ e.contratoId }}</NuxtLink>
               <span v-if="e.arquivado" class="ml-1 text-[length:var(--fs-caption)] text-[var(--ink-soft)]">(arquivado)</span>
               <div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ e.imovel }}</div>
             </td>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { restaurarProcesso } from '../../../domain/acoes-ciclo'
-import { restaurarLocacao } from '../../../domain/acoes-locacao'
-import { CORRETORES } from '../../../domain/seed'
+import { filtroArquivadosDaUrl, type Pagina, queryDosArquivados } from '../../../domain/paginacao'
+import type { Locacao, Processo } from '../../../domain/types'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Arquivados' })
@@ -10,20 +9,26 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'vendas', 'locacoes'])
 
 const podeRestaurar = computed(() => !!store.caps()?.arquivar)
-// Arquivados não entram em `visiveis` (a lista de contratos os esconde); aqui o
-// filtro é só «arquivado». Quem chega a esta tela já passou pelo guarda de menu.
-const arquivados = computed(() => [
-  ...store.processos.value
-    .filter((p) => p.arquivado)
-    .map((p) => ({ tipo: 'venda' as const, id: p.id, status: p.status, titulo: `${p.vendedor.nome} e ${p.comprador.nome}`, imovel: p.imovel, corretorId: p.corretorId, updated: p.updated })),
-  ...store.locacoes.value
-    .filter((l) => l.arquivado)
-    .map((l) => ({ tipo: 'locacao' as const, id: l.id, status: l.status, titulo: `${l.locador.nome} e ${l.locatario.nome}`, imovel: l.imovel, corretorId: l.corretorId, updated: l.updated })),
-])
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
+
+// Vendas e locações são duas listas: uma por vez (`?tipo=`), cada uma paginada no servidor. Página e busca
+// também na URL (`useListaPaginada`). Quem chega a esta tela já passou pelo guarda de menu.
+const { filtro, resultado, falhou, q, carregar, irParaPagina, mudar } = useListaPaginada(
+  async (f): Promise<Pagina<Processo | Locacao>> =>
+    f.tipo === 'venda' ? await store.paginaDeVendas({ ...f, status: '', arquivados: true }) : await store.paginaDeLocacoes({ ...f, status: '', arquivados: true }),
+  filtroArquivadosDaUrl,
+  queryDosArquivados,
+)
+const arquivados = computed(() =>
+  (resultado.value?.itens ?? []).map((c) =>
+    'vendedor' in c
+      ? { tipo: 'venda' as const, id: c.id, status: c.status, titulo: `${c.vendedor.nome} e ${c.comprador.nome}`, imovel: c.imovel, corretorId: c.corretorId, updated: c.updated }
+      : { tipo: 'locacao' as const, id: c.id, status: c.status, titulo: `${c.locador.nome} e ${c.locatario.nome}`, imovel: c.imovel, corretorId: c.corretorId, updated: c.updated },
+  ),
+)
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 
 async function restaurar(id: string, tipo: 'venda' | 'locacao') {
   const ok = await askConfirm({
@@ -33,25 +38,59 @@ async function restaurar(id: string, tipo: 'venda' | 'locacao') {
     cancelLabel: 'Voltar',
   })
   if (!ok) return
-  const r = store.aplicar((s, a) => (tipo === 'venda' ? restaurarProcesso(s, id, a) : restaurarLocacao(s, id, a)))
-  if (r.ok) toast.success('Contrato restaurado.')
-  else toast.error(r.erro)
+  const r = await store.executar(tipo, id, tipo === 'venda' ? 'restaurarProcesso' : 'restaurarLocacao', {})
+  if (r.ok) {
+    toast.success('Contrato restaurado.')
+    await carregar()
+  } else toast.error(r.erro)
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
     <div>
-      <h1 class="m-0 text-[length:var(--fs-title)] font-extrabold">Arquivados</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] font-bold">Arquivados</h1>
       <p class="m-0 text-[var(--ink-soft)]">Contratos encerrados que saíram da lista. Nada é apagado: dá para restaurar.</p>
     </div>
 
+    <div role="tablist" aria-label="Tipo de contrato" class="flex border-b border-[var(--line)]">
+      <button
+        v-for="t in [{ chave: 'venda', rotulo: 'Vendas' }, { chave: 'locacao', rotulo: 'Locações' }] as const"
+        :key="t.chave"
+        type="button"
+        role="tab"
+        :aria-selected="filtro.tipo === t.chave"
+        :class="['min-h-11 cursor-pointer border-b-2 px-4 font-bold focus-visible:outline-2 focus-visible:outline-[var(--brand)]', filtro.tipo === t.chave ? 'border-[var(--brand)] text-[var(--brand)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]']"
+        :data-testid="`arquivados-aba-${t.chave}`"
+        @click="mudar({ tipo: t.chave })"
+      >
+        {{ t.rotulo }}
+      </button>
+    </div>
+
+    <input
+      v-model="q"
+      type="search"
+      class="min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]"
+      placeholder="Nome, CPF, imóvel, corretor ou código"
+      aria-label="Buscar arquivados"
+      autocomplete="off"
+      data-testid="arquivados-busca"
+    />
+
+    <div v-if="falhou" role="alert" class="flex flex-col items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-5">
+      <p class="m-0 font-bold">Não foi possível carregar os arquivados.</p>
+      <button type="button" class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]" @click="carregar">Tentar de novo</button>
+    </div>
+
+    <p v-else-if="!resultado" class="m-0 text-[var(--ink-soft)]" aria-busy="true">Carregando…</p>
+
     <p
-      v-if="!arquivados.length"
+      v-else-if="!arquivados.length"
       class="m-0 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-6 text-[var(--ink-soft)]"
       data-testid="arquivados-vazio"
     >
-      Nenhum contrato arquivado. Contratos concluídos ou cancelados podem ser arquivados na etapa 8.
+      {{ q.trim() ? 'Nenhum arquivado encontrado para essa busca.' : 'Nenhum contrato arquivado. Contratos concluídos ou cancelados podem ser arquivados a partir do detalhe.' }}
     </p>
 
     <ul v-else class="m-0 flex list-none flex-col gap-3 p-0" data-testid="arquivados-lista">
@@ -81,5 +120,14 @@ async function restaurar(id: string, tipo: 'venda' | 'locacao') {
         </button>
       </li>
     </ul>
+
+    <GestaoPaginacao
+      v-if="resultado"
+      :pagina="resultado.pagina"
+      :paginas="resultado.paginas"
+      :total="resultado.total"
+      rotulo="arquivados"
+      @ir="irParaPagina"
+    />
   </div>
 </template>

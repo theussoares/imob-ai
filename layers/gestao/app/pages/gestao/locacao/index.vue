@@ -1,42 +1,22 @@
 <script setup lang="ts">
-import { filtrarLocacoes } from '../../../../domain/filtro-locacao'
+import { filtroDaUrl, queryDaLista } from '../../../../domain/paginacao'
 import { STATUS_LOCACAO } from '../../../../domain/locacao-status'
-import { CORRETORES } from '../../../../domain/seed'
-import type { StatusLocacao } from '../../../../domain/types'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
 const store = useGestaoStore()
 
-const q = ref('')
-const status = ref<StatusLocacao | ''>('')
-const falhou = ref(false)
 const modal = ref<{ abrir: () => void } | null>(null)
 
-// O layout já espera `carregar()`; este caminho cobre só a falha tardia (ex.:
-// «Restaurar dados» refazendo o carregamento) sem deixar a tela muda.
-async function carregar() {
-  falhou.value = false
-  try {
-    await store.carregar()
-  } catch {
-    falhou.value = true
-  }
-}
-onMounted(() => {
-  if (!store.carregado.value) carregar()
-})
-
-const filtrados = computed(() =>
-  filtrarLocacoes(store.locacoesVisiveis.value, { q: q.value, status: status.value }, CORRETORES),
+// Página, busca e status vivem na URL (`useListaPaginada`): recarregar, voltar e colar o link mantêm a lista.
+const { filtro, resultado, falhou, q, carregar, irParaPagina, mudar, limpar } = useListaPaginada(
+  (f) => store.paginaDeLocacoes(f),
+  (query) => filtroDaUrl(query, STATUS_LOCACAO),
+  queryDaLista,
 )
+const itens = computed(() => resultado.value?.itens ?? [])
 
-const nomeCorretor = (id: string) => CORRETORES.find((c) => c.id === id)?.nome ?? '—'
-
-function limpar() {
-  q.value = ''
-  status.value = ''
-}
+const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 
 // `[display:grid]` e não `grid`: o main.css do site público define `.grid` própria
 // (colunas fixas por breakpoint) e ela vence o utilitário do Tailwind, quebrando
@@ -51,14 +31,14 @@ const btn =
   <section class="[display:grid] gap-4">
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 class="text-[length:var(--fs-title)] leading-tight font-extrabold">Contratos de locação</h1>
+        <h1 class="text-[length:var(--fs-title)] leading-tight font-bold">Contratos de locação</h1>
         <p class="mt-1 text-[var(--ink-soft)]">Acompanhe cada locação da abertura ao encerramento.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button
           v-if="store.caps()?.criar"
           type="button"
-          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="nova-locacao"
           @click="modal?.abrir()"
         >
@@ -79,17 +59,18 @@ const btn =
           data-testid="busca"
         />
       </label>
-      <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
-        Status
-        <select v-model="status" :class="campo" data-testid="filtro-status">
-          <option value="">Todos os status</option>
-          <option v-for="s in STATUS_LOCACAO" :key="s" :value="s">{{ s }}</option>
-        </select>
-      </label>
-      <p v-if="store.carregado.value" class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite">
-        {{ filtrados.length }} {{ filtrados.length === 1 ? 'locação' : 'locações' }}
+      <p v-if="resultado" class="min-h-11 content-center text-[var(--ink-soft)]" aria-live="polite">
+        {{ resultado.total }} {{ resultado.total === 1 ? 'locação' : 'locações' }}
       </p>
     </div>
+
+    <GestaoAbasStatus
+      :contagens="resultado?.contagens"
+      :ordem="STATUS_LOCACAO"
+      :ativo="filtro.status"
+      rotulo="Filtrar por status"
+      @mudar="(status) => mudar({ status })"
+    />
 
     <div
       v-if="falhou"
@@ -100,17 +81,13 @@ const btn =
       <button type="button" :class="btn" @click="carregar">Tentar de novo</button>
     </div>
 
-    <div v-else-if="!store.carregado.value" class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
-      <div
-        v-for="n in 3"
-        :key="n"
-        class="h-60 animate-pulse rounded-[14px] border border-[var(--line)] bg-[var(--paper)]"
-      />
+    <div v-else-if="!resultado" class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+      <GestaoSkeletonCard v-for="n in 3" :key="n" />
       <span class="sr-only">Carregando locações…</span>
     </div>
 
     <div
-      v-else-if="!filtrados.length"
+      v-else-if="!itens.length"
       class="[display:grid] justify-items-start gap-3 rounded-[14px] border border-dashed border-[var(--line-2)] bg-[var(--paper)] p-6"
       data-testid="vazio"
     >
@@ -120,8 +97,17 @@ const btn =
     </div>
 
     <div v-else class="[display:grid] gap-3 md:grid-cols-2 xl:grid-cols-3">
-      <GestaoCardLocacao v-for="l in filtrados" :key="l.id" :locacao="l" :corretor="nomeCorretor(l.corretorId)" />
+      <GestaoCardLocacao v-for="l in itens" :key="l.id" :locacao="l" :corretor="nomeCorretor(l.corretorId)" />
     </div>
+
+    <GestaoPaginacao
+      v-if="resultado"
+      :pagina="resultado.pagina"
+      :paginas="resultado.paginas"
+      :total="resultado.total"
+      rotulo="locações"
+      @ir="irParaPagina"
+    />
 
     <GestaoNovaLocacaoModal ref="modal" />
   </section>

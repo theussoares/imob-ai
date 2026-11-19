@@ -43,7 +43,9 @@ function semComentarios(src: string): string {
 describe('privacidade: o que a política afirma continua verdade', () => {
   test('nenhum cookie novo', () => {
     // `dev_tenant`: só com `allowTenantSwitch`, que é falso em produção.
-    const PERMITIDOS = ['server/middleware/tenant.ts']
+    // `gestao-cookie.ts`: cookie de sessão do painel interno (/gestao), estritamente necessário, só
+    // depois do login de quem trabalha na imobiliária; visitante do site não o recebe.
+    const PERMITIDOS = ['server/middleware/tenant.ts', 'server/utils/gestao-cookie.ts']
     const usos = ['app', 'server', 'shared']
       .flatMap((d) => arquivos(d))
       .filter((f) => /\b(setCookie|useCookie)\s*\(|document\.cookie/.test(semComentarios(ler(f))))
@@ -71,7 +73,8 @@ describe('privacidade: o que a política afirma continua verdade', () => {
         `tratamentos em ${PARECER}. Se for rastreamento ou anúncio, veja "Banner de cookies" antes.`,
     ).toEqual({
       // Vercel Analytics e Speed Insights — "Cookies e estatísticas" e "Vercel" na política.
-      script: ['https://va.vercel-scripts.com'],
+      script: ['https://va.vercel-scripts.com', 'https://challenges.cloudflare.com'],
+      // (A Cloudflare entra aqui pelo Turnstile do login do /gestao — "Cloudflare (Turnstile)" na política.)
       // Supabase — "Supabase" na política (banco e armazenamento, no Brasil).
       connect: ['https://*.supabase.co', 'wss://*.supabase.co'],
     })
@@ -109,6 +112,9 @@ describe('privacidade: o que a política afirma continua verdade', () => {
         'api.asaas.com',
         // Resend — "Resend" na política (e-mail de aviso de lead, EUA).
         'api.resend.com',
+        // Cloudflare Turnstile — "Cloudflare (Turnstile)" na política (captcha do login do /gestao,
+        // `server/utils/gestao-captcha.ts`; só o token e o IP vão no siteverify).
+        'challenges.cloudflare.com',
       ],
       sdks: [
         // Descrição por IA: recebe só dados do imóvel, nunca do visitante —

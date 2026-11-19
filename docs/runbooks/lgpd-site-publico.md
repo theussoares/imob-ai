@@ -33,6 +33,7 @@ Verificado no código e no banco em 25/09.
 | Formulário de contato e "Quero vender" | nome, telefone, mensagem, imóvel de interesse; no "Quero vender", tipo e bairro do imóvel | `leads` (Supabase, São Paulo) | **Sem prazo.** Fica até a imobiliária apagar |
 | Anti-abuso dos formulários | hash do IP com sal (sha256), não o IP | `leads.ip_hash` | junto com o lead |
 | Clique no botão de WhatsApp | imóvel, destino (corretor ou imobiliária), origem do clique, hash do IP | `whatsapp_clicks` | **90 dias**, apagado pelo cron diário |
+| Verificação anti-robô no login do painel (/gestao) | IP e sinais do navegador de quem faz login (equipe da imobiliária; o visitante do site não passa por ela) | Cloudflare Turnstile (EUA), só com a site key configurada | conforme a Cloudflare; o servidor guarda só o resultado, nunca o token |
 | Aviso de lead novo para a imobiliária | nome e telefone do lead | e-mail enviado pela Resend (EUA) | caixa de entrada da imobiliária |
 | Estatísticas de visita | URL visitada (sem query exceto `utm_*`), país, navegador, dispositivo; visitante identificado por hash do request que **zera todo dia** | Vercel Web Analytics e Speed Insights | conforme a Vercel |
 | Processamento de toda requisição | IP, user-agent, URL | funções da Vercel, região `gru1` (São Paulo) desde 25/09; antes `iad1` (EUA) | logs de runtime da Vercel, retenção curta do plano |
@@ -203,7 +204,7 @@ formulários (contato e "Quero vender") ganharam o link no aviso de coleta.
   tecnologias semelhantes**, e pede consentimento para o que não é
   estritamente necessário, com botão de rejeitar tão visível quanto o de
   aceitar. O banner existe para coletar essa escolha.
-- Este site não tem o que pôr em escolha: não grava cookie, e a medição de
+- O site público não tem o que pôr em escolha: não grava cookie (o único é o de sessão do painel `/gestao`, estritamente necessário e só para a equipe logada, descrito na política), e a medição de
   audiência não usa cookie nem identificador persistente (hash de request que
   zera todo dia, sem rastrear entre dias nem entre sites). O próprio guia
   admite legítimo interesse para medição de audiência.
@@ -218,6 +219,28 @@ Analytics, Tag Manager ou qualquer ferramenta que grave cookie ou identificador
 persistente. Nesse dia o banner é obrigatório, e precisa **bloquear o script
 até o aceite**, não só avisar. Um banner que avisa mas carrega o pixel antes do
 clique é pior que nenhum, porque documenta a violação.
+
+## Painel de gestão: documentos das partes (fora do site público)
+
+Entrou em 17/11 com a F3 do backend do `/gestao`
+(`supabase/migrations/0061_gestao_documentos.sql`). **Não é tratamento do site
+público** e `app/pages/privacidade.vue` NÃO foi alterada: aquela página fala com
+o visitante do site e com o cliente da Área do Cliente, e as pessoas aqui são
+outras — vendedor, comprador, locador e locatário de um negócio em andamento,
+cujos papéis a imobiliária junta no atendimento. Nenhuma frase da política
+passou a ser falsa: nada de cookie, de terceiro novo ou de campo em formulário
+público.
+
+| Dado | Onde fica | Por quanto tempo | Quem acessa |
+|---|---|---|---|
+| RG/CNH, certidões, comprovantes de renda e de residência, matrícula, IPTU, comprovantes de pagamento (PDF/imagem, até 15 MB) | bucket **privado** `gestao-docs` (Supabase, São Paulo) + metadados em `gestao_documentos` | **Sem prazo automático.** «Apagar» manda para a lixeira (não exclui o arquivo) | membros do painel com a permissão da matriz; corretor só vê os do próprio processo; download por URL assinada de 60 s, com registro em `gestao_eventos` |
+
+Base legal provável: art. 7º, V (procedimento preliminar/execução de contrato a
+pedido do titular) e II (obrigação legal de guarda, no caso de contrato).
+**Ainda precisa de decisão da imobiliária (controladora):** prazo de retenção e
+expurgo definitivo da lixeira, e se o titular dessas partes recebe um aviso por
+outro canal (o contrato, por exemplo). Se ela decidir publicar isso na política,
+a seção entra em `privacidade.vue` no mesmo PR da decisão.
 
 ## Ações, por dono
 

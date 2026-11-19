@@ -24,7 +24,7 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
       <GestaoStatusChip :status="processo.status" />
     </header>
 
-    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold" data-testid="card-titulo">
+    <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-bold" data-testid="card-titulo">
       {{ processo.vendedor.nome }} e {{ processo.comprador.nome }}
     </h2>
 
@@ -67,7 +67,7 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
 
     <NuxtLink
       :to="`/gestao/vendas/${processo.id}`"
-      class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white! no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+      class="mt-auto inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)]! no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
     >
       Abrir processo
     </NuxtLink>

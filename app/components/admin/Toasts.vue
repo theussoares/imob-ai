@@ -65,7 +65,7 @@ function runAction(t: Toast) {
   /* No TOPO. Embaixo eles cobriam a barra "Salvar alterações" da ficha do
      contrato, fixa no rodapé (e, no celular, disputavam o espaço com a
      navegação inferior): o aviso de erro tampava o botão que o resolveria. */
-  top: calc(16px + env(safe-area-inset-top));
+  top: calc(var(--toasts-top, 16px) + env(safe-area-inset-top));
   z-index: 60;
   display: flex;
   flex-direction: column;

@@ -12,7 +12,7 @@ definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 useHead({ title: 'Consulta cadastral · Gestão' })
 
 const store = useGestaoStore()
-await store.carregar()
+await store.carregar(false, ['base', 'vendas', 'locacoes', 'consultas'])
 
 const documento = ref('')
 const finalidade = ref<Finalidade | ''>('')
@@ -25,8 +25,8 @@ const contratos = computed(() => [
   ...store.locacoesVisiveis.value.map((l) => ({ id: l.id, rotulo: `${l.id} · locação · ${l.imovel}` })),
 ])
 
-function consultar() {
-  const r = store.consultar({ documento: documento.value, finalidade: finalidade.value, contratoId: contratoId.value })
+async function consultar() {
+  const r = await store.consultar({ documento: documento.value, finalidade: finalidade.value, contratoId: contratoId.value })
   if (!r.ok) {
     erro.value = r.erro
     resultado.value = null
@@ -42,15 +42,15 @@ const dia = (iso: string) => iso.split('-').reverse().join('/')
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[var(--shadow)] md:p-5'
+const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5'
 const th = 'px-3 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]'
 const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-4xl flex-col gap-4">
+  <div class="flex flex-col gap-4">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Consulta cadastral</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Consulta cadastral</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Verifique restrições de crédito de locatário, comprador ou fiador.</p>
     </header>
 
@@ -77,14 +77,14 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       </label>
       <p v-if="erro" role="alert" class="m-0 font-semibold text-[var(--danger)] md:col-span-2" data-testid="consulta-erro">{{ erro }}</p>
       <div class="md:col-span-2">
-        <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-5 font-bold text-white hover:opacity-90" data-testid="consulta-enviar">
+        <button type="submit" class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-5 font-bold text-[var(--brand)] hover:opacity-90" data-testid="consulta-enviar">
           Consultar
         </button>
       </div>
     </form>
 
     <section v-if="resultado" :class="card" class="[display:grid] gap-3" aria-labelledby="res-titulo" data-testid="consulta-resultado">
-      <h2 id="res-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">
+      <h2 id="res-titulo" class="m-0 text-[length:var(--fs-title-sm)] font-bold">
         {{ resultado.documentoMascarado }} ·
         <span :class="resultado.situacao === 'com-restricoes' ? 'text-[#7f1d1d]' : 'text-[#064e3b]'" data-testid="consulta-situacao">
           {{ ROTULO_SITUACAO_CONSULTA[resultado.situacao] }}
@@ -102,7 +102,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
     </section>
 
     <section :class="card" aria-labelledby="hist-consultas">
-      <h2 id="hist-consultas" class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-extrabold">Consultas feitas ({{ store.consultas.value.length }})</h2>
+      <h2 id="hist-consultas" class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-bold">Consultas feitas ({{ store.consultas.value.length }})</h2>
       <p v-if="!store.consultas.value.length" class="m-0 text-[var(--ink-soft)]" data-testid="consulta-vazio">Nenhuma consulta feita ainda.</p>
       <div v-else class="overflow-x-auto">
         <table class="w-full border-collapse" data-testid="consulta-historico">

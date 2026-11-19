@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { brl } from '../../../domain/acoes-processo'
-import * as acao from '../../../domain/acoes-locacao'
-import { hojeISO } from '../../../domain/avisos-locacao'
-import {
-  competenciasDisponiveis,
-  pendenciasFinanceiras,
-  ROTULO_REPASSE,
-  ROTULO_SITUACAO,
-  resumoLocacoes,
-  resumoVendas,
-} from '../../../domain/financeiro'
+import { ROTULO_REPASSE, ROTULO_SITUACAO, type RespostaFinanceiro } from '../../../domain/financeiro'
 
 // Rota estática: vence `[secao].vue`. A guarda do middleware já barra quem não tem `valores`.
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
@@ -17,35 +8,50 @@ useHead({ title: 'Financeiro · Gestão' })
 
 const store = useGestaoStore()
 const toast = useToast()
-const demo = !!useRuntimeConfig().public.gestaoDemo
-await store.carregar()
+await store.carregar(false, ['base'])
 
 const competencia = ref('')
-const hoje = hojeISO()
 
-const vendas = computed(() => resumoVendas(store.visiveis.value))
-const locacoes = computed(() => resumoLocacoes(store.locacoesVisiveis.value, hoje, competencia.value))
-const competencias = computed(() => competenciasDisponiveis(store.locacoesVisiveis.value))
+// Totais do servidor (`http`) ou calculados aqui (`mock`): ver `store.lerFinanceiro`. A tela só guarda a resposta.
+const resumo = ref<RespostaFinanceiro | null>(await store.lerFinanceiro('').catch(() => null))
+const vendas = computed(() => resumo.value!.vendas)
+const locacoes = computed(() => resumo.value!.locacoes)
+const competencias = computed(() => resumo.value!.competencias)
+const pendencias = computed(() => resumo.value!.pendencias)
 
-const pendencias = computed(() => pendenciasFinanceiras(store.locacoesVisiveis.value, hoje))
+let seq = 0
+async function atualizar() {
+  const minha = ++seq
+  try {
+    const r = await store.lerFinanceiro(competencia.value)
+    if (minha !== seq) return
+    resumo.value = r
+  } catch {
+    // Com totais antigos na tela, eles ficam; sem nenhum, o bloco de erro (`!resumo`) aparece.
+  }
+}
+watch(competencia, atualizar)
 const podeValores = computed(() => !!store.caps(null)?.valores)
 
 // Mesma ação do contrato (etapa 7): a regra e o histórico da locação são os mesmos nos dois lugares.
-function registrar(fn: (data: string) => Parameters<typeof store.aplicar>[0], sucesso: string) {
-  const r = store.aplicar(fn(new Date().toISOString().slice(0, 10)))
-  if (r.ok) toast.success(sucesso)
-  else toast.error(r.erro)
+async function registrar(acao: 'pagar' | 'repassar', loc: string, cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }): Promise<string | null> {
+  const r = await store.executar('locacao', loc, acao === 'pagar' ? 'registrarPagamento' : 'registrarRepasse', { cobrancaId, ...d })
+  if (!r.ok) return r.erro
+  toast.success(acao === 'pagar' ? 'Pagamento registrado.' : 'Repasse registrado.')
+  await atualizar()
+  return null
 }
-const pagar = (loc: string, cb: string, comp: string) =>
-  registrar((data) => (s, a) => acao.registrarPagamento(s, loc, cb, { data, comprovante: comp }, a), 'Pagamento registrado.')
-const repassar = (loc: string, cb: string, comp: string) =>
-  registrar((data) => (s, a) => acao.registrarRepasse(s, loc, cb, { data, comprovante: comp }, a), 'Repasse registrado.')
 
 const mes = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
 const dia = (iso: string) => iso.split('-').reverse().join('/')
 
 const campo =
   'min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
+const aba = ref<'vendas' | 'locacoes'>('vendas')
+const ABAS = [
+  { chave: 'vendas', rotulo: 'Comissões de venda' },
+  { chave: 'locacoes', rotulo: 'Aluguéis e repasses' },
+] as const
 const th = 'px-3 py-2 text-left text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]'
 const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 </script>
@@ -53,14 +59,40 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
 <template>
   <section class="[display:grid] gap-6">
     <header>
-      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-extrabold">Financeiro</h1>
+      <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">Financeiro</h1>
       <p class="mt-1 text-[var(--ink-soft)]">Comissões das vendas e aluguéis, taxas e repasses das locações.</p>
     </header>
 
-    <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :demo="demo" @pagar="pagar" @repassar="repassar" />
+    <div v-if="!resumo" role="alert" class="[display:grid] justify-items-start gap-3 rounded-[14px] border border-[var(--line)] bg-[var(--paper)] p-5">
+      <p class="m-0 font-bold">Não foi possível carregar os totais.</p>
+      <button type="button" class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]" @click="atualizar">Tentar de novo</button>
+    </div>
 
-    <section class="[display:grid] gap-3" aria-labelledby="fin-vendas">
-      <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Comissões de venda</h2>
+    <template v-else>
+    <p v-if="resumo.truncado" role="status" class="m-0 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] p-3 text-[var(--ink-soft)]" data-testid="aviso-truncado">
+      Há mais de 5000 contratos de cada tipo: os totais cobrem só os mais recentes.
+    </p>
+
+    <GestaoFinanceiroPendencias :pendencias="pendencias" :pode-editar="podeValores" :registrar="registrar" />
+
+    <div role="tablist" aria-label="Seções do financeiro" class="flex gap-1 border-b border-[var(--line)]">
+      <button
+        v-for="a in ABAS"
+        :key="a.chave"
+        type="button"
+        role="tab"
+        :aria-selected="aba === a.chave"
+        class="-mb-px min-h-11 cursor-pointer border-b-[3px] px-4 font-semibold"
+        :class="aba === a.chave ? 'border-[var(--brand)] text-[var(--ink)]' : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'"
+        :data-testid="`fin-aba-${a.chave}`"
+        @click="aba = a.chave"
+      >
+        {{ a.rotulo }}
+      </button>
+    </div>
+
+    <section v-show="aba === 'vendas'" class="[display:grid] gap-3" aria-labelledby="fin-vendas">
+      <h2 id="fin-vendas" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Comissões de venda</h2>
       <div class="[display:grid] gap-3 sm:grid-cols-3">
         <GestaoIndicador rotulo="Comissão total" :valor="brl(vendas.comissaoTotal)" testid="fin-comissao-total" />
         <GestaoIndicador rotulo="Já adiantado" :valor="brl(vendas.adiantado)" testid="fin-comissao-adiantado" />
@@ -99,9 +131,9 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
       </div>
     </section>
 
-    <section class="[display:grid] gap-3" aria-labelledby="fin-locacoes">
+    <section v-show="aba === 'locacoes'" class="[display:grid] gap-3" aria-labelledby="fin-locacoes">
       <div class="flex flex-wrap items-end justify-between gap-3">
-        <h2 id="fin-locacoes" class="m-0 text-[length:var(--fs-title-sm)] font-extrabold">Aluguéis e repasses</h2>
+        <h2 id="fin-locacoes" class="m-0 text-[length:var(--fs-title-sm)] font-bold">Aluguéis e repasses</h2>
         <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">
           Competência
           <select v-model="competencia" :class="campo" data-testid="fin-competencia">
@@ -140,7 +172,7 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
               </td>
               <td :class="td">{{ mes(l.competencia) }}</td>
               <td :class="td">{{ dia(l.vencimento) }}</td>
-              <td :class="td">{{ brl(l.valor) }}</td>
+              <td :class="td">{{ brl(l.valor) }}<div v-if="l.diasAtraso && l.situacao !== 'paga'" class="text-[length:var(--fs-caption)] text-[#7f1d1d]">com multa e juros: {{ brl(l.atualizado) }}</div></td>
               <td :class="td" class="font-bold">{{ ROTULO_SITUACAO[l.situacao] }}</td>
               <td :class="td">{{ brl(l.taxa) }}</td>
               <td :class="td">{{ brl(l.repasse) }}<div class="text-[length:var(--fs-caption)] text-[var(--ink-soft)]">{{ ROTULO_REPASSE[l.repasseSituacao] }}</div></td>
@@ -152,5 +184,6 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
         </table>
       </div>
     </section>
+    </template>
   </section>
 </template>

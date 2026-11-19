@@ -2,7 +2,6 @@
 import { FOTOS_IMOVEL_MAX } from '../../../../domain/imoveis-fotos'
 import { ROTULO_SITUACAO_IMOVEL, ROTULO_STATUS_IMOVEL, situacaoImovel } from '../../../../domain/imoveis'
 import { imovelParaForm } from '../../../../domain/imoveis-acoes'
-import { CORRETORES } from '../../../../domain/seed'
 
 definePageMeta({ layout: 'gestao', middleware: 'gestao' })
 
@@ -11,7 +10,7 @@ const store = useGestaoStore()
 const toast = useToast()
 const { askConfirm } = useConfirm()
 const { reduzir } = useRedimensionarFoto()
-await store.carregar()
+await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'vendas', 'imoveis'])
 
 // Só enxerga o que `imoveisVisiveis` devolve: corretor abrindo o imóvel de outro pela URL volta à lista.
 const imovel = computed(() => store.imoveisVisiveis.value.find((i) => i.id === String(route.params.id)) ?? null)
@@ -86,16 +85,16 @@ async function excluir() {
 
 const campo =
   'min-h-11 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
-const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[var(--shadow)] md:p-5'
+const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5'
 </script>
 
 <template>
-  <div v-if="imovel && form" class="mx-auto flex max-w-3xl flex-col gap-4">
+  <div v-if="imovel && form" class="flex flex-col gap-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <NuxtLink to="/gestao/imoveis" class="inline-flex min-h-11 items-center text-[length:var(--fs-label)] font-semibold">← Imóveis</NuxtLink>
-        <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-extrabold" data-testid="imovel-titulo-pagina">{{ imovel.title }}</h1>
-        <p class="mt-1 text-[var(--ink-soft)]">{{ imovel.id }} · {{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(imovel.id, store.locacoes.value)] }}</p>
+        <h1 class="m-0 mt-1 text-[length:var(--fs-title)] leading-tight font-bold" data-testid="imovel-titulo-pagina">{{ imovel.title }}</h1>
+        <p class="mt-1 text-[var(--ink-soft)]">{{ ROTULO_SITUACAO_IMOVEL[situacaoImovel(imovel.id, store.locacoes.value, store.processos.value)] }}</p>
       </div>
       <label class="[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold">Anúncio no site
         <select :value="imovel.status" :class="campo" :disabled="!permissoes.editar" data-testid="imovel-status-rapido" @change="mudarStatus">
@@ -104,6 +103,12 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
       </label>
     </header>
 
+    <p v-if="!permissoes.editar" role="note" class="m-0 rounded-xl border border-[var(--line-2)] bg-[var(--paper)] p-3 font-semibold text-[var(--ink-soft)]" data-testid="imovel-somente-leitura">
+      Somente leitura: este imóvel está no seu contrato, mas foi captado por outro corretor.
+    </p>
+
+    <!-- `fieldset disabled` desabilita todos os campos e botões de dentro de uma vez, inclusive os dos componentes filhos. -->
+    <fieldset :disabled="!permissoes.editar" class="contents" :class="permissoes.editar ? '' : 'opacity-70'">
     <section :class="card">
       <GestaoImovelFotos
         :fotos="imovel.images"
@@ -119,14 +124,16 @@ const card = 'rounded-[var(--r)] border border-[var(--line)] bg-[var(--paper)] p
 
     <GestaoImovelForm
       v-model="form"
-      :corretores="CORRETORES"
+      :corretores="store.corretores.value"
       :pode-trocar-corretor="permissoes.trocarCorretor"
       :telefone-site="store.config.value.imobiliaria.telefone"
       :erro="erro"
       :salvando="salvando"
       rotulo-salvar="Salvar alterações"
+      :somente-leitura="!permissoes.editar"
       @salvar="salvar"
     />
+    </fieldset>
 
     <section v-if="permissoes.excluir" :class="card" class="flex flex-wrap items-center justify-between gap-3">
       <p class="m-0 text-[var(--ink-soft)]">Excluir tira o imóvel do gestão e do site.</p>

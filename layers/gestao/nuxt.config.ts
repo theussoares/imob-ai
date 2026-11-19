@@ -25,6 +25,9 @@ const mockerServer = {
 }
 
 export default defineNuxtConfig({
+  // Tema preto/amarelo/cinza do painel (layout e telas de acesso).
+  css: [fileURLToPath(new URL('./app/assets/gestao-tema.css', import.meta.url))],
+
   modules: comMocks ? ['mocker-nuxt'] : [],
 
   // Chave do mocker-nuxt, só existe (e só é tipada) com o módulo registrado.
@@ -42,6 +45,10 @@ export default defineNuxtConfig({
       // exemplo e a faixa com o código do 2º fator. NUNCA ligar fora do demo.
       // env NUXT_PUBLIC_GESTAO_DEMO.
       gestaoDemo: false,
+      // De onde o painel lê e grava: `mock` (localStorage + seed, o que a Olmi validou) ou `http`
+      // (`/api/gestao/**` de verdade). Padrão `mock` até a Olmi validar o backend; qualquer valor
+      // que não seja `http` cai em `mock`. env NUXT_PUBLIC_GESTAO_BACKEND.
+      gestaoBackend: 'mock',
     },
   },
 

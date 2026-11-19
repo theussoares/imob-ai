@@ -55,3 +55,16 @@ describe('comissão padrão na abertura da venda', () => {
     expect(b.ok && b.estado.processos[0]!.pct).toBe(5)
   })
 })
+
+describe('erros por campo e nome padrão', () => {
+  it('multa −5 e juros 150 acusam o PRÓPRIO campo, e todos de uma vez', async () => {
+    const { errosConfiguracoes } = await import('../../domain/configuracoes')
+    const e = errosConfiguracoes({ ...configuracoesPadrao(), multaAtrasoPct: -5, jurosMesPct: 150, comissaoPct: 101 })
+    expect(Object.keys(e)).toEqual(['comissaoPct', 'multaAtrasoPct', 'jurosMesPct'])
+  })
+
+  it('o nome padrão é o do tenant, nunca uma string fixa de outro cliente', () => {
+    expect(configuracoesPadrao('Aurora Imóveis').imobiliaria.nome).toBe('Aurora Imóveis')
+    expect(JSON.stringify(configuracoesPadrao())).not.toMatch(/OLMI/)
+  })
+})

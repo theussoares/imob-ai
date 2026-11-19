@@ -1,4 +1,6 @@
 import { statusFinal, TOTAL_ETAPAS } from './status'
+import { rotuloQuando } from './fuso'
+import type { EncargosConfig } from './cobranca'
 import { requisitoPorChave, pendenciasEtapa } from './requisitos'
 import { STATUS_INICIAL } from './seed'
 import type { Documento, CategoriaDocumento, Locacao, Processo, StatusVenda } from './types'
@@ -16,6 +18,8 @@ export interface Estado {
   processos: Processo[]
   documentos: Documento[]
   locacoes: Locacao[]
+  /** Multa e juros em vigor (configurações). Ausente = padrão. Só o pagamento de cobrança lê. */
+  encargos?: EncargosConfig
 }
 
 export interface Ator {
@@ -24,10 +28,12 @@ export interface Ator {
 
 export type Resultado = { ok: true; estado: Estado } | { ok: false; erro: string }
 
-export const agora = (d = new Date()): string => {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
+/**
+ * Rótulo «dd/mm/aaaa hh:mm» do INSTANTE `d` no fuso do painel, em qualquer runtime (servidor em UTC,
+ * navegador em outro fuso, mock). Recebe o instante real: quem passava um `Date` já deslocado
+ * (`agoraBrasil`) seria deslocado duas vezes.
+ */
+export const agora = (d = new Date()): string => rotuloQuando(d.toISOString())
 
 function atualiza(estado: Estado, id: string, fn: (p: Processo) => Processo): Estado {
   return { ...estado, processos: estado.processos.map((p) => (p.id === id ? fn(p) : p)) }
@@ -48,6 +54,8 @@ export function proximoId(processos: Processo[], ano = new Date().getFullYear())
 
 export interface NovoProcesso {
   imovel: string
+  /** Imóvel do cadastro; o servidor exige e confere o tenant. */
+  imovelId?: string
   vendedor: string
   comprador: string
   corretorId: string
@@ -69,6 +77,7 @@ export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, q
     vendedor: { nome: dados.vendedor.trim(), cpf: '' },
     comprador: { nome: dados.comprador.trim(), cpf: '' },
     imovel: dados.imovel.trim(),
+    ...(dados.imovelId && { imovelId: dados.imovelId }),
     corretorId: dados.corretorId,
     captadorId: dados.captadorId ?? dados.corretorId,
     status: STATUS_INICIAL,
@@ -128,7 +137,7 @@ export function enviarDocumento(
 ): Resultado {
   if (!dados.nome.trim()) return { ok: false, erro: 'Escolha um arquivo.' }
   if (!/\.(pdf|jpe?g|png|webp)$/i.test(dados.nome)) return { ok: false, erro: 'Use PDF, JPG, PNG ou WEBP.' }
-  if (dados.tamanho > 20 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 20 MB.' }
+  if (dados.tamanho > 15 * 1024 * 1024) return { ok: false, erro: 'O arquivo passa de 15 MB.' }
   if (!estado.processos.some((p) => p.id === dados.processoId)) return { ok: false, erro: 'Escolha o processo do documento.' }
   const req = dados.requisito ? requisitoPorChave(dados.requisito) : undefined
   if (dados.requisito && !req) return { ok: false, erro: 'Item de checklist desconhecido.' }

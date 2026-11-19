@@ -18,8 +18,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
   if (import.meta.server) return
 
-  const { sessao, restaurar } = useGestaoSessao()
+  const { sessao, restaurar, restaurarHttp } = useGestaoSessao()
   restaurar()
+  await restaurarHttp()
 
   const noLogin = to.path === '/gestao/login'
   const noConvite = to.path.startsWith('/gestao/convite/')

@@ -22,7 +22,7 @@ const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] disabled:cursor-not-allowed disabled:bg-[var(--surface)] disabled:text-[var(--ink-soft)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
 const botao =
-  'min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+  'min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
 </script>
 
 <template>
@@ -31,7 +31,7 @@ const botao =
     novalidate
     @submit.prevent="emit('salvar', { data, responsavel, observacao, fotos: [...fotos] })"
   >
-    <h2 class="m-0 text-[length:var(--fs-body)] font-extrabold">{{ titulo }}</h2>
+    <h2 class="m-0 text-[length:var(--fs-body)] font-bold">{{ titulo }}</h2>
     <div class="[display:grid] gap-3 sm:grid-cols-2">
       <label :class="rotulo">Data<input v-model="data" type="date" :class="campo" :disabled="!podeEditar" data-testid="vistoria-data" /></label>
       <label :class="rotulo">Responsável<input v-model="responsavel" :class="campo" :disabled="!podeEditar" autocomplete="off" data-testid="vistoria-responsavel" /></label>
@@ -40,7 +40,7 @@ const botao =
     <ul class="m-0 flex list-none flex-wrap gap-2 p-0" data-testid="vistoria-fotos">
       <li v-for="(f, i) in fotos" :key="f + i" class="inline-flex items-center gap-2 rounded-full bg-[#e7e9e6] px-3 py-1 text-[length:var(--fs-caption)] font-bold text-[#2b2f33]">
         {{ f }}
-        <button v-if="podeEditar" type="button" class="min-h-6 cursor-pointer font-extrabold" :aria-label="`Remover ${f}`" @click="tirar(i)">×</button>
+        <button v-if="podeEditar" type="button" class="min-h-6 cursor-pointer font-bold" :aria-label="`Remover ${f}`" @click="tirar(i)">×</button>
       </li>
       <li v-if="!fotos.length" class="text-[var(--ink-soft)]">Nenhuma foto anexada.</li>
     </ul>

@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { completarProcesso, validarContato, validarPdf } from '../../domain/novo-processo'
-import { CORRETORES } from '../../domain/seed'
+import { rotuloImovel } from '../../domain/imoveis'
+import { errosNovoProcesso, type CampoNovoProcesso } from '../../domain/novo-processo'
 
 const store = useGestaoStore()
+// A lista de imóveis só é buscada quando este formulário abre.
+onMounted(() => void store.carregar(false, ['imoveis']))
+// Só imóveis à venda: abrir venda de um imóvel só de aluguel não faria sentido.
+const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'venda'))
 const { sessao } = useGestaoSessao()
 const toast = useToast()
 
 const dialog = ref<HTMLDialogElement | null>(null)
-const imovel = ref('')
+const imovelId = ref('')
 const vendedor = ref('')
 const comprador = ref('')
 const corretorId = ref('')
@@ -17,6 +21,21 @@ const telComprador = ref('')
 const emailComprador = ref('')
 const arquivo = ref<File | null>(null)
 const erro = ref('')
+// Erros por campo (todos de uma vez), com foco no primeiro. Depois da 1ª tentativa, cada edição reavalia:
+// o erro some assim que o campo passa a valer. `erro` (banner) fica só para falha do servidor.
+const erros = ref<Partial<Record<CampoNovoProcesso, string>>>({})
+const tentou = ref(false)
+const form = () => ({
+  imovelId: imovelId.value, vendedor: vendedor.value, telVendedor: telVendedor.value, emailVendedor: emailVendedor.value,
+  comprador: comprador.value, telComprador: telComprador.value, emailComprador: emailComprador.value, corretorId: corretorId.value,
+})
+watch([imovelId, vendedor, comprador, corretorId, telVendedor, emailVendedor, telComprador, emailComprador, arquivo], () => {
+  if (!tentou.value) return
+  erros.value = errosNovoProcesso(form(), arquivo.value)
+  erro.value = ''
+})
+const aria = (c: CampoNovoProcesso) => ({ id: `np-${c}`, 'aria-invalid': (erros.value[c] ? 'true' : undefined) as 'true' | undefined, 'aria-describedby': erros.value[c] ? `np-e-${c}` : undefined })
+const enviando = ref(false)
 
 // Corretor logado abre processo só em nome próprio: deixar escolher outro
 // furaria a regra «corretor vê só os seus» (ele criaria um processo que some
@@ -24,13 +43,15 @@ const erro = ref('')
 const travado = computed(() => sessao.value?.perfil === 'corretor')
 
 function abrir() {
-  imovel.value = ''
+  imovelId.value = ''
+  tentou.value = false
+  erros.value = {}
   vendedor.value = ''
   comprador.value = ''
   telVendedor.value = emailVendedor.value = telComprador.value = emailComprador.value = ''
   arquivo.value = null
   erro.value = ''
-  corretorId.value = sessao.value?.corretorId ?? CORRETORES[0]?.id ?? ''
+  corretorId.value = sessao.value?.corretorId ?? store.corretores.value[0]?.id ?? ''
   // showModal() e não `open`: só ele dá focus trap, Esc e backdrop nativos.
   dialog.value?.showModal()
 }
@@ -44,43 +65,61 @@ function escolherArquivo(e: Event) {
 }
 
 async function enviar() {
+  if (enviando.value) return
+  // Limpa o erro da tentativa anterior: sem isto o banner velho («Informe o imóvel.») ficava
+  // na tela durante o envio do formulário já corrigido.
+  erro.value = ''
+  enviando.value = true
+  try {
+    await enviarProcesso()
+  } finally {
+    enviando.value = false
+  }
+}
+
+async function enviarProcesso() {
   // Valida antes de criar: senão o processo nasceria e o erro de formato
   // deixaria o usuário reenviando um formulário que já criou o registro.
-  const invalido =
-    validarContato('vendedor', { telefone: telVendedor.value, email: emailVendedor.value }) ??
-    validarContato('comprador', { telefone: telComprador.value, email: emailComprador.value }) ??
-    validarPdf(arquivo.value)
-  if (invalido) {
-    erro.value = invalido
+  tentou.value = true
+  erros.value = errosNovoProcesso(form(), arquivo.value)
+  const primeiro = Object.keys(erros.value)[0]
+  if (primeiro) {
+    document.getElementById(`np-${primeiro}`)?.focus()
     return
   }
-  const r = store.aplicar((e, ator) =>
-    store.acoes.abrirProcesso(
-      e,
-      {
-        imovel: imovel.value,
-        vendedor: vendedor.value,
-        comprador: comprador.value,
-        corretorId: corretorId.value,
-        pct: store.config.value.comissaoPct,
-      },
-      ator,
-    ),
-  )
+  const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
+  const r = await store.abrirProcesso({
+    imovel: imovel ? rotuloImovel(imovel) : '',
+    imovelId: imovelId.value,
+    vendedor: vendedor.value,
+    comprador: comprador.value,
+    corretorId: corretorId.value,
+    pct: store.config.value.comissaoPct,
+  })
   if (!r.ok) {
     erro.value = r.erro
     return
   }
-  // O processo novo entra na frente da lista (acoes.abrirProcesso).
-  const novo = r.estado.processos[0]!
-  // No demo o PDF não sobe: guardamos só que existe contrato (pdf: true).
-  store.aplicar((e) =>
-    completarProcesso(e, novo.id, {
-      vendedor: { telefone: telVendedor.value, email: emailVendedor.value },
-      comprador: { telefone: telComprador.value, email: emailComprador.value },
-      pdf: !!arquivo.value,
-    }),
-  )
+  const novo = r.processo!
+  const contatos = {
+    vendedor: { telefone: telVendedor.value, email: emailVendedor.value },
+    comprador: { telefone: telComprador.value, email: emailComprador.value },
+  }
+  if (store.http) {
+    // O servidor abre o processo só com os nomes; telefone e e-mail entram pelo cadastro de cada parte
+    // (a mesma ação da etapa 2/3) e o contrato em PDF sobe como documento do processo.
+    for (const quem of ['vendedor', 'comprador'] as const) {
+      const c = contatos[quem]
+      if (c.telefone.trim() || c.email.trim()) await store.executar('venda', novo.id, 'salvarPessoa', { quem, cpf: '', telefone: c.telefone, email: c.email })
+    }
+    if (arquivo.value) {
+      const up = await store.enviarDocumento('venda', novo.id, { name: arquivo.value.name, size: arquivo.value.size, file: arquivo.value }, { categoria: 'venda' })
+      if (!up.ok) toast.error(`Processo aberto, mas o contrato não subiu: ${up.erro}`)
+    }
+  } else {
+    // No demo o PDF não sobe: guardamos só que existe contrato (pdf: true).
+    await store.executar('venda', novo.id, 'completarProcesso', { ...contatos, pdf: !!arquivo.value })
+  }
   fechar()
   toast.success(`Processo ${novo.id} aberto.`)
   await navigateTo(`/gestao/vendas/${novo.id}`)
@@ -103,46 +142,54 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
     @click.self="fechar"
   >
     <form class="[display:grid] gap-3 p-5" novalidate @submit.prevent="enviar">
-      <h2 id="novo-processo-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-extrabold">
+      <h2 id="novo-processo-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-bold">
         Novo processo de venda
       </h2>
 
       <label :class="rotulo">
-        Imóvel
-        <input v-model="imovel" :class="campo" type="text" autocomplete="off" autofocus placeholder="Ex.: Apartamento 302 — Edifício Aurora" />
+        <span>Imóvel<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <select v-model="imovelId" :class="campo" v-bind="aria('imovelId')" required data-testid="imovel">
+          <option value="" disabled>Escolha…</option>
+          <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
+        </select>
+        <span v-if="erros.imovelId" id="np-e-imovelId" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.imovelId }}</span>
       </label>
       <label :class="rotulo">
-        Vendedor
-        <input v-model="vendedor" :class="campo" type="text" autocomplete="off" />
+        <span>Vendedor<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <input v-model="vendedor" :class="campo" v-bind="aria('vendedor')" type="text" autocomplete="off" />
+        <span v-if="erros.vendedor" id="np-e-vendedor" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.vendedor }}</span>
       </label>
-      <div class="[display:grid] gap-3 sm:grid-cols-2">
+      <div class="[display:grid] items-start gap-3 sm:grid-cols-2">
         <label :class="rotulo">
           Telefone do vendedor (opcional)
-          <input v-model="telVendedor" :class="campo" type="tel" inputmode="tel" autocomplete="off" data-testid="telefone-vendedor" />
+          <GestaoCampoTelefone v-model="telVendedor" :classe="campo" :erro-externo="erros.telVendedor" v-bind="aria('telVendedor')" data-testid="telefone-vendedor" />
         </label>
         <label :class="rotulo">
           E-mail do vendedor (opcional)
-          <input v-model="emailVendedor" :class="campo" type="email" autocomplete="off" data-testid="email-vendedor" />
+          <input v-model="emailVendedor" :class="campo" v-bind="aria('emailVendedor')" type="email" autocomplete="off" data-testid="email-vendedor" />
+        <span v-if="erros.emailVendedor" id="np-e-emailVendedor" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.emailVendedor }}</span>
         </label>
       </div>
       <label :class="rotulo">
-        Comprador
-        <input v-model="comprador" :class="campo" type="text" autocomplete="off" />
+        <span>Comprador<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <input v-model="comprador" :class="campo" v-bind="aria('comprador')" type="text" autocomplete="off" />
+        <span v-if="erros.comprador" id="np-e-comprador" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.comprador }}</span>
       </label>
-      <div class="[display:grid] gap-3 sm:grid-cols-2">
+      <div class="[display:grid] items-start gap-3 sm:grid-cols-2">
         <label :class="rotulo">
           Telefone do comprador (opcional)
-          <input v-model="telComprador" :class="campo" type="tel" inputmode="tel" autocomplete="off" data-testid="telefone-comprador" />
+          <GestaoCampoTelefone v-model="telComprador" :classe="campo" :erro-externo="erros.telComprador" v-bind="aria('telComprador')" data-testid="telefone-comprador" />
         </label>
         <label :class="rotulo">
           E-mail do comprador (opcional)
-          <input v-model="emailComprador" :class="campo" type="email" autocomplete="off" data-testid="email-comprador" />
+          <input v-model="emailComprador" :class="campo" v-bind="aria('emailComprador')" type="email" autocomplete="off" data-testid="email-comprador" />
+        <span v-if="erros.emailComprador" id="np-e-emailComprador" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.emailComprador }}</span>
         </label>
       </div>
       <label :class="rotulo">
-        Corretor
-        <select v-model="corretorId" :class="campo" :disabled="travado">
-          <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+        <span>Corretor<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
+        <select v-model="corretorId" :class="campo" v-bind="aria('corretorId')" :disabled="travado">
+          <option v-for="c in store.corretores.value" :key="c.id" :value="c.id">{{ c.nome }}</option>
         </select>
       </label>
 
@@ -153,11 +200,15 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
           accept="application/pdf,.pdf"
           class="min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 py-2 text-[length:var(--fs-ui)] file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[var(--brand-ghost)] file:px-3 file:py-1.5 file:font-bold"
           data-testid="anexo-contrato"
+          v-bind="aria('arquivo')"
           @change="escolherArquivo"
         />
+        <span v-if="erros.arquivo" id="np-e-arquivo" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.arquivo }}</span>
         <span v-if="arquivo" class="text-[var(--ink-soft)]">Arquivo: {{ arquivo.name }}</span>
       </label>
 
+      <p class="m-0 text-[length:var(--fs-caption)] text-[var(--ink-soft)]"><span class="text-[var(--danger)]" aria-hidden="true">*</span> campo obrigatório</p>
+      <p v-if="!opcoes.length" class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">Nenhum imóvel à venda cadastrado.</p>
       <p v-if="erro" role="alert" class="rounded-lg bg-[#fee2e2] px-3 py-2 text-[length:var(--fs-label)] font-bold text-[#7f1d1d]">
         {{ erro }}
       </p>
@@ -172,9 +223,11 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
         </button>
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          :disabled="enviando"
+          :aria-busy="enviando"
+          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
         >
-          Abrir processo
+          {{ enviando ? 'Abrindo…' : 'Abrir processo' }}
         </button>
       </div>
     </form>

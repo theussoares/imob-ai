@@ -179,6 +179,17 @@ export function locacoesVisiveis(matriz: MatrizPermissoes, sessao: Sessao, locac
   return locacoes.filter((l) => !l.arquivado && (todos || l.corretorId === sessao.corretorId))
 }
 
+/** Arquivados da sessão (tela «Arquivados»): o mesmo escopo de `processosVisiveis`, só que os arquivados. */
+export function processosArquivados(matriz: MatrizPermissoes, sessao: Sessao, processos: Processo[]): Processo[] {
+  const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
+  return processos.filter((p) => p.arquivado && (todos || p.corretorId === sessao.corretorId))
+}
+
+export function locacoesArquivadas(matriz: MatrizPermissoes, sessao: Sessao, locacoes: Locacao[]): Locacao[] {
+  const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
+  return locacoes.filter((l) => l.arquivado && (todos || l.corretorId === sessao.corretorId))
+}
+
 /**
  * Permissões que o Dono não pode tirar de si mesmo: sem `admin` ninguém mais consegue
  * abrir esta tela e devolver o acesso, e sem `convidar` a conta ficaria sem como chamar

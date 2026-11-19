@@ -1,5 +1,7 @@
 import { avisosLocacao, diasEntre, type NivelAviso } from './avisos-locacao.ts'
 import { locacaoFinal } from './locacao-status.ts'
+import { documentosPendentes } from './requisitos.ts'
+import { devidoDaCobranca } from './cobranca.ts'
 import { statusFinal } from './status.ts'
 import type { Documento, Locacao, Processo } from './types'
 
@@ -67,6 +69,10 @@ export function resumoDashboard(
     const dias = statusFinal(p.status) ? 0 : parado(p.updated)
     if (dias) atencao.push({ id: p.id, tipo: 'venda', titulo: `${p.id} · ${p.imovel}`, texto: `Sem movimento há ${dias} dias (${p.status}).`, nivel: 'atencao', href: `/gestao/vendas/${p.id}` })
   }
+  for (const p of vendasAtivas) {
+    const n = documentosPendentes(p, documentos)
+    if (n) atencao.push({ id: p.id, tipo: 'venda', titulo: `${p.id} · ${p.imovel}`, texto: `${n} ${n === 1 ? 'pendência documental' : 'pendências documentais'}.`, nivel: 'atencao', href: `/gestao/vendas/${p.id}` })
+  }
   for (const l of locacoesAtivas) {
     const dias = locacaoFinal(l.status) ? 0 : parado(l.updated)
     if (dias) atencao.push({ id: l.id, tipo: 'locacao', titulo: `${l.id} · ${l.imovel}`, texto: `Sem movimento há ${dias} dias (${l.status}).`, nivel: 'atencao', href: `/gestao/locacao/${l.id}` })
@@ -84,10 +90,12 @@ export function resumoDashboard(
       implantacao: locacoesAtivas.filter((l) => l.status !== 'Ativa' && !locacaoFinal(l.status)).length,
       encerradas: locacoesAtivas.filter((l) => locacaoFinal(l.status)).length,
     },
-    aluguelEmAtraso: locacoesAtivas.reduce(
-      (n, l) => n + avisosLocacao(l, hoje).filter((a) => a.tipo === 'aluguel' && a.nivel === 'vencido').length,
-      0,
-    ),
+    // Quantidade de cobranças vencidas e não quitadas (parcial vencida conta), pela mesma regra do Financeiro
+    // (`devidoDaCobranca`). Só contagem, sem R$: o corretor, que não tem `valores`, também vê este card.
+    // Antes vinha dos avisos, que só existem para locação «Ativa» e ignoravam o saldo parcial.
+    aluguelEmAtraso: locacoesAtivas
+      .filter((l) => !locacaoFinal(l.status))
+      .reduce((n, l) => n + l.cobrancas.filter((c) => !c.pago && devidoDaCobranca(c, hoje).vencida).length, 0),
     documentosParaConferir: documentos.filter((d) => !d.apagado && d.estado === 'enviado' && idsVisiveis.has(d.processoId)).length,
     atencao: atencao.slice(0, limiteAtencao),
   }

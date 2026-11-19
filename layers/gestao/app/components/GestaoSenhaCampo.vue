@@ -43,7 +43,7 @@ const idErro = computed(() => `${props.id}-erro`)
 
 <template>
   <div class="flex flex-col gap-1.5">
-    <label :for="id" class="font-bold">{{ label }}</label>
+    <label :for="id" class="font-semibold">{{ label }}</label>
     <div class="relative">
       <input
         :id="id"

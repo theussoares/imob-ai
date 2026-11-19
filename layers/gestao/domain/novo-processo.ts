@@ -9,7 +9,7 @@ import type { Pessoa } from './types'
  * (tudo síncrono, em memória), mas `abrirProcesso` deveria aceitar estes campos.
  */
 
-export const LIMITE_PDF = 20 * 1024 * 1024
+export const LIMITE_PDF = 15 * 1024 * 1024
 
 /** Só o formato mínimo (algo@algo.tld): confirmar a caixa postal é com o servidor. */
 export const emailValido = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim())
@@ -36,7 +36,7 @@ export function validarContato(rotulo: string, c: ContatoPessoa): string | null 
 export function validarPdf(arquivo: { name: string; size: number } | null): string | null {
   if (!arquivo) return null
   if (!/\.pdf$/i.test(arquivo.name)) return 'O contrato precisa ser um PDF.'
-  if (arquivo.size > LIMITE_PDF) return 'O PDF passa de 20 MB.'
+  if (arquivo.size > LIMITE_PDF) return 'O PDF passa de 15 MB.'
   return null
 }
 
@@ -65,4 +65,47 @@ export function completarProcesso(estado: Estado, id: string, extra: Complemento
       ),
     },
   }
+}
+
+// ---- Erros por campo dos modais «Novo processo» e «Nova locação» ----------------
+// A ordem das chaves é a ordem dos campos na tela: o primeiro recebe o foco.
+
+export type CampoNovoProcesso =
+  | 'imovelId' | 'vendedor' | 'telVendedor' | 'emailVendedor' | 'comprador' | 'telComprador' | 'emailComprador' | 'corretorId' | 'arquivo'
+
+export interface FormNovoProcesso {
+  imovelId: string
+  vendedor: string
+  telVendedor: string
+  emailVendedor: string
+  comprador: string
+  telComprador: string
+  emailComprador: string
+  corretorId: string
+}
+
+export function errosNovoProcesso(f: FormNovoProcesso, arquivo: { name: string; size: number } | null): Partial<Record<CampoNovoProcesso, string>> {
+  const e: Partial<Record<CampoNovoProcesso, string>> = {}
+  if (!f.imovelId.trim()) e.imovelId = 'Escolha o imóvel.'
+  if (!f.vendedor.trim()) e.vendedor = 'Informe o vendedor.'
+  if (f.telVendedor.trim() && !telefoneValido(f.telVendedor)) e.telVendedor = 'Telefone inválido. Use DDD + número.'
+  if (f.emailVendedor.trim() && !emailValido(f.emailVendedor)) e.emailVendedor = 'E-mail inválido.'
+  if (!f.comprador.trim()) e.comprador = 'Informe o comprador.'
+  if (f.telComprador.trim() && !telefoneValido(f.telComprador)) e.telComprador = 'Telefone inválido. Use DDD + número.'
+  if (f.emailComprador.trim() && !emailValido(f.emailComprador)) e.emailComprador = 'E-mail inválido.'
+  if (!f.corretorId.trim()) e.corretorId = 'Escolha o corretor.'
+  const pdf = validarPdf(arquivo)
+  if (pdf) e.arquivo = pdf
+  return e
+}
+
+export type CampoNovaLocacao = 'imovelId' | 'locador' | 'locatario' | 'corretorId'
+
+export function errosNovaLocacao(f: Record<CampoNovaLocacao, string>): Partial<Record<CampoNovaLocacao, string>> {
+  const e: Partial<Record<CampoNovaLocacao, string>> = {}
+  if (!f.imovelId.trim()) e.imovelId = 'Escolha o imóvel.'
+  if (!f.locador.trim()) e.locador = 'Informe o locador.'
+  if (!f.locatario.trim()) e.locatario = 'Informe o locatário.'
+  if (!f.corretorId.trim()) e.corretorId = 'Escolha o corretor.'
+  return e
 }

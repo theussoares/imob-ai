@@ -17,11 +17,12 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
   <!--
     Rolável no mobile: 8 etapas não cabem em 375px e quebrar em várias linhas
     esconderia a ordem. `min-w-max` mantém o passo com largura própria. No desktop
-    há espaço: 8 colunas iguais, e o nome da etapa quebra em duas linhas em vez de
-    abreviar («Documentos», nunca «Docs»).
+    as colunas se ajustam (mínimo de 9rem: «Acompanhamento» cabe inteira) e o nome quebra
+    só entre palavras, nunca no meio («Documen tos» era o `break-words` em coluna estreita);
+    faltando largura, a linha desce para uma segunda fileira em vez de abreviar.
   -->
   <nav aria-label="Etapas do processo" class="overflow-x-auto pb-1" data-testid="stepper">
-    <ol class="m-0 flex min-w-max list-none gap-2 p-0 lg:min-w-0 lg:[display:grid] lg:grid-cols-8">
+    <ol class="m-0 flex min-w-max list-none gap-2 p-0 lg:min-w-0 lg:[display:grid] lg:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]">
       <li v-for="(nome, i) in props.nomes ?? ETAPAS_VENDA" :key="nome" class="lg:min-w-0">
         <button
           type="button"
@@ -30,7 +31,7 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
           class="flex min-h-11 min-w-32 cursor-pointer lg:h-full lg:w-full lg:min-w-0 flex-col items-start justify-center rounded-[10px] border px-3 py-1.5 text-left"
           :class="
             vista === i + 1
-              ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
+              ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--on-brand)]'
               : 'border-[var(--line-2)] bg-[var(--paper)] text-[var(--ink)] hover:bg-[var(--brand-ghost)]'
           "
           @click="emit('ir', i + 1)"
@@ -38,11 +39,11 @@ const emit = defineEmits<{ ir: [etapa: number] }>()
           <span class="text-[length:var(--fs-caption)] font-bold">
             <span v-if="concluidas[i]" aria-hidden="true">✓ </span>Etapa {{ i + 1 }}
           </span>
-          <span class="max-w-full text-[length:var(--fs-ui)] font-semibold leading-tight break-words">{{ nome }}</span>
+          <span class="max-w-full text-[length:var(--fs-ui)] font-semibold leading-tight [overflow-wrap:normal] [word-break:normal] hyphens-none">{{ nome }}</span>
           <!-- Estado em texto: cor/ícone sozinhos não bastam (daltonismo, leitor de tela). -->
           <span
             class="text-[length:var(--fs-caption)]"
-            :class="vista === i + 1 ? 'text-white/85' : 'text-[var(--ink-soft)]'"
+            :class="vista === i + 1 ? 'text-[var(--on-brand)] opacity-85' : 'text-[var(--ink-soft)]'"
           >
             {{ concluidas[i] ? 'concluída' : i + 1 === atual ? 'em andamento' : 'pendente' }}
           </span>

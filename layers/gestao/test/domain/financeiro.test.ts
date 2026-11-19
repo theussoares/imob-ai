@@ -34,7 +34,8 @@ describe('resumoLocacoes', () => {
   it('totaliza recebido, em aberto, atraso, taxa e repasses', () => {
     const r = resumoLocacoes(locacoes(), HOJE)
     expect(r.recebido).toBe(2500 + 1800)
-    expect(r.emAtraso).toBe(2500)
+    // 2.500 vencidos há 3 dias: + multa 2% (50) + juros 1%/mês pro rata (2,50)
+    expect(r.emAtraso).toBe(2552.5)
     expect(r.emAberto).toBe(0)
     expect(r.taxaRecebida).toBe(250 + 144)
     expect(r.repasseFeito).toBe(1656)

@@ -13,7 +13,9 @@ import {
   type EstadoAuth,
 } from '../../domain/auth'
 import { USUARIOS } from '../../domain/seed'
-import type { Perfil } from '../../domain/types'
+import type { MatrizPermissoes, MembroGestaoLista, Perfil, Sessao } from '../../domain/types'
+import { paraFalha } from '../services/clienteGestao'
+import { guardarTokens, tokenAtual } from '../services/tokensGestao'
 
 const CHAVE = 'gestao-auth-v1'
 const CHAVE_PENDENTE = 'gestao-2fa-pendente'
@@ -37,12 +39,141 @@ const ERRO_CAPTCHA = 'Confirme que você não é um robô.'
  * da senha NÃO está autenticado, e fechar a aba descarta a meia-autenticação.
  */
 export function useGestaoAuth() {
-  const demo = !!useRuntimeConfig().public.gestaoDemo
+  const http = useGestaoHttp()
+  // `http` nunca é demo: sem «Acesso rápido», sem contas de exemplo, sem código à mostra.
+  const demo = !!useRuntimeConfig().public.gestaoDemo && !http
   const estado = useState<EstadoAuth>('gestao:auth', estadoAuthVazio)
   const pendente = useState<string | null>('gestao:2fa-pendente', () => null)
   /** Só existe em demo: o código que iria por e-mail, para a faixa «Demonstração». */
   const codigoDemo = useState<string | null>('gestao:codigo-demo', () => null)
   const senhaDemo = useState<string | null>('gestao:senha-demo', () => null)
+
+  // --- http: o servidor é quem autentica; aqui só se chama e se guarda o que não é segredo ---
+  const api = http ? useGestaoApi() : null
+  const cfg = useRuntimeConfig().public
+  const { definir } = useGestaoSessao()
+  /** Quando o reenvio do código volta a valer (ms). Em memória: não é segredo, só contagem. */
+  const reenvioEm = useState<number>('gestao:reenvio-em', () => 0)
+
+  const marcarReenvio = (segundos: number) => (reenvioEm.value = Date.now() + Math.max(0, segundos) * 1000)
+
+  async function entrarComSenhaHttp(email: string, senha: string, captcha: string) {
+    if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA }
+    try {
+      const r = await api!.post<{ accessToken: string; expiresAt: number | null; codigo: { segundos?: number } }>(
+        '/api/gestao/auth/login',
+        { email, senha, captcha },
+        { semToken: true },
+      )
+      // Acesso em memória; o refresh fica no cookie HttpOnly (ver tokensGestao.ts). Sozinhos não abrem nada: falta o código do e-mail.
+      await guardarTokens(r)
+      marcarReenvio(r.codigo?.segundos ?? 60)
+      definirPendente(email.trim().toLowerCase())
+      return { ok: true as const }
+    } catch (e) {
+      return { ok: false as const, erro: paraFalha(e).erro }
+    }
+  }
+
+  async function reenviarHttp() {
+    if (!pendente.value) return { ok: false as const, erro: 'Volte ao login.', segundos: 0 }
+    try {
+      const r = await api!.post<{ segundos?: number }>('/api/gestao/auth/reenviar')
+      marcarReenvio(r.segundos ?? 60)
+      return { ok: true as const }
+    } catch (e) {
+      const f = paraFalha(e)
+      if (f.segundos) marcarReenvio(f.segundos)
+      return { ok: false as const, erro: f.erro, segundos: f.segundos ?? 0 }
+    }
+  }
+
+  async function verificarHttp(codigo: string): Promise<{ ok: true; conta: ContaPublica } | { ok: false; erro: string; motivo: string; segundos?: number }> {
+    if (!pendente.value || !tokenAtual()) {
+      // Sem token: a renovação pelo cookie falhou (expirou ou nunca houve login).
+      definirPendente(null)
+      return { ok: false, erro: 'Sua sessão expirou. Entre de novo.', motivo: 'sem-pendente' }
+    }
+    try {
+      const r = await api!.post<{ membro: { nome: string; perfil: Perfil }; sessao: Sessao; matriz: MatrizPermissoes }>('/api/gestao/auth/codigo', { codigo })
+      // A sessão só nasce AQUI, depois do 2º fator, e vem do servidor (perfil, nome e corretor).
+      definir(r.sessao)
+      useState<MatrizPermissoes>('gestao:matriz').value = r.matriz
+      const email = pendente.value
+      definirPendente(null)
+      return { ok: true, conta: { email, nome: r.membro.nome, perfil: r.membro.perfil } }
+    } catch (e) {
+      const f = paraFalha(e)
+      const resto = f.restantes !== undefined && f.motivo === 'invalido' ? ` Restam ${f.restantes} tentativas.` : ''
+      return { ok: false, erro: f.erro + resto, motivo: f.motivo ?? (f.sessaoExpirada ? 'sessao' : 'erro'), segundos: f.segundos }
+    }
+  }
+
+  /** Convites e contas a partir de `GET /membros` (só quem pode convidar ou administrar lê). */
+  async function carregarMembrosHttp() {
+    try {
+      const { data } = await api!.get<{ data: MembroGestaoLista[] }>('/api/gestao/membros')
+      const ms = (iso: string | null) => (iso ? Date.parse(iso) : 0)
+      estado.value = {
+        codigos: [],
+        contas: data.filter((m) => m.status === 'ativo').map((m) => ({ email: m.email, nome: m.nome, perfil: m.perfil, salt: '', senhaHash: '' })),
+        // `token` é o id do registro: a revogação (`DELETE /membros/:id`) é por id, e o link nunca sai do servidor.
+        convites: data
+          .filter((m) => m.status === 'pendente')
+          .map((m) => ({ token: m.id, email: m.email, perfil: m.perfil, criadoPor: m.convidadoPor, criadoEm: ms(m.criadoEm), expiraEm: ms(m.conviteExpiraEm), usadoEm: null, revogadoEm: null })),
+      }
+    } catch {
+      /* sem permissão para listar (403) ou fora do ar: a tela mostra vazio */
+    }
+  }
+
+  async function convidarHttp(email: string, perfil: Perfil, brokerId?: string) {
+    try {
+      const r = await api!.post<{ membro: MembroGestaoLista; emailEnviado: boolean }>('/api/gestao/membros', { email, perfil, ...(brokerId && { brokerId }) })
+      await carregarMembrosHttp()
+      const m = r.membro
+      return {
+        ok: true as const,
+        emailEnviado: r.emailEnviado,
+        convite: { token: m.id, email: m.email, perfil: m.perfil, criadoPor: m.convidadoPor, criadoEm: Date.parse(m.criadoEm), expiraEm: m.conviteExpiraEm ? Date.parse(m.conviteExpiraEm) : 0, usadoEm: null, revogadoEm: null },
+      }
+    } catch (e) {
+      return { ok: false as const, erro: paraFalha(e).erro }
+    }
+  }
+
+  async function revogarHttp(id: string) {
+    try {
+      await api!.del(`/api/gestao/membros/${encodeURIComponent(id)}`)
+      await carregarMembrosHttp()
+      return { ok: true as const }
+    } catch (e) {
+      return { ok: false as const, erro: paraFalha(e).erro }
+    }
+  }
+
+  async function consultarHttp(token: string) {
+    try {
+      const r = await api!.get<{ ok: boolean; motivo?: string; erro?: string; convite?: { email: string; perfil: Perfil; nome: string } }>(`/api/gestao/auth/convite/${encodeURIComponent(token)}`)
+      if (r.ok && r.convite) {
+        return { ok: true as const, convite: { token, email: r.convite.email, perfil: r.convite.perfil, criadoPor: '', criadoEm: 0, expiraEm: 0, usadoEm: null, revogadoEm: null } }
+      }
+      return { ok: false as const, motivo: (r.motivo ?? 'inexistente') as 'inexistente', erro: r.erro ?? 'Convite indisponível.' }
+    } catch (e) {
+      return { ok: false as const, motivo: 'inexistente' as const, erro: paraFalha(e).erro }
+    }
+  }
+
+  async function aceitarHttp(token: string, nome: string, senha: string, captcha: string) {
+    if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA, motivo: 'captcha' }
+    try {
+      await api!.post('/api/gestao/auth/aceitar', { token, nome, senha, captcha }, { semToken: true })
+      return { ok: true as const }
+    } catch (e) {
+      const f = paraFalha(e)
+      return { ok: false as const, erro: f.erro, motivo: f.motivo ?? 'erro' }
+    }
+  }
 
   async function ler(): Promise<EstadoAuth> {
     if (!import.meta.client) return estado.value
@@ -73,6 +204,11 @@ export function useGestaoAuth() {
    */
   async function carregar() {
     if (!import.meta.client) return
+    if (http) {
+      restaurarPendente()
+      if (useGestaoSessao().sessao.value) await carregarMembrosHttp()
+      return
+    }
     let e = await ler()
     if (demo) {
       senhaDemo.value = (await import('../../domain/auth-demo')).SENHA_DEMO
@@ -88,6 +224,8 @@ export function useGestaoAuth() {
   /** Síncrono, porque o middleware de rota decide o redirecionamento com ele. */
   function restaurarPendente() {
     if (!import.meta.client || pendente.value) return
+    // `http`: o pendente só vale com o token em memória; sem ele (página recarregada) volta ao login.
+    if (http && !tokenAtual()) return
     try {
       pendente.value = sessionStorage.getItem(CHAVE_PENDENTE)
       if (demo) codigoDemo.value = sessionStorage.getItem(`${CHAVE_PENDENTE}-codigo`)
@@ -112,6 +250,7 @@ export function useGestaoAuth() {
   // --- Login em duas etapas ---
 
   async function entrarComSenha(email: string, senha: string, captcha: string) {
+    if (http) return entrarComSenhaHttp(email, senha, captcha)
     if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA }
     const e = await ler()
     const r = await autenticar(e, email, senha)
@@ -131,6 +270,7 @@ export function useGestaoAuth() {
   }
 
   async function reenviar() {
+    if (http) return reenviarHttp()
     if (!pendente.value) return { ok: false as const, erro: 'Volte ao login.', segundos: 0 }
     const e = await ler()
     const c = await emitirCodigo(e, pendente.value, bloqueio(demo))
@@ -141,6 +281,7 @@ export function useGestaoAuth() {
   }
 
   async function verificar(codigo: string): Promise<{ ok: true; conta: ContaPublica } | { ok: false; erro: string; motivo: string; segundos?: number }> {
+    if (http) return verificarHttp(codigo)
     if (!pendente.value) return { ok: false, erro: 'Volte ao login.', motivo: 'sem-pendente' }
     const e = await ler()
     const r = await verificarCodigo(e, pendente.value, codigo, bloqueio(demo))
@@ -155,29 +296,34 @@ export function useGestaoAuth() {
   }
 
   function segundosParaReenvio(): number {
+    if (http) return Math.max(0, Math.ceil((reenvioEm.value - Date.now()) / 1000))
     const c = estado.value.codigos.find((x) => x.email === pendente.value)
     return c ? Math.max(0, Math.ceil((c.criadoEm + 60_000 - Date.now()) / 1000)) : 0
   }
 
   // --- Convites ---
 
-  async function convidar(email: string, perfil: Perfil, convidante: { nome: string; perfil: Perfil }) {
+  async function convidar(email: string, perfil: Perfil, convidante: { nome: string; perfil: Perfil }, brokerId?: string) {
+    if (http) return convidarHttp(email, perfil, brokerId)
     const r = criarConvite(await ler(), { email, perfil, convidante })
     if (r.ok) gravar(r.estado)
     return r
   }
 
   async function revogar(token: string) {
+    if (http) return revogarHttp(token)
     const r = revogarConvite(await ler(), token)
     if (r.ok) gravar(r.estado)
     return r
   }
 
   async function consultar(token: string) {
+    if (http) return consultarHttp(token)
     return consultarConvite(await ler(), token)
   }
 
   async function aceitar(token: string, nome: string, senha: string, captcha: string) {
+    if (http) return aceitarHttp(token, nome, senha, captcha)
     if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA, motivo: 'captcha' }
     const r = await aceitarConvite(await ler(), { token, nome, senha })
     if (r.ok) gravar(r.estado)
@@ -186,6 +332,7 @@ export function useGestaoAuth() {
 
   return {
     demo,
+    http,
     estado,
     pendente,
     codigoDemo,

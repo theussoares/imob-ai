@@ -52,3 +52,21 @@ describe('comissão', () => {
     expect(falta.diferenca).toBe(10000)
   })
 })
+
+describe('adiantamento «Não pago» não abate o restante', () => {
+  const base = { valor: 100000, pct: 5 } // comissão 5.000; vendedor 40% = 2.000
+  const adi = (valor: number, pago?: boolean) => ({ id: 'a', resp: 'vendedor' as const, valor, data: '2026-11-01', quem: 'x', ...(pago === undefined ? {} : { pago }) })
+
+  it('só o pago reduz o restante; ausente (processo antigo) conta como pago', () => {
+    const v = (a: ReturnType<typeof adi>[]) => calcularComissao({ ...base, adiantamentos: a }).partes[0]!
+    expect(v([adi(500, false)])).toMatchObject({ adiantado: 0, restante: 2000 })
+    expect(v([adi(500, true)])).toMatchObject({ adiantado: 500, restante: 1500 })
+    expect(v([adi(500)])).toMatchObject({ adiantado: 500, restante: 1500 })
+  })
+
+  it('não deixa prometer mais que o total da parte, somando os não pagos', () => {
+    const p = { ...base, adiantamentos: [adi(1500, false)] }
+    expect(validarAdiantamento(p, { resp: 'vendedor', valor: 600 }).ok).toBe(false)
+    expect(validarAdiantamento(p, { resp: 'vendedor', valor: 500 }).ok).toBe(true)
+  })
+})

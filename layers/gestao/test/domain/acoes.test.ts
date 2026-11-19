@@ -128,11 +128,11 @@ describe('documentos e lixeira', () => {
     expect(restaurarDocumento(novo(), 'd1').ok).toBe(false)
   })
 
-  it('envio valida tipo, tamanho (20 MB) e processo', () => {
+  it('envio valida tipo, tamanho (15 MB) e processo', () => {
     const base = { nome: 'a.pdf', categoria: 'pessoas' as const, processoId: 'V-2026-0142', tamanho: 1000 }
     expect(enviarDocumento(novo(), base, ator).ok).toBe(true)
     expect(enviarDocumento(novo(), { ...base, nome: 'a.exe' }, ator).ok).toBe(false)
-    expect(enviarDocumento(novo(), { ...base, tamanho: 20 * 1024 * 1024 + 1 }, ator).ok).toBe(false)
+    expect(enviarDocumento(novo(), { ...base, tamanho: 15 * 1024 * 1024 + 1 }, ator).ok).toBe(false)
     expect(enviarDocumento(novo(), { ...base, processoId: 'nope' }, ator).ok).toBe(false)
     expect(enviarDocumento(novo(), { ...base, nome: ' ' }, ator).ok).toBe(false)
   })

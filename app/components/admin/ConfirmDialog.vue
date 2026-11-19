@@ -77,6 +77,12 @@ function onDismiss() {
   /* O preflight do Tailwind zera a margem de tudo (`* { margin: 0 }`), e é o
      `margin: auto` do navegador que centraliza o <dialog> modal. Sem isto ele
      abria colado no canto superior esquerdo. */
+  /* Centro explícito (`inset: 0` + `fit-content`): não depende só do `margin: auto` padrão, que o Tailwind
+     do painel de gestão deixava o diálogo «Remover» fora do meio. */
+  position: fixed;
+  inset: 0;
+  width: fit-content;
+  height: fit-content;
   margin: auto;
   padding: 0;
   border: none;

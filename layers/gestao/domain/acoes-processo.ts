@@ -1,6 +1,7 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes'
 import { validarAdiantamento } from './commission'
 import { statusFinal } from './status'
+import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import type { ConferenciaFinal, FontesPagamento, FormaPagamento, GanhoCapital, Pessoa, Processo, ResponsavelAdiantamento } from './types'
 
 /**
@@ -212,7 +213,7 @@ export function salvarPessoa(
     const cpf = dados.cpf.trim()
     const tel = dados.telefone.trim()
     const mail = dados.email.trim()
-    if (cpf && ![11, 14].includes(SO_DIGITOS(cpf).length)) return { ok: false, erro: 'CPF deve ter 11 dígitos (ou CNPJ, 14).' }
+    if (cpf && !tipoDeDocumento(cpf)) return { ok: false, erro: 'CPF ou CNPJ inválido. Confira os dígitos.' }
     if (tel && ![10, 11].includes(SO_DIGITOS(tel).length)) return { ok: false, erro: 'Telefone deve ter DDD e 8 ou 9 dígitos.' }
     if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return { ok: false, erro: 'E-mail inválido.' }
     const atual: Pessoa = p[quem]

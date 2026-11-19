@@ -63,3 +63,27 @@ describe('resumoDashboard', () => {
     expect(JSON.stringify(resumo())).not.toMatch(/R\$/)
   })
 })
+
+describe('Aluguéis em atraso: cobranças vencidas e não quitadas, só do escopo', () => {
+  const loc = (id: string, corretorId: string, status: string, cobrancas: unknown[]) => ({ id, corretorId, status, arquivado: false, cobrancas, hist: [] }) as never
+  const venc = { id: 'cb-1', competencia: '2026-10', valor: 3000, vencimento: '2026-10-10' }
+  const parcial = { ...venc, id: 'cb-2', pagamentos: [{ id: 'pg-1', valor: 500, data: '2026-10-12', forma: 'PIX' }] }
+  const quitada = { ...venc, id: 'cb-3', pago: { data: '2026-10-09', comprovante: '' } }
+  const futura = { ...venc, id: 'cb-4', vencimento: '2026-12-10' }
+  const todas = [
+    loc('L-2026-0101', 'c1', 'Contrato e aluguel', [parcial, quitada, futura]), // não «Ativa»: os avisos ignoravam
+    loc('L-2026-0102', 'c2', 'Ativa', [venc]),
+    loc('L-2026-0103', 'c1', 'Encerrada', [venc]),
+  ]
+  const conta = (ls: unknown[]) => resumoDashboard([], ls as never, [], HOJE).aluguelEmAtraso
+
+  it('parcial vencida conta; quitada, a vencer e locação encerrada não', () => {
+    expect(conta([todas[0]])).toBe(1)
+    expect(conta([todas[2]])).toBe(0)
+  })
+  it('Dono (todas) vê 2; Corretor c1 recebe só as dele e vê 1 — só a quantidade, sem R$', () => {
+    expect(conta(todas)).toBe(2)
+    expect(conta(todas.filter((l) => (l as { corretorId: string }).corretorId === 'c1'))).toBe(1)
+    expect(JSON.stringify(resumoDashboard([], [todas[0]] as never, [], HOJE))).not.toMatch(/3000|2500|valor/)
+  })
+})

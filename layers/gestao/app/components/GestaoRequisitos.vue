@@ -2,6 +2,7 @@
 import { ACEITA_ARQUIVO, formatarTamanho, ROTULO_ESTADO } from '../../domain/documentos'
 import { documentoDoRequisito, type Requisito } from '../../domain/requisitos'
 import type { Documento } from '../../domain/types'
+import type { ArquivoGestao } from '../services/GestaoRepository'
 
 /**
  * Lista de itens de documento de uma etapa: cada linha mostra o estado, o arquivo
@@ -23,8 +24,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  enviar: [requisito: Requisito, arquivo: { name: string; size: number }]
-  trocar: [doc: Documento, arquivo: { name: string; size: number }]
+  enviar: [requisito: Requisito, arquivo: ArquivoGestao]
+  trocar: [doc: Documento, arquivo: ArquivoGestao]
   conferir: [doc: Documento]
 }>()
 
@@ -32,13 +33,17 @@ const linhas = computed(() =>
   props.requisitos.map((r) => ({ r, doc: documentoDoRequisito(props.documentos, props.processoId, r.chave) })),
 )
 
+const store = useGestaoStore()
+const enviando = computed(() => store.enviandoDocumentos.value > 0)
+
 function escolheu(e: Event, r: Requisito, doc: Documento | undefined) {
   const input = e.target as HTMLInputElement
   const arq = input.files?.[0]
   // Limpa o valor: escolher o MESMO arquivo de novo não dispararia `change`.
   input.value = ''
   if (!arq) return
-  const dados = { name: arq.name, size: arq.size }
+  // `file` vai junto: em `http` é ele que sobe para o Storage; em `mock` só nome e tamanho contam.
+  const dados: ArquivoGestao = { name: arq.name, size: arq.size, file: arq }
   if (doc) emit('trocar', doc, dados)
   else emit('enviar', r, dados)
 }
@@ -62,7 +67,9 @@ const botao =
 </script>
 
 <template>
-  <ul class="m-0 flex list-none flex-col gap-2 p-0" data-testid="requisitos">
+  <div>
+  <div v-if="enviando" role="status" class="mb-2 rounded-lg bg-[var(--brand-ghost)] px-3 py-2 font-semibold" data-testid="enviando-arquivo">Enviando arquivo… pode levar alguns segundos.</div>
+  <ul class="m-0 flex list-none flex-col gap-2 p-0" :aria-busy="enviando" data-testid="requisitos">
     <li
       v-for="{ r, doc } in linhas"
       :key="r.chave"
@@ -86,10 +93,10 @@ const botao =
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <label v-if="podeEnviar" :class="botao" :data-testid="doc ? 'requisito-trocar' : 'requisito-enviar'">
+        <label v-if="podeEnviar" :class="[botao, enviando && 'pointer-events-none opacity-60']" :data-testid="doc ? 'requisito-trocar' : 'requisito-enviar'">
           {{ doc ? 'Trocar arquivo' : 'Enviar arquivo' }}
           <span class="sr-only"> de {{ r.nome }}</span>
-          <input type="file" class="sr-only" :accept="ACEITA_ARQUIVO" @change="escolheu($event, r, doc)" />
+          <input type="file" class="sr-only" :accept="ACEITA_ARQUIVO" :disabled="enviando" @change="escolheu($event, r, doc)" />
         </label>
         <button
           v-if="podeEnviar && demo"
@@ -103,7 +110,7 @@ const botao =
         <button
           v-if="podeConferir && doc?.estado === 'enviado'"
           type="button"
-          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-3 text-[length:var(--fs-ui)] font-bold text-white hover:opacity-90"
+          class="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-3 text-[length:var(--fs-ui)] font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="requisito-conferir"
           @click="emit('conferir', doc)"
         >
@@ -112,4 +119,5 @@ const botao =
       </div>
     </li>
   </ul>
+  </div>
 </template>

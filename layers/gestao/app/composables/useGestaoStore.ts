@@ -1,20 +1,40 @@
-import { agora, type Estado, type Resultado } from '../../domain/acoes'
-import * as acoes from '../../domain/acoes'
-import { proximoIdConsulta, realizarConsulta, type ConsultaFeita, type EntradaConsulta, type ResultadoConsulta } from '../../domain/consulta'
-import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
-import { capacidades, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosVisiveis } from '../../domain/permissions'
+import { ESCOPOS_TODOS, type EscopoCarga } from '../services/GestaoRepository'
+import { agora, type Estado, type NovoProcesso } from '../../domain/acoes'
+import type { NovaLocacao } from '../../domain/acoes-locacao'
+import { configuracoesPadrao, encargosDaConfig, type ConfiguracoesGestao } from '../../domain/configuracoes'
+import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
+import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos } from '../../domain/documentos'
+import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
 import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
 import { imoveisVisiveis as filtrarImoveisVisiveis, permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
 import type { PropertyStatus } from '~~/shared/models/property'
-import { MockImoveisRepository } from '../services/MockImoveisRepository'
 import { locacoesSeed } from '../../domain/locacao-seed'
-import { documentosSeedCompleto, processosSeed } from '../../domain/seed'
-import type { Documento, Locacao, MatrizPermissoes, Processo } from '../../domain/types'
+import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
+import { hojeISO } from '../../domain/avisos-locacao'
+import { agoraBrasilData } from '../../domain/periodo'
+import { resumoDashboard, type ResumoDashboard } from '../../domain/dashboard'
+import { competenciasDisponiveis, pendenciasFinanceiras, type RespostaFinanceiro, resumoLocacoes, resumoVendas } from '../../domain/financeiro'
+import { filtrarLocacoes } from '../../domain/filtro-locacao'
+import { filtrarProcessos } from '../../domain/filtro'
+import { contarPorStatus, paginar, type PaginaComContagens } from '../../domain/paginacao'
+import { STATUS_VENDA } from '../../domain/status'
+import { STATUS_LOCACAO } from '../../domain/locacao-status'
+import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Processo } from '../../domain/types'
+import { type FiltroPagina, HttpGestaoRepository } from '../services/HttpGestaoRepository'
+import { HttpImoveisRepository } from '../services/HttpImoveisRepository'
+import type { ArmazemGestao, ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from '../services/GestaoRepository'
+import type { ImoveisRepository } from '../services/ImoveisRepository'
+import { MockGestaoRepository } from '../services/MockGestaoRepository'
+import { MockImoveisRepository } from '../services/MockImoveisRepository'
 
 // v5: o imóvel ganhou os campos do catálogo (preço, bairro, fotos, corretor vendedor…); o v4 guardado
 // traria o cadastro de 6 campos. (v4: o seed da locação passou a ser ancorado em «hoje».)
 const CHAVE = 'gestao-demo-v5'
+
+/** Quantos processos a página «Documentos» carrega em `http` (não há listagem global; é uma chamada por processo). */
+const LIMITE_DOCUMENTOS_GLOBAIS = 50
+const PARALELO_DOCUMENTOS = 6
 
 interface Guardado extends Estado {
   matriz: MatrizPermissoes
@@ -26,28 +46,33 @@ interface Guardado extends Estado {
   imoveis?: ImovelGestao[]
 }
 
+const trocarOuPor = <T extends { id: string }>(lista: T[], novo: T): T[] =>
+  lista.some((x) => x.id === novo.id) ? lista.map((x) => (x.id === novo.id ? novo : x)) : [novo, ...lista]
+
 /**
- * Dados do painel. Parte dos GETs do mock (`/api/gestao/*`) e guarda as
- * mutações aqui mesmo, no cliente, persistidas em localStorage — o
- * `mocker-nuxt` não tem estado (spec, tabela de decisões).
+ * Dados do painel. Delega ao repository escolhido por `NUXT_PUBLIC_GESTAO_BACKEND`:
+ * `mock` (padrão) roda o domínio puro sobre o localStorage; `http` fala com `/api/gestao/**`,
+ * onde a regra roda no servidor. A tela chama o mesmo `executar(...)` nos dois.
  *
- * Se o mock não responde (servidor subido sem `NUXT_MOCKER_SERVER_ENABLED`), cai
- * nos mesmos dados direto do domínio. Motivo: o painel não pode amanhecer em
- * branco numa reunião por causa de uma variável de ambiente. O custo é que a
- * falta do mock fica silenciosa — por isso o aviso no console.
+ * Mock: parte dos GETs do `mocker-nuxt` e guarda as mutações no cliente — o mocker não tem
+ * estado. Se o mock não responde, cai no seed local (ver `MockGestaoRepository`).
  */
 export function useGestaoStore() {
+  const http = useGestaoHttp()
   const estado = useState<Estado>('gestao:estado', () => ({ processos: [], documentos: [], locacoes: [] }))
   const matriz = useState<MatrizPermissoes>('gestao:matriz', () => matrizPadrao())
-  const config = useState<ConfiguracoesGestao>('gestao:config', () => configuracoesPadrao())
+  const config = useState<ConfiguracoesGestao>('gestao:config', () => configuracoesPadrao(useTenant().value?.name))
   const consultas = useState<ConsultaFeita[]>('gestao:consultas', () => [])
   const imoveis = useState<ImovelGestao[]>('gestao:imoveis', () => [])
+  const corretores = useState<Corretor[]>('gestao:corretores', () => CORRETORES)
+  const versoes = useState<Record<string, number>>('gestao:versoes', () => ({}))
   const carregado = useState<boolean>('gestao:carregado', () => false)
+  const erroCarga = useState<string>('gestao:erro-carga', () => '')
   const { sessao } = useGestaoSessao()
 
   /** `false` quando não coube (localStorage cheio): quem guarda foto precisa saber, senão ela some no recarregar. */
   function persistir(): boolean {
-    if (!import.meta.client) return true
+    if (http || !import.meta.client) return true
     try {
       localStorage.setItem(CHAVE, JSON.stringify({ ...estado.value, matriz: matriz.value, config: config.value, consultas: consultas.value, imoveis: imoveis.value } satisfies Guardado))
       return true
@@ -57,101 +82,364 @@ export function useGestaoStore() {
     }
   }
 
-  const imoveisRepo = new MockImoveisRepository(
-    {
-      ler: () => imoveis.value,
-      gravar(lista) {
-        const antes = imoveis.value
-        imoveis.value = lista
-        if (persistir()) return true
-        imoveis.value = antes
-        return false
-      },
-    },
-    () => new Date().toISOString(),
-    () => `ft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-  )
-
-  async function carregar(forcar = false) {
-    if (carregado.value && !forcar) return
-    if (import.meta.client && !forcar) {
-      try {
-        const bruto = localStorage.getItem(CHAVE)
-        if (bruto) {
-          const g = JSON.parse(bruto) as Guardado
-          if (Array.isArray(g.processos) && Array.isArray(g.documentos) && Array.isArray(g.locacoes)) {
-            estado.value = { processos: g.processos, documentos: g.documentos, locacoes: g.locacoes }
-            matriz.value = g.matriz ?? matrizPadrao()
-            config.value = g.config ?? configuracoesPadrao()
-            consultas.value = Array.isArray(g.consultas) ? g.consultas : []
-            imoveis.value = Array.isArray(g.imoveis) ? g.imoveis : imoveisSeed()
-            carregado.value = true
-            return
-          }
-        }
-      } catch {
-        /* guardado corrompido: recarrega do seed */
-      }
-    }
+  const lerBlob = (): Guardado | null => {
+    if (!import.meta.client) return null
     try {
-      const [p, d, l, m] = await Promise.all([
-        $fetch<{ data: Processo[] }>('/api/gestao/processos'),
-        $fetch<{ data: Documento[] }>('/api/gestao/documentos'),
-        $fetch<{ data: Locacao[] }>('/api/gestao/locacoes'),
-        $fetch<{ data: MatrizPermissoes }>('/api/gestao/permissoes'),
-      ])
-      estado.value = { processos: p.data, documentos: d.data, locacoes: l.data }
-      matriz.value = m.data
+      const g = JSON.parse(localStorage.getItem(CHAVE) ?? 'null') as Guardado | null
+      return g && Array.isArray(g.processos) && Array.isArray(g.documentos) && Array.isArray(g.locacoes) ? g : null
     } catch {
-      console.warn('[gestao] mock indisponível (suba com `pnpm dev:gestao`); usando o seed local.')
-      estado.value = { processos: processosSeed(), documentos: documentosSeedCompleto(), locacoes: locacoesSeed() }
-      matriz.value = matrizPadrao()
+      return null // guardado corrompido: recarrega do seed
     }
-    config.value = configuracoesPadrao()
-    consultas.value = []
-    imoveis.value = imoveisSeed()
-    carregado.value = true
-    persistir()
   }
 
-  /** Volta ao seed e apaga o que foi feito no demo. */
-  async function restaurar() {
-    if (import.meta.client) {
+  const aplicarDados = (d: DadosGestao) => {
+    estado.value = { processos: d.processos, documentos: d.documentos, locacoes: d.locacoes }
+    matriz.value = d.matriz
+    config.value = d.config
+    consultas.value = d.consultas
+    corretores.value = d.corretores
+  }
+
+  const instantaneo = (): DadosGestao => ({ ...estado.value, matriz: matriz.value, config: config.value, consultas: consultas.value, corretores: corretores.value })
+
+  const armazem: ArmazemGestao = {
+    ler: instantaneo,
+    gravar(d) {
+      aplicarDados(d)
+      // Sem espaço no localStorage o demo segue em memória (como sempre foi): só foto e imóvel
+      // são recusados por falta de espaço, porque somem no recarregar.
+      persistir()
+      return true
+    },
+    lerPersistido() {
+      const g = lerBlob()
+      return g
+        ? { processos: g.processos, documentos: g.documentos, locacoes: g.locacoes, matriz: g.matriz ?? matrizPadrao(), config: g.config ?? configuracoesPadrao(), consultas: Array.isArray(g.consultas) ? g.consultas : [], corretores: CORRETORES }
+        : null
+    },
+    limparPersistido() {
       try {
         localStorage.removeItem(CHAVE)
       } catch {
         /* idem */
       }
+    },
+  }
+
+  const ator = () => ({ nome: sessao.value?.nome ?? 'Sistema' })
+
+  const api = http ? useGestaoApi() : null
+  const repo: GestaoRepository = api
+    ? new HttpGestaoRepository(api, { ler: (k) => versoes.value[k], gravar: (k, v) => void (versoes.value[k] = v) }, () => sessao.value?.perfil ?? null)
+    : new MockGestaoRepository(armazem, ator, async () => {
+        const [p, d, l, m] = await Promise.all([
+          $fetch<{ data: Processo[] }>('/api/gestao/processos'),
+          $fetch<{ data: Documento[] }>('/api/gestao/documentos'),
+          $fetch<{ data: Locacao[] }>('/api/gestao/locacoes'),
+          $fetch<{ data: MatrizPermissoes }>('/api/gestao/permissoes'),
+        ])
+        return { processos: p.data, documentos: d.data, locacoes: l.data, matriz: m.data }
+      })
+
+  const imoveisRepo: ImoveisRepository = api
+    ? new HttpImoveisRepository(api)
+    : new MockImoveisRepository(
+        {
+          ler: () => imoveis.value,
+          gravar(lista) {
+            const antes = imoveis.value
+            imoveis.value = lista
+            if (persistir()) return true
+            imoveis.value = antes
+            return false
+          },
+        },
+        () => new Date().toISOString(),
+        () => `ft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      )
+
+  // Fatias já carregadas em `http` (ver `EscopoCarga`). `mock` carrega tudo de uma vez e ignora isto.
+  const escoposCarregados = useState<EscopoCarga[]>('gestao:escopos', () => [])
+
+  async function carregarFatias(escopos: readonly EscopoCarga[], forcar: boolean) {
+    const faltam = escopos.filter((e) => forcar || !escoposCarregados.value.includes(e))
+    if (!faltam.length) return
+    erroCarga.value = ''
+    try {
+      const d = await (repo as HttpGestaoRepository).carregarParcial(faltam.filter((e) => e !== 'imoveis'), matriz.value)
+      estado.value = {
+        processos: d.processos ?? estado.value.processos,
+        locacoes: d.locacoes ?? estado.value.locacoes,
+        documentos: estado.value.documentos,
+      }
+      if (d.matriz) matriz.value = d.matriz
+      if (d.config) config.value = d.config
+      if (d.consultas) consultas.value = d.consultas
+      if (d.corretores) corretores.value = d.corretores
+    } catch (e) {
+      erroCarga.value = (e as { message?: string } | null)?.message || 'Não foi possível carregar os dados.'
+      return
     }
+    if (faltam.includes('imoveis')) {
+      try {
+        imoveis.value = await imoveisRepo.listar()
+      } catch {
+        imoveis.value = []
+        erroCarga.value = 'Não foi possível carregar os imóveis.'
+        return
+      }
+    }
+    escoposCarregados.value = [...new Set([...escoposCarregados.value, ...faltam])]
+    if (escoposCarregados.value.includes('base')) carregado.value = true
+  }
+
+  /**
+   * `escopos` só vale em `http`: cada tela pede as fatias que usa (padrão: todas, o comportamento antigo).
+   * Fatia já carregada não é pedida de novo; `forcar` recarrega as pedidas.
+   */
+  async function carregar(forcar = false, escopos: readonly EscopoCarga[] = ESCOPOS_TODOS) {
+    if (http) return carregarFatias(escopos, forcar)
+    if (carregado.value && !forcar) return
+    erroCarga.value = ''
+    // Lido ANTES: `repo.carregar()` regrava o guardado e, nesse instante, `imoveis` ainda está vazio.
+    const imoveisGuardados = lerBlob()?.imoveis
+    try {
+      aplicarDados(await repo.carregar())
+    } catch (e) {
+      // Em `http` o servidor pode estar fora do ar; a tela mostra o aviso em vez de quebrar.
+      // (`mock` não lança: o repository cai no seed.)
+      erroCarga.value = (e as { message?: string } | null)?.message || 'Não foi possível carregar os dados.'
+      return
+    }
+    if (http) {
+      try {
+        imoveis.value = await imoveisRepo.listar()
+      } catch {
+        imoveis.value = []
+        erroCarga.value = 'Não foi possível carregar os imóveis.'
+      }
+    } else {
+      imoveis.value = imoveisGuardados ?? imoveisSeed()
+    }
+    carregado.value = true
+    persistir()
+  }
+
+  /** Volta ao seed e apaga o que foi feito no demo. Só `mock`. */
+  async function restaurar() {
+    if (http) return
+    ;(repo as MockGestaoRepository).restaurar()
     await carregar(true)
   }
 
-  /** Aplica uma transição pura do domínio; só grava se deu certo. */
-  function aplicar(fn: (e: Estado, ator: { nome: string }) => Resultado): Resultado {
-    const nome = sessao.value?.nome ?? 'Sistema'
-    const r = fn(estado.value, { nome })
+  /** Troca no estado só o que a ação mudou. Idempotente: o mock já gravou o mesmo pelo armazém. */
+  function aplicarMudanca(m: Mudanca) {
+    const e = estado.value
+    estado.value = {
+      processos: m.processo ? trocarOuPor(e.processos, m.processo) : e.processos,
+      locacoes: m.locacao ? trocarOuPor(e.locacoes, m.locacao) : e.locacoes,
+      documentos: m.documento ? trocarOuPor(e.documentos, m.documento) : e.documentos,
+    }
+    persistir()
+  }
+
+  /** Ação de venda/locação por NOME, a mesma chave que o servidor despacha. */
+  async function executar(tipo: TipoAlvo, id: string, acao: string, dados: unknown = {}): Promise<Resultado<Mudanca>> {
+    const r = await repo.executar(tipo, id, acao, dados)
     if (r.ok) {
-      estado.value = r.estado
-      persistir()
+      aplicarMudanca(r)
+      return r
+    }
+    // 409: outra pessoa gravou antes. A mensagem do servidor já diz «alterada por outra pessoa»;
+    // relemos o agregado para a tela mostrar o que ficou e a próxima tentativa valer.
+    if (r.conflito) {
+      const novo = await repo.recarregar(tipo, id)
+      if (novo.ok) aplicarMudanca(novo)
     }
     return r
   }
 
+  /**
+   * `http`: a lista traz o CPF das partes MASCARADO (regra do servidor para listagem); o formulário
+   * do contrato precisa do dado inteiro, senão salvar regravaria o CPF mascarado. A página do
+   * contrato chama isto ao abrir. Também renova a `versao` que a próxima ação vai devolver.
+   */
+  async function carregarDetalhe(tipo: TipoAlvo, id: string) {
+    if (!http) return
+    const r = await repo.recarregar(tipo, id)
+    if (r.ok) aplicarMudanca(r)
+  }
+
+  const abrirProcesso = async (dados: NovoProcesso) => comAplicar(await repo.abrirVenda(dados))
+  const abrirLocacao = async (dados: NovaLocacao) => comAplicar(await repo.abrirLocacao(dados))
+
+  function comAplicar<T extends Resultado<Mudanca>>(r: T): T {
+    if (r.ok) aplicarMudanca(r)
+    return r
+  }
+
+  // --- listas paginadas ------------------------------------------------------------------------
+
+  /**
+   * Página da lista de contratos de venda. `http`: o servidor filtra e conta (a carteira pode passar dos
+   * 200 que o store guarda). `mock`: a carteira toda está em memória, então filtra e fatia aqui com as
+   * MESMAS funções do servidor (`filtrarProcessos`, `paginar`) — o demo mostra o que o servidor mostraria.
+   */
+  async function paginaDeVendas(f: FiltroPagina): Promise<PaginaComContagens<Processo>> {
+    if (api) return (repo as HttpGestaoRepository).paginaVendas(f)
+    const base = f.arquivados && sessao.value ? processosArquivados(matriz.value, sessao.value, estado.value.processos) : visiveis.value
+    // As contagens das abas saem da lista SEM o status (mas já com a busca), como no servidor.
+    const casadas = filtrarProcessos(base, { q: f.q, status: '' }, corretores.value)
+    const lista = f.status ? casadas.filter((p) => p.status === f.status) : casadas
+    return { ...paginar(lista, f.pagina), contagens: contarPorStatus(casadas, STATUS_VENDA) }
+  }
+
+  async function paginaDeLocacoes(f: FiltroPagina): Promise<PaginaComContagens<Locacao>> {
+    if (api) return (repo as HttpGestaoRepository).paginaLocacoes(f)
+    const base = f.arquivados && sessao.value ? locacoesArquivadas(matriz.value, sessao.value, estado.value.locacoes) : locacoesVisiveis.value
+    const casadas = filtrarLocacoes(base, { q: f.q, status: '' }, corretores.value)
+    const lista = f.status ? casadas.filter((l) => l.status === f.status) : casadas
+    return { ...paginar(lista, f.pagina), contagens: contarPorStatus(casadas, STATUS_LOCACAO) }
+  }
+
+  /** Página da tela Documentos. `http`: o servidor lê e filtra; `mock`: a mesma conta (`paginarDocumentos`) sobre o estado local. */
+  async function paginaDeDocumentos(f: FiltroListaDocumentos): Promise<PaginaDocumentos> {
+    if (api) return (repo as HttpGestaoRepository).paginaDocumentos(f)
+    return paginarDocumentos(estado.value.documentos, visiveis.value, f, { podeApagar: !!caps()?.apagarDocs }, locacoesVisiveis.value)
+  }
+
+  // --- totais (Financeiro e Dashboard) ---------------------------------------------------------
+
+  /**
+   * `http`: o servidor soma sobre todos os contratos do escopo (a lista do store só guarda os 200 mais
+   * recentes, e somar nela subestimaria). `mock`: tudo está em memória; as mesmas funções de domínio.
+   */
+  async function lerFinanceiro(competencia: string): Promise<RespostaFinanceiro> {
+    if (api) return (repo as HttpGestaoRepository).financeiro(competencia)
+    const h = hojeISO(agoraBrasilData())
+    const l = locacoesVisiveis.value
+    const enc = encargosDaConfig(config.value)
+    return {
+      vendas: resumoVendas(visiveis.value),
+      locacoes: resumoLocacoes(l, h, competencia, enc),
+      competencias: competenciasDisponiveis(l),
+      pendencias: pendenciasFinanceiras(l, h, enc),
+      truncado: false,
+    }
+  }
+
+  async function lerDashboard(): Promise<ResumoDashboard & { truncado: boolean }> {
+    if (api) return (repo as HttpGestaoRepository).dashboard()
+    return { ...resumoDashboard(visiveis.value, locacoesVisiveis.value, estado.value.documentos, hojeISO()), truncado: false }
+  }
+
+  // --- documentos ---------------------------------------------------------------------------
+
+  const tipoDoAlvo = (id: string): TipoAlvo => (estado.value.processos.some((p) => p.id === id) ? 'venda' : 'locacao')
+
+  /** Mescla o que veio do servidor: troca os documentos do alvo que não estão na lixeira. */
+  function mesclarDocumentosDoAlvo(id: string, novos: Documento[]) {
+    estado.value = { ...estado.value, documentos: [...novos, ...estado.value.documentos.filter((d) => d.processoId !== id || d.apagado)] }
+  }
+
+  /** `http`: busca os documentos de um processo/locação (a página dele chama ao abrir). `mock`: já estão em memória. */
+  async function carregarDocumentos(tipo: TipoAlvo, id: string) {
+    if (!http) return
+    try {
+      mesclarDocumentosDoAlvo(id, await repo.documentosDoAlvo(tipo, id))
+    } catch {
+      /* a tela segue com o que tem; a próxima ação mostra o erro de verdade */
+    }
+  }
+
+  /** Página «Documentos»: não há listagem global, então busca por processo visível (limite e paralelismo fixos) + lixeira. */
+  async function carregarDocumentosDaPagina() {
+    if (!http) return
+    const alvos = processosVisiveis(matriz.value, sessao.value!, estado.value.processos).slice(0, LIMITE_DOCUMENTOS_GLOBAIS)
+    for (let i = 0; i < alvos.length; i += PARALELO_DOCUMENTOS) {
+      await Promise.all(alvos.slice(i, i + PARALELO_DOCUMENTOS).map((p) => carregarDocumentos('venda', p.id)))
+    }
+    if (caps()?.apagarDocs) {
+      try {
+        const lixo = await repo.lixeira()
+        estado.value = { ...estado.value, documentos: [...estado.value.documentos.filter((d) => !d.apagado), ...lixo] }
+      } catch {
+        /* idem */
+      }
+    }
+  }
+
+  /**
+   * Envios de arquivo em andamento (contador, porque dois podem se sobrepor). Subir para o Storage passa de
+   * 7 s numa conexão comum e, sem sinal, a tela parecia travada e o usuário escolhia o arquivo de novo.
+   * Fica no store, e não em cada tela, porque o envio sai de três lugares (requisitos de venda e de
+   * locação, e a tela Documentos).
+   */
+  const enviandoDocumentos = ref(0)
+  async function comEnvio<T>(fn: () => Promise<T>): Promise<T> {
+    enviandoDocumentos.value++
+    try {
+      return await fn()
+    } finally {
+      enviandoDocumentos.value--
+    }
+  }
+  const enviarDocumento = (tipo: TipoAlvo, id: string, arquivo: ArquivoGestao, extra: { categoria: CategoriaDocumento; requisito?: string }) =>
+    comEnvio(async () => comAplicar(await repo.enviarDocumento({ tipo, id }, arquivo, extra)))
+  const novaVersaoDocumento = (doc: Documento, arquivo: ArquivoGestao) =>
+    comEnvio(async () => comAplicar(await repo.novaVersaoDocumento(doc, tipoDoAlvo(doc.processoId), arquivo)))
+  const conferirDocumento = async (doc: Documento) => comAplicar(await repo.conferirDocumento(doc))
+  const apagarDocumento = async (doc: Documento) => comAplicar(await repo.apagarDocumento(doc))
+  const restaurarDocumento = async (doc: Documento) => comAplicar(await repo.restaurarDocumento(doc))
+  const baixarDocumento = (doc: Documento) => repo.baixarDocumento(doc)
+
+  // --- consulta, configurações e matriz -----------------------------------------------------
+
   /** Faz a consulta (simulada), grava no histórico e devolve o resultado para a tela. */
-  function consultar(entrada: EntradaConsulta): ResultadoConsulta {
-    const r = realizarConsulta(entrada, { nome: sessao.value?.nome ?? 'Sistema' }, agora(), proximoIdConsulta(consultas.value))
-    if (r.ok) {
+  async function consultar(entrada: EntradaConsulta) {
+    const r = await repo.consultar(entrada)
+    if (r.ok && !consultas.value.some((c) => c.id === r.consulta.id)) {
       consultas.value = [r.consulta, ...consultas.value]
       persistir()
     }
     return r
   }
 
+  /** Guarda as configurações já validadas por `validarConfiguracoes`. */
+  async function definirConfig(nova: ConfiguracoesGestao) {
+    const r = await repo.salvarConfig(nova)
+    if (r.ok) {
+      config.value = r.config
+      persistir()
+    }
+    return r
+  }
+
+  /** Troca a matriz de permissões e guarda. A validação (travas do Dono) é de `alterarPermissao`; o servidor a repete. */
+  async function definirMatriz(nova: MatrizPermissoes) {
+    const r = await repo.salvarMatriz(nova)
+    if (r.ok) {
+      matriz.value = r.matriz
+      persistir()
+    }
+    return r
+  }
+
+  // --- imóveis ------------------------------------------------------------------------------
+
+  /** Imóveis das vendas e locações ativas do escopo (corretor: as dele): ele os vê, mas não os edita. */
+  const imoveisDosContratos = computed(
+    () =>
+      new Set(
+        [...visiveis.value.filter((p) => !p.arquivado).map((p) => p.imovelId), ...locacoesVisiveis.value.filter((l) => !l.arquivado).map((l) => l.imovelId)].filter((x): x is string => !!x),
+      ),
+  )
+
   const NEGADO = { ok: false, erro: 'Você não pode alterar este imóvel.' } as const
 
   const permissoesDoImovel = (imovel: ImovelGestao | null): PermissoesImovel =>
     sessao.value
-      ? permissoesImovel(matriz.value, sessao.value, imovel)
+      ? permissoesImovel(matriz.value, sessao.value, imovel, !!imovel && imoveisDosContratos.value.has(imovel.id))
       : { ver: false, criar: false, editar: false, excluir: false, trocarCorretor: false }
 
   /** Checa a permissão no domínio e só então chama o repositório (o servidor repete a checagem). */
@@ -160,62 +448,52 @@ export function useGestaoStore() {
     return imovel && !permissoesDoImovel(imovel)[chave] ? Promise.resolve(NEGADO) : fazer()
   }
 
+  /** O repository devolve o imóvel inteiro; em `http` é ele (e não uma conta local) que manda na lista. */
+  async function guardarImovel(r: ResultadoImovel): Promise<ResultadoImovel> {
+    if (http && r.ok) imoveis.value = trocarOuPor(imoveis.value, r.imovel)
+    return r
+  }
+
   async function cadastrarImovel(dados: NovoImovel): Promise<ResultadoImovel> {
     if (!permissoesDoImovel(null).criar) return { ok: false, erro: 'Você não pode cadastrar imóveis.' }
     // Corretor só cadastra para si; trocar o vendedor é de quem vê todos.
     const brokerId = permissoesDoImovel(null).trocarCorretor ? dados.brokerId : (sessao.value?.corretorId ?? dados.brokerId)
-    return imoveisRepo.criar({ ...dados, brokerId })
+    return guardarImovel(await imoveisRepo.criar({ ...dados, brokerId }))
   }
 
   const atualizarImovel = (id: string, dados: NovoImovel) =>
-    comPermissao(id, 'editar', () => {
+    comPermissao(id, 'editar', async () => {
       const atual = imoveis.value.find((i) => i.id === id)
       const brokerId = permissoesDoImovel(atual ?? null).trocarCorretor ? dados.brokerId : (atual?.brokerId ?? dados.brokerId)
-      return imoveisRepo.atualizar(id, { ...dados, brokerId })
+      return guardarImovel(await imoveisRepo.atualizar(id, { ...dados, brokerId }))
     })
 
-  const mudarStatusImovel = (id: string, status: PropertyStatus) => comPermissao(id, 'editar', () => imoveisRepo.mudarStatus(id, status))
-  const definirDestaqueImovel = (id: string, featured: boolean) => comPermissao(id, 'editar', () => imoveisRepo.definirDestaque(id, featured))
-  const adicionarFotosImovel = (id: string, novas: FotoNova[]) => comPermissao(id, 'editar', () => imoveisRepo.adicionarFotos(id, novas))
-  const definirCapaImovel = (id: string, fotoId: string) => comPermissao(id, 'editar', () => imoveisRepo.definirCapa(id, fotoId))
-  const moverFotoImovel = (id: string, fotoId: string, dir: 'cima' | 'baixo') => comPermissao(id, 'editar', () => imoveisRepo.moverFoto(id, fotoId, dir))
-  const removerFotoImovel = (id: string, fotoId: string) => comPermissao(id, 'editar', () => imoveisRepo.removerFoto(id, fotoId))
+  const mudarStatusImovel = (id: string, status: PropertyStatus) => comPermissao(id, 'editar', async () => guardarImovel(await imoveisRepo.mudarStatus(id, status)))
+  const definirDestaqueImovel = (id: string, featured: boolean) => comPermissao(id, 'editar', async () => guardarImovel(await imoveisRepo.definirDestaque(id, featured)))
+  const adicionarFotosImovel = (id: string, novas: FotoNova[]) => comPermissao(id, 'editar', async () => guardarImovel(await imoveisRepo.adicionarFotos(id, novas)))
+  const definirCapaImovel = (id: string, fotoId: string) => comPermissao(id, 'editar', async () => guardarImovel(await imoveisRepo.definirCapa(id, fotoId)))
+  const moverFotoImovel = (id: string, fotoId: string, dir: 'cima' | 'baixo') => comPermissao(id, 'editar', async () => guardarImovel(await imoveisRepo.moverFoto(id, fotoId, dir)))
+  const removerFotoImovel = (id: string, fotoId: string) => comPermissao(id, 'editar', async () => guardarImovel(await imoveisRepo.removerFoto(id, fotoId)))
 
   async function excluirImovel(id: string): Promise<{ ok: true } | { ok: false; erro: string }> {
     const imovel = imoveis.value.find((i) => i.id === id)
     if (!imovel || !sessao.value) return { ok: false, erro: 'Imóvel não encontrado.' }
     const pode = podeExcluirImovel(imovel, sessao.value, matriz.value, estado.value.locacoes)
-    return pode.ok ? imoveisRepo.excluir(id) : pode
-  }
-
-  /** Guarda as configurações já validadas por `validarConfiguracoes`. */
-  function definirConfig(nova: ConfiguracoesGestao) {
-    config.value = nova
-    persistir()
-  }
-
-  /** Troca a matriz de permissões e guarda. A validação (travas do Dono) é de `alterarPermissao`. */
-  function definirMatriz(nova: MatrizPermissoes) {
-    matriz.value = nova
-    persistir()
+    if (!pode.ok) return pode
+    const r = await imoveisRepo.excluir(id)
+    if (http && r.ok) imoveis.value = imoveis.value.filter((i) => i.id !== id)
+    return r
   }
 
   /**
    * Matriz vigente para quem precisa dela ANTES de `carregar()`: a guarda de rota roda
    * antes do layout. Sem isto, recarregar a página validaria a rota com a matriz padrão
    * e abriria uma tela que o Dono acabou de fechar para aquele perfil.
+   * Em `http` a matriz vem da sessão (`/api/gestao/sessao`), já gravada no estado.
    */
   function matrizAtual(): MatrizPermissoes {
-    if (carregado.value) return matriz.value
-    if (import.meta.client) {
-      try {
-        const g = JSON.parse(localStorage.getItem(CHAVE) ?? 'null') as Guardado | null
-        if (g?.matriz) return g.matriz
-      } catch {
-        /* guardado corrompido: cai no padrão */
-      }
-    }
-    return matrizPadrao()
+    if (http || carregado.value) return matriz.value
+    return lerBlob()?.matriz ?? matrizPadrao()
   }
 
   const caps = (p: Processo | null = null) =>
@@ -230,19 +508,40 @@ export function useGestaoStore() {
   )
 
   return {
+    http,
     locacoes: computed(() => estado.value.locacoes),
     locacoesVisiveis,
     processos: computed(() => estado.value.processos),
     documentos: computed(() => estado.value.documentos),
+    corretores,
     matriz,
     visiveis,
     carregado,
+    erroCarga,
     carregar,
     restaurar,
+    executar,
+    carregarDetalhe,
+    paginaDeVendas,
+    paginaDeDocumentos,
+    lerFinanceiro,
+    lerDashboard,
+    paginaDeLocacoes,
+    abrirProcesso,
+    abrirLocacao,
+    carregarDocumentos,
+    carregarDocumentosDaPagina,
+    enviandoDocumentos,
+    enviarDocumento,
+    novaVersaoDocumento,
+    conferirDocumento,
+    apagarDocumento,
+    restaurarDocumento,
+    baixarDocumento,
     consultar,
     consultas: computed(() => consultas.value),
     imoveis: computed(() => imoveis.value),
-    imoveisVisiveis: computed(() => (sessao.value ? filtrarImoveisVisiveis(matriz.value, sessao.value, imoveis.value) : [])),
+    imoveisVisiveis: computed(() => (sessao.value ? filtrarImoveisVisiveis(matriz.value, sessao.value, imoveis.value, imoveisDosContratos.value) : [])),
     permissoesDoImovel,
     cadastrarImovel,
     atualizarImovel,
@@ -257,9 +556,7 @@ export function useGestaoStore() {
     config,
     definirConfig,
     matrizAtual,
-    aplicar,
     caps,
-    acoes,
     agora,
   }
 }

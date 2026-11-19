@@ -10,7 +10,6 @@ import {
 } from '../../domain/acoes-processo'
 import type { DadosAbertura } from '../../domain/acoes-ciclo'
 import { conferirFontes } from '../../domain/commission'
-import { CORRETORES } from '../../domain/seed'
 import { requisitosDaEtapa, type Requisito } from '../../domain/requisitos'
 import { ETAPAS_VENDA } from '../../domain/status'
 import type { ConferenciaFinal, Documento, FormaPagamento, GanhoCapital, Processo } from '../../domain/types'
@@ -36,6 +35,7 @@ const props = defineProps<{
   /** perfil pode arquivar e o processo já está encerrado */
   podeArquivar?: boolean
 }>()
+const { corretores } = useGestaoStore()
 const emit = defineEmits<{
   salvarFinanceiro: [dados: DadosFinanceiros]
   salvarPessoa: [quem: 'vendedor' | 'comprador', dados: DadosPessoa]
@@ -188,7 +188,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
     :aria-label="`Etapa ${etapa}: ${ETAPAS_VENDA[etapa - 1]}`"
     :data-testid="`painel-etapa-${etapa}`"
   >
-    <h2 class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-extrabold">
+    <h2 class="m-0 mb-3 text-[length:var(--fs-title-sm)] font-bold">
       Etapa {{ etapa }} · {{ ETAPAS_VENDA[etapa - 1] }}
     </h2>
 
@@ -231,13 +231,13 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <label :class="rotuloCampo">
           Corretor vendedor
           <select v-model="corretorId" :disabled="!podeEditar || corretorTravado" :class="campo" data-testid="abertura-corretor">
-            <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            <option v-for="c in corretores" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
         </label>
         <label :class="rotuloCampo">
           Corretor captador
           <select v-model="captadorId" :disabled="!podeEditar" :class="campo" data-testid="abertura-captador">
-            <option v-for="c in CORRETORES" :key="c.id" :value="c.id">{{ c.nome }}</option>
+            <option v-for="c in corretores" :key="c.id" :value="c.id">{{ c.nome }}</option>
           </select>
         </label>
       </div>
@@ -263,7 +263,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
       <div v-if="podeEditar">
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="abertura-salvar"
         >
           Salvar abertura
@@ -283,14 +283,14 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <h3 class="m-0 text-[length:var(--fs-body)] font-bold">
           Cadastro do {{ quemPessoa }}: {{ processo[quemPessoa].nome }}
         </h3>
-        <div class="[display:grid] gap-3 sm:grid-cols-3">
+        <div class="[display:grid] items-start gap-3 sm:grid-cols-3">
           <label :class="rotuloCampo">
             CPF
             <input v-model="cpf" type="text" inputmode="numeric" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="pessoa-cpf" />
           </label>
           <label :class="rotuloCampo">
             Telefone
-            <input v-model="telefone" type="tel" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="pessoa-telefone" />
+            <GestaoCampoTelefone v-model="telefone" :disabled="!podeEditar" :classe="campo" data-testid="pessoa-telefone" />
           </label>
           <label :class="rotuloCampo">
             E-mail
@@ -300,7 +300,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <div v-if="podeEditar">
           <button
             type="submit"
-            class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+            class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
             data-testid="pessoa-salvar"
           >
             Salvar cadastro
@@ -333,7 +333,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <div v-if="podeEditar">
           <button
             type="submit"
-            class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+            class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
             data-testid="imovel-salvar"
           >
             Salvar dados do imóvel
@@ -376,7 +376,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
 
     <!-- 5 · Checklist comercial -->
     <form v-else-if="etapa === 5" class="flex flex-col gap-4" novalidate @submit.prevent="emit('salvarFinanceiro', dadosForm)">
-      <div class="[display:grid] gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="[display:grid] items-start gap-3 sm:grid-cols-2">
         <label :class="rotuloCampo">
           Valor da venda (R$)
           <input v-model.number="valor" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-valor" />
@@ -460,7 +460,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         <button
           v-if="podeEditar"
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
           data-testid="fin-salvar"
         >
           Salvar checklist comercial
@@ -563,7 +563,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
       <div class="flex flex-wrap gap-2">
         <button
           type="button"
-          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--brand)] px-4 font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          class="min-h-11 cursor-pointer rounded-[10px] border border-[var(--brand)] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="!podeConcluirVenda"
           data-testid="concluir-venda"
           @click="emit('concluirVenda')"

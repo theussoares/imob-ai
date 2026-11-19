@@ -1,4 +1,5 @@
-import type { CategoriaDocumento, Documento, EstadoDocumento, Processo } from './types'
+import { lerPagina, paginar } from './paginacao'
+import type { CategoriaDocumento, Documento, EstadoDocumento, Processo, StatusVenda } from './types'
 
 /**
  * Regras da tela de documentos, como funções puras (mesmo motivo de `acoes.ts`:
@@ -56,8 +57,14 @@ function doProcesso(processoId: string | null | undefined) {
   return (d: Documento) => !processoId || d.processoId === processoId
 }
 
-/** Documento de processo visível; sem isso o corretor veria arquivo de colega. */
-function visivel(processos: Processo[]) {
+/** O que a lista de documentos precisa saber de um contrato (venda ou locação): o id e o imóvel. */
+export interface AlvoDocumento {
+  id: string
+  imovel: string
+}
+
+/** Documento de contrato visível; sem isso o corretor veria arquivo de colega. */
+function visivel(processos: AlvoDocumento[]) {
   const ids = new Set(processos.map((p) => p.id))
   return (d: Documento) => ids.has(d.processoId)
 }
@@ -69,7 +76,7 @@ function visivel(processos: Processo[]) {
  */
 export function filtrarDocumentos(
   documentos: Documento[],
-  processos: Processo[],
+  processos: AlvoDocumento[],
   aba: AbaDocumentos,
   filtro: FiltroDocumentos = {},
 ): Documento[] {
@@ -77,8 +84,12 @@ export function filtrarDocumentos(
   const imovelDe = new Map(processos.map((p) => [p.id, p.imovel]))
   const termo = normaliza(filtro.busca ?? '')
   const categoria = filtro.categoria ?? 'todas'
+  // Montados UMA vez: o servidor roda isto sobre até 5000 documentos × 5000 processos, e recriar o Set por
+  // documento seria quadrático.
+  const ehVisivel = visivel(processos)
+  const ehDoProcesso = doProcesso(filtro.processoId)
   return documentos.filter((d) => {
-    if (!visivel(processos)(d) || !doProcesso(filtro.processoId)(d)) return false
+    if (!ehVisivel(d) || !ehDoProcesso(d)) return false
     if ((aba === 'lixeira') !== (d.apagado !== null)) return false
     if (categoria !== 'todas' && d.categoria !== categoria) return false
     if (!termo) return true
@@ -113,11 +124,14 @@ export function contarAbas(
   documentos: Documento[],
   processos: Processo[],
   processoId?: string | null,
+  locacoes: AlvoDocumento[] = [],
 ): Record<AbaDocumentos, number> {
   const base = { processoId }
+  // Documento de locação conta nas abas Documentos e Lixeira; «Contratos sem PDF» é só de venda (locação não tem `pdf`).
+  const alvos = [...processos, ...locacoes]
   return {
-    documentos: filtrarDocumentos(documentos, processos, 'documentos', base).length,
-    lixeira: filtrarDocumentos(documentos, processos, 'lixeira', base).length,
+    documentos: filtrarDocumentos(documentos, alvos, 'documentos', base).length,
+    lixeira: filtrarDocumentos(documentos, alvos, 'lixeira', base).length,
     'sem-pdf': contratosSemPdf(processos, base).length,
   }
 }
@@ -156,7 +170,7 @@ export function listaVersoes(doc: Pick<Documento, 'versoes'>): { numero: number;
 export const ACEITA_ARQUIVO = '.pdf,.jpg,.jpeg,.png,.webp'
 
 const TIPOS_ACEITOS = /\.(pdf|jpe?g|png|webp)$/i
-export const LIMITE_BYTES = 20 * 1024 * 1024
+export const LIMITE_BYTES = 15 * 1024 * 1024
 
 /**
  * Mesma regra de `enviarDocumento`, para a SUBSTITUIÇÃO — que em `acoes.ts` não
@@ -166,6 +180,90 @@ export const LIMITE_BYTES = 20 * 1024 * 1024
  */
 export function validarArquivo(nome: string, tamanho: number): string | null {
   if (!TIPOS_ACEITOS.test(nome)) return 'Use PDF, JPG, PNG ou WEBP.'
-  if (tamanho > LIMITE_BYTES) return 'O arquivo passa de 20 MB.'
+  if (tamanho > LIMITE_BYTES) return 'O arquivo passa de 15 MB.'
   return null
+}
+
+// ---------------------------------------------------------------- lista paginada (URL)
+
+/** O que a tela Documentos guarda na URL: `?aba=lixeira&categoria=imoveis&q=…&pagina=2&processo=V-…&de=processo`. */
+export interface FiltroListaDocumentos {
+  pagina: number
+  q: string
+  aba: AbaDocumentos
+  categoria: FiltroCategoria
+  /** Id de venda (V-…) ou locação (L-…); '' = todos. */
+  processo: string
+  /** `processo` = veio da tela do processo (o «voltar» leva para lá). Só vale com `processo`. */
+  de: '' | 'processo'
+}
+
+/** Uma página da tela Documentos, do servidor (`http`) ou calculada aqui (`mock`). */
+export interface PaginaDocumentos {
+  itens: Documento[]
+  contratos: { id: string; imovel: string; status: StatusVenda }[]
+  total: number
+  pagina: number
+  porPagina: number
+  paginas: number
+  abas: Record<AbaDocumentos, number>
+  imoveis: Record<string, string>
+  truncado: boolean
+}
+
+const ABAS_VALIDAS: readonly AbaDocumentos[] = ['documentos', 'lixeira', 'sem-pdf']
+const ID_CONTRATO_URL = /^[VL]-\d{4}-\d{4,}$/
+const um = (v: unknown): string => (Array.isArray(v) ? String(v[0] ?? '') : typeof v === 'string' ? v : '')
+
+/** URL → filtro. Valor inválido vira o padrão; a lixeira some da URL de quem não pode apagar documento. */
+export function filtroDocumentosDaUrl(query: Record<string, unknown>, opcoes: { podeApagar: boolean }): FiltroListaDocumentos {
+  const aba = um(query.aba) as AbaDocumentos
+  const categoria = um(query.categoria) as FiltroCategoria
+  const processo = ID_CONTRATO_URL.test(um(query.processo)) ? um(query.processo) : ''
+  return {
+    pagina: lerPagina(query.pagina),
+    q: um(query.q).slice(0, 100),
+    aba: ABAS_VALIDAS.includes(aba) && (aba !== 'lixeira' || opcoes.podeApagar) ? aba : 'documentos',
+    categoria: CATEGORIAS.some((c) => c.chave === categoria) ? categoria : 'todas',
+    processo,
+    de: processo && um(query.de) === 'processo' ? 'processo' : '',
+  }
+}
+
+/** Filtro → query, sem o que é padrão. */
+export function queryDosDocumentos(f: FiltroListaDocumentos): Record<string, string> {
+  const q = f.q.trim()
+  return {
+    ...(f.aba !== 'documentos' ? { aba: f.aba } : {}),
+    ...(f.categoria !== 'todas' ? { categoria: f.categoria } : {}),
+    ...(q ? { q } : {}),
+    ...(f.pagina > 1 ? { pagina: String(f.pagina) } : {}),
+    ...(f.processo ? { processo: f.processo } : {}),
+    ...(f.processo && f.de ? { de: f.de } : {}),
+  }
+}
+
+/**
+ * Página calculada em memória. É A conta: o servidor a roda sobre o que lê do banco e o `mock` sobre o
+ * estado local, então o demo mostra o que o servidor mostraria.
+ */
+export function paginarDocumentos(
+  documentos: Documento[],
+  processos: Processo[],
+  f: Pick<FiltroListaDocumentos, 'aba' | 'categoria' | 'q' | 'processo' | 'pagina'>,
+  opcoes: { podeApagar: boolean },
+  locacoes: AlvoDocumento[] = [],
+): PaginaDocumentos {
+  const processoId = f.processo || null
+  const abas = contarAbas(documentos, processos, processoId, locacoes)
+  if (!opcoes.podeApagar) abas.lixeira = 0
+  const alvos = [...processos, ...locacoes]
+  const imovelDe = new Map(alvos.map((p) => [p.id, p.imovel]))
+  if (f.aba === 'sem-pdf') {
+    const pag = paginar(contratosSemPdf(processos, { busca: f.q, processoId }), f.pagina)
+    return { ...pag, itens: [], contratos: pag.itens.map((p) => ({ id: p.id, imovel: p.imovel, status: p.status })), abas, imoveis: {}, truncado: false }
+  }
+  const pag = paginar(filtrarDocumentos(documentos, alvos, f.aba, { categoria: f.categoria, busca: f.q, processoId }), f.pagina)
+  const ids = [...new Set(pag.itens.map((d) => d.processoId))].filter((i) => imovelDe.has(i))
+  return { ...pag, contratos: [], abas, imoveis: Object.fromEntries(ids.map((i) => [i, imovelDe.get(i)!])), truncado: false }
 }

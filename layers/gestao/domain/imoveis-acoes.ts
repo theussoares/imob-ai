@@ -67,48 +67,66 @@ export function imovelParaForm(i: ImovelGestao): NovoImovel {
 
 const inteiro0a50 = (n: number | null) => (n === null ? 0 : Number.isInteger(n) && n >= 0 && n <= 50 ? n : null)
 
+export type CampoImovel =
+  | 'title' | 'type' | 'purpose' | 'price' | 'neighborhood' | 'city' | 'state' | 'addressZip' | 'area'
+  | 'bedrooms' | 'suites' | 'bathrooms' | 'parking' | 'ownerName' | 'ownerPhone' | 'brokerId'
+
+/**
+ * TODOS os erros do formulário, por campo, na ordem em que os campos aparecem (a ordem das chaves
+ * é a ordem do foco). A tela mostra cada um junto ao campo e foca o primeiro; `validarImovel`
+ * devolve só o primeiro, para quem não tem campo (servidor, mock). Uma única fonte das regras.
+ */
+export function errosImovel(d: NovoImovel): Partial<Record<CampoImovel, string>> {
+  const e: Partial<Record<CampoImovel, string>> = {}
+  if (!texto(d.title)) e.title = 'Informe o título do imóvel.'
+  if (!d.type || !PROPERTY_TYPES.includes(d.type)) e.type = 'Escolha o tipo do imóvel.'
+  if (d.purpose !== 'venda' && d.purpose !== 'aluguel') e.purpose = 'Escolha a finalidade (venda ou aluguel).'
+  if (d.price === null || !Number.isFinite(d.price) || d.price <= 0 || d.price > 1_000_000_000) e.price = 'Informe um preço maior que zero.'
+  if (!texto(d.neighborhood)) e.neighborhood = 'Informe o bairro.'
+  if (!texto(d.city)) e.city = 'Informe a cidade.'
+  if (!/^[A-Z]{2}$/.test(texto(d.state).toUpperCase())) e.state = 'Informe a UF com 2 letras.'
+  const zip = soDigitos(d.addressZip)
+  if (zip && zip.length !== 8) e.addressZip = 'O CEP precisa de 8 dígitos.'
+  if (d.area === null || !Number.isFinite(d.area) || d.area <= 0 || d.area > 1_000_000) e.area = 'Informe a área em m².'
+  const contagens = [['bedrooms', 'Quartos', d.bedrooms], ['suites', 'Suítes', d.suites], ['bathrooms', 'Banheiros', d.bathrooms], ['parking', 'Vagas', d.parking]] as const
+  for (const [campo, rotulo, valor] of contagens) {
+    if (inteiro0a50(valor) === null) e[campo] = `${rotulo} precisa ser um número inteiro, de 0 a 50.`
+  }
+  if (!e.bedrooms && !e.suites && temQuartos(d.type || 'casa') && (d.suites ?? 0) > (d.bedrooms ?? 0)) e.suites = 'As suítes não podem passar do número de quartos.'
+  if (!texto(d.ownerName)) e.ownerName = 'Informe o proprietário.'
+  const phone = soDigitos(d.ownerPhone)
+  if (phone && ![10, 11].includes(phone.length)) e.ownerPhone = 'O telefone do proprietário precisa de DDD e 8 ou 9 dígitos.'
+  if (!texto(d.brokerId)) e.brokerId = 'Escolha o corretor vendedor.'
+  return e
+}
+
 /** Primeiro erro vira frase pronta para a tela. A ordem das regras é a ordem dos campos no formulário. */
 export function validarImovel(d: NovoImovel): ResultadoValidacao {
+  const primeiro = Object.values(errosImovel(d))[0]
+  if (primeiro) return { ok: false, erro: primeiro }
   const title = texto(d.title)
-  if (!title) return { ok: false, erro: 'Informe o título do imóvel.' }
-  if (!d.type || !PROPERTY_TYPES.includes(d.type)) return { ok: false, erro: 'Escolha o tipo do imóvel.' }
-  if (d.purpose !== 'venda' && d.purpose !== 'aluguel') return { ok: false, erro: 'Escolha a finalidade (venda ou aluguel).' }
-  if (d.price === null || !Number.isFinite(d.price) || d.price <= 0 || d.price > 1_000_000_000) return { ok: false, erro: 'Informe um preço maior que zero.' }
   const neighborhood = texto(d.neighborhood)
-  if (!neighborhood) return { ok: false, erro: 'Informe o bairro.' }
   const city = texto(d.city)
-  if (!city) return { ok: false, erro: 'Informe a cidade.' }
   const state = texto(d.state).toUpperCase()
-  if (!/^[A-Z]{2}$/.test(state)) return { ok: false, erro: 'Informe a UF com 2 letras.' }
   const zip = soDigitos(d.addressZip)
-  if (zip && zip.length !== 8) return { ok: false, erro: 'O CEP precisa de 8 dígitos.' }
-  if (d.area === null || !Number.isFinite(d.area) || d.area <= 0 || d.area > 1_000_000) return { ok: false, erro: 'Informe a área em m².' }
-
-  const comQuartos = temQuartos(d.type)
-  const contagens = { Quartos: d.bedrooms, Suítes: d.suites, Banheiros: d.bathrooms, Vagas: d.parking }
-  const validas: Record<string, number> = {}
-  for (const [rotulo, valor] of Object.entries(contagens)) {
-    const n = inteiro0a50(valor)
-    if (n === null) return { ok: false, erro: `${rotulo} precisa ser um número inteiro, de 0 a 50.` }
-    validas[rotulo] = comQuartos ? n : 0
+  const comQuartos = temQuartos(d.type as PropertyType)
+  const validas = {
+    Quartos: comQuartos ? (d.bedrooms ?? 0) : 0,
+    Suítes: comQuartos ? (d.suites ?? 0) : 0,
+    Banheiros: comQuartos ? (d.bathrooms ?? 0) : 0,
+    Vagas: comQuartos ? (d.parking ?? 0) : 0,
   }
-  if (validas.Suítes! > validas.Quartos!) return { ok: false, erro: 'As suítes não podem passar do número de quartos.' }
-
   const ownerName = texto(d.ownerName)
-  if (!ownerName) return { ok: false, erro: 'Informe o proprietário.' }
   const phone = soDigitos(d.ownerPhone)
-  if (phone && ![10, 11].includes(phone.length)) return { ok: false, erro: 'O telefone do proprietário precisa de DDD e 8 ou 9 dígitos.' }
-  if (!texto(d.brokerId)) return { ok: false, erro: 'Escolha o corretor vendedor.' }
-
   return {
     ok: true,
     dados: {
-      title, type: d.type, purpose: d.purpose, price: d.price, status: d.status, featured: d.featured,
+      title, type: d.type as PropertyType, purpose: d.purpose as PropertyPurpose, price: d.price as number, status: d.status, featured: d.featured,
       description: ouNulo(d.description), features: d.features.map(texto).filter(Boolean),
       addressZip: zip || null, addressStreet: ouNulo(d.addressStreet), addressNumber: ouNulo(d.addressNumber),
       neighborhood, city, state, location: ouNulo(d.location),
-      bedrooms: validas.Quartos!, suites: validas.Suítes!, bathrooms: validas.Banheiros!, parking: validas.Vagas!,
-      area: d.area, highStandard: d.highStandard,
+      bedrooms: validas.Quartos, suites: validas.Suítes, bathrooms: validas.Banheiros, parking: validas.Vagas,
+      area: d.area as number, highStandard: d.highStandard,
       ownerName, ownerPhone: phone ? texto(d.ownerPhone) : null, brokerId: texto(d.brokerId),
     },
   }
@@ -167,17 +185,21 @@ export interface PermissoesImovel {
  * e do corretor vendedor (jurídico e recepção tiram do site mudando o status para rascunho). O servidor
  * repete esta regra: a tela só a espelha.
  */
-export function permissoesImovel(matriz: MatrizPermissoes, sessao: Sessao, imovel: ImovelGestao | null): PermissoesImovel {
+/**
+ * `vinculado` = o imóvel é de uma venda/locação do escopo da sessão (corretor): ele PODE VER, para o contrato
+ * não apontar para um imóvel que ele não encontra, mas não edita nem exclui o que não captou.
+ */
+export function permissoesImovel(matriz: MatrizPermissoes, sessao: Sessao, imovel: ImovelGestao | null, vinculado = false): PermissoesImovel {
   const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
   const criar = matriz.criar?.[sessao.perfil] === 'sim'
   if (!imovel) return { ver: true, criar, editar: false, excluir: false, trocarCorretor: todos }
   const proprio = sessao.corretorId !== null && imovel.brokerId === sessao.corretorId
-  const ver = todos || proprio
-  return { ver, criar, editar: ver, excluir: ver && (sessao.perfil === 'dono' || proprio), trocarCorretor: todos }
+  const meu = todos || proprio
+  return { ver: meu || vinculado, criar, editar: meu, excluir: meu && (sessao.perfil === 'dono' || proprio), trocarCorretor: todos }
 }
 
-export function imoveisVisiveis(matriz: MatrizPermissoes, sessao: Sessao, imoveis: ImovelGestao[]): ImovelGestao[] {
-  return imoveis.filter((i) => permissoesImovel(matriz, sessao, i).ver)
+export function imoveisVisiveis(matriz: MatrizPermissoes, sessao: Sessao, imoveis: ImovelGestao[], vinculados: ReadonlySet<string> = new Set()): ImovelGestao[] {
+  return imoveis.filter((i) => permissoesImovel(matriz, sessao, i, vinculados.has(i.id)).ver)
 }
 
 export function podeExcluirImovel(imovel: ImovelGestao, sessao: Sessao, matriz: MatrizPermissoes, locacoes: Locacao[]): { ok: true } | { ok: false; erro: string } {

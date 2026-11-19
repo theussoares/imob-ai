@@ -73,7 +73,7 @@ describe('pendências que bloqueiam a conclusão', () => {
     let e = novo()
     const id = 'V-2026-0151'
     expect(concluirEtapa(e, id, 3, ator).ok).toBe(false)
-    e = ok(salvarPessoa(e, id, 'comprador', { cpf: '445.902.118-03', telefone: '(11) 98888-7777', email: 'camila@exemplo.com' }, ator))
+    e = ok(salvarPessoa(e, id, 'comprador', { cpf: '445.902.118-82', telefone: '(11) 98888-7777', email: 'camila@exemplo.com' }, ator))
     expect(pendenciasEtapa(proc(e, id), e.documentos, 3)).toEqual([expect.stringContaining('Faltam 2 documentos')])
     for (const chave of ['comprador:certidao', 'comprador:residencia']) {
       e = ok(enviarDocumento(e, { nome: `${chave}.pdf`, categoria: 'pessoas', processoId: id, tamanho: 1000, requisito: chave }, ator))

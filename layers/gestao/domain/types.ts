@@ -98,6 +98,8 @@ export interface Processo {
   vendedor: Pessoa
   comprador: Pessoa
   imovel: string
+  /** Imóvel do cadastro (`properties.id`). Ausente nas vendas antigas, que tinham o imóvel em texto livre. */
+  imovelId?: string
   corretorId: string
   captadorId: string
   status: StatusVenda
@@ -212,10 +214,27 @@ export interface ContratoLocacao {
   taxaPct: number
 }
 
-export interface Repasse {
+export type FormaPagamentoCobranca = 'PIX' | 'Dinheiro' | 'Transferência' | 'Boleto' | 'Outro'
+
+/** Um recebimento da cobrança. Só cresce (nunca editado nem apagado): o histórico do dinheiro. */
+export interface Pagamento {
+  id: string
   valor: number
+  /** ISO yyyy-mm-dd */
+  data: string
+  forma: FormaPagamentoCobranca
+  /** Opcional: o comprovante deixou de ser obrigatório. */
+  comprovante?: string | null
+}
+
+export interface Repasse {
+  /** devido ao locador: aluguel menos a taxa. */
+  valor: number
+  /** já repassado (soma dos repasses; pode ser parcial). Ausente = 0, ou `valor` se `feito` for legado. */
+  repassado?: number
   feito: boolean
   data?: string
+  forma?: FormaPagamentoCobranca
   comprovante?: string | null
 }
 
@@ -226,7 +245,10 @@ export interface Cobranca {
   valor: number
   /** ISO yyyy-mm-dd */
   vencimento: string
+  /** Quitada: marcador que avisos e recortes já usavam. `comprovante` pode ser vazio (opcional). */
   pago?: { data: string; comprovante: string }
+  /** Recebimentos, inclusive parciais (a cobrança só vira `pago` quando a soma cobre o valor atualizado). */
+  pagamentos?: Pagamento[]
   repasse?: Repasse
 }
 
@@ -251,4 +273,38 @@ export interface Locacao {
   hist: EventoHistorico[]
   obs: string
   arquivado: boolean
+}
+
+// ---- Acesso e auditoria no servidor (backend F1) ------------------------------
+
+export type StatusMembro = 'ativo' | 'pendente' | 'expirado'
+
+/** Linha da tela «Usuários e permissões». `voce` é preenchido por quem lista. */
+export interface MembroGestaoLista {
+  id: string
+  nome: string
+  email: string
+  perfil: Perfil
+  /** Corretor cadastrado (`brokers.id`) quando o perfil é `corretor`. */
+  brokerId: string | null
+  status: StatusMembro
+  convidadoPor: string
+  /** ISO; só para convite ainda não aceito. */
+  conviteExpiraEm: string | null
+  criadoEm: string
+  voce?: boolean
+}
+
+export type AlvoEvento = 'venda' | 'locacao' | 'documento' | 'imovel' | 'membro' | 'config' | 'consulta'
+
+/** Registro de `gestao_eventos`: só cresce, autor e hora dados pelo servidor. */
+export interface EventoGestao {
+  id: string
+  atorUserId: string
+  atorNome: string
+  acao: string
+  alvoTipo: AlvoEvento
+  alvoId: string
+  /** ISO */
+  quando: string
 }
