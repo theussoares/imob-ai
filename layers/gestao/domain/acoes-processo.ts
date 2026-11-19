@@ -110,6 +110,32 @@ export function registrarAdiantamento(
   })
 }
 
+/**
+ * Dá baixa num adiantamento registrado como «não pago». A regra do `registrarAdiantamento` vale igual: sem
+ * comprovante, não é pago. O comprovante pode já estar no registro (anexado antes de a baixa sair) ou vir agora.
+ */
+export function marcarAdiantamentoPago(
+  estado: Estado,
+  id: string,
+  adiantamentoId: string,
+  dados: { comprovante?: string | null },
+  ator: Ator,
+  quando = agora(),
+): Resultado {
+  return alterar(estado, id, ator, quando, (p) => {
+    const a = p.adiantamentos.find((x) => x.id === adiantamentoId)
+    if (!a) return { ok: false, erro: 'Adiantamento não encontrado.' }
+    if (a.pago) return { ok: false, erro: 'Este adiantamento já está pago.' }
+    const comprovante = dados.comprovante?.trim() || a.comprovante || null
+    if (!comprovante) return { ok: false, erro: MSG_PAGO_SEM_COMPROVANTE }
+    return {
+      ok: true,
+      acao: `Marcou como pago o adiantamento de ${brl(a.valor)} (${ROTULO_RESP[a.resp]})`,
+      processo: { ...p, adiantamentos: p.adiantamentos.map((x) => (x.id === adiantamentoId ? { ...x, pago: true, comprovante } : x)) },
+    }
+  })
+}
+
 export function removerAdiantamento(
   estado: Estado,
   id: string,
