@@ -369,9 +369,25 @@ export function useGestaoStore() {
     }
   }
 
-  const enviarDocumento = async (tipo: TipoAlvo, id: string, arquivo: ArquivoGestao, extra: { categoria: CategoriaDocumento; requisito?: string }) =>
-    comAplicar(await repo.enviarDocumento({ tipo, id }, arquivo, extra))
-  const novaVersaoDocumento = async (doc: Documento, arquivo: ArquivoGestao) => comAplicar(await repo.novaVersaoDocumento(doc, tipoDoAlvo(doc.processoId), arquivo))
+  /**
+   * Envios de arquivo em andamento (contador, porque dois podem se sobrepor). Subir para o Storage passa de
+   * 7 s numa conexão comum e, sem sinal, a tela parecia travada e o usuário escolhia o arquivo de novo.
+   * Fica no store, e não em cada tela, porque o envio sai de três lugares (requisitos de venda e de
+   * locação, e a tela Documentos).
+   */
+  const enviandoDocumentos = ref(0)
+  async function comEnvio<T>(fn: () => Promise<T>): Promise<T> {
+    enviandoDocumentos.value++
+    try {
+      return await fn()
+    } finally {
+      enviandoDocumentos.value--
+    }
+  }
+  const enviarDocumento = (tipo: TipoAlvo, id: string, arquivo: ArquivoGestao, extra: { categoria: CategoriaDocumento; requisito?: string }) =>
+    comEnvio(async () => comAplicar(await repo.enviarDocumento({ tipo, id }, arquivo, extra)))
+  const novaVersaoDocumento = (doc: Documento, arquivo: ArquivoGestao) =>
+    comEnvio(async () => comAplicar(await repo.novaVersaoDocumento(doc, tipoDoAlvo(doc.processoId), arquivo)))
   const conferirDocumento = async (doc: Documento) => comAplicar(await repo.conferirDocumento(doc))
   const apagarDocumento = async (doc: Documento) => comAplicar(await repo.apagarDocumento(doc))
   const restaurarDocumento = async (doc: Documento) => comAplicar(await repo.restaurarDocumento(doc))
@@ -515,6 +531,7 @@ export function useGestaoStore() {
     abrirLocacao,
     carregarDocumentos,
     carregarDocumentosDaPagina,
+    enviandoDocumentos,
     enviarDocumento,
     novaVersaoDocumento,
     conferirDocumento,

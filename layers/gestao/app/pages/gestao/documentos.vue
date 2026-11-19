@@ -256,6 +256,8 @@ const tab = (ativo: boolean) => [
       </div>
     </div>
 
+    <p v-if="store.enviandoDocumentos.value > 0" role="status" class="m-0 rounded-[10px] bg-[var(--brand-ghost)] px-3 py-2 font-semibold" data-testid="enviando-arquivo">Enviando arquivo… pode levar alguns segundos.</p>
+
     <p v-if="resultado?.truncado" role="status" class="m-0 rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] p-3 text-[var(--ink-soft)]" data-testid="aviso-truncado">
       Há mais de 5000 processos ou documentos: a lista e as contagens cobrem só os mais recentes.
     </p>
@@ -330,7 +332,7 @@ const tab = (ativo: boolean) => [
       @ir="irParaPagina"
     />
 
-    <GestaoEnviarDocumentoModal ref="modal" :erro="erroEnvio" @enviar="enviar" />
+    <GestaoEnviarDocumentoModal ref="modal" :erro="erroEnvio" :enviando="store.enviandoDocumentos.value > 0" @enviar="enviar" />
 
     <dialog
       ref="dialogoVersoes"

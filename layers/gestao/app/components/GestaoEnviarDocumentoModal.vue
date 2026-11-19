@@ -5,6 +5,8 @@ import type { CategoriaDocumento } from '../../domain/types'
 defineProps<{
   /** Erro devolvido por `enviarDocumento`, mostrado como veio. */
   erro: string
+  /** Upload em andamento: trava o botão para o mesmo arquivo não subir duas vezes. */
+  enviando?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -206,9 +208,12 @@ const rotulo = 'mb-1 block text-[length:var(--fs-label)] font-bold'
         </button>
         <button
           type="submit"
-          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90"
+          :disabled="enviando"
+          :aria-busy="enviando"
+          class="min-h-11 cursor-pointer rounded-[10px] bg-[var(--gestao-amarelo)] px-4 font-bold text-[var(--brand)] hover:opacity-90 disabled:cursor-wait disabled:opacity-60"
+          data-testid="enviar-doc-confirmar"
         >
-          Enviar
+          {{ enviando ? 'Enviando…' : 'Enviar' }}
         </button>
       </div>
     </form>

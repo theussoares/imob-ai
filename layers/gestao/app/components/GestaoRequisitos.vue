@@ -33,6 +33,9 @@ const linhas = computed(() =>
   props.requisitos.map((r) => ({ r, doc: documentoDoRequisito(props.documentos, props.processoId, r.chave) })),
 )
 
+const store = useGestaoStore()
+const enviando = computed(() => store.enviandoDocumentos.value > 0)
+
 function escolheu(e: Event, r: Requisito, doc: Documento | undefined) {
   const input = e.target as HTMLInputElement
   const arq = input.files?.[0]
@@ -64,7 +67,9 @@ const botao =
 </script>
 
 <template>
-  <ul class="m-0 flex list-none flex-col gap-2 p-0" data-testid="requisitos">
+  <div>
+  <div v-if="enviando" role="status" class="mb-2 rounded-lg bg-[var(--brand-ghost)] px-3 py-2 font-semibold" data-testid="enviando-arquivo">Enviando arquivo… pode levar alguns segundos.</div>
+  <ul class="m-0 flex list-none flex-col gap-2 p-0" :aria-busy="enviando" data-testid="requisitos">
     <li
       v-for="{ r, doc } in linhas"
       :key="r.chave"
@@ -88,10 +93,10 @@ const botao =
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <label v-if="podeEnviar" :class="botao" :data-testid="doc ? 'requisito-trocar' : 'requisito-enviar'">
+        <label v-if="podeEnviar" :class="[botao, enviando && 'pointer-events-none opacity-60']" :data-testid="doc ? 'requisito-trocar' : 'requisito-enviar'">
           {{ doc ? 'Trocar arquivo' : 'Enviar arquivo' }}
           <span class="sr-only"> de {{ r.nome }}</span>
-          <input type="file" class="sr-only" :accept="ACEITA_ARQUIVO" @change="escolheu($event, r, doc)" />
+          <input type="file" class="sr-only" :accept="ACEITA_ARQUIVO" :disabled="enviando" @change="escolheu($event, r, doc)" />
         </label>
         <button
           v-if="podeEnviar && demo"
@@ -114,4 +119,5 @@ const botao =
       </div>
     </li>
   </ul>
+  </div>
 </template>
