@@ -10,6 +10,8 @@
  * identificadores (tenant, código do imóvel) e o motivo do erro.
  */
 
+import { reportar } from './sentry'
+
 type Detail = Record<string, unknown>
 
 function emit(level: 'error' | 'warn', event: string, detail: Detail) {
@@ -18,6 +20,10 @@ function emit(level: 'error' | 'warn', event: string, detail: Detail) {
   const line = JSON.stringify({ level, event, ...detail, at: new Date().toISOString() })
   if (level === 'error') console.error(line)
   else console.warn(line)
+  // `request.failed` vai pelo plugin de erros, que tem a exceção (com stack) em mãos.
+  if (level === 'error' && event !== 'request.failed') {
+    reportar({ nivel: 'error', evento: event, mensagem: String(detail.reason ?? detail.motivo ?? ''), tags: { tenant: detail.tenant as string | undefined }, detalhe: detail })
+  }
 }
 
 /** Falha que custa algo ao negócio (lead perdido, config ausente). */

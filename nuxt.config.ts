@@ -211,6 +211,8 @@ export default defineNuxtConfig({
     // Secret key do Cloudflare Turnstile (NUXT_TURNSTILE_SECRET), usada em `server/utils/gestao-captcha.ts`.
     // Vazia = o servidor não verifica captcha (demo). Entra junto com `public.turnstileSiteKey`.
     turnstileSecret: '',
+    // DSN do Sentry (NUXT_SENTRY_DSN). Vazia = não reporta; ver server/utils/sentry.ts.
+    sentryDsn: '',
     // Trocar de modelo é variável de ambiente, não deploy de código.
     aiModel: process.env.NUXT_AI_MODEL || 'claude-haiku-4-5',
     public: {
