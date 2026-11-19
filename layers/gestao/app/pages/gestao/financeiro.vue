@@ -34,7 +34,12 @@ watch(competencia, atualizar)
 const podeValores = computed(() => !!store.caps(null)?.valores)
 
 // Mesma ação do contrato (etapa 7): a regra e o histórico da locação são os mesmos nos dois lugares.
-async function registrar(acao: 'pagar' | 'repassar', loc: string, cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }): Promise<string | null> {
+async function registrar(acao: 'pagar' | 'repassar', loc: string, cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }, arquivo: File | null): Promise<string | null> {
+  if (arquivo) {
+    const up = await store.subirComprovante('locacao', loc, arquivo)
+    if (!up.ok) return up.erro
+    d = { ...d, comprovante: up.nome }
+  }
   const r = await store.executar('locacao', loc, acao === 'pagar' ? 'registrarPagamento' : 'registrarRepasse', { cobrancaId, ...d })
   if (!r.ok) return r.erro
   toast.success(acao === 'pagar' ? 'Pagamento registrado.' : 'Repasse registrado.')

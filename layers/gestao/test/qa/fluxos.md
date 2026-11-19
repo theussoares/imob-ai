@@ -229,7 +229,7 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
 2. Outros perfis não veem a matriz.
 3. `/gestao/config` (só Dono): CNPJ inválido, e-mail inválido, telefone sem DDD e percentual fora de 0–100 recusam
    com mensagem; salvar válido mostra o aviso. Venda e locação NOVAS usam os percentuais salvos; as já abertas não mudam.
-4. `/gestao/consulta`: faixa «Resultado simulado» sempre visível. CPF inválido ou sem finalidade recusa.
+4. `/gestao/consulta`: faixa «Em análise de ferramenta» (resultado simulado) sempre visível. CPF inválido ou sem finalidade recusa.
    Consulta válida mostra resultado, limpa o campo do documento e entra no histórico com documento MASCARADO
    (`529.***.***-25`); o localStorage não guarda o CPF inteiro. Mesmo documento dá sempre o mesmo resultado.
 

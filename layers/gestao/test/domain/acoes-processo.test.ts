@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Estado } from '../../domain/acoes'
 import {
   itensChecklist,
+  marcarAdiantamentoPago,
   MSG_PAGO_SEM_COMPROVANTE,
   registrarAdiantamento,
   removerAdiantamento,
@@ -238,5 +239,19 @@ describe('salvarConferenciaFinal', () => {
     expect(salvarConferenciaFinal(antes, CANCELADO, tudo, ator, quando).ok).toBe(false)
     salvarConferenciaFinal(antes, ABERTO, tudo, ator, quando)
     expect(antes).toEqual(copia)
+  })
+})
+
+describe('marcarAdiantamentoPago', () => {
+  it('dá baixa com comprovante, exige o comprovante e não repete a baixa', () => {
+    const e1 = ok(registrarAdiantamento(novo(), ABERTO, { resp: 'vendedor', valor: 1000, data: '2026-11-10' }, ator, quando))
+    const a = proc(e1, ABERTO).adiantamentos.at(-1)!
+    expect(a.pago).toBe(false)
+    const falha = (r: ReturnType<typeof marcarAdiantamentoPago>) => (r.ok ? '' : r.erro)
+    expect(falha(marcarAdiantamentoPago(e1, ABERTO, a.id, {}, ator, quando))).toBe(MSG_PAGO_SEM_COMPROVANTE)
+    expect(falha(marcarAdiantamentoPago(e1, ABERTO, 'zz', { comprovante: 'x.pdf' }, ator, quando))).toBe('Adiantamento não encontrado.')
+    const e2 = ok(marcarAdiantamentoPago(e1, ABERTO, a.id, { comprovante: 'pix.pdf' }, ator, quando))
+    expect(proc(e2, ABERTO).adiantamentos.at(-1)).toMatchObject({ pago: true, comprovante: 'pix.pdf' })
+    expect(falha(marcarAdiantamentoPago(e2, ABERTO, a.id, { comprovante: 'outro.pdf' }, ator, quando))).toMatch(/já está pago/)
   })
 })

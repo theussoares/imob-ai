@@ -8,6 +8,7 @@ import {
 } from '~~/layers/gestao/domain/acoes'
 import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '~~/layers/gestao/domain/acoes-ciclo'
 import {
+  marcarAdiantamentoPago,
   registrarAdiantamento,
   removerAdiantamento,
   salvarConferenciaFinal,
@@ -106,6 +107,11 @@ export const ACOES_VENDA = {
       comprovante: texto.nullable().optional(),
     }),
     fn: (id, d) => (e, a, q) => registrarAdiantamento(e, id, d, a, q),
+  }),
+  marcarAdiantamentoPago: def({
+    permitido: (c) => c.valores,
+    schema: z.object({ adiantamentoId: z.string().max(32), comprovante: texto.nullable().optional() }),
+    fn: (id, d) => (e, a, q) => marcarAdiantamentoPago(e, id, d.adiantamentoId, d, a, q),
   }),
   removerAdiantamento: def({
     permitido: (c) => c.valores,

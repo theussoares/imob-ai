@@ -7,7 +7,7 @@ const props = defineProps<{
   pendencias: PendenciasFinanceiras
   podeEditar: boolean
   /** Registra e devolve a frase de erro (ou `null`): o modal fica aberto com o erro até dar certo. */
-  registrar: (acao: 'pagar' | 'repassar', locacaoId: string, cobrancaId: string, d: DadosRecebimentoForm) => Promise<string | null>
+  registrar: (acao: 'pagar' | 'repassar', locacaoId: string, cobrancaId: string, d: DadosRecebimentoForm, arquivo: File | null) => Promise<string | null>
 }>()
 
 const mes = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
@@ -15,7 +15,7 @@ const dia = (iso: string) => iso.split('-').reverse().join('/')
 
 const modal = ref<{ abrir: (c: ContextoRecebimento) => void } | null>(null)
 const alvo = ref<{ acao: 'pagar' | 'repassar'; l: LinhaAluguel } | null>(null)
-const confirmar = (d: DadosRecebimentoForm) => props.registrar(alvo.value!.acao, alvo.value!.l.locacaoId, alvo.value!.l.cobrancaId, d)
+const confirmar = (d: DadosRecebimentoForm, arquivo: File | null) => props.registrar(alvo.value!.acao, alvo.value!.l.locacaoId, alvo.value!.l.cobrancaId, d, arquivo)
 
 function abrir(acao: 'pagar' | 'repassar', l: LinhaAluguel) {
   alvo.value = { acao, l }

@@ -55,8 +55,8 @@ const td = 'px-3 py-2 align-top text-[length:var(--fs-ui)]'
     </header>
 
     <p class="m-0 rounded-xl border-2 border-dashed border-[var(--accent)] p-3 text-[length:var(--fs-label)]" data-testid="consulta-aviso-simulada">
-      <strong class="text-[var(--accent)]">Resultado simulado:</strong> ainda não há contrato com SPC ou Serasa. Os dados abaixo
-      são de exemplo e não valem como consulta real.
+      <strong class="text-[var(--accent)]">Em análise de ferramenta:</strong> a integração com SPC ou Serasa ainda não foi
+      contratada. Por enquanto o resultado é simulado: os dados são de exemplo e não valem como consulta real.
     </p>
 
     <form :class="card" class="[display:grid] gap-3 md:grid-cols-[1fr_14rem]" novalidate @submit.prevent="consultar">

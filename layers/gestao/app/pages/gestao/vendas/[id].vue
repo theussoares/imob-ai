@@ -202,9 +202,29 @@ async function conferirArquivo(d: Documento) {
   else toast.error(res.erro)
 }
 
-function registrar(dados: NovoAdiantamento) {
+/** Sobe o comprovante antes de gravar; se o envio falhar, nada é registrado. Devolve o nome, `null` (sem arquivo) ou `undefined` (falhou, já avisou). */
+async function subirComprovante(p: { id: string }, arquivo: File | null): Promise<string | null | undefined> {
+  if (!arquivo) return null
+  const up = await store.subirComprovante('venda', p.id, arquivo)
+  if (up.ok) return up.nome
+  toast.error(up.erro)
+  return undefined
+}
+
+async function registrar(dados: NovoAdiantamento, arquivo: File | null) {
   const p = processo.value
-  if (p) void executar(p.id, 'registrarAdiantamento', dados, `Adiantamento de ${brl(dados.valor)} registrado.`)
+  if (!p) return
+  const nome = await subirComprovante(p, arquivo)
+  if (nome === undefined) return
+  void executar(p.id, 'registrarAdiantamento', { ...dados, comprovante: nome ?? dados.comprovante }, `Adiantamento de ${brl(dados.valor)} registrado.`)
+}
+
+async function pagarAdiantamento(adId: string, arquivo: File | null) {
+  const p = processo.value
+  if (!p) return
+  const comprovante = await subirComprovante(p, arquivo)
+  if (comprovante === undefined) return
+  void executar(p.id, 'marcarAdiantamentoPago', { adiantamentoId: adId, comprovante }, 'Adiantamento marcado como pago.')
 }
 
 async function remover(adId: string) {
@@ -336,7 +356,7 @@ const aba_ = (ativa: boolean) =>
     <div class="[display:grid] gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
       <div class="flex min-w-0 flex-col gap-3">
         <template v-if="aba === 'comissao' && podeValores">
-          <GestaoComissao :processo="processo" :editavel="!final" @registrar="registrar" @remover="remover" />
+          <GestaoComissao :processo="processo" :editavel="!final" @registrar="registrar" @remover="remover" @pagar="pagarAdiantamento" />
         </template>
         <template v-else>
           <GestaoEtapaPainel

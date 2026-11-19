@@ -11,9 +11,9 @@ const props = defineProps<{
   /** multa e juros em vigor (configurações) */
   encargos?: EncargosConfig
   /** Registra e devolve a frase de erro (ou `null`): o modal fica aberto com o erro até dar certo. */
-  registrar: (acao: 'pagar' | 'repassar', cobrancaId: string, d: DadosRecebimentoForm) => Promise<string | null>
+  registrar: (acao: 'pagar' | 'repassar', cobrancaId: string, d: DadosRecebimentoForm, arquivo: File | null) => Promise<string | null>
   /** Anexa o comprovante depois de registrado sem ele. */
-  anexar?: (cobrancaId: string, d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string; comprovante: string }) => Promise<void> | void
+  anexar?: (cobrancaId: string, d: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string }, arquivo: File) => Promise<void> | void
 }>()
 const emit = defineEmits<{ gerar: [competencia: string] }>()
 
@@ -35,7 +35,7 @@ const emAtraso = (c: Cobranca) => !c.pago && dev(c).vencida
 
 const modal = ref<{ abrir: (c: ContextoRecebimento) => void } | null>(null)
 const alvo = ref<{ acao: 'pagar' | 'repassar'; id: string } | null>(null)
-const confirmar = (d: DadosRecebimentoForm) => props.registrar(alvo.value!.acao, alvo.value!.id, d)
+const confirmar = (d: DadosRecebimentoForm, arquivo: File | null) => props.registrar(alvo.value!.acao, alvo.value!.id, d, arquivo)
 
 function abrirPagamento(c: Cobranca) {
   const d = dev(c)
@@ -55,10 +55,9 @@ function abrirRepasse(c: Cobranca) {
 
 function escolher(e: Event, cobrancaId: string, alvo: { alvo: 'pagamento' | 'repasse'; pagamentoId?: string }) {
   const el = e.target as HTMLInputElement
-  // O demo não sobe binário: o comprovante é o nome do arquivo escolhido (como no modal de pagamento).
-  const nome = el.files?.[0]?.name
+  const arquivo = el.files?.[0]
   el.value = ''
-  if (nome) void props.anexar?.(cobrancaId, { ...alvo, comprovante: nome })
+  if (arquivo) void props.anexar?.(cobrancaId, alvo, arquivo)
 }
 const botaoAnexo =
   'inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-label)] font-bold hover:bg-[var(--brand-ghost)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--brand)]'

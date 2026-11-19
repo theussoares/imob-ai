@@ -4,7 +4,7 @@ import { agora as agoraDominio, type Ator, type Estado, type NovoProcesso, type 
 import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '../../domain/acoes-ciclo'
 import * as loc from '../../domain/acoes-locacao'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
-import { registrarAdiantamento, removerAdiantamento, salvarConferenciaFinal, salvarFinanceiro, salvarImovel, salvarPessoa } from '../../domain/acoes-processo'
+import { marcarAdiantamentoPago, registrarAdiantamento, removerAdiantamento, salvarConferenciaFinal, salvarFinanceiro, salvarImovel, salvarPessoa } from '../../domain/acoes-processo'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { proximoIdConsulta, realizarConsulta, type ConsultaFeita, type EntradaConsulta } from '../../domain/consulta'
 import { completarProcesso } from '../../domain/novo-processo'
@@ -39,6 +39,7 @@ const VENDA: Record<string, Fn> = {
   restaurarProcesso: (e, id, _d, a) => restaurarProcesso(e, id, a),
   registrarAdiantamento: (e, id, d, a) => registrarAdiantamento(e, id, d, a),
   removerAdiantamento: (e, id, d, a) => removerAdiantamento(e, id, d.adiantamentoId, a),
+  marcarAdiantamentoPago: (e, id, d, a) => marcarAdiantamentoPago(e, id, d.adiantamentoId, d, a),
   salvarFinanceiro: (e, id, d, a) => salvarFinanceiro(e, id, d, a),
   salvarPessoa: (e, id, d, a) => salvarPessoa(e, id, d.quem, { cpf: d.cpf, telefone: d.telefone, email: d.email }, a),
   salvarImovel: (e, id, d, a) => salvarImovel(e, id, d, a),

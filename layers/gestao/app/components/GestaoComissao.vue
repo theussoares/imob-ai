@@ -8,7 +8,7 @@ const props = defineProps<{
   /** false em processo final: lista só para consulta */
   editavel: boolean
 }>()
-const emit = defineEmits<{ registrar: [dados: NovoAdiantamento]; remover: [id: string] }>()
+const emit = defineEmits<{ registrar: [dados: NovoAdiantamento, arquivo: File | null]; remover: [id: string]; pagar: [id: string, arquivo: File | null] }>()
 
 const ROTULO: Record<ResponsavelAdiantamento, string> = {
   vendedor: 'Vendedor',
@@ -23,8 +23,9 @@ const valor = ref<number | null>(null)
 const data = ref(new Date().toISOString().slice(0, 10))
 const momento = ref<'adiantamento' | 'fim-contrato'>('adiantamento')
 const pago = ref(false)
-// Só o NOME do arquivo é guardado: a demonstração não envia o binário.
+// O arquivo sobe pela tela do processo (que sabe o id); o registro guarda o nome.
 const comprovante = ref<string | null>(null)
+const arquivoComprovante = ref<File | null>(null)
 const inputArquivo = ref<HTMLInputElement | null>(null)
 const erroValor = ref('')
 const erroComprovante = ref('')
@@ -32,7 +33,8 @@ const erroComprovante = ref('')
 const ROTULO_MOMENTO = { adiantamento: 'Adiantamento', 'fim-contrato': 'Fim de contrato' }
 
 function escolherArquivo(e: Event) {
-  comprovante.value = (e.target as HTMLInputElement).files?.[0]?.name ?? null
+  arquivoComprovante.value = (e.target as HTMLInputElement).files?.[0] ?? null
+  comprovante.value = arquivoComprovante.value?.name ?? null
 }
 
 function registrar() {
@@ -54,13 +56,23 @@ function registrar() {
     momento: momento.value,
     pago: pago.value,
     comprovante: comprovante.value,
-  })
+  }, arquivoComprovante.value)
   valor.value = null
   pago.value = false
   comprovante.value = null
+  arquivoComprovante.value = null
   if (inputArquivo.value) inputArquivo.value.value = ''
 }
 
+function pagarComArquivo(e: Event, id: string) {
+  const el = e.target as HTMLInputElement
+  const arquivo = el.files?.[0] ?? null
+  el.value = ''
+  if (arquivo) emit('pagar', id, arquivo)
+}
+
+const botaoPagar =
+  'inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 font-bold hover:bg-[var(--brand-ghost)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--brand)]'
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-body)] text-[var(--ink)]'
 const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold'
@@ -120,6 +132,22 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
             <span v-if="a.comprovante" class="text-[var(--ink-soft)]" data-testid="adiantamento-comprovante">
               · Comprovante: {{ a.comprovante }}
             </span>
+          </span>
+          <span v-if="editavel && !a.pago" class="flex flex-wrap gap-2">
+            <button
+              v-if="a.comprovante"
+              type="button"
+              :class="botaoPagar"
+              :aria-label="`Marcar como pago o adiantamento de ${brl(a.valor)}`"
+              data-testid="adiantamento-marcar-pago"
+              @click="emit('pagar', a.id, null)"
+            >
+              Marcar como pago
+            </button>
+            <label v-else :class="botaoPagar" data-testid="adiantamento-anexar-pagar">
+              Anexar comprovante e marcar como pago<span class="sr-only"> ({{ brl(a.valor) }})</span>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" class="sr-only" data-testid="adiantamento-pagar-arquivo" @change="pagarComArquivo($event, a.id)" />
+            </label>
           </span>
           <button
             v-if="editavel"
