@@ -65,6 +65,8 @@ async function montarReal() {
   widgetId = api.render(caixa.value, {
     sitekey: siteKey,
     language: 'pt-br',
+    // `flexible`: o widget ocupa a largura do formulário (o padrão é fixo em 300 px e fica torto em tela estreita).
+    size: 'flexible',
     theme: document.documentElement.classList.contains('gestao-escuro') ? 'dark' : 'light',
     callback: (token: string) => (modelo.value = token),
     'expired-callback': () => (modelo.value = ''),
@@ -112,8 +114,8 @@ const status = computed(() =>
 </script>
 
 <template>
-  <div v-if="real" data-testid="captcha" :data-resolvido="!!modelo" :data-real="true">
-    <div ref="caixa" />
+  <div v-if="real" class="w-full" data-testid="captcha" :data-resolvido="!!modelo" :data-real="true">
+    <div ref="caixa" class="w-full" />
     <p v-if="falhouCarregar" role="alert" class="m-0 mt-1 font-semibold text-[var(--danger)]" data-testid="captcha-erro">
       Não foi possível carregar a verificação. Recarregue a página ou tente de novo em instantes.
     </p>
