@@ -211,6 +211,13 @@ useHead(() => ({
         distinguir pessoas de programas automáticos. Quem apenas visita o site
         não passa por ela. Nos Estados Unidos.
       </li>
+      <li>
+        <b>Sentry:</b> registro de falhas técnicas do sistema, para corrigirmos
+        erros. Recebe o nome do erro, a página técnica em que ocorreu e a
+        imobiliária; e-mail, telefone, CPF/CNPJ, endereço de IP, cookies e o
+        conteúdo do que você preencheu são removidos antes do envio. Nos Estados
+        Unidos.
+      </li>
       <!--
         Asaas (0051): só quando a imobiliária conecta a cobrança. A conta é
         DELA no Asaas; recebe nome, CPF/CNPJ, e-mail e telefone do inquilino

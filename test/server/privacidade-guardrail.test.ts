@@ -106,6 +106,9 @@ describe('privacidade: o que a política afirma continua verdade', () => {
         `compartilhamos" em ${POLITICA} e veja a transferência internacional (Q3) em ${PARECER}.`,
     ).toEqual({
       hosts: [
+        // Sentry — "Sentry" na política (erros técnicos do servidor, EUA). O host vem da DSN, por isso o
+        // literal abaixo é o do template em `server/utils/sentry.ts`; o que sai é limpo por `limparTexto`.
+        '${dsn.host}',
         // Asaas — "Asaas" na política (boleto e Pix do aluguel, no Brasil),
         // produção e sandbox.
         'api-sandbox.asaas.com',

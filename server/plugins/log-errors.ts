@@ -24,6 +24,8 @@
  * O que pode aparecer no `payload` é decidido em `error-log.ts` por lista de
  * permissão. Nada de pessoa passa por aqui.
  */
+import { aguardarEnvios, reportar } from '~~/server/utils/sentry'
+
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('error', async (error, { event }) => {
     if (!event) return
@@ -46,5 +48,16 @@ export default defineNitroPlugin((nitroApp) => {
       reason: errorReason(error),
       payload: redactPayload(payload),
     })
+
+    // Mesmo contexto da linha acima, mais a exceção para o Sentry mostrar a stack.
+    reportar({
+      nivel: 'error',
+      evento: 'request.failed',
+      mensagem: errorReason(error) ?? '',
+      erro: error,
+      tags: { tenant: event.context.tenant?.slug, status: statusCode, method: event.method, errorCode: errorCode(error), unhandled },
+      detalhe: { path: event.path.split('?')[0] },
+    })
+    await aguardarEnvios()
   })
 })
