@@ -72,10 +72,11 @@ layers/gestao/
 
 ## Acesso e segurança (pedido de 15/11)
 
-Fluxo: **Dono ou Jurídico/financeiro convida por e-mail → convidado cria senha forte
+Fluxo: **Dono, Jurídico/financeiro ou Recepção convida por e-mail → convidado cria senha forte
 (com captcha) → no login, e-mail + senha (com captcha) → código de 6 dígitos por e-mail
-(2º fator) → sessão.** Nova permissão `convidar` (dono e jurídico); jurídico vê
-«Usuários e permissões» mas não «Configurações».
+(2º fator) → sessão.** Nova permissão `convidar` (dono, jurídico e recepção — 23/11); eles veem
+«Usuários e permissões» mas não «Configurações». Só o Dono convida outro Dono e só
+ele administra (`admin` é fixo: a matriz não o concede a outro perfil).
 
 | Decisão | Alternativa descartada | Motivo |
 |---|---|---|

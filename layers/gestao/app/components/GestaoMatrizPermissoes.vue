@@ -93,7 +93,7 @@ const col = (p: Perfil) => (p === perfilMovel.value ? '' : 'hidden md:table-cell
                 :aria-checked="store.matriz.value[d.chave][p] === 'sim'"
                 :aria-label="`${d.rotulo} — ${PERFIS[p].nome}`"
                 :disabled="permissaoFixa(d.chave, p)"
-                :title="permissaoFixa(d.chave, p) ? 'O Dono sempre mantém esta permissão.' : undefined"
+                :title="permissaoFixa(d.chave, p) ? (p === 'dono' ? 'O Dono sempre mantém esta permissão.' : 'Só o Dono administra.') : undefined"
                 class="relative h-7 w-12 cursor-pointer rounded-full border-0 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 :class="store.matriz.value[d.chave][p] === 'sim' ? 'bg-[var(--brand)]' : 'bg-[var(--line-2)]'"
                 :data-testid="`perm-${d.chave}-${p}`"

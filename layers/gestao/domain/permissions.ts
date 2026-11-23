@@ -71,7 +71,7 @@ export function matrizPadrao(): MatrizPermissoes {
     valores: linha('nao', 'nao', 'sim', 'sim'),
     consulta: linha('nao', 'sim', 'sim', 'sim'),
     auditoria: linha('nao', 'nao', 'sim', 'sim'),
-    convidar: linha('nao', 'nao', 'sim', 'sim'),
+    convidar: linha('nao', 'sim', 'sim', 'sim'),
     admin: linha('nao', 'nao', 'nao', 'sim'),
   }
 }
@@ -199,8 +199,18 @@ export const PERMISSOES_FIXAS_DO_DONO: PermChave[] = ['admin', 'convidar']
 
 export const ROTULO_VALOR: Record<PermValor, string> = { sim: 'Sim', proprio: 'Só os próprios', nao: 'Não' }
 
-export const permissaoFixa = (chave: PermChave, perfil: Perfil): boolean =>
-  perfil === 'dono' && PERMISSOES_FIXAS_DO_DONO.includes(chave)
+/**
+ * Valor imposto a uma célula da matriz, ou `null` se a matriz decide. `admin`
+ * (usuários, permissões e configurações) é só do Dono: se a matriz pudesse dar
+ * `admin` à Recepção ou ao Jurídico, quem convida passaria a reescrever as
+ * permissões e a promover gente. Convidar é outra coisa — o Dono pode estender.
+ */
+export function valorFixo(chave: PermChave, perfil: Perfil): PermValor | null {
+  if (perfil === 'dono') return PERMISSOES_FIXAS_DO_DONO.includes(chave) ? 'sim' : null
+  return chave === 'admin' ? 'nao' : null
+}
+
+export const permissaoFixa = (chave: PermChave, perfil: Perfil): boolean => valorFixo(chave, perfil) !== null
 
 export type ResultadoMatriz = { ok: true; matriz: MatrizPermissoes } | { ok: false; erro: string }
 
@@ -209,8 +219,15 @@ export function alterarPermissao(matriz: MatrizPermissoes, chave: PermChave, per
   const def = DEFINICOES_PERMISSAO.find((d) => d.chave === chave)
   if (!def) return { ok: false, erro: 'Permissão desconhecida.' }
   if (!def.estados.includes(valor)) return { ok: false, erro: `«${def.rotulo}» não aceita «${ROTULO_VALOR[valor]}».` }
-  if (permissaoFixa(chave, perfil) && valor !== 'sim') {
-    return { ok: false, erro: 'O Dono não pode perder esta permissão: sem ela ninguém administraria o acesso.' }
+  const fixo = valorFixo(chave, perfil)
+  if (fixo && valor !== fixo) {
+    return {
+      ok: false,
+      erro:
+        fixo === 'sim'
+          ? 'O Dono não pode perder esta permissão: sem ela ninguém administraria o acesso.'
+          : 'Só o Dono administra usuários, permissões e configurações.',
+    }
   }
   return { ok: true, matriz: { ...matriz, [chave]: { ...matriz[chave], [perfil]: valor } } }
 }
