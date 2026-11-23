@@ -247,8 +247,8 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
    mostram a mensagem do domínio; tipo Terreno esconde quartos/suítes/banheiros/vagas.
 6. Editar e salvar sem mudar o título não acusa duplicado; usar título e referência de outro imóvel acusa.
 7. `imovel-status-rapido` → «Rascunho» persiste ao recarregar; destaque e demais campos salvam.
-8. Fotos: enviar 3 (`imovel-foto-input`) → 3 `imovel-foto`, uma só `imovel-foto-capa`; a 7ª é recusada
-   («no máximo 6 fotos»); tornar capa, mover e remover a capa promove a primeira restante.
+8. Fotos: enviar 3 (`imovel-foto-input`) → 3 `imovel-foto`, uma só `imovel-foto-capa`; a 21ª é recusada
+   («no máximo 20 fotos»); tornar capa, mover e remover a capa promove a primeira restante.
 9. Excluir (`imovel-excluir`, confirmar): corretor exclui o dele sem locação; dono em im-101 (locação em andamento)
    é recusado com «Este imóvel tem locação em andamento…»; recepção/jurídico não veem o botão.
 10. Nova locação e Abertura da locação listam só imóveis de aluguel (im-102 de venda não aparece na Nova locação).

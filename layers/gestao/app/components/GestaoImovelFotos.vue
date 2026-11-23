@@ -21,9 +21,9 @@ const botao =
 </script>
 
 <template>
-  <section class="[display:grid] gap-3" aria-labelledby="imovel-fotos-titulo">
+  <section class="[display:grid] gap-3" aria-label="Fotos do imóvel">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 id="imovel-fotos-titulo" class="m-0 text-[length:var(--fs-body)] font-bold">Fotos ({{ props.fotos.length }}/{{ props.max }})</h2>
+      <p class="m-0 font-semibold" data-testid="imovel-foto-contagem">{{ props.fotos.length }} de {{ props.max }} fotos</p>
       <label :class="botao" class="inline-flex items-center" :aria-disabled="props.ocupado || props.fotos.length >= props.max">
         {{ props.ocupado ? 'Enviando…' : 'Adicionar fotos' }}
         <input

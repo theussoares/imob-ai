@@ -1,7 +1,7 @@
 import type { FotoImovel } from './imoveis.ts'
 
-/** Teto por imóvel: no mock as fotos moram no localStorage (~5 MB para o painel todo). */
-export const FOTOS_IMOVEL_MAX = 6
+/** Teto por imóvel; o servidor tem o mesmo (`FOTOS_IMOVEL_MAX_SERVIDOR`). No mock as fotos moram no localStorage (~5 MB): lá 20 fotos grandes podem estourar a cota e o armazém recusa a gravação. */
+export const FOTOS_IMOVEL_MAX = 20
 /** Caracteres do data URL da versão grande (1600 px) depois de reduzida; ~450 KB em bytes. */
 export const FOTO_TAMANHO_MAX = 600_000
 
