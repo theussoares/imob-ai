@@ -4,6 +4,7 @@ import { agora, type Estado } from '~~/layers/gestao/domain/acoes'
 import { filtrarLocacoes } from '~~/layers/gestao/domain/filtro-locacao'
 import { STATUS_LOCACAO } from '~~/layers/gestao/domain/locacao-status'
 import { contarPorStatus, paginar, POR_PAGINA, totalDePaginas, type PaginaComContagens } from '~~/layers/gestao/domain/paginacao'
+import { capacidades } from '~~/layers/gestao/domain/permissions'
 import { listBrokerNames } from '~~/server/repositories/broker.repository'
 import { avisosLocacao, hojeISO, type AvisoLocacao } from '~~/layers/gestao/domain/avisos-locacao'
 import type { Documento, Locacao } from '~~/layers/gestao/domain/types'
@@ -82,7 +83,8 @@ function veArquivadas(ctx: ContextoGestao): boolean {
 function resposta(ctx: ContextoGestao, { locacao, versao }: LocacaoVersionada): RespostaLocacao {
   // «Hoje» é o do servidor em Brasília: o cliente não escolhe a data dos avisos.
   const avisos = avisosLocacao(locacao, hojeISO(agoraBrasil()))
-  return { locacao: paraPerfil(locacao, verValores(ctx)), versao, avisos }
+  const c = capacidades(ctx.matriz, { perfil: ctx.membro.perfil, nome: ctx.membro.nome, corretorId: ctx.membro.brokerId }, locacao)
+  return { locacao: paraPerfil(locacao, verValores(ctx), c.verFinanceiro), versao, avisos }
 }
 
 export async function listar(ctx: ContextoGestao, arquivadas: boolean): Promise<RespostaLocacao[]> {
@@ -184,7 +186,8 @@ export async function abrir(ctx: ContextoGestao, corpo: unknown): Promise<Respos
     const ultimo = await ultimoIdDoAno(ctx.db, tenantId, ano)
     // `proximoIdLocacao` olha só os ids: um esqueleto com o último basta para numerar.
     const estado: Estado = { processos: [], documentos: [], locacoes: ultimo ? [{ id: ultimo } as Locacao] : [] }
-    const r = abrirLocacao(estado, { locador: d.locador, locatario: d.locatario, imovelId: d.imovelId, imovel: d.imovel, corretorId }, ator, agora())
+    // Quem não tem `valores` abre com o contrato em rascunho: o que preencher passa pela análise.
+    const r = abrirLocacao(estado, { locador: d.locador, locatario: d.locatario, imovelId: d.imovelId, imovel: d.imovel, corretorId, comAnaliseFin: !verValores(ctx) }, ator, agora())
     if (!r.ok) throw createError({ statusCode: 422, statusMessage: r.erro })
     const nova = r.estado.locacoes[0]!
     if ((await inserirLocacao(ctx.db, tenantId, nova)) === 'ok') {
@@ -250,7 +253,10 @@ export async function agir(ctx: ContextoGestao, id: string, corpo: unknown): Pro
     carregar: async () => {
       const item = await buscarLocacao(ctx.db, tenantId, id, escopo(ctx))
       if (!item || (item.locacao.arquivado && !veArquivadas(ctx))) return null
-      if (!permitidoNaLocacao(matriz, membro.perfil, membro.brokerId, chaves, item.locacao)) {
+      const pode = def.permitido
+        ? def.permitido(capacidades(matriz, { perfil: membro.perfil, nome: membro.nome, corretorId: membro.brokerId }, item.locacao), dados)
+        : permitidoNaLocacao(matriz, membro.perfil, membro.brokerId, chaves, item.locacao)
+      if (!pode) {
         throw createError({ statusCode: 403, statusMessage: 'Você não tem permissão para esta ação.' })
       }
       // Depois da permissão (como na venda): o 409 diria a quem não pode agir que a locação existe e mudou.

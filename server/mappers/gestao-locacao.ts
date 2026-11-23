@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { analiseFinSchema } from '~~/server/mappers/gestao-analise'
 import type { Cobranca, ContratoLocacao, Locacao } from '~~/layers/gestao/domain/types'
 
 /**
@@ -96,6 +97,7 @@ export const locacaoSchema = z.object({
   cobrancas: z.array(cobranca).max(600),
   hist: z.array(z.object({ acao: texto(300), quem: texto(200), quando: texto(40) })).max(2000),
   obs: texto(8000),
+  analiseFin: analiseFinSchema.optional(),
   arquivado: z.boolean(),
 })
 
@@ -195,7 +197,18 @@ export function semValores(l: Locacao): LocacaoSemValores {
   }
 }
 
-export function paraPerfil(l: Locacao, verValores: boolean): Locacao | LocacaoSemValores {
-  return verValores ? l : semValores(l)
+/**
+ * `verContrato`: quem preenche o financeiro DESTE contrato (`financeiroLivre`) vê o contrato inteiro (valor, taxa),
+ * mas não as cobranças, pagamentos e repasses, que seguem de `valores`. Sem `verContrato`, da análise sobra só o
+ * estado (selo da lista); quem enviou, quando e o motivo da devolução ficam com quem pode agir.
+ */
+export function paraPerfil(l: Locacao, verValores: boolean, verContrato = false): Locacao | LocacaoSemValores {
+  if (verValores) return l
+  const { analiseFin, ...resto } = semValores(l)
+  return {
+    ...resto,
+    ...(verContrato && l.contrato && { contrato: l.contrato }),
+    ...(analiseFin && { analiseFin: verContrato ? analiseFin : { status: analiseFin.status } }),
+  }
 }
 

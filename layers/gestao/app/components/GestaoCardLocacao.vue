@@ -18,6 +18,7 @@ const avisos = computed(() => avisosLocacao(props.locacao, hojeISO()))
       <strong class="text-[length:var(--fs-ui)]">{{ locacao.id }}</strong>
       <GestaoStatusChip :status="locacao.status" />
     </header>
+    <GestaoAnaliseSelo v-if="locacao.analiseFin && (locacao.analiseFin.status === 'em-analise' || locacao.analiseFin.status === 'devolvido')" :status="locacao.analiseFin.status" />
 
     <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-bold">
       {{ locacao.locador.nome }} e {{ locacao.locatario.nome }}

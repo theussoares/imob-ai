@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
+import { analiseFinSchema } from '~~/server/mappers/gestao-analise'
 import type { Processo } from '~~/layers/gestao/domain/types'
 
 /**
@@ -51,16 +52,6 @@ const conferencia = z.object({
   encaminhado: z.boolean(),
   responsavel: z.string(),
   data: z.string(),
-})
-
-/** Compartilhado com a locação. Sem isto o Zod descartaria `analiseFin` na leitura e a análise sumiria no próximo salvar. */
-export const analiseFinSchema = z.object({
-  status: z.enum(['rascunho', 'em-analise', 'aprovado', 'devolvido']),
-  enviadoPor: z.string().optional(),
-  enviadoEm: z.string().optional(),
-  decididoPor: z.string().optional(),
-  decididoEm: z.string().optional(),
-  motivo: z.string().optional(),
 })
 
 export const processoSchema = z.object({

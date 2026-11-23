@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import * as acoes from '~~/layers/gestao/domain/acoes-locacao'
 import type { Ator, Estado, Resultado } from '~~/layers/gestao/domain/acoes'
+import { MOTIVO_MAX } from '~~/layers/gestao/domain/analise-financeira'
+import type { Capacidades } from '~~/layers/gestao/domain/permissions'
 import type { ContratoLocacao, Locacao, MatrizPermissoes, PermChave, Perfil } from '~~/layers/gestao/domain/types'
 import { pessoaSchema, vistoriaSchema } from '~~/server/mappers/gestao-locacao'
 
@@ -24,6 +26,11 @@ export interface DefAcao<D = unknown> {
    * Recebe os dados porque a etapa 7 de «concluir» é do financeiro, as outras da edição.
    */
   permissao: (d: D) => PermChave[]
+  /**
+   * Regra fina, conferida depois de carregar a locação: o `proprio` e o estado da análise dependem dela.
+   * `permissao` segue como porta de entrada (403 antes de tocar no banco) e este é o critério que vale.
+   */
+  permitido?: (c: Capacidades, d: D) => boolean
   schema: z.ZodType<D>
   fn: Fn<D>
   /** Ações que mexem em corretor/imóvel validam o vínculo no tenant (ver serviço). */
@@ -86,8 +93,11 @@ export const ACOES_LOCACAO: Record<string, DefAcao<unknown>> = {
     schema: z.object({ quando: z.enum(['entrada', 'saida']), vistoria: vistoriaSchema }),
     fn: (e, id, d, a, q) => acoes.salvarVistoria(e, id, d.quando, d.vistoria, a, q),
   }),
+  // Valor do aluguel e taxa: `valores`, ou o corretor da locação (`financeiroLivre`) enquanto a análise não foi enviada
+  // ou foi devolvida. Cobranças, pagamentos e repasses (o fluxo mensal) seguem só de `valores`.
   salvarContrato: def({
-    permissao: () => ['valores'],
+    permissao: () => ['valores', 'financeiroLivre'],
+    permitido: (c) => c.editarFinanceiro,
     schema: contratoEntrada,
     fn: (e, id, d, a, q) => acoes.salvarContrato(e, id, d as ContratoLocacao, a, q),
   }),
@@ -115,6 +125,22 @@ export const ACOES_LOCACAO: Record<string, DefAcao<unknown>> = {
       comprovante: z.string().min(1).max(300),
     }),
     fn: (e, id, d, a, q) => acoes.anexarComprovante(e, id, d.cobrancaId, d, a, q),
+  }),
+  enviarAnaliseFinanceira: def({
+    permissao: () => ['valores', 'financeiroLivre'],
+    permitido: (c) => c.editarFinanceiro,
+    schema: vazio,
+    fn: (e, id, _d, a, q) => acoes.enviarAnaliseFinanceiraLocacao(e, id, a, q),
+  }),
+  aprovarAnaliseFinanceira: def({
+    permissao: () => ['valores'],
+    schema: vazio,
+    fn: (e, id, _d, a, q) => acoes.aprovarAnaliseFinanceiraLocacao(e, id, a, q),
+  }),
+  devolverAnaliseFinanceira: def({
+    permissao: () => ['valores'],
+    schema: z.object({ motivo: z.string().max(MOTIVO_MAX) }),
+    fn: (e, id, d, a, q) => acoes.devolverAnaliseFinanceiraLocacao(e, id, d.motivo, a, q),
   }),
   concluirEtapaLocacao: def({
     permissao: (d: { etapa: number }) => (d.etapa === 7 ? ['valores'] : ['editar']),

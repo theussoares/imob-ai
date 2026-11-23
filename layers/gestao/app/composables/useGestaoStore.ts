@@ -273,7 +273,7 @@ export function useGestaoStore() {
 
   // Quem não tem `valores` abre com o financeiro em rascunho (em `http` o servidor decide; aqui vale para o mock).
   const abrirProcesso = async (dados: NovoProcesso) => comAplicar(await repo.abrirVenda({ ...dados, comAnaliseFin: !caps()?.valores }))
-  const abrirLocacao = async (dados: NovaLocacao) => comAplicar(await repo.abrirLocacao(dados))
+  const abrirLocacao = async (dados: NovaLocacao) => comAplicar(await repo.abrirLocacao({ ...dados, comAnaliseFin: !caps()?.valores }))
 
   function comAplicar<T extends Resultado<Mudanca>>(r: T): T {
     if (r.ok) aplicarMudanca(r)
@@ -521,7 +521,7 @@ export function useGestaoStore() {
     return matrizComPadrao(lerBlob()?.matriz)
   }
 
-  const caps = (p: Processo | null = null) =>
+  const caps = (p: Pick<Processo, 'corretorId' | 'analiseFin'> | null = null) =>
     sessao.value ? capacidades(matriz.value, sessao.value, p) : null
 
   const visiveis = computed(() =>

@@ -1,4 +1,5 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes.ts'
+import { aprovarAnalise, bloqueioFinalizacao, devolverAnalise, enviarAnalise } from './analise-financeira.ts'
 import { pendenciasEtapaLocacao } from './locacao-requisitos.ts'
 import { locacaoFinal, statusPorEtapa, TOTAL_ETAPAS_LOCACAO } from './locacao-status.ts'
 import { requisitoPorChave } from './requisitos.ts'
@@ -58,6 +59,8 @@ export interface NovaLocacao {
   imovelId: string
   imovel: string
   corretorId: string
+  /** Aberta por quem não tem `valores`: o contrato nasce em rascunho e passa pela análise. */
+  comAnaliseFin?: boolean
 }
 
 export function abrirLocacao(estado: Estado, d: NovaLocacao, ator: Ator, quando = agora()): Resultado {
@@ -79,6 +82,7 @@ export function abrirLocacao(estado: Estado, d: NovaLocacao, ator: Ator, quando 
     cobrancas: [],
     hist: [{ acao: 'Abriu a locação', quem: ator.nome, quando }],
     obs: '',
+    ...(d.comAnaliseFin && { analiseFin: { status: 'rascunho' as const } }),
     arquivado: false,
   }
   return { ok: true, estado: { ...estado, locacoes: [nova, ...estado.locacoes] } }
@@ -268,6 +272,9 @@ export function concluirEtapaLocacao(estado: Estado, id: string, etapa: number, 
     if (etapa !== l.etapa) {
       return { ok: false, erro: l.concluidas[etapa - 1] ? 'Esta etapa já está concluída.' : 'Conclua as etapas anteriores primeiro.' }
     }
+    // A etapa 7 é a do contrato e do financeiro: com análise em curso, só segue depois de aprovada.
+    const bloqueio = etapa === 7 ? bloqueioFinalizacao(l.analiseFin) : null
+    if (bloqueio) return { ok: false, erro: bloqueio }
     const pendencias = pendenciasEtapaLocacao(l, estado.documentos, etapa)
     if (pendencias.length) return { ok: false, erro: pendencias[0]! }
     const concluidas = l.concluidas.map((c, i) => (i === etapa - 1 ? true : c))
@@ -360,4 +367,27 @@ export function enviarDocumentoLocacao(
     apagado: null,
   }
   return { ok: true, estado: { ...r.estado, documentos: [documento, ...r.estado.documentos] } }
+}
+
+/** Análise dos dados financeiros do contrato (mesma máquina de estados da venda; ver `analise-financeira.ts`). */
+export function enviarAnaliseFinanceiraLocacao(estado: Estado, id: string, ator: Ator, quando = agora()): Resultado {
+  return alterar(estado, id, ator, quando, (l) => {
+    if (!l.contrato || !(l.contrato.valor > 0)) return { ok: false, erro: 'Salve o valor do aluguel no contrato antes de enviar para análise.' }
+    const r = enviarAnalise(l.analiseFin, ator.nome, quando)
+    return r.ok ? { ok: true, acao: r.acao, locacao: { ...l, analiseFin: r.analise } } : r
+  })
+}
+
+export function aprovarAnaliseFinanceiraLocacao(estado: Estado, id: string, ator: Ator, quando = agora()): Resultado {
+  return alterar(estado, id, ator, quando, (l) => {
+    const r = aprovarAnalise(l.analiseFin, ator.nome, quando)
+    return r.ok ? { ok: true, acao: r.acao, locacao: { ...l, analiseFin: r.analise } } : r
+  })
+}
+
+export function devolverAnaliseFinanceiraLocacao(estado: Estado, id: string, motivo: string, ator: Ator, quando = agora()): Resultado {
+  return alterar(estado, id, ator, quando, (l) => {
+    const r = devolverAnalise(l.analiseFin, motivo, ator.nome, quando)
+    return r.ok ? { ok: true, acao: r.acao, locacao: { ...l, analiseFin: r.analise } } : r
+  })
 }

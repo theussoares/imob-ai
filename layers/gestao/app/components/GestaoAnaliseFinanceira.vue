@@ -41,7 +41,7 @@ const botaoPrincipal =
     </div>
 
     <p v-if="analise.status === 'rascunho'" class="m-0 text-[var(--ink-soft)]">
-      Preencha o valor e a comissão e envie para análise. O que você preenche só vale depois de aprovado pelo jurídico/financeiro.
+      Preencha os dados financeiros e envie para análise. O que você preenche só vale depois de aprovado pelo jurídico/financeiro.
     </p>
     <p v-else-if="analise.status === 'em-analise'" class="m-0 text-[var(--ink-soft)]">
       Enviado por {{ analise.enviadoPor }} em {{ analise.enviadoEm }}. Enquanto estiver em análise, o financeiro fica só para consulta.

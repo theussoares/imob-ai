@@ -292,6 +292,8 @@ export interface Locacao {
   cobrancas: Cobranca[]
   hist: EventoHistorico[]
   obs: string
+  /** Análise dos dados financeiros do contrato (valor do aluguel e taxa). Cobranças e repasses ficam só com `valores`. */
+  analiseFin?: AnaliseFinanceira
   arquivado: boolean
 }
 

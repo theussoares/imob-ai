@@ -55,6 +55,9 @@ const VENDA: Record<string, Fn> = {
 
 const LOCACAO: Record<string, Fn> = {
   salvarAberturaLocacao: (e, id, d, a) => loc.salvarAberturaLocacao(e, id, d, a),
+  enviarAnaliseFinanceira: (e, id, _d, a) => loc.enviarAnaliseFinanceiraLocacao(e, id, a),
+  aprovarAnaliseFinanceira: (e, id, _d, a) => loc.aprovarAnaliseFinanceiraLocacao(e, id, a),
+  devolverAnaliseFinanceira: (e, id, d, a) => loc.devolverAnaliseFinanceiraLocacao(e, id, d.motivo, a),
   salvarGarantia: (e, id, d, a) => loc.salvarGarantia(e, id, d, a),
   salvarVistoria: (e, id, d, a) => loc.salvarVistoria(e, id, d.quando, d.vistoria, a),
   salvarContrato: (e, id, d, a) => loc.salvarContrato(e, id, d, a),
