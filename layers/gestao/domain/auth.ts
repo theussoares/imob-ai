@@ -16,6 +16,8 @@ import type { Perfil, UsuarioGestao } from './types'
 
 export const SENHA_MIN = 12
 export const CONVITE_VALIDADE_MS = 72 * 60 * 60 * 1000
+/** Link de nova senha: curto, porque quem o tem troca a senha da conta. */
+export const RECUPERACAO_VALIDADE_MS = 30 * 60 * 1000
 export const CODIGO_VALIDADE_MS = 10 * 60 * 1000
 export const CODIGO_MAX_TENTATIVAS = 5
 export const CODIGO_REENVIO_MS = 60 * 1000
@@ -72,10 +74,21 @@ export interface CodigoPendente {
   usado: boolean
 }
 
+/** Pedido de nova senha (demo). Em produção o token é do Supabase Auth e nunca fica em tela nem em localStorage. */
+export interface Recuperacao {
+  token: string
+  email: string
+  criadoEm: number
+  expiraEm: number
+  usadoEm: number | null
+}
+
 export interface EstadoAuth {
   contas: Conta[]
   convites: Convite[]
   codigos: CodigoPendente[]
+  /** Ausente em estado guardado antes da recuperação de senha. */
+  recuperacoes?: Recuperacao[]
 }
 
 export type ContaPublica = Pick<Conta, 'email' | 'nome' | 'perfil'>
@@ -366,6 +379,60 @@ export async function aceitarConvite(
   }
 }
 
+// --- Recuperação de senha ---
+
+export const ERRO_RECUPERACAO = 'Este link expirou ou já foi usado. Peça um novo na tela de login.'
+
+/**
+ * Pedido de nova senha. Sem token na resposta quando a conta não existe, mas a tela diz a MESMA coisa nos
+ * dois casos: o demo mostra o link só porque não há e-mail, e só para conta que existe (o demo não tem
+ * o que esconder; em produção a resposta é igual e o link vai só por e-mail).
+ */
+export function criarRecuperacao(estado: EstadoAuth, email: string, parcial: Partial<Deps> = {}): { estado: EstadoAuth; token: string | null } {
+  const d = deps(parcial)
+  const e = normalizarEmail(email)
+  if (!estado.contas.some((c) => c.email === e)) return { estado, token: null }
+  const token = hex(d.rng(24))
+  const rec: Recuperacao = { token, email: e, criadoEm: d.agora, expiraEm: d.agora + RECUPERACAO_VALIDADE_MS, usadoEm: null }
+  // Um pedido novo invalida o anterior da mesma conta: só o último e-mail vale.
+  const outras = (estado.recuperacoes ?? []).filter((r) => r.email !== e || r.usadoEm !== null)
+  return { estado: { ...estado, recuperacoes: [...outras, rec] }, token }
+}
+
+export function consultarRecuperacao(estado: EstadoAuth, token: string, parcial: Partial<Deps> = {}): { ok: true; recuperacao: Recuperacao } | { ok: false; erro: string } {
+  const d = deps(parcial)
+  const r = (estado.recuperacoes ?? []).find((x) => x.token === token)
+  if (!r || r.usadoEm !== null || r.expiraEm <= d.agora) return { ok: false, erro: ERRO_RECUPERACAO }
+  return { ok: true, recuperacao: r }
+}
+
+/** Troca a senha da conta e gasta o link. Não abre sessão: o login segue pedindo senha e código. */
+export async function redefinirSenha(
+  estado: EstadoAuth,
+  dados: { token: string; senha: string },
+  parcial: Partial<Deps> = {},
+): Promise<ResultadoAuth> {
+  const d = deps(parcial)
+  const q = consultarRecuperacao(estado, dados.token, d)
+  if (!q.ok) return falha(estado, 'link', q.erro)
+  const conta = estado.contas.find((c) => c.email === q.recuperacao.email)
+  if (!conta) return falha(estado, 'link', ERRO_RECUPERACAO)
+  if (!validarSenha(dados.senha, { email: conta.email, nome: conta.nome }).ok) return falha(estado, 'senha', 'A senha não cumpre os requisitos.')
+
+  const salt = hex(d.rng(16))
+  const senhaHash = await hashSenha(dados.senha, salt, d.hash)
+  return {
+    ok: true,
+    estado: {
+      ...estado,
+      contas: estado.contas.map((c) => (c.email === conta.email ? { ...c, salt, senhaHash } : c)),
+      recuperacoes: (estado.recuperacoes ?? []).map((r) => (r.token === dados.token ? { ...r, usadoEm: d.agora } : r)),
+      // Código pendente de antes da troca não vale mais: quem tinha a senha antiga não segue entrando.
+      codigos: estado.codigos.filter((c) => c.email !== conta.email),
+    },
+  }
+}
+
 // --- Login ---
 
 /**
@@ -493,63 +560,4 @@ export async function verificarCodigo(
         restantes: 0,
       })
     : falha(novo, 'invalido', ERRO_CODIGO_INVALIDO, { restantes: CODIGO_MAX_TENTATIVAS - tentativas })
-}
-
-// --- Esqueci minha senha ---
-
-/**
- * Pede o código de redefinição. Reaproveita o MESMO mecanismo do 2º fator
- * (`emitirCodigo`: hash, validade, 5 tentativas, bloqueio, reenvio de 60 s) em vez
- * de inventar um token novo — duas regras de código a manter seriam duas chances
- * de uma delas ficar frouxa. O custo: há um código vivo por e-mail, então pedir a
- * redefinição derruba um código de login ainda não usado; quem está trocando a
- * senha não está no meio de um login, então aceitamos.
- *
- * Conta inexistente devolve `ok` com `codigo: null` e o estado intacto — a mesma
- * forma de resposta de quem tem conta, para a tela não virar verificador de quem
- * trabalha aqui. As falhas de `emitirCodigo` (`aguarde`, `bloqueado`) só existem
- * para conta real; por isso a tela as descarta e mostra sempre o mesmo aviso.
- */
-export async function solicitarRedefinicao(
-  estado: EstadoAuth,
-  email: string,
-  parcial: Partial<Deps> = {},
-): Promise<ResultadoAuth<{ codigo: string | null }>> {
-  const alvo = normalizarEmail(email)
-  if (!estado.contas.some((c) => c.email === alvo)) return { ok: true, estado, codigo: null }
-  return emitirCodigo(estado, alvo, parcial)
-}
-
-/**
- * Troca a senha com o código recebido. A senha é validada ANTES do código: senha
- * fraca devolve erro sem consumir tentativa nem queimar o código, e a pessoa corrige
- * e reenvia. Inverter a ordem faria um erro de digitação custar um código novo.
- *
- * Só depois de trocar o código vira `usado` (via `verificarCodigo`) — a mesma tela
- * não consegue reaproveitá-lo. Não há login automático: a pessoa volta ao login e
- * passa pelo 2º fator, senão o reset contornaria a segunda etapa.
- */
-export async function redefinirSenha(
-  estado: EstadoAuth,
-  dados: { email: string; codigo: string; senha: string },
-  parcial: Partial<Deps> = {},
-): Promise<ResultadoAuth<{ conta: ContaPublica }>> {
-  const d = deps(parcial)
-  const alvo = normalizarEmail(dados.email)
-  const conta = estado.contas.find((c) => c.email === alvo)
-  if (!conta) return falha(estado, 'inexistente', 'Código inválido ou expirado. Peça um novo.')
-
-  const v = validarSenha(dados.senha, { email: alvo, nome: conta.nome })
-  if (!v.ok) return falha(estado, 'senha', 'A senha não cumpre os requisitos.')
-
-  const r = await verificarCodigo(estado, alvo, dados.codigo, d)
-  if (!r.ok) return r
-
-  const salt = hex(d.rng(16))
-  const nova: Conta = { ...conta, salt, senhaHash: await hashSenha(dados.senha, salt, d.hash) }
-  return {
-    ok: true,
-    conta: { email: conta.email, nome: conta.nome, perfil: conta.perfil },
-    estado: { ...r.estado, contas: r.estado.contas.map((c) => (c.email === alvo ? nova : c)) },
-  }
 }

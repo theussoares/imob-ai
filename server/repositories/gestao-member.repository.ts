@@ -32,6 +32,22 @@ export async function buscarMembroPorUsuario(db: Client, tenantId: string, userI
   return data ? toMembroGestao(data) : null
 }
 
+/**
+ * Membro que já aceitou o convite (tem `user_id`) com este e-mail, neste tenant. É a única forma de a
+ * recuperação de senha saber para quem mandar o link: convite pendente ainda não tem conta para recuperar.
+ */
+export async function buscarMembroAtivoPorEmail(db: Client, tenantId: string, email: string): Promise<MembroGestao | null> {
+  const { data, error } = await db
+    .from('gestao_members')
+    .select(COLUNAS)
+    .eq('tenant_id', tenantId)
+    .eq('email', email)
+    .not('user_id', 'is', null)
+    .maybeSingle()
+  if (error) throw error
+  return data ? toMembroGestao(data) : null
+}
+
 export async function buscarRegistroMembro(db: Client, tenantId: string, id: string): Promise<RegistroMembro | null> {
   const { data, error } = await db.from('gestao_members').select(COLUNAS).eq('tenant_id', tenantId).eq('id', id).maybeSingle()
   if (error) throw error

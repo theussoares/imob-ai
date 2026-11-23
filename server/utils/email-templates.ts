@@ -474,6 +474,32 @@ export interface DadosConviteGestao {
   perfil: string
 }
 
+/** Recuperação de senha do painel de gestão: link de uso único e curta duração, a senha antiga segue valendo até o uso. */
+export function emailRecuperacaoSenhaGestao(d: { nomeImobiliaria: string; link: string }): CorpoEmail {
+  const imob = esc(d.nomeImobiliaria)
+  const html = moldura(
+    [
+      `<p style="margin:0 0 14px">Recebemos um pedido para criar uma nova senha no painel de gestão da <b>${imob}</b>.</p>`,
+      '<p style="margin:0">Para continuar, use o botão abaixo:</p>',
+      botao(d.link, 'Criar nova senha'),
+      '<p style="margin:0;color:#6b7280;font-size:13px">',
+      'O link vale uma vez só e por pouco tempo. Depois de trocar a senha, todos os acessos abertos saem, e o próximo login pede o código enviado por e-mail. Se o botão não funcionar, copie e cole este endereço no navegador:<br>',
+      `<span style="word-break:break-all">${esc(d.link)}</span></p>`,
+    ].join(''),
+    `Você recebeu este e-mail porque alguém pediu a recuperação de senha com o seu endereço. Se não foi você, ignore — a senha atual continua valendo e ninguém entra sem ela.`,
+  )
+  const texto = [
+    `Recebemos um pedido para criar uma nova senha no painel de gestão da ${d.nomeImobiliaria}.`,
+    '',
+    'Crie a nova senha neste endereço (vale uma vez só, por pouco tempo):',
+    d.link,
+    '',
+    'Depois de trocar, todos os acessos abertos saem e o próximo login pede o código por e-mail.',
+    'Se não foi você, ignore — a senha atual continua valendo.',
+  ].join('\n')
+  return { assunto: `${d.nomeImobiliaria} · nova senha do painel de gestão`, html, texto }
+}
+
 /** Convite para o painel de gestão: link de uso único, 72 h, perfil já definido por quem convidou. */
 export function emailConviteGestao(d: DadosConviteGestao): CorpoEmail {
   const imob = esc(d.nomeImobiliaria)
