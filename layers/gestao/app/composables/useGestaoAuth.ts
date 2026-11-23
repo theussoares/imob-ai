@@ -6,8 +6,10 @@ import {
   consultarConvite,
   emitirCodigo,
   estadoAuthVazio,
+  redefinirSenha,
   revogarConvite,
   semearContas,
+  solicitarRedefinicao,
   verificarCodigo,
   type ContaPublica,
   type EstadoAuth,
@@ -47,6 +49,8 @@ export function useGestaoAuth() {
   /** Só existe em demo: o código que iria por e-mail, para a faixa «Demonstração». */
   const codigoDemo = useState<string | null>('gestao:codigo-demo', () => null)
   const senhaDemo = useState<string | null>('gestao:senha-demo', () => null)
+  /** Idem `codigoDemo`, para a tela «Esqueci minha senha» (que não passa pelo 2º fator). */
+  const codigoRedefinicaoDemo = useState<string | null>('gestao:codigo-redefinicao-demo', () => null)
 
   // --- http: o servidor é quem autentica; aqui só se chama e se guarda o que não é segredo ---
   const api = http ? useGestaoApi() : null
@@ -301,6 +305,35 @@ export function useGestaoAuth() {
     return c ? Math.max(0, Math.ceil((c.criadoEm + 60_000 - Date.now()) / 1000)) : 0
   }
 
+  // --- Esqueci minha senha ---
+  // Só demo: o estado aqui é o do navegador. Em `http` a conta é do Supabase Auth e a
+  // redefinição de verdade precisa de endpoint no servidor (ainda não existe).
+  const ERRO_REDEFINICAO_INDISPONIVEL = 'Para trocar a senha, fale com o Dono da imobiliária.'
+
+  /**
+   * Sempre `ok` para a tela, exista a conta ou não, e mesmo que o código tenha sido
+   * recusado por `aguarde`/`bloqueado`: essas respostas só existem para conta real e
+   * mostrá-las diria quem trabalha aqui. Só o captcha falta de verdade.
+   */
+  async function pedirRedefinicao(email: string, captcha: string) {
+    if (!demo) return { ok: false as const, erro: ERRO_REDEFINICAO_INDISPONIVEL }
+    if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA }
+    const r = await solicitarRedefinicao(await ler(), email, bloqueio(demo))
+    if (r.ok) gravar(r.estado)
+    codigoRedefinicaoDemo.value = demo && r.ok ? r.codigo : null
+    return { ok: true as const }
+  }
+
+  async function redefinir(email: string, codigo: string, senha: string, captcha: string) {
+    if (!demo) return { ok: false as const, erro: ERRO_REDEFINICAO_INDISPONIVEL, motivo: 'indisponivel' }
+    if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA, motivo: 'captcha' }
+    const r = await redefinirSenha(await ler(), { email, codigo: codigo.trim(), senha }, bloqueio(demo))
+    // Grava também na falha: é onde o contador de tentativas do código anda.
+    gravar(r.estado)
+    if (r.ok) codigoRedefinicaoDemo.value = null
+    return r
+  }
+
   // --- Convites ---
 
   async function convidar(email: string, perfil: Perfil, convidante: { nome: string; perfil: Perfil }, brokerId?: string) {
@@ -337,6 +370,7 @@ export function useGestaoAuth() {
     pendente,
     codigoDemo,
     senhaDemo,
+    codigoRedefinicaoDemo,
     carregar,
     restaurarPendente,
     definirPendente,
@@ -344,6 +378,8 @@ export function useGestaoAuth() {
     reenviar,
     verificar,
     segundosParaReenvio,
+    pedirRedefinicao,
+    redefinir,
     convidar,
     revogar,
     consultar,

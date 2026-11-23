@@ -494,3 +494,62 @@ export async function verificarCodigo(
       })
     : falha(novo, 'invalido', ERRO_CODIGO_INVALIDO, { restantes: CODIGO_MAX_TENTATIVAS - tentativas })
 }
+
+// --- Esqueci minha senha ---
+
+/**
+ * Pede o código de redefinição. Reaproveita o MESMO mecanismo do 2º fator
+ * (`emitirCodigo`: hash, validade, 5 tentativas, bloqueio, reenvio de 60 s) em vez
+ * de inventar um token novo — duas regras de código a manter seriam duas chances
+ * de uma delas ficar frouxa. O custo: há um código vivo por e-mail, então pedir a
+ * redefinição derruba um código de login ainda não usado; quem está trocando a
+ * senha não está no meio de um login, então aceitamos.
+ *
+ * Conta inexistente devolve `ok` com `codigo: null` e o estado intacto — a mesma
+ * forma de resposta de quem tem conta, para a tela não virar verificador de quem
+ * trabalha aqui. As falhas de `emitirCodigo` (`aguarde`, `bloqueado`) só existem
+ * para conta real; por isso a tela as descarta e mostra sempre o mesmo aviso.
+ */
+export async function solicitarRedefinicao(
+  estado: EstadoAuth,
+  email: string,
+  parcial: Partial<Deps> = {},
+): Promise<ResultadoAuth<{ codigo: string | null }>> {
+  const alvo = normalizarEmail(email)
+  if (!estado.contas.some((c) => c.email === alvo)) return { ok: true, estado, codigo: null }
+  return emitirCodigo(estado, alvo, parcial)
+}
+
+/**
+ * Troca a senha com o código recebido. A senha é validada ANTES do código: senha
+ * fraca devolve erro sem consumir tentativa nem queimar o código, e a pessoa corrige
+ * e reenvia. Inverter a ordem faria um erro de digitação custar um código novo.
+ *
+ * Só depois de trocar o código vira `usado` (via `verificarCodigo`) — a mesma tela
+ * não consegue reaproveitá-lo. Não há login automático: a pessoa volta ao login e
+ * passa pelo 2º fator, senão o reset contornaria a segunda etapa.
+ */
+export async function redefinirSenha(
+  estado: EstadoAuth,
+  dados: { email: string; codigo: string; senha: string },
+  parcial: Partial<Deps> = {},
+): Promise<ResultadoAuth<{ conta: ContaPublica }>> {
+  const d = deps(parcial)
+  const alvo = normalizarEmail(dados.email)
+  const conta = estado.contas.find((c) => c.email === alvo)
+  if (!conta) return falha(estado, 'inexistente', 'Código inválido ou expirado. Peça um novo.')
+
+  const v = validarSenha(dados.senha, { email: alvo, nome: conta.nome })
+  if (!v.ok) return falha(estado, 'senha', 'A senha não cumpre os requisitos.')
+
+  const r = await verificarCodigo(estado, alvo, dados.codigo, d)
+  if (!r.ok) return r
+
+  const salt = hex(d.rng(16))
+  const nova: Conta = { ...conta, salt, senhaHash: await hashSenha(dados.senha, salt, d.hash) }
+  return {
+    ok: true,
+    conta: { email: conta.email, nome: conta.nome, perfil: conta.perfil },
+    estado: { ...r.estado, contas: r.estado.contas.map((c) => (c.email === alvo ? nova : c)) },
+  }
+}
