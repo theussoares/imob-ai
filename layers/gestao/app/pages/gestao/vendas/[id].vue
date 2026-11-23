@@ -137,6 +137,11 @@ function salvarDadosImovel(dados: DadosImovel) {
   if (p) void executar(p.id, 'salvarImovel', { matriculaMae: dados.matriculaMae, valorVenal: dados.valorVenal }, 'Dados do imóvel salvos.')
 }
 
+function salvarMatriculaMae(mae: boolean) {
+  const p = processo.value
+  if (p) void executar(p.id, 'marcarMatriculaMae', { matriculaMae: mae }, mae ? 'Matrícula-mãe marcada.' : 'Matrícula-mãe desmarcada.')
+}
+
 function salvarConferencia(dados: ConferenciaFinal) {
   const p = processo.value
   if (p) void executar(p.id, 'salvarConferenciaFinal', dados, 'Conferência final salva.')
@@ -395,6 +400,7 @@ const aba_ = (ativa: boolean) =>
             @salvar-financeiro="salvarFin"
             @salvar-pessoa="salvarParte"
             @salvar-imovel="salvarDadosImovel"
+            @marcar-matricula-mae="salvarMatriculaMae"
             @salvar-conferencia="salvarConferencia"
             :pode-arquivar="final && !!caps?.arquivar"
             @concluir-venda="concluirVenda"

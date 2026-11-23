@@ -157,7 +157,7 @@ describe('recorte de valores', () => {
     const { client, calls } = fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A)), error: null } })
     await expect(executarAcaoVenda(ctx('recepcao', client), ID, { versao: 1, acao, dados: {} }, deps())).rejects.toMatchObject({ statusCode: 400 })
     // dados vazios falham no Zod (400); com dados válidos o 403 vem da permissão:
-    const dados = acao === 'registrarAdiantamento' ? { resp: 'imob', valor: 10, data: '2026-11-01' } : acao === 'removerAdiantamento' ? { adiantamentoId: 'a1' } : { valor: 1000, fin: { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: 0 } }
+    const dados = acao === 'registrarAdiantamento' ? { resp: 'imob', valor: 10, data: '2026-11-01' } : acao === 'removerAdiantamento' ? { adiantamentoId: 'a1' } : { valor: 1000, fin: { forma: 'À vista', financiado: 0, fgts: 0, proprios: 0 } }
     await expect(executarAcaoVenda(ctx('recepcao', client), ID, { versao: 1, acao, dados }, deps())).rejects.toMatchObject({ statusCode: 403 })
     expect(calls.some((c) => c.method === 'update')).toBe(false)
   })

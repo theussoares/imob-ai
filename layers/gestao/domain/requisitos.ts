@@ -64,8 +64,13 @@ type Base = Pick<Processo, 'matriculaMae' | 'fin'>
 /**
  * Itens da etapa. A 4 muda com a matrícula (a mãe exige também o projeto) e a 5
  * com as fontes salvas: simulação só existe se há financiamento, extrato só se há
- * FGTS, comprovante só se há entrada — exigir o extrato de quem não usa FGTS
- * travaria a venda à vista sem motivo.
+ * FGTS, comprovante da entrada só se há recurso próprio numa venda com
+ * financiamento — exigir o extrato de quem não usa FGTS travaria a venda à
+ * vista sem motivo. O campo «Entrada» saiu do checklist (a entrada É o FGTS mais
+ * o recurso próprio); a chave `fin:entrada` ficou para não deixar órfãos os
+ * arquivos já enviados. À vista não tem entrada: o recurso próprio ali é o preço inteiro, e
+ * pedir «comprovante da entrada» seria pedir o comprovante de pagamento, que
+ * não era exigido antes.
  */
 export function requisitosDaEtapa(p: Base, etapa: number): Requisito[] {
   switch (etapa) {
@@ -82,7 +87,7 @@ export function requisitosDaEtapa(p: Base, etapa: number): Requisito[] {
         'fin:proposta',
         ...(p.fin.financiado > 0 ? ['fin:simulacao'] : []),
         ...(p.fin.fgts > 0 ? ['fin:fgts'] : []),
-        ...(p.fin.entrada > 0 ? ['fin:entrada'] : []),
+        ...(p.fin.proprios > 0 && p.fin.forma !== 'À vista' ? ['fin:entrada'] : []),
       )
     default:
       return []

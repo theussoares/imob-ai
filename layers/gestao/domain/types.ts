@@ -64,7 +64,7 @@ export type FormaPagamento = 'À vista' | 'Financiamento' | 'Misto'
 export interface FontesPagamento {
   forma: FormaPagamento
   financiado: number
-  entrada: number
+  /** FGTS e recurso próprio são opcionais (0 = não usa): juntos formam a entrada. */
   fgts: number
   proprios: number
   /** Valor de avaliação do imóvel (checklist da Olmi). */

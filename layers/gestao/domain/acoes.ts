@@ -86,7 +86,7 @@ export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, q
     updated: quando,
     valor: 0,
     pct: dados.pct ?? 5,
-    fin: { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: 0 },
+    fin: { forma: 'À vista', financiado: 0, fgts: 0, proprios: 0 },
     etapa: 1,
     concluidas: Array.from({ length: TOTAL_ETAPAS }, () => false),
     adiantamentos: [],

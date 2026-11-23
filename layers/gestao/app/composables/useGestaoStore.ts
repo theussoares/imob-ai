@@ -9,6 +9,7 @@ import { imoveisSeed, situacaoImovel, type ImovelGestao } from '../../domain/imo
 import { permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
 import type { PropertyStatus } from '~~/shared/models/property'
+import { migrarEntradaLegada } from '../../domain/acoes-processo'
 import { locacoesSeed } from '../../domain/locacao-seed'
 import { CORRETORES, documentosSeedCompleto, processosSeed } from '../../domain/seed'
 import { hojeISO } from '../../domain/avisos-locacao'
@@ -115,7 +116,7 @@ export function useGestaoStore() {
     lerPersistido() {
       const g = lerBlob()
       return g
-        ? { processos: g.processos, documentos: g.documentos, locacoes: g.locacoes, matriz: matrizComPadrao(g.matriz), config: g.config ?? configuracoesPadrao(), consultas: Array.isArray(g.consultas) ? g.consultas : [], corretores: CORRETORES }
+        ? { processos: g.processos.map(migrarEntradaLegada), documentos: g.documentos, locacoes: g.locacoes, matriz: matrizComPadrao(g.matriz), config: g.config ?? configuracoesPadrao(), consultas: Array.isArray(g.consultas) ? g.consultas : [], corretores: CORRETORES }
         : null
     },
     limparPersistido() {

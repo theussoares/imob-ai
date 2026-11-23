@@ -38,7 +38,7 @@ const MIME_POR_EXTENSAO: Record<string, string> = {
 
 const mimeDe = (a: ArquivoGestao): string => a.file?.type || MIME_POR_EXTENSAO[a.name.split('.').pop()?.toLowerCase() ?? ''] || 'application/octet-stream'
 
-const FIN_VAZIO = { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: 0 } as const
+const FIN_VAZIO = { forma: 'À vista', financiado: 0, fgts: 0, proprios: 0 } as const
 
 /**
  * Perfil sem `valores` recebe o processo SEM `pct`, `adiantamentos` e `fin` (o servidor recorta).

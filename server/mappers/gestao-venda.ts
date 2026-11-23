@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
 import { analiseFinSchema } from '~~/server/mappers/gestao-analise'
 import type { Processo } from '~~/layers/gestao/domain/types'
+import { migrarEntradaLegada } from '~~/layers/gestao/domain/acoes-processo'
 
 /**
  * Mapper de `gestao_vendas` (0060) <-> `Processo` do domínio.
@@ -25,7 +26,11 @@ const pessoa = z.object({
 const fontes = z.object({
   forma: z.enum(['À vista', 'Financiamento', 'Misto']),
   financiado: z.number(),
-  entrada: z.number(),
+  // Campo que saiu do formulário (a entrada passou a ser FGTS + recurso próprio). Fica
+  // opcional SÓ para ler processo gravado antes: tirar do schema faria o Zod descartar
+  // o valor calado, a soma das fontes deixaria de fechar e a etapa 5 reabriria sozinha.
+  // `toVendaModel` dobra o valor no recurso próprio e o campo some na próxima escrita.
+  entrada: z.number().optional(),
   fgts: z.number(),
   proprios: z.number(),
   avaliacao: z.number().optional(),
@@ -103,7 +108,7 @@ export interface Venda {
 }
 
 export function toVendaModel(row: VendaRow): Venda {
-  const processo = processoSchema.parse(row.dados) as Processo
+  const processo = migrarEntradaLegada(processoSchema.parse(row.dados) as Processo)
   // O id da coluna manda: o jsonb não pode «mudar» de processo por conta própria.
   return { id: row.id, versao: row.versao, processo: { ...processo, id: row.id } }
 }
