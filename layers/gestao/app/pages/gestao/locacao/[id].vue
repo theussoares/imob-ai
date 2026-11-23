@@ -18,7 +18,7 @@ const demo = !!useRuntimeConfig().public.gestaoDemo && !useGestaoHttp()
 const { askConfirm } = useConfirm()
 const { sessao } = useGestaoSessao()
 
-await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'imoveis'])
+await store.carregar(false, ['base', 'corretores', 'config', 'locacoes'])
 await Promise.all([store.carregarDetalhe('locacao', String(route.params.id)), store.carregarDocumentos('locacao', String(route.params.id))])
 
 // Só enxerga o que `locacoesVisiveis` devolve: corretor pedindo a locação de outro cai

@@ -235,10 +235,16 @@ L-2026-0002 (c3, Encerrada). Menu «Contratos de locação» = `/gestao/locacao`
 
 ## F17 — Imóveis (espelho do catálogo)
 
-1. Dono ou recepção em `/gestao/imoveis`: 5 imóveis (`imovel-card`), cada um com selo do anúncio («No site») e da
-   situação («Em locação» ou «Disponível»). Corretor Carlos (c1): só 2 (im-101 e im-104).
-2. Corretor abrindo `/gestao/imoveis/im-102` (de outro corretor) pela URL volta para `/gestao/imoveis`.
-3. Busca sem acento e sem caixa (`barracao`, `otavio`); filtros de anúncio, situação e finalidade combinam.
+1. Qualquer perfil em `/gestao/imoveis`: os 5 imóveis (`imovel-card`), cada um com selo do anúncio («No site») e da
+   situação («Em locação» ou «Disponível»). Corretor Carlos (c1) vê os mesmos 5 (a situação é dos contratos da
+   imobiliária, não só dos dele). Lista paginada de 24 em 24 (`paginacao`, `pagina-proxima`): página, busca e
+   filtros ficam na URL (`?pagina=2&q=…&status=…&purpose=…&situacao=…`) e sobrevivem a recarregar e «voltar».
+2. Corretor abrindo `/gestao/imoveis/im-102` (de outro corretor) pela URL abre e pode editar.
+3. Busca sem acento e sem caixa (`barracao`, `otavio`, código `IM-0042`); filtros de anúncio, situação e
+   finalidade combinam e valem para a lista toda, não só para a página aberta. Mudar filtro volta à página 1.
+3a. Seletor de imóvel de Novo processo, Nova locação e Abertura da locação: campo `imovel-busca-opcoes`; sem texto
+    mostra os mais recentes da finalidade (venda ou aluguel), com `imovel-busca-restantes` quando há mais; digitar
+    filtra no servidor; o imóvel já escolhido/vinculado continua na lista ao mudar o texto.
 4. `imovel-novo` → salvar vazio mostra «Informe o título do imóvel.». Como corretor, `imovel-corretor` fica
    desabilitado com ele mesmo; como dono/recepção/jurídico, dá para escolher. O texto `imovel-contato-site` diz
    que o contato do site é o WhatsApp da imobiliária.

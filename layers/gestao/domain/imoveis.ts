@@ -4,7 +4,7 @@ import { PROPERTY_TYPE_LABELS } from '~~/shared/models/property-type'
 import type { Property, PropertyImage, PropertyPurpose, PropertyStatus } from '~~/shared/models/property'
 import type { PropertyType } from '~~/shared/models/property-type'
 import { statusFinal } from './status.ts'
-import type { Locacao, Processo } from './types'
+import type { Locacao, Processo, StatusVenda } from './types'
 
 /**
  * Cadastro de imóveis da gestão — espelho do catálogo (`Property`). Em mock hoje; no backend a mesma
@@ -120,10 +120,21 @@ export function imoveisSeed(): ImovelGestao[] {
  * Venda sem `imovelId` (antigas, texto livre) não entra: não há vínculo confiável.
  */
 export function situacaoImovel(imovelId: string, locacoes: Locacao[], processos: Processo[] = []): SituacaoImovel {
-  if (locacoes.some((l) => l.imovelId === imovelId && l.status !== 'Encerrada' && !l.arquivado)) return 'em-locacao'
-  const vendas = processos.filter((p) => p.imovelId === imovelId && !p.arquivado)
-  if (vendas.some((p) => !statusFinal(p.status))) return 'em-venda'
-  if (vendas.some((p) => p.status === 'Venda concluída')) return 'vendido'
+  return situacaoPorContratos(
+    locacoes.some((l) => l.imovelId === imovelId && l.status !== 'Encerrada' && !l.arquivado),
+    processos.filter((p) => p.imovelId === imovelId && !p.arquivado).map((p) => p.status),
+  )
+}
+
+/**
+ * O mesmo cálculo de `situacaoImovel` a partir do que importa: se há locação ativa do imóvel e os status das
+ * vendas não arquivadas dele. É o que o servidor tem à mão quando lê só duas colunas dos contratos (a lista
+ * paginada), sem montar `Locacao` e `Processo` inteiros.
+ */
+export function situacaoPorContratos(emLocacao: boolean, statusVendas: readonly StatusVenda[]): SituacaoImovel {
+  if (emLocacao) return 'em-locacao'
+  if (statusVendas.some((s) => !statusFinal(s))) return 'em-venda'
+  if (statusVendas.includes('Venda concluída')) return 'vendido'
   return 'disponivel'
 }
 
@@ -135,12 +146,19 @@ export interface FiltroImoveis {
 }
 export const FILTRO_IMOVEIS_VAZIO: FiltroImoveis = { busca: '', situacao: '', purpose: '', status: '' }
 
-export function filtrarImoveis(imoveis: ImovelGestao[], locacoes: Locacao[], f: FiltroImoveis, processos: Processo[] = []): ImovelGestao[] {
+/** Texto que a busca da lista procura (sem acento, sem caixa): título, referência, bairro, proprietário e código. */
+export const textoBuscaImovel = (i: ImovelGestao): string => semAcento(`${i.title} ${i.code ?? ''} ${i.location ?? ''} ${i.neighborhood ?? ''} ${i.ownerName} ${i.id}`)
+
+/** O filtro da tela e do servidor: a situação vem de fora porque cada lado a calcula do que tem (contratos inteiros ou só colunas). */
+export function filtrarImoveisPorSituacao(imoveis: ImovelGestao[], situacaoDe: (id: string) => SituacaoImovel, f: FiltroImoveis): ImovelGestao[] {
   const q = semAcento(f.busca.trim())
   return imoveis.filter((i) => {
-    if (f.situacao && situacaoImovel(i.id, locacoes, processos) !== f.situacao) return false
+    if (f.situacao && situacaoDe(i.id) !== f.situacao) return false
     if (f.purpose && i.purpose !== f.purpose) return false
     if (f.status && i.status !== f.status) return false
-    return !q || semAcento(`${i.title} ${i.location ?? ''} ${i.neighborhood ?? ''} ${i.ownerName} ${i.id}`).includes(q)
+    return !q || textoBuscaImovel(i).includes(q)
   })
 }
+
+export const filtrarImoveis = (imoveis: ImovelGestao[], locacoes: Locacao[], f: FiltroImoveis, processos: Processo[] = []): ImovelGestao[] =>
+  filtrarImoveisPorSituacao(imoveis, (id) => situacaoImovel(id, locacoes, processos), f)

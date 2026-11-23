@@ -5,7 +5,7 @@ import { configuracoesPadrao, encargosDaConfig, type ConfiguracoesGestao } from 
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos, validarArquivo } from '../../domain/documentos'
 import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
-import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
+import { imoveisSeed, situacaoImovel, type ImovelGestao } from '../../domain/imoveis'
 import { permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
 import type { PropertyStatus } from '~~/shared/models/property'
@@ -23,6 +23,7 @@ import { STATUS_LOCACAO } from '../../domain/locacao-status'
 import type { CategoriaDocumento, Corretor, Documento, Locacao, MatrizPermissoes, Processo } from '../../domain/types'
 import { type FiltroPagina, HttpGestaoRepository } from '../services/HttpGestaoRepository'
 import { HttpImoveisRepository } from '../services/HttpImoveisRepository'
+import { paginaDeImoveis as paginarImoveisEmMemoria, type FiltroListaImoveis, type PaginaImoveis } from '../../domain/imoveis-lista'
 import type { ArmazemGestao, ArquivoGestao, DadosGestao, GestaoRepository, Mudanca, Resultado, TipoAlvo } from '../services/GestaoRepository'
 import type { ImoveisRepository } from '../services/ImoveisRepository'
 import { MockGestaoRepository } from '../services/MockGestaoRepository'
@@ -294,6 +295,26 @@ export function useGestaoStore() {
     return { ...paginar(lista, f.pagina), contagens: contarPorStatus(casadas, STATUS_VENDA) }
   }
 
+  /**
+   * Lista de imóveis: em `http` o SERVIDOR filtra e fatia (busca, anúncio, finalidade, situação) e calcula a
+   * situação dos contratos do tenant; no mock, as mesmas funções puras sobre a lista inteira e os contratos
+   * carregados. Os seletores de contrato usam esta mesma consulta (`purpose` + busca), com a primeira página.
+   */
+  async function paginaDeImoveis(f: FiltroListaImoveis): Promise<PaginaImoveis> {
+    if (api) return (imoveisRepo as HttpImoveisRepository).pagina(f)
+    const situacaoDe = (id: string) => situacaoImovel(id, estado.value.locacoes, estado.value.processos)
+    return { ...paginarImoveisEmMemoria(imoveis.value, situacaoDe, f), truncado: false }
+  }
+
+  /** Um imóvel pelo id: da lista do store ou, em `http`, do servidor (o store só guarda os 200 mais recentes). */
+  async function obterImovel(id: string): Promise<ImovelGestao | null> {
+    const guardado = imoveis.value.find((i) => i.id === id)
+    if (guardado || !api) return guardado ?? null
+    const achado = await (imoveisRepo as HttpImoveisRepository).obter(id)
+    if (achado) imoveis.value = trocarOuPor(imoveis.value, achado)
+    return achado
+  }
+
   async function paginaDeLocacoes(f: FiltroPagina): Promise<PaginaComContagens<Locacao>> {
     if (api) return (repo as HttpGestaoRepository).paginaLocacoes(f)
     const base = f.arquivados && sessao.value ? locacoesArquivadas(matriz.value, sessao.value, estado.value.locacoes) : locacoesVisiveis.value
@@ -526,6 +547,8 @@ export function useGestaoStore() {
     executar,
     carregarDetalhe,
     paginaDeVendas,
+    paginaDeImoveis,
+    obterImovel,
     paginaDeDocumentos,
     lerFinanceiro,
     lerDashboard,

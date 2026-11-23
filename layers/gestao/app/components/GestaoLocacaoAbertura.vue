@@ -7,18 +7,15 @@ const props = defineProps<{ locacao: Locacao; podeEditar: boolean; corretorTrava
 const emit = defineEmits<{ salvar: [dados: DadosAberturaLocacao] }>()
 
 const store = useGestaoStore()
-// A lista de imóveis só é buscada quando este formulário abre (as listas de contratos não a carregam).
-onMounted(() => void store.carregar(false, ['imoveis']))
-// Só imóvel que pode ser alugado; o já vinculado fica na lista mesmo se o cadastro mudou depois.
-const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'aluguel' || i.id === props.locacao.imovelId))
-
 const locador = reactive({ ...props.locacao.locador })
 const locatario = reactive({ ...props.locacao.locatario })
 const imovelId = ref(props.locacao.imovelId)
+// Só imóvel que pode ser alugado, buscado no servidor; o já vinculado fica na lista mesmo se o cadastro mudou depois.
+const busca = useBuscaImoveis('aluguel', imovelId)
 const corretorId = ref(props.locacao.corretorId)
 
 function salvar() {
-  const imovel = (() => { const i = store.imoveis.value.find((x) => x.id === imovelId.value); return i ? rotuloImovel(i) : props.locacao.imovel })()
+  const imovel = (() => { const i = busca.achar(imovelId.value); return i ? rotuloImovel(i) : props.locacao.imovel })()
   emit('salvar', { locador: { ...locador }, locatario: { ...locatario }, imovelId: imovelId.value, imovel, corretorId: corretorId.value })
 }
 
@@ -37,10 +34,16 @@ const botao =
       <label :class="rotulo">CPF ou CNPJ do locador<input v-model="locador.cpf" :class="campo" :disabled="!podeEditar" inputmode="numeric" autocomplete="off" /></label>
       <label :class="rotulo">Locatário (inquilino)<input v-model="locatario.nome" :class="campo" :disabled="!podeEditar" autocomplete="off" data-testid="abertura-locatario" /></label>
       <label :class="rotulo">CPF ou CNPJ do locatário<input v-model="locatario.cpf" :class="campo" :disabled="!podeEditar" inputmode="numeric" autocomplete="off" /></label>
+      <label v-if="podeEditar" :class="rotulo">
+        Buscar imóvel
+        <input v-model="busca.q" type="search" :class="campo" autocomplete="off" placeholder="Título, bairro, código ou proprietário" data-testid="imovel-busca-opcoes" />
+        <span v-if="busca.falhou" role="alert" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">Não foi possível buscar os imóveis. <button type="button" class="cursor-pointer border-0 bg-transparent p-0 font-bold underline" @click="busca.buscar()">Tentar de novo</button></span>
+        <span v-else-if="busca.restantes" class="text-[length:var(--fs-caption)] font-normal text-[var(--ink-soft)]" data-testid="imovel-busca-restantes">Mostrando os mais recentes; mais {{ busca.restantes }} — digite para refinar.</span>
+      </label>
       <label :class="rotulo">
         Imóvel
         <select v-model="imovelId" :class="campo" :disabled="!podeEditar">
-          <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
+          <option v-for="i in busca.opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
         </select>
       </label>
       <label :class="rotulo">
