@@ -1,5 +1,5 @@
 import type { MatrizPermissoes, PermValor } from '~~/layers/gestao/domain/types'
-import { DEFINICOES_PERMISSAO, matrizPadrao, permissaoFixa } from '~~/layers/gestao/domain/permissions'
+import { DEFINICOES_PERMISSAO, matrizPadrao, valorFixo } from '~~/layers/gestao/domain/permissions'
 import { configuracoesPadrao, validarConfiguracoes, type ConfiguracoesGestao } from '~~/layers/gestao/domain/configuracoes'
 
 const PERFIS = ['corretor', 'recepcao', 'juridico', 'dono'] as const
@@ -28,7 +28,8 @@ export function matrizDoBanco(salva: unknown): MatrizPermissoes {
     for (const perfil of PERFIS) {
       const v = linha[perfil]
       if (typeof v === 'string' && (def.estados as string[]).includes(v)) m[def.chave][perfil] = v as PermValor
-      if (permissaoFixa(def.chave, perfil)) m[def.chave][perfil] = 'sim'
+      const fixo = valorFixo(def.chave, perfil)
+      if (fixo) m[def.chave][perfil] = fixo
     }
   }
   return m

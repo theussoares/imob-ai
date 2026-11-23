@@ -32,13 +32,19 @@ describe('alterarPermissao', () => {
       expect(permissaoFixa(chave, 'dono')).toBe(true)
       expect(alterarPermissao(matrizPadrao(), chave, 'dono', 'nao')).toMatchObject({ ok: false })
     }
-    expect(permissaoFixa('admin', 'juridico')).toBe(false)
     expect(alterarPermissao(matrizPadrao(), 'consulta', 'dono', 'nao')).toMatchObject({ ok: true })
   })
 
-  it('dá a um perfil a permissão de administrar', () => {
-    const r = alterarPermissao(matrizPadrao(), 'admin', 'juridico', 'sim')
-    expect(r.ok && menuVisivel(r.matriz, 'juridico', 'config')).toBe(true)
+  it('administrar (permissões, usuários, config) não se concede a outro perfil', () => {
+    for (const perfil of ['corretor', 'recepcao', 'juridico'] as const) {
+      expect(permissaoFixa('admin', perfil)).toBe(true)
+      expect(alterarPermissao(matrizPadrao(), 'admin', perfil, 'sim')).toMatchObject({ ok: false })
+    }
+  })
+
+  it('o Dono pode estender o convite a outro perfil', () => {
+    const r = alterarPermissao(matrizPadrao(), 'convidar', 'corretor', 'sim')
+    expect(r.ok && menuVisivel(r.matriz, 'corretor', 'usuarios')).toBe(true)
   })
 
   it('recusa permissão inexistente', () => {
