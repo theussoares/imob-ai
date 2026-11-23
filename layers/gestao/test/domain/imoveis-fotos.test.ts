@@ -20,11 +20,11 @@ describe('adicionarFotos', () => {
     expect(f.map((x) => x.isCover)).toEqual([true, false, false])
   })
 
-  it('não passa de 6 fotos e deixa a lista intacta', () => {
+  it('não passa de 20 fotos e deixa a lista intacta', () => {
     const f = tres()
-    const r = adicionarFotos(f, [img(), img(), img(), img()], sequencia())
-    expect(FOTOS_IMOVEL_MAX).toBe(6)
-    expect(r).toEqual({ ok: false, erro: 'Cada imóvel aceita no máximo 6 fotos.' })
+    const r = adicionarFotos(f, Array.from({ length: 18 }, () => img()), sequencia())
+    expect(FOTOS_IMOVEL_MAX).toBe(20)
+    expect(r).toEqual({ ok: false, erro: 'Cada imóvel aceita no máximo 20 fotos.' })
   })
 
   it('guarda as duas versões (grande e pequena)', () => {

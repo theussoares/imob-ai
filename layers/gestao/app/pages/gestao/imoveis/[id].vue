@@ -109,19 +109,6 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
 
     <!-- `fieldset disabled` desabilita todos os campos e botões de dentro de uma vez, inclusive os dos componentes filhos. -->
     <fieldset :disabled="!permissoes.editar" class="contents" :class="permissoes.editar ? '' : 'opacity-70'">
-    <section :class="card">
-      <GestaoImovelFotos
-        :fotos="imovel.images"
-        :max="FOTOS_IMOVEL_MAX"
-        :erro="erroFoto"
-        :ocupado="enviandoFotos"
-        @adicionar="adicionarFotos"
-        @capa="(id) => acaoFoto(() => store.definirCapaImovel(imovel!.id, id))"
-        @mover="(id, d) => acaoFoto(() => store.moverFotoImovel(imovel!.id, id, d))"
-        @remover="(id) => acaoFoto(() => store.removerFotoImovel(imovel!.id, id))"
-      />
-    </section>
-
     <GestaoImovelForm
       v-model="form"
       :corretores="store.corretores.value"
@@ -131,8 +118,22 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
       :salvando="salvando"
       rotulo-salvar="Salvar alterações"
       :somente-leitura="!permissoes.editar"
+      :resumo-fotos="`${imovel.images.length}/${FOTOS_IMOVEL_MAX}`"
       @salvar="salvar"
-    />
+    >
+      <template #fotos>
+        <GestaoImovelFotos
+          :fotos="imovel.images"
+          :max="FOTOS_IMOVEL_MAX"
+          :erro="erroFoto"
+          :ocupado="enviandoFotos"
+          @adicionar="adicionarFotos"
+          @capa="(id) => acaoFoto(() => store.definirCapaImovel(imovel!.id, id))"
+          @mover="(id, d) => acaoFoto(() => store.moverFotoImovel(imovel!.id, id, d))"
+          @remover="(id) => acaoFoto(() => store.removerFotoImovel(imovel!.id, id))"
+        />
+      </template>
+    </GestaoImovelForm>
     </fieldset>
 
     <section v-if="permissoes.excluir" :class="card" class="flex flex-wrap items-center justify-between gap-3">

@@ -2,6 +2,7 @@
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, temQuartos } from '~~/shared/models/property-type'
 import { ROTULO_FINALIDADE, ROTULO_STATUS_IMOVEL, STATUS_IMOVEL } from '../../domain/imoveis'
 import { errosImovel, type CampoImovel, type NovoImovel } from '../../domain/imoveis-acoes'
+import { errosPorSecao, resumoSecao, rotuloErrosSecao, SECAO_DO_CAMPO, secoesAbertasPadrao, type SecaoImovel } from '../../domain/imoveis-secoes'
 
 interface Props {
   corretores: { id: string; nome: string }[]
@@ -12,6 +13,8 @@ interface Props {
   rotuloSalvar: string
   /** Imóvel de outro corretor visto pelo contrato: sem salvar e sem os campos internos (o servidor já os omite). */
   somenteLeitura?: boolean
+  /** Resumo do bloco Fotos fechado (ex.: «3/20»). O bloco só existe quando a tela preenche o slot `fotos`. */
+  resumoFotos?: string
 }
 const props = defineProps<Props>()
 const emit = defineEmits<{ salvar: [] }>()
@@ -23,15 +26,23 @@ const erros = ref<Partial<Record<CampoImovel, string>>>({})
 const tentou = ref(false)
 watch(m, () => { if (tentou.value) erros.value = errosImovel(m.value) }, { deep: true })
 
-function enviar() {
+const abertas = ref(secoesAbertasPadrao(props.somenteLeitura))
+const errosSecao = computed(() => errosPorSecao(erros.value))
+const selo = (s: SecaoImovel) => (errosSecao.value[s] ? rotuloErrosSecao(errosSecao.value[s]) : '')
+const todas = (aberto: boolean) => { for (const s of Object.keys(abertas.value) as SecaoImovel[]) abertas.value[s] = aberto }
+
+async function enviar() {
   tentou.value = true
   erros.value = errosImovel(m.value)
-  const primeiro = Object.keys(erros.value)[0]
-  if (!primeiro) {
+  const campos = Object.keys(erros.value) as CampoImovel[]
+  if (!campos.length) {
     emit('salvar')
     return
   }
-  const el = document.getElementById(`f-${primeiro}`)
+  // Bloco fechado esconde o campo: abre os que têm erro e espera o DOM antes de focar o primeiro.
+  for (const c of campos) abertas.value[SECAO_DO_CAMPO[c]] = true
+  await nextTick()
+  const el = document.getElementById(`f-${campos[0]}`)
   el?.focus()
   el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
 }
@@ -53,15 +64,19 @@ const comQuartos = computed(() => (m.value.type ? temQuartos(m.value.type) : tru
 const campo =
   'min-h-11 w-full rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-ui)] text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand)]'
 const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold'
-const secao = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shadow-[0_1px_2px_rgba(20,22,26,0.05)] md:p-5 [display:grid] items-start gap-3 md:grid-cols-2'
-const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
+const grade = '[display:grid] items-start gap-3 md:grid-cols-2'
+const botaoTudo = 'min-h-9 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-3 text-[length:var(--fs-label)] font-semibold hover:bg-[var(--paper-2)]'
 </script>
 
 <template>
   <form class="[display:grid] gap-4" novalidate data-testid="imovel-form" @submit.prevent="enviar">
     <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]"><span class="text-[var(--danger)]" aria-hidden="true">*</span> campo obrigatório</p>
-    <fieldset :class="secao" class="m-0 min-w-0">
-      <legend :class="titulo" class="float-left mb-2 w-full p-0">Anúncio</legend>
+    <div class="flex justify-end gap-2">
+      <button type="button" :class="botaoTudo" data-testid="imovel-expandir-tudo" @click="todas(true)">Expandir tudo</button>
+      <button type="button" :class="botaoTudo" data-testid="imovel-recolher-tudo" @click="todas(false)">Recolher tudo</button>
+    </div>
+    <GestaoAcordeao id="anuncio" v-model:aberto="abertas.anuncio" titulo="Anúncio" :resumo="resumoSecao('anuncio', m)" :selo="selo('anuncio')">
+      <div :class="grade">
       <label :class="rotulo" class="md:col-span-2"><span>Título<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.title" :class="campo" autocomplete="off" placeholder="Apartamento 3 quartos" v-bind="aria('title')" data-testid="imovel-titulo" />
         <span v-if="erros.title" id="e-title" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.title }}</span>
@@ -101,10 +116,11 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
       <label class="flex min-h-11 items-center gap-2 font-semibold">
         <input v-model="m.highStandard" type="checkbox" class="size-5" /> Alto padrão
       </label>
-    </fieldset>
+      </div>
+    </GestaoAcordeao>
 
-    <fieldset :class="secao" class="m-0 min-w-0">
-      <legend :class="titulo" class="float-left mb-2 w-full p-0">Endereço</legend>
+    <GestaoAcordeao id="endereco" v-model:aberto="abertas.endereco" titulo="Endereço" :resumo="resumoSecao('endereco', m)" :selo="selo('endereco')">
+      <div :class="grade">
       <label :class="rotulo">CEP
         <input v-model="m.addressZip" :class="campo" inputmode="numeric" autocomplete="off" placeholder="00000-000" v-bind="aria('addressZip')" data-testid="imovel-cep" />
         <span v-if="erros.addressZip" id="e-addressZip" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.addressZip }}</span>
@@ -130,10 +146,11 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
       <label :class="rotulo" class="md:col-span-2">Referência interna (condomínio, bloco)
         <input v-model="m.location" :class="campo" autocomplete="off" data-testid="imovel-referencia" />
       </label>
-    </fieldset>
+      </div>
+    </GestaoAcordeao>
 
-    <fieldset :class="secao" class="m-0 min-w-0">
-      <legend :class="titulo" class="float-left mb-2 w-full p-0">Medidas</legend>
+    <GestaoAcordeao id="medidas" v-model:aberto="abertas.medidas" titulo="Medidas" :resumo="resumoSecao('medidas', m)" :selo="selo('medidas')">
+      <div :class="grade">
       <label :class="rotulo"><span>Área (m²)<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input :value="m.area ?? ''" :class="campo" type="number" min="0" step="any" inputmode="decimal" v-bind="aria('area')" data-testid="imovel-area" @input="m.area = num($event)" />
         <span v-if="erros.area" id="e-area" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.area }}</span>
@@ -156,10 +173,11 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
         <span v-if="erros.parking" id="e-parking" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.parking }}</span>
         </label>
       </template>
-    </fieldset>
+      </div>
+    </GestaoAcordeao>
 
-    <fieldset :class="secao" class="m-0 min-w-0">
-      <legend :class="titulo" class="float-left mb-2 w-full p-0">Interno (não vai para o site)</legend>
+    <GestaoAcordeao id="interno" v-model:aberto="abertas.interno" titulo="Interno (não vai para o site)" :resumo="resumoSecao('interno', m)" :selo="selo('interno')">
+      <div :class="grade">
       <label :class="rotulo"><span>Proprietário<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <input v-model="m.ownerName" :class="campo" autocomplete="off" v-bind="aria('ownerName')" data-testid="imovel-proprietario" />
         <span v-if="erros.ownerName" id="e-ownerName" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.ownerName }}</span>
@@ -177,7 +195,12 @@ const titulo = 'm-0 text-[length:var(--fs-body)] font-bold md:col-span-2'
       <p class="m-0 self-end text-[length:var(--fs-label)] text-[var(--ink-soft)]" data-testid="imovel-contato-site">
         Contato no site: WhatsApp da imobiliária{{ props.telefoneSite ? ` (${props.telefoneSite})` : '' }}. O corretor aparece no anúncio só se estiver configurado para aparecer.
       </p>
-    </fieldset>
+      </div>
+    </GestaoAcordeao>
+
+    <GestaoAcordeao v-if="$slots.fotos" id="fotos" v-model:aberto="abertas.fotos" titulo="Fotos" :resumo="props.resumoFotos">
+      <slot name="fotos" />
+    </GestaoAcordeao>
 
     <p v-if="!props.somenteLeitura && Object.keys(erros).length" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="imovel-erros-resumo">Corrija {{ Object.keys(erros).length }} {{ Object.keys(erros).length === 1 ? 'campo' : 'campos' }} antes de salvar.</p>
     <p v-if="props.erro && !Object.keys(erros).length" role="alert" class="m-0 font-semibold text-[var(--danger)]" data-testid="imovel-erro">{{ props.erro }}</p>
