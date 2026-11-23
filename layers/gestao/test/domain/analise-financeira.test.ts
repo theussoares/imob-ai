@@ -29,7 +29,8 @@ describe('permissões do financeiro por perfil', () => {
     const c = sessao('corretor', 'c1')
     for (const s of ['rascunho', 'devolvido'] as const) expect(capacidades(matriz, c, p({ status: s }))).toMatchObject({ verFinanceiro: true, editarFinanceiro: true, valores: false })
     for (const s of ['em-analise', 'aprovado'] as const) expect(capacidades(matriz, c, p({ status: s }))).toMatchObject({ verFinanceiro: true, editarFinanceiro: false })
-    expect(capacidades(matriz, c, p())).toMatchObject({ verFinanceiro: true, editarFinanceiro: true })
+    // Sem análise (legado, ou aberto por quem tem `valores`) ele lê, mas não edita: ninguém revisaria o que gravasse.
+    expect(capacidades(matriz, c, p())).toMatchObject({ verFinanceiro: true, editarFinanceiro: false })
   })
 
   it('corretor de outro processo e recepção não veem nem editam', () => {
@@ -55,8 +56,10 @@ describe('permissões do financeiro por perfil', () => {
     expect(capacidades(antiga as ReturnType<typeof matrizPadrao>, sessao('corretor', 'c1'), p()).verFinanceiro).toBe(false)
   })
 
-  it('analiseEditavel: ausente (legado) e rascunho/devolvido editam', () => {
-    expect(analiseEditavel(undefined)).toBe(true)
+  it('analiseEditavel: só rascunho e devolvido; ausente (legado) não', () => {
+    expect(analiseEditavel(undefined)).toBe(false)
+    expect(analiseEditavel({ status: 'rascunho' })).toBe(true)
+    expect(analiseEditavel({ status: 'devolvido' })).toBe(true)
     expect(analiseEditavel({ status: 'em-analise' })).toBe(false)
   })
 })

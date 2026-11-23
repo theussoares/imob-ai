@@ -5,7 +5,7 @@ import type { Processo, ResponsavelAdiantamento } from '../../domain/types'
 
 const props = defineProps<{
   processo: Processo
-  /** false em processo final: lista só para consulta */
+  /** false em processo final, ou com o financeiro em análise/aprovado: lista só para consulta */
   editavel: boolean
 }>()
 const emit = defineEmits<{ registrar: [dados: NovoAdiantamento, arquivo: File | null]; remover: [id: string]; pagar: [id: string, arquivo: File | null] }>()
@@ -222,7 +222,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
           Registrar
         </button>
       </form>
-      <p v-else class="m-0 mt-3 text-[var(--ink-soft)]">Processo encerrado: adiantamentos só para consulta.</p>
+      <p v-else class="m-0 mt-3 text-[var(--ink-soft)]">Adiantamentos só para consulta: o processo está encerrado ou o financeiro não está aberto para edição.</p>
     </div>
   </section>
 </template>

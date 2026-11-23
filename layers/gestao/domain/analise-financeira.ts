@@ -13,11 +13,12 @@ export const ROTULO_ANALISE: Record<StatusAnaliseFin, string> = {
   devolvido: 'Devolvido',
 }
 
-/** O corretor só mexe no financeiro antes de enviar e depois de uma devolução. Sem análise (legado) não há trava. */
-export const analiseEditavel = (a: AnaliseFinanceira | undefined): boolean => !a || a.status === 'rascunho' || a.status === 'devolvido'
-
-/** Contrato aberto por quem não tem `valores` já nasce em rascunho; quem tem `valores` não passa por análise. */
-export const analiseNascente = (temValores: boolean): AnaliseFinanceira | undefined => (temValores ? undefined : { status: 'rascunho' })
+/**
+ * O corretor só mexe no financeiro dentro de uma análise ABERTA: antes de enviar (rascunho) e depois de uma devolução.
+ * Sem análise (contrato legado, ou aberto por quem tem `valores`) ele não edita: não há quem revise o que ele gravar,
+ * e `financeiroLivre` não pode virar um jeito de pular a revisão. Ler continua valendo.
+ */
+export const analiseEditavel = (a: AnaliseFinanceira | undefined): boolean => a?.status === 'rascunho' || a?.status === 'devolvido'
 
 export type ResultadoAnalise = { ok: true; analise: AnaliseFinanceira; acao: string } | { ok: false; erro: string }
 
