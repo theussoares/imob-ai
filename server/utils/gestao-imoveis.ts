@@ -2,12 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import type { PropertyStatus } from '~~/shared/models/property'
 import type { ImovelGestao } from '~~/layers/gestao/domain/imoveis'
-import { STATUS_IMOVEL, rotuloImovel, semAcento } from '~~/layers/gestao/domain/imoveis'
+import { STATUS_IMOVEL, rotuloImovel, semAcento, situacaoPorContratos, type SituacaoImovel } from '~~/layers/gestao/domain/imoveis'
+import { filtroPedeVarredura, paginaDeImoveis, type FiltroListaImoveis, type PaginaImoveis } from '~~/layers/gestao/domain/imoveis-lista'
+import { POR_PAGINA, totalDePaginas } from '~~/layers/gestao/domain/paginacao'
 import { permissoesImovel, podeExcluirImovel, validarImovel } from '~~/layers/gestao/domain/imoveis-acoes'
 import { definirCapa, moverFoto, removerFoto } from '~~/layers/gestao/domain/imoveis-fotos'
 import type { Locacao, MatrizPermissoes, Perfil, Sessao } from '~~/layers/gestao/domain/types'
 import { lerCorpoImovel, toImovelGestao, toPropertyInput } from '~~/server/mappers/gestao-imovel'
 import { getBroker } from '~~/server/repositories/broker.repository'
+import { contratosAtivosDosImoveis } from '~~/server/repositories/gestao-imovel-situacao.repository'
 import {
   createProperty,
   deleteProperty,
@@ -15,6 +18,7 @@ import {
   getPropertyById,
   insertPropertyImages,
   listAllProperties,
+  listPropertiesPage,
   listPropertyIdentities,
   updatePropertyFeatured,
   updatePropertyImageOrder,
@@ -83,6 +87,34 @@ async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGesta
 export async function listarImoveis(ctx: ContextoImoveis): Promise<ImovelGestao[]> {
   const props = await listAllProperties(ctx.db, ctx.tenant.id, { limite: LIMITE_LISTA_IMOVEIS, recentes: true })
   return props.map(toImovelGestao)
+}
+
+/** Teto da varredura de imóveis (busca por texto e filtro por situação): o PostgREST corta uma resposta em 1000 linhas. */
+export const LIMITE_VARREDURA_IMOVEIS = 1000
+
+/**
+ * Uma página da lista de imóveis, com o filtro INTEIRO decidido aqui (nada de filtrar no cliente o que o
+ * servidor cortou). Qualquer perfil vê o tenant todo; o tenant sai da sessão, nunca da query.
+ *
+ * - Sem texto e sem situação: o banco filtra `status`/`purpose`, conta e fatia (`range`): uma página por consulta.
+ * - Com texto ou situação: lê os imóveis do tenant (até `LIMITE_VARREDURA_IMOVEIS`) e filtra com as MESMAS
+ *   funções do mock. Alternativa descartada para o texto: `ilike` no banco, que acha «Jose» mas não «José»
+ *   (a busca da tela sempre ignorou acento); a situação nem existe como coluna, vem dos contratos.
+ *
+ * A situação de cada imóvel é calculada dos contratos ativos DO TENANT (duas colunas por linha), não do que o
+ * corretor logado carrega: o imóvel em locação de outro corretor não pode aparecer como disponível.
+ */
+export async function listarImoveisPagina(ctx: ContextoImoveis, f: FiltroListaImoveis): Promise<PaginaImoveis> {
+  const contratos = await contratosAtivosDosImoveis(ctx.db, ctx.tenant.id)
+  const situacaoDe = (id: string): SituacaoImovel => situacaoPorContratos(contratos.emLocacao.has(id), contratos.vendas.get(id) ?? [])
+
+  if (filtroPedeVarredura(f)) {
+    const props = await listAllProperties(ctx.db, ctx.tenant.id, { limite: LIMITE_VARREDURA_IMOVEIS, recentes: true })
+    return { ...paginaDeImoveis(props.map(toImovelGestao), situacaoDe, f), truncado: props.length >= LIMITE_VARREDURA_IMOVEIS || contratos.truncado }
+  }
+  const { properties, total } = await listPropertiesPage(ctx.db, ctx.tenant.id, { status: f.status, purpose: f.purpose }, f.pagina, POR_PAGINA)
+  const itens = properties.map(toImovelGestao).map((i) => ({ ...i, situacao: situacaoDe(i.id) }))
+  return { itens, total, pagina: f.pagina, porPagina: POR_PAGINA, paginas: totalDePaginas(total), truncado: contratos.truncado }
 }
 
 export async function obterImovel(ctx: ContextoImoveis, id: string): Promise<ImovelGestao> {

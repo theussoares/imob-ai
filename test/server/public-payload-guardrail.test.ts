@@ -203,6 +203,7 @@ const SELECT_ALL_PERMITIDO: Record<string, string> = {
   // Painel — só se chega nelas depois de `requireTenantMember`.
   attachBrokersAdmin: 'painel',
   listAllProperties: 'painel',
+  listPropertiesPage: 'painel (lista paginada do gestão; passa pelo mapper do gestão)',
   listPropertiesByIds: 'painel (imóveis vinculados aos contratos do corretor; passa pelo mapper do gestão)',
   getPropertyById: 'painel',
   createProperty: 'painel (releitura pós-insert)',

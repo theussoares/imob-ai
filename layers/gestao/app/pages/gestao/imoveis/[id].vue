@@ -12,8 +12,11 @@ const { askConfirm } = useConfirm()
 const { reduzir } = useRedimensionarFoto()
 await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'vendas', 'imoveis'])
 
+// O store só guarda os 200 mais recentes: o imóvel mais antigo vem do servidor pelo id.
+const idDaRota = String(route.params.id)
+if (!store.imoveisVisiveis.value.some((i) => i.id === idDaRota)) await store.obterImovel(idDaRota)
 // Id que não existe no tenant (ou foi excluído) volta à lista.
-const imovel = computed(() => store.imoveisVisiveis.value.find((i) => i.id === String(route.params.id)) ?? null)
+const imovel = computed(() => store.imoveisVisiveis.value.find((i) => i.id === idDaRota) ?? null)
 if (!imovel.value) await navigateTo('/gestao/imoveis')
 useHead({ title: computed(() => `${imovel.value?.title ?? 'Imóvel'} · Gestão`) })
 
