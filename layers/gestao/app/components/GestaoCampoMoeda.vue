@@ -13,7 +13,9 @@ import { mascararMoeda, valorDeColagemMoeda, valorDeTextoMoeda } from '../../dom
  * O foco é desenhado só na moldura (`focus-within`). O `outline-none!` do input
  * precisa do `!`: o `:focus-visible` global de `app/assets/css/main.css` está
  * fora de camada e vence o utilitário do Tailwind, desenhando um segundo
- * contorno dentro do primeiro.
+ * contorno dentro do primeiro. Pelo mesmo motivo o `bg-transparent!`: o tema
+ * escuro (`gestao-tema.css`) pinta todo `input` com `--paper`, e sem o `!` o
+ * campo virava uma caixa de outra cor dentro da moldura.
  */
 defineOptions({ inheritAttrs: false })
 
@@ -75,7 +77,7 @@ function aoColar(e: ClipboardEvent) {
       :required="props.required"
       :aria-required="props.required ? 'true' : undefined"
       :aria-invalid="props.invalido ? 'true' : undefined"
-      class="min-w-0 flex-1 border-0 bg-transparent p-0 text-right text-[length:var(--fs-body)] font-normal tabular-nums text-inherit outline-none! placeholder:text-[var(--ink-soft)]"
+      class="min-w-0 flex-1 border-0 bg-transparent! p-0 text-right text-[length:var(--fs-body)] font-normal tabular-nums text-inherit outline-none! placeholder:text-[var(--ink-soft)]"
       @input="aoDigitar"
       @paste="aoColar"
     />
