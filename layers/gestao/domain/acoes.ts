@@ -62,6 +62,8 @@ export interface NovoProcesso {
   captadorId?: string
   /** % de comissão; vem das configurações. Sem ele, 5%. */
   pct?: number
+  /** Aberto por quem não tem `valores`: o financeiro nasce em rascunho e passa pela análise. */
+  comAnaliseFin?: boolean
 }
 
 export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, quando = agora()): Resultado {
@@ -91,6 +93,7 @@ export function abrirProcesso(estado: Estado, dados: NovoProcesso, ator: Ator, q
     hist: [{ acao: 'Abriu o processo', quem: ator.nome, quando }],
     obs: '',
     pdf: false,
+    ...(dados.comAnaliseFin && { analiseFin: { status: 'rascunho' as const } }),
     arquivado: false,
   }
   return { ok: true, estado: { ...estado, processos: [novo, ...estado.processos] } }

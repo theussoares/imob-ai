@@ -31,6 +31,11 @@ const etapaVista = ref(locacao.value?.etapa ?? 1)
 
 const podeEditar = computed(() => !final.value && !!caps.value?.editar)
 const podeValores = computed(() => !final.value && !!caps.value?.valores)
+// Contrato (valor e taxa): `valores`, ou o corretor da locação (`financeiroLivre`) até enviar para análise.
+const capsDaLocacao = computed(() => store.caps(locacao.value))
+const podeVerContrato = computed(() => !!capsDaLocacao.value?.verFinanceiro)
+const podeEditarContrato = computed(() => !final.value && !!capsDaLocacao.value?.editarFinanceiro)
+const analisando = ref(false)
 const feitas = computed(() => locacao.value?.concluidas.filter(Boolean).length ?? 0)
 const avisos = computed(() => (locacao.value ? avisosLocacao(locacao.value, hojeISO(agoraBrasilData())) : []))
 const pendencias = computed(() =>
@@ -83,6 +88,12 @@ function salvarVistoria(quando: 'entrada' | 'saida', v: Vistoria) {
 }
 
 const salvarContrato = (c: ContratoLocacao) => executar('salvarContrato', c, 'Contrato salvo.')
+
+async function analisar(acao: 'enviarAnaliseFinanceira' | 'aprovarAnaliseFinanceira' | 'devolverAnaliseFinanceira', dados: unknown, sucesso: string) {
+  analisando.value = true
+  await executar(acao, dados, sucesso)
+  analisando.value = false
+}
 
 /** Pagamento/repasse: devolve a frase de erro (o modal a mostra) ou `null` quando registrou. */
 async function registrarRecebimento(acao: 'pagar' | 'repassar', cobrancaId: string, d: { valor: number; data: string; forma: string; comprovante: string | null }, arquivo: File | null): Promise<string | null> {
@@ -160,6 +171,7 @@ const btn =
         <div class="mb-1 flex flex-wrap items-center gap-2">
           <span class="rounded-full border border-[var(--line-2)] bg-[var(--paper)] px-2.5 py-0.5 text-[length:var(--fs-caption)] font-bold">{{ locacao.id }}</span>
           <GestaoStatusChip :status="locacao.status" />
+          <GestaoAnaliseSelo v-if="locacao.analiseFin && locacao.analiseFin.status !== 'rascunho'" :status="locacao.analiseFin.status" />
         </div>
         <h1 class="m-0 text-[length:var(--fs-title)] leading-tight font-bold">{{ locacao.imovel }}</h1>
         <p class="m-0 text-[var(--ink-soft)]">{{ locacao.locador.nome }} · {{ locacao.locatario.nome }} · {{ nomeCorretor(locacao.corretorId) }}</p>
@@ -211,12 +223,23 @@ const btn =
         <GestaoLocacaoVistoria v-else-if="etapaVista === 6" :key="locacao.updated" titulo="Vistoria de entrada" :vistoria="locacao.vistoriaEntrada" :pode-editar="podeEditar" :demo="demo" @salvar="salvarVistoria('entrada', $event)" />
 
         <template v-else-if="etapaVista === 7">
-          <p v-if="!caps?.valores" class="m-0 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-[var(--ink-soft)]" data-testid="etapa-sem-valores">
+          <p v-if="!podeVerContrato" class="m-0 rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 text-[var(--ink-soft)]" data-testid="etapa-sem-valores">
             Esta etapa é do jurídico e financeiro. Ela está {{ locacao.concluidas[6] ? 'concluída' : 'pendente' }}.
           </p>
           <template v-else>
-            <GestaoLocacaoContrato :key="locacao.updated" :contrato="locacao.contrato" :pode-editar="podeValores" @salvar="salvarContrato" />
+            <GestaoAnaliseFinanceira
+              v-if="locacao.analiseFin"
+              :analise="locacao.analiseFin"
+              :pode-enviar="podeEditarContrato"
+              :pode-analisar="podeValores"
+              :ocupado="analisando"
+              @enviar="analisar('enviarAnaliseFinanceira', {}, 'Contrato enviado para análise.')"
+              @aprovar="analisar('aprovarAnaliseFinanceira', {}, 'Financeiro aprovado.')"
+              @devolver="(motivo) => analisar('devolverAnaliseFinanceira', { motivo }, 'Financeiro devolvido ao corretor.')"
+            />
+            <GestaoLocacaoContrato :key="locacao.updated" :contrato="locacao.contrato" :pode-editar="podeEditarContrato" @salvar="salvarContrato" />
             <GestaoLocacaoCobrancas
+              v-if="caps?.valores"
               :cobrancas="locacao.cobrancas"
               :pode-editar="podeValores && !!locacao.contrato"
               :encargos="encargosDaConfig(store.config.value)"

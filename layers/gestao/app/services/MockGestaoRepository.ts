@@ -4,6 +4,7 @@ import { agora as agoraDominio, type Ator, type Estado, type NovoProcesso, type 
 import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '../../domain/acoes-ciclo'
 import * as loc from '../../domain/acoes-locacao'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
+import { aprovarAnaliseFinanceira, devolverAnaliseFinanceira, enviarAnaliseFinanceira } from '../../domain/acoes-analise'
 import { marcarAdiantamentoPago, registrarAdiantamento, removerAdiantamento, salvarConferenciaFinal, salvarFinanceiro, salvarImovel, salvarPessoa } from '../../domain/acoes-processo'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { proximoIdConsulta, realizarConsulta, type ConsultaFeita, type EntradaConsulta } from '../../domain/consulta'
@@ -44,6 +45,9 @@ const VENDA: Record<string, Fn> = {
   salvarPessoa: (e, id, d, a) => salvarPessoa(e, id, d.quem, { cpf: d.cpf, telefone: d.telefone, email: d.email }, a),
   salvarImovel: (e, id, d, a) => salvarImovel(e, id, d, a),
   salvarConferenciaFinal: (e, id, d, a) => salvarConferenciaFinal(e, id, d, a),
+  enviarAnaliseFinanceira: (e, id, _d, a) => enviarAnaliseFinanceira(e, id, a),
+  aprovarAnaliseFinanceira: (e, id, _d, a) => aprovarAnaliseFinanceira(e, id, a),
+  devolverAnaliseFinanceira: (e, id, d, a) => devolverAnaliseFinanceira(e, id, d.motivo, a),
   // SÓ mock: telefone, e-mail e a marca «tem PDF» do formulário de abertura. No servidor o contato
   // entra por `salvarPessoa` e o PDF sobe como documento; esta ação não existe lá.
   completarProcesso: (e, id, d) => completarProcesso(e, id, d),
@@ -51,6 +55,9 @@ const VENDA: Record<string, Fn> = {
 
 const LOCACAO: Record<string, Fn> = {
   salvarAberturaLocacao: (e, id, d, a) => loc.salvarAberturaLocacao(e, id, d, a),
+  enviarAnaliseFinanceira: (e, id, _d, a) => loc.enviarAnaliseFinanceiraLocacao(e, id, a),
+  aprovarAnaliseFinanceira: (e, id, _d, a) => loc.aprovarAnaliseFinanceiraLocacao(e, id, a),
+  devolverAnaliseFinanceira: (e, id, d, a) => loc.devolverAnaliseFinanceiraLocacao(e, id, d.motivo, a),
   salvarGarantia: (e, id, d, a) => loc.salvarGarantia(e, id, d, a),
   salvarVistoria: (e, id, d, a) => loc.salvarVistoria(e, id, d.quando, d.vistoria, a),
   salvarContrato: (e, id, d, a) => loc.salvarContrato(e, id, d, a),

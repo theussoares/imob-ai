@@ -23,6 +23,8 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
       <strong class="text-[length:var(--fs-ui)]">{{ processo.id }}</strong>
       <GestaoStatusChip :status="processo.status" />
     </header>
+    <!-- Só o que pede ação de alguém: em análise (para quem analisa) e devolvido (para o corretor). -->
+    <GestaoAnaliseSelo v-if="processo.analiseFin && (processo.analiseFin.status === 'em-analise' || processo.analiseFin.status === 'devolvido')" :status="processo.analiseFin.status" />
 
     <h2 class="text-[length:var(--fs-title-sm)] leading-snug font-bold" data-testid="card-titulo">
       {{ processo.vendedor.nome }} e {{ processo.comprador.nome }}
