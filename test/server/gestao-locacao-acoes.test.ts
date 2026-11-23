@@ -6,19 +6,24 @@ import { ACOES_LOCACAO, corpoAcaoSchema, permitidoNaLocacao } from '~~/server/ut
 import { agoraBrasil } from '~~/server/utils/gestao-tempo'
 
 describe('mapa de ações da locação', () => {
-  test('cobre as 13 ações do plano, e só elas', () => {
+  test('cobre as 16 ações (13 do plano + a análise do financeiro), e só elas', () => {
     expect(Object.keys(ACOES_LOCACAO).sort()).toEqual(
       [
         'anexarComprovante', 'arquivarLocacao', 'concluirEtapaLocacao', 'encerrarLocacao', 'gerarCobranca', 'registrarPagamento',
         'registrarRepasse', 'renovarLocacao', 'restaurarLocacao', 'salvarAberturaLocacao', 'salvarContrato',
-        'salvarGarantia', 'salvarVistoria',
+        'salvarGarantia', 'salvarVistoria', 'enviarAnaliseFinanceira', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira',
       ].sort(),
     )
   })
 
   test('toda ação financeira exige «valores»; arquivar exige «arquivar»', () => {
-    for (const a of ['salvarContrato', 'gerarCobranca', 'registrarPagamento', 'registrarRepasse', 'anexarComprovante']) {
+    for (const a of ['gerarCobranca', 'registrarPagamento', 'registrarRepasse', 'anexarComprovante', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira']) {
       expect(ACOES_LOCACAO[a]!.permissao({})).toEqual(['valores'])
+    }
+    // O contrato (valor e taxa) é o financeiro livre: entra pela porta de `valores` ou `financeiroLivre`, e a regra fina vem depois.
+    for (const a of ['salvarContrato', 'enviarAnaliseFinanceira']) {
+      expect(ACOES_LOCACAO[a]!.permissao({})).toEqual(['valores', 'financeiroLivre'])
+      expect(ACOES_LOCACAO[a]!.permitido).toBeTypeOf('function')
     }
     expect(ACOES_LOCACAO.arquivarLocacao!.permissao({})).toEqual(['arquivar'])
     expect(ACOES_LOCACAO.restaurarLocacao!.permissao({})).toEqual(['arquivar'])

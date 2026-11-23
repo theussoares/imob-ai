@@ -62,6 +62,8 @@ export function validarMatrizPedido(v: unknown): ResultadoMatriz {
     const linha = v[def.chave]
     for (const perfil of PERFIS) {
       const valor = objeto(linha) ? linha[perfil] : undefined
+      // Aba aberta antes desta permissão existir manda a matriz sem ela: fica o padrão, não vira erro.
+      if (valor === undefined && def.chave === 'financeiroLivre' && !objeto(linha)) continue
       if (valor !== 'sim' && valor !== 'proprio' && valor !== 'nao') {
         return { ok: false, erro: `Falta o valor de «${def.rotulo}» para ${perfil}.` }
       }

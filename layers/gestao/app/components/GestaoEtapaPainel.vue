@@ -40,6 +40,7 @@ const emit = defineEmits<{
   salvarFinanceiro: [dados: DadosFinanceiros]
   salvarPessoa: [quem: 'vendedor' | 'comprador', dados: DadosPessoa]
   salvarImovel: [dados: DadosImovel]
+  marcarMatriculaMae: [mae: boolean]
   salvarConferencia: [dados: ConferenciaFinal]
   concluirVenda: []
   cancelarVenda: []
@@ -62,7 +63,6 @@ const marcados = ref<Record<string, boolean>>({})
 const forma = ref<FormaPagamento>(props.processo.fin.forma)
 const valor = ref(props.processo.valor)
 const financiado = ref(props.processo.fin.financiado)
-const entrada = ref(props.processo.fin.entrada)
 const fgts = ref(props.processo.fin.fgts)
 const proprios = ref(props.processo.fin.proprios)
 const avaliacao = ref(props.processo.fin.avaliacao ?? 0)
@@ -97,6 +97,9 @@ function escolherPrelim(e: Event) {
   input.value = ''
 }
 const valorVenal = ref(0)
+// Só pinta o venal de vermelho depois que a pessoa passou pelo campo ou tentou
+// salvar: erro na cara de quem acabou de abrir a etapa é ruído, não ajuda.
+const venalTocado = ref(false)
 
 // Conferência final: responsável nasce preenchido com quem está logado.
 const hoje = () => new Date().toISOString().slice(0, 10)
@@ -114,7 +117,6 @@ function ressincronizar() {
   forma.value = p.fin.forma
   valor.value = p.valor
   financiado.value = p.fin.financiado
-  entrada.value = p.fin.entrada
   fgts.value = p.fin.fgts
   proprios.value = p.fin.proprios
   avaliacao.value = p.fin.avaliacao ?? 0
@@ -137,6 +139,7 @@ function ressincronizar() {
   email.value = parte.email ?? ''
   matriculaMae.value = !!p.matriculaMae
   valorVenal.value = p.valorVenal ?? 0
+  venalTocado.value = false
   Object.assign(conf, {
     documentacao: false,
     valores: false,
@@ -157,7 +160,6 @@ const dadosForm = computed<DadosFinanceiros>(() => ({
   fin: {
     forma: forma.value,
     financiado: forma.value === 'À vista' ? 0 : n(financiado.value),
-    entrada: n(entrada.value),
     fgts: n(fgts.value),
     proprios: n(proprios.value),
     avaliacao: n(avaliacao.value),
@@ -179,6 +181,8 @@ const campo =
 const rotuloCampo = 'flex flex-col justify-end gap-1 text-[length:var(--fs-label)] font-bold'
 const btnSec =
   'min-h-11 cursor-pointer rounded-[10px] border border-[var(--line-2)] bg-[var(--paper)] px-4 font-bold hover:bg-[var(--brand-ghost)]'
+const marcaObrig = 'text-[var(--danger)]'
+const marcaOpc = 'font-normal text-[var(--ink-soft)]'
 const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10px] px-2 hover:bg-[var(--surface)]'
 </script>
 
@@ -313,7 +317,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
         v-else
         class="flex flex-col gap-3"
         novalidate
-        @submit.prevent="emit('salvarImovel', { matriculaMae, valorVenal: n(valorVenal) })"
+        @submit.prevent="venalTocado = true; emit('salvarImovel', { matriculaMae, valorVenal: n(valorVenal) })"
       >
         <label :class="linhaCheck">
           <input
@@ -322,13 +326,29 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
             class="size-5 accent-[var(--brand)]"
             :disabled="!podeEditar"
             data-testid="matricula-mae"
-            @change="emit('salvarImovel', { matriculaMae, valorVenal: n(valorVenal) })"
+            @change="emit('marcarMatriculaMae', matriculaMae)"
           />
           <span>A matrícula é a matrícula-mãe (exige também o projeto/prancha do imóvel)</span>
         </label>
         <label :class="[rotuloCampo, 'sm:max-w-xs']">
-          Valor venal (R$)
-          <input v-model.number="valorVenal" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="valor-venal" />
+          <span>Valor venal <span :class="marcaObrig" aria-hidden="true">*</span></span>
+          <GestaoCampoMoeda
+            v-model="valorVenal"
+            required
+            :invalido="venalTocado && !(n(valorVenal) > 0)"
+            :disabled="!podeEditar"
+            data-testid="valor-venal"
+            aria-describedby="valor-venal-ajuda"
+            @blur="venalTocado = true"
+          />
+          <span
+            id="valor-venal-ajuda"
+            class="font-normal"
+            :class="venalTocado && !(n(valorVenal) > 0) ? 'text-[var(--danger)]' : 'text-[var(--ink-soft)]'"
+            data-testid="valor-venal-ajuda"
+          >
+            {{ venalTocado && !(n(valorVenal) > 0) ? 'Obrigatório: informe o valor venal do IPTU.' : 'Obrigatório. Está no carnê do IPTU.' }}
+          </span>
         </label>
         <div v-if="podeEditar">
           <button
@@ -378,12 +398,12 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
     <form v-else-if="etapa === 5" class="flex flex-col gap-4" novalidate @submit.prevent="emit('salvarFinanceiro', dadosForm)">
       <div class="[display:grid] items-start gap-3 sm:grid-cols-2">
         <label :class="rotuloCampo">
-          Valor da venda (R$)
-          <input v-model.number="valor" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-valor" />
+          <span>Valor da venda <span :class="marcaObrig" aria-hidden="true">*</span></span>
+          <GestaoCampoMoeda v-model="valor" required :disabled="!podeEditar" data-testid="fin-valor" />
         </label>
         <label :class="rotuloCampo">
-          Valor de avaliação (R$)
-          <input v-model.number="avaliacao" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-avaliacao" />
+          <span>Valor de avaliação</span>
+          <GestaoCampoMoeda v-model="avaliacao" :disabled="!podeEditar" data-testid="fin-avaliacao" />
         </label>
         <label :class="rotuloCampo">
           Forma de pagamento
@@ -392,20 +412,16 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           </select>
         </label>
         <label v-if="forma !== 'À vista'" :class="rotuloCampo">
-          Valor financiado (R$)
-          <input v-model.number="financiado" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-financiado" />
+          <span>Valor financiado</span>
+          <GestaoCampoMoeda v-model="financiado" :disabled="!podeEditar" data-testid="fin-financiado" />
         </label>
         <label :class="rotuloCampo">
-          Entrada (R$)
-          <input v-model.number="entrada" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-entrada" />
+          <span>FGTS <span :class="marcaOpc">(opcional)</span></span>
+          <GestaoCampoMoeda v-model="fgts" :disabled="!podeEditar" data-testid="fin-fgts" />
         </label>
         <label :class="rotuloCampo">
-          FGTS na entrada (R$)
-          <input v-model.number="fgts" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-fgts" />
-        </label>
-        <label :class="rotuloCampo">
-          Recurso próprio (R$)
-          <input v-model.number="proprios" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-proprios" />
+          <span>Recurso próprio <span :class="marcaOpc">(opcional)</span></span>
+          <GestaoCampoMoeda v-model="proprios" :disabled="!podeEditar" data-testid="fin-proprios" />
         </label>
         <label :class="rotuloCampo">
           Ganho de capital do vendedor
@@ -418,8 +434,8 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           <input v-model="bem" type="text" autocomplete="off" :disabled="!podeEditar" :class="campo" data-testid="fin-bem" />
         </label>
         <label :class="rotuloCampo">
-          Valor do bem (R$)
-          <input v-model.number="valorBem" type="number" min="0" step="0.01" :disabled="!podeEditar" :class="campo" data-testid="fin-valor-bem" />
+          <span>Valor do bem</span>
+          <GestaoCampoMoeda v-model="valorBem" :disabled="!podeEditar" data-testid="fin-valor-bem" />
         </label>
       </div>
       <!-- Resumo (protótipo): soma das fontes × valor da venda, sempre visível. -->
@@ -429,7 +445,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
           <dd class="m-0 font-bold" data-testid="fin-resumo-valor">{{ brl(n(valor)) }}</dd>
         </div>
         <div class="flex justify-between gap-3">
-          <dt>Soma das fontes (financiamento + entrada + FGTS + recursos próprios<template v-if="n(valorBem) > 0"> + bem</template>)</dt>
+          <dt>Soma das fontes (financiamento + FGTS + recurso próprio<template v-if="n(valorBem) > 0"> + bem</template>)</dt>
           <dd class="m-0 font-bold" data-testid="fin-resumo-soma">{{ brl(n(valor) - conferencia.diferenca) }}</dd>
         </div>
         <div class="flex justify-between gap-3">
@@ -470,7 +486,7 @@ const linhaCheck = 'flex min-h-11 cursor-pointer items-center gap-3 rounded-[10p
       <div class="flex flex-col gap-2">
         <h3 class="m-0 text-[length:var(--fs-body)] font-bold">Itens para conferir</h3>
         <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
-          A lista acompanha as fontes salvas: simulação só se há financiamento, extrato só se há FGTS, comprovante só se há entrada.
+          A lista acompanha as fontes salvas: simulação só se há financiamento, extrato só se há FGTS, comprovante da entrada só se há recurso próprio numa venda financiada.
         </p>
         <GestaoRequisitos
           :requisitos="requisitos"

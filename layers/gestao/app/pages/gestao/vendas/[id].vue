@@ -38,7 +38,10 @@ const etapaVista = ref(processo.value?.etapa ?? 1)
 const aba = ref<'etapas' | 'comissao'>('etapas')
 
 const prog = computed(() => progresso(processo.value?.concluidas ?? []))
-const podeValores = computed(() => !!caps.value?.valores)
+// Comissão: quem vê o financeiro deste processo (`valores`, ou o corretor dele com `financeiroLivre`).
+const podeFinanceiro = computed(() => !!caps.value?.verFinanceiro)
+const podeEditarFinanceiro = computed(() => !final.value && !!caps.value?.editarFinanceiro)
+const analisando = ref(false)
 // Etapas 6 e 7 têm dono próprio (recepção / jurídico): o jurídico não tem
 // `editar`, e sem esta exceção ninguém do seu perfil conseguiria concluir a 7.
 const podeNaEtapa = (etapa: number) => {
@@ -101,6 +104,15 @@ async function mudarStatus(e: Event) {
   etapaVista.value = processo.value?.etapa ?? etapaVista.value
 }
 
+/** Envio, aprovação e devolução da análise do financeiro: mesmas ações do servidor. */
+async function analisar(acao: 'enviarAnaliseFinanceira' | 'aprovarAnaliseFinanceira' | 'devolverAnaliseFinanceira', dados: unknown, sucesso: string) {
+  const p = processo.value
+  if (!p) return
+  analisando.value = true
+  await executar(p.id, acao, dados, sucesso)
+  analisando.value = false
+}
+
 async function concluirEtapa() {
   const p = processo.value
   if (!p) return
@@ -123,6 +135,11 @@ function salvarParte(quem: 'vendedor' | 'comprador', dados: DadosPessoa) {
 function salvarDadosImovel(dados: DadosImovel) {
   const p = processo.value
   if (p) void executar(p.id, 'salvarImovel', { matriculaMae: dados.matriculaMae, valorVenal: dados.valorVenal }, 'Dados do imóvel salvos.')
+}
+
+function salvarMatriculaMae(mae: boolean) {
+  const p = processo.value
+  if (p) void executar(p.id, 'marcarMatriculaMae', { matriculaMae: mae }, mae ? 'Matrícula-mãe marcada.' : 'Matrícula-mãe desmarcada.')
 }
 
 function salvarConferencia(dados: ConferenciaFinal) {
@@ -273,6 +290,7 @@ const aba_ = (ativa: boolean) =>
               {{ processo.id }}
             </span>
             <GestaoStatusChip :status="processo.status" />
+            <GestaoAnaliseSelo v-if="processo.analiseFin && processo.analiseFin.status !== 'rascunho'" :status="processo.analiseFin.status" />
           </div>
           <h1 class="m-0 text-[length:var(--fs-title)] font-bold leading-tight">{{ processo.imovel }}</h1>
           <p class="m-0 text-[var(--ink-soft)]">
@@ -325,14 +343,14 @@ const aba_ = (ativa: boolean) =>
 
     <GestaoStepper :vista="etapaVista" :atual="processo.etapa" :concluidas="processo.concluidas" @ir="etapaVista = $event" />
 
-    <!-- Abas: Etapas | Comissão. Sem `valores` a aba nem existe: avisar que algo está
+    <!-- Abas: Etapas | Comissão. Sem acesso ao financeiro a aba nem existe: avisar que algo está
          escondido só convida a pedir acesso, e o perfil não precisa saber que há comissão. -->
     <div class="flex gap-1 border-b border-[var(--line-2)]" role="tablist" aria-label="Seções do processo">
       <button type="button" role="tab" :aria-selected="aba === 'etapas'" :class="aba_(aba === 'etapas')" data-testid="aba-etapas" @click="aba = 'etapas'">
         Etapas
       </button>
       <button
-        v-if="podeValores"
+        v-if="podeFinanceiro"
         type="button"
         role="tab"
         :aria-selected="aba === 'comissao'"
@@ -355,15 +373,25 @@ const aba_ = (ativa: boolean) =>
 
     <div class="[display:grid] gap-4 lg:grid-cols-[1fr_320px] lg:items-start">
       <div class="flex min-w-0 flex-col gap-3">
-        <template v-if="aba === 'comissao' && podeValores">
-          <GestaoComissao :processo="processo" :editavel="!final" @registrar="registrar" @remover="remover" @pagar="pagarAdiantamento" />
+        <template v-if="aba === 'comissao' && podeFinanceiro">
+          <GestaoAnaliseFinanceira
+            v-if="processo.analiseFin"
+            :analise="processo.analiseFin"
+            :pode-enviar="podeEditarFinanceiro"
+            :pode-analisar="!final && !!caps?.valores"
+            :ocupado="analisando"
+            @enviar="analisar('enviarAnaliseFinanceira', {}, 'Financeiro enviado para análise.')"
+            @aprovar="analisar('aprovarAnaliseFinanceira', {}, 'Financeiro aprovado.')"
+            @devolver="(motivo) => analisar('devolverAnaliseFinanceira', { motivo }, 'Financeiro devolvido ao corretor.')"
+          />
+          <GestaoComissao :processo="processo" :editavel="podeEditarFinanceiro" @registrar="registrar" @remover="remover" @pagar="pagarAdiantamento" />
         </template>
         <template v-else>
           <GestaoEtapaPainel
             :processo="processo"
             :etapa="etapaVista"
             :documentos="docs"
-            :pode-editar="podeNaEtapa(etapaVista)"
+            :pode-editar="podeNaEtapa(etapaVista) && (etapaVista !== 5 || !!caps?.editarFinanceiro)"
             :pode-checklist="etapaVista === 6 ? !!caps?.conferir : !!caps?.juridico"
             :pode-concluir-venda="!final && !!(caps?.editar || caps?.juridico)"
             :pode-enviar="podeEnviarArquivo"
@@ -372,6 +400,7 @@ const aba_ = (ativa: boolean) =>
             @salvar-financeiro="salvarFin"
             @salvar-pessoa="salvarParte"
             @salvar-imovel="salvarDadosImovel"
+            @marcar-matricula-mae="salvarMatriculaMae"
             @salvar-conferencia="salvarConferencia"
             :pode-arquivar="final && !!caps?.arquivar"
             @concluir-venda="concluirVenda"

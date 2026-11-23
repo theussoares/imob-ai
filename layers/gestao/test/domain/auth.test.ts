@@ -4,6 +4,7 @@ import {
   autenticar,
   CODIGO_BLOQUEIO_DEMO_MS,
   CODIGO_BLOQUEIO_MS,
+  CODIGO_MAX_TENTATIVAS,
   CODIGO_REENVIO_MS,
   CODIGO_VALIDADE_MS,
   CONVITE_VALIDADE_MS,
@@ -13,9 +14,11 @@ import {
   ERRO_LOGIN,
   estadoAuthVazio,
   gerarCodigo,
+  redefinirSenha,
   revogarConvite,
   segundosParaReenvio,
   semearContas,
+  solicitarRedefinicao,
   validarSenha,
   verificarCodigo,
   type EstadoAuth,
@@ -461,5 +464,101 @@ describe('código de 2º fator', () => {
       const tarde = await emitirCodigo(estado, email, { agora: T0 + 1000 + CODIGO_BLOQUEIO_DEMO_MS, rng: rngFixo(8) })
       expect(tarde.ok).toBe(true)
     })
+  })
+})
+
+describe('redefinição de senha (esqueci minha senha)', () => {
+  const email = 'helena@olmi.exemplo'
+  const NOVA = 'Sol#Nascente-5521q'
+  const base = async () => congelar(await semearContas(USUARIOS, SENHA_DEMO, { rng: rngFixo(3) }))
+
+  const pedir = async (estado?: EstadoAuth, agora = T0) => {
+    const r = await solicitarRedefinicao(estado ?? (await base()), email, { agora, rng: rngFixo(5) })
+    if (!r.ok || !r.codigo) throw new Error('esperava um código')
+    return { estado: r.estado, codigo: r.codigo }
+  }
+
+  it('conta existente recebe código; conta inexistente recebe ok SEM código e sem tocar o estado', async () => {
+    const inicial = await base()
+    const nada = await solicitarRedefinicao(inicial, 'ninguem@olmi.exemplo', { agora: T0 })
+    // Mesma forma de resposta nos dois casos: a tela não vira verificador de quem tem conta.
+    expect(nada).toMatchObject({ ok: true, codigo: null })
+    expect(nada.estado).toBe(inicial)
+    expect((await pedir(inicial)).codigo).toMatch(/^\d{6}$/)
+  })
+
+  it('troca a senha: a nova entra, a antiga deixa de valer', async () => {
+    const { estado, codigo } = await pedir()
+    const r = await redefinirSenha(estado, { email, codigo, senha: NOVA }, { agora: T0 + 1000 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect((await autenticar(r.estado, email, NOVA)).ok).toBe(true)
+    const antiga = await autenticar(r.estado, email, SENHA_DEMO)
+    expect(antiga).toMatchObject({ ok: false, erro: ERRO_LOGIN })
+  })
+
+  it('o código só vale uma vez', async () => {
+    const { estado, codigo } = await pedir()
+    const r = await redefinirSenha(estado, { email, codigo, senha: NOVA }, { agora: T0 + 1000 })
+    if (!r.ok) throw new Error(r.erro)
+    const de_novo = await redefinirSenha(r.estado, { email, codigo, senha: 'Outra#Senha-7734z' }, { agora: T0 + 2000 })
+    expect(de_novo.ok).toBe(false)
+    expect((await autenticar(r.estado, email, NOVA)).ok).toBe(true)
+  })
+
+  it('código errado não troca a senha e conta a tentativa', async () => {
+    const { estado, codigo } = await pedir()
+    const errado = codigo === '000000' ? '111111' : '000000'
+    const r = await redefinirSenha(estado, { email, codigo: errado, senha: NOVA }, { agora: T0 + 1000 })
+    expect(r).toMatchObject({ ok: false, motivo: 'invalido', restantes: CODIGO_MAX_TENTATIVAS - 1 })
+    expect((await autenticar(r.estado, email, SENHA_DEMO)).ok).toBe(true)
+    expect((await autenticar(r.estado, email, NOVA)).ok).toBe(false)
+  })
+
+  it('o bloqueio por tentativas vale aqui também (5 erros travam, mesmo com o código certo)', async () => {
+    const { estado, codigo } = await pedir()
+    const errado = codigo === '000000' ? '111111' : '000000'
+    let atual = estado
+    for (let i = 0; i < CODIGO_MAX_TENTATIVAS; i++) {
+      atual = (await redefinirSenha(atual, { email, codigo: errado, senha: NOVA }, { agora: T0 + 1000 })).estado
+    }
+    const r = await redefinirSenha(atual, { email, codigo, senha: NOVA }, { agora: T0 + 2000 })
+    expect(r).toMatchObject({ ok: false, motivo: 'bloqueado' })
+  })
+
+  it('código expirado não troca a senha', async () => {
+    const { estado, codigo } = await pedir()
+    const r = await redefinirSenha(estado, { email, codigo, senha: NOVA }, { agora: T0 + CODIGO_VALIDADE_MS })
+    expect(r).toMatchObject({ ok: false, motivo: 'expirado' })
+  })
+
+  it('senha fraca é recusada SEM queimar o código (dá para corrigir e tentar de novo)', async () => {
+    const { estado, codigo } = await pedir()
+    const fraca = await redefinirSenha(estado, { email, codigo, senha: 'curta' }, { agora: T0 + 1000 })
+    expect(fraca).toMatchObject({ ok: false, motivo: 'senha' })
+    expect(fraca.estado).toBe(estado)
+    const certa = await redefinirSenha(fraca.estado, { email, codigo, senha: NOVA }, { agora: T0 + 2000 })
+    expect(certa.ok).toBe(true)
+  })
+
+  it('senha com o nome ou e-mail da pessoa é recusada, como no convite', async () => {
+    const { estado, codigo } = await pedir()
+    const r = await redefinirSenha(estado, { email, codigo, senha: 'Helena#Forte-5521q' }, { agora: T0 + 1000 })
+    expect(r).toMatchObject({ ok: false, motivo: 'senha' })
+  })
+
+  it('e-mail sem conta recebe a mesma mensagem de código inválido', async () => {
+    const r = await redefinirSenha(await base(), { email: 'ninguem@olmi.exemplo', codigo: '123456', senha: NOVA }, { agora: T0 })
+    expect(r).toMatchObject({ ok: false, motivo: 'inexistente' })
+  })
+
+  it('não altera o perfil nem o nome da conta', async () => {
+    const { estado, codigo } = await pedir()
+    const antes = estado.contas.find((c) => c.email === email)!
+    const r = await redefinirSenha(estado, { email, codigo, senha: NOVA }, { agora: T0 + 1000 })
+    if (!r.ok) throw new Error(r.erro)
+    const depois = r.estado.contas.find((c) => c.email === email)!
+    expect(depois).toMatchObject({ nome: antes.nome, perfil: antes.perfil })
+    expect(depois.salt).not.toBe(antes.salt)
   })
 })

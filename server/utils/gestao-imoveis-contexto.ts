@@ -2,8 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '~~/shared/types/database.types'
 import { registrarEvento } from '~~/server/repositories/gestao-evento.repository'
 import { armazenarFotoImovel } from '~~/server/utils/gestao-fotos'
-import { listarTodasLocacoes, locacoesAtivasDoImovel } from '~~/server/repositories/gestao-locacao.repository'
-import { listarTodasVendas } from '~~/server/repositories/gestao-venda.repository'
+import { locacoesAtivasDoImovel } from '~~/server/repositories/gestao-locacao.repository'
 import type { ContextoGestao } from '~~/server/utils/gestao-auth'
 import type { ContextoImoveis } from '~~/server/utils/gestao-imoveis'
 
@@ -27,15 +26,5 @@ export function contextoImoveis(g: ContextoGestao): ContextoImoveis {
     invalidarCache: () => invalidateTenantCache(tenant.id),
     armazenarFoto: (foto) => armazenarFotoImovel(db, tenant.slug, foto),
     locacoesDoImovel: (imovelId) => locacoesAtivasDoImovel(db, tenant.id, imovelId),
-    imoveisDosContratos: async () => {
-      // Só contratos ATIVOS do corretor (os arquivados não pedem mais o imóvel). Sem vínculo: nada.
-      const corretorId = g.membro.brokerId
-      if (!corretorId) return new Set<string>()
-      const [l, v] = await Promise.all([
-        listarTodasLocacoes(db as never, tenant.id, { arquivadas: false, corretorId }),
-        listarTodasVendas(db as never, { tenantId: tenant.id, corretorId }, { arquivado: false }),
-      ])
-      return new Set([...l.locacoes.map((x) => x.locacao.imovelId), ...v.vendas.map((x) => x.processo.imovelId)].filter((x): x is string => !!x))
-    },
   }
 }

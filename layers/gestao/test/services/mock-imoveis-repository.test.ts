@@ -30,10 +30,10 @@ describe('MockImoveisRepository', () => {
     expect((await repo.listar()).find((i) => i.id === 'im-106')!.price).toBe(760000)
   })
 
-  it('aceita 6 fotos e recusa a 7ª', async () => {
+  it('aceita 20 fotos e recusa a 21ª', async () => {
     const { repo } = montar()
-    for (let i = 0; i < 6; i++) expect((await repo.adicionarFotos('im-101', [foto])).ok).toBe(true)
-    expect(await repo.adicionarFotos('im-101', [foto])).toEqual({ ok: false, erro: 'Cada imóvel aceita no máximo 6 fotos.' })
+    for (let i = 0; i < 20; i++) expect((await repo.adicionarFotos('im-101', [foto])).ok).toBe(true)
+    expect(await repo.adicionarFotos('im-101', [foto])).toEqual({ ok: false, erro: 'Cada imóvel aceita no máximo 20 fotos.' })
   })
 
   it('sem espaço no armazém: devolve a causa e o estado anterior fica intacto', async () => {

@@ -3,16 +3,13 @@ import { rotuloImovel } from '../../domain/imoveis'
 import { errosNovaLocacao, type CampoNovaLocacao } from '../../domain/novo-processo'
 
 const store = useGestaoStore()
-// A lista de imóveis só é buscada quando este formulário abre (as listas de contratos não a carregam).
-onMounted(() => void store.carregar(false, ['imoveis']))
 const { sessao } = useGestaoSessao()
 const toast = useToast()
 
-// Imóvel só de venda não aparece: não faria sentido abrir locação dele.
-const opcoes = computed(() => store.imoveis.value.filter((i) => i.purpose === 'aluguel'))
-
 const dialog = ref<HTMLDialogElement | null>(null)
 const imovelId = ref('')
+// Imóvel só de venda não aparece (não faria sentido abrir locação dele); a busca é no servidor.
+const busca = useBuscaImoveis('aluguel', imovelId)
 const locador = ref('')
 const locatario = ref('')
 const corretorId = ref('')
@@ -64,7 +61,7 @@ async function enviarLocacao() {
     document.getElementById(`nl-${primeiro}`)?.focus()
     return
   }
-  const imovel = store.imoveis.value.find((i) => i.id === imovelId.value)
+  const imovel = busca.achar(imovelId.value)
   const r = await store.abrirLocacao({
     locador: locador.value,
     locatario: locatario.value,
@@ -100,10 +97,16 @@ const rotulo = '[display:grid] gap-1 text-[length:var(--fs-label)] font-semibold
     <form class="[display:grid] gap-3 p-5" novalidate @submit.prevent="enviar">
       <h2 id="nova-locacao-titulo" class="text-[length:var(--fs-title-sm)] leading-snug font-bold">Nova locação</h2>
       <label :class="rotulo">
+        <span>Buscar imóvel</span>
+        <input v-model="busca.q" type="search" :class="campo" autocomplete="off" placeholder="Título, bairro, código ou proprietário" data-testid="imovel-busca-opcoes" />
+        <span v-if="busca.falhou" role="alert" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">Não foi possível buscar os imóveis. <button type="button" class="cursor-pointer border-0 bg-transparent p-0 font-bold underline" @click="busca.buscar()">Tentar de novo</button></span>
+        <span v-else-if="busca.restantes" class="text-[length:var(--fs-caption)] font-normal text-[var(--ink-soft)]" data-testid="imovel-busca-restantes">Mostrando os mais recentes; mais {{ busca.restantes }} — digite para refinar.</span>
+      </label>
+      <label :class="rotulo">
         <span>Imóvel<span class="text-[var(--danger)]" aria-hidden="true"> *</span></span>
         <select v-model="imovelId" :class="campo" v-bind="aria('imovelId')" required data-testid="imovel">
           <option value="" disabled>Escolha…</option>
-          <option v-for="i in opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
+          <option v-for="i in busca.opcoes" :key="i.id" :value="i.id">{{ rotuloImovel(i) }}</option>
         </select>
         <span v-if="erros.imovelId" id="nl-e-imovelId" class="text-[length:var(--fs-caption)] font-semibold text-[var(--danger)]">{{ erros.imovelId }}</span>
       </label>

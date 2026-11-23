@@ -18,6 +18,7 @@ const erro = ref('')
 const enviando = ref(false)
 
 const contaCriada = computed(() => route.query.conta === 'criada')
+const senhaRedefinida = computed(() => route.query.senha === 'redefinida')
 const podeEnviar = computed(() => !!email.value.trim() && !!senha.value && !!captcha.value && !enviando.value)
 
 async function enviar() {
@@ -72,6 +73,15 @@ const campo =
           Conta criada com sucesso. Entre com seu e-mail e a senha que você definiu.
         </p>
 
+        <p
+          v-if="senhaRedefinida"
+          role="status"
+          class="m-0 rounded-xl border border-[var(--ok)] bg-[var(--brand-ghost)] p-3 font-semibold text-[var(--ok)]"
+          data-testid="aviso-senha-redefinida"
+        >
+          Senha alterada. Entre com seu e-mail e a nova senha.
+        </p>
+
         <div class="flex flex-col gap-1.5">
           <label for="login-email" class="font-semibold">E-mail</label>
           <input
@@ -111,6 +121,17 @@ const campo =
         >
           {{ enviando ? 'Verificando…' : 'Entrar' }}
         </button>
+        <!-- Só no demo por ora: fora dele a conta vive no Supabase Auth e não há endpoint de
+             redefinição ainda. Mostrar o link em produção seria uma tela que diz «código
+             enviado» e não troca senha nenhuma. -->
+        <NuxtLink
+          v-if="auth.demo"
+          to="/gestao/recuperar-senha"
+          class="-my-1 inline-flex min-h-11 items-center self-start rounded-lg px-1 font-bold text-[var(--brand)] hover:underline"
+          data-testid="esqueci-senha"
+        >
+          Esqueci minha senha
+        </NuxtLink>
         <p class="m-0 text-[length:var(--fs-label)] text-[var(--ink-soft)]">
           Depois da senha enviamos um código de 6 dígitos para o seu e-mail. Ainda não tem acesso? Peça um convite ao Dono ou ao Jurídico.
         </p>

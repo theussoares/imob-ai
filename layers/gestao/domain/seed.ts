@@ -30,10 +30,9 @@ const pessoa = (nome: string, cpf: string, n: number): Pessoa => ({
 })
 
 const feitas = (n: number) => Array.from({ length: 8 }, (_, i) => i < n)
-const fin = (forma: 'À vista' | 'Financiamento' | 'Misto', financiado = 0, entrada = 0, fgts = 0, proprios = 0) => ({
+const fin = (forma: 'À vista' | 'Financiamento' | 'Misto', financiado = 0, fgts = 0, proprios = 0) => ({
   forma,
   financiado,
-  entrada,
   fgts,
   proprios,
 })
@@ -44,7 +43,7 @@ function proc(o: Partial<Processo> & Pick<Processo, 'id' | 'vendedor' | 'comprad
     captadorId: 'c2',
     updated: '13/11/2026 09:10',
     pct: 5,
-    fin: fin('À vista', 0, 0, 0, o.valor),
+    fin: fin('À vista', 0, 0, o.valor),
     etapa: 1,
     concluidas: feitas(0),
     adiantamentos: [],
@@ -67,7 +66,7 @@ export function processosSeed(): Processo[] {
       status: 'Aguardando registro',
       updated: '12/11/2026 16:05',
       valor: 100000,
-      fin: fin('Financiamento', 70000, 20000, 10000, 0),
+      fin: fin('Financiamento', 70000, 10000, 20000),
       etapa: 8,
       concluidas: feitas(7),
       valorVenal: 92000,
@@ -94,7 +93,7 @@ export function processosSeed(): Processo[] {
       status: 'Aguardando documentação',
       updated: '13/11/2026 08:40',
       valor: 480000,
-      fin: fin('Misto', 300000, 100000, 40000, 40000),
+      fin: fin('Misto', 300000, 40000, 140000),
       etapa: 3,
       concluidas: feitas(2),
       adiantamentos: [{ id: 'a4', resp: 'vendedor', valor: 6000, data: '2026-11-09', quem: 'Paulo Ribeiro' }],
@@ -125,7 +124,7 @@ export function processosSeed(): Processo[] {
       status: 'Em análise de financiamento',
       updated: '12/11/2026 10:30',
       valor: 320000,
-      fin: fin('Financiamento', 256000, 64000, 0, 0),
+      fin: fin('Financiamento', 256000, 0, 64000),
       etapa: 5,
       concluidas: feitas(4),
       valorVenal: 301000,

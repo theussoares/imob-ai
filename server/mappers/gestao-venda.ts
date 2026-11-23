@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
+import { analiseFinSchema } from '~~/server/mappers/gestao-analise'
 import type { Processo } from '~~/layers/gestao/domain/types'
+import { migrarEntradaLegada } from '~~/layers/gestao/domain/acoes-processo'
 
 /**
  * Mapper de `gestao_vendas` (0060) <-> `Processo` do domínio.
@@ -24,7 +26,11 @@ const pessoa = z.object({
 const fontes = z.object({
   forma: z.enum(['À vista', 'Financiamento', 'Misto']),
   financiado: z.number(),
-  entrada: z.number(),
+  // Campo que saiu do formulário (a entrada passou a ser FGTS + recurso próprio). Fica
+  // opcional SÓ para ler processo gravado antes: tirar do schema faria o Zod descartar
+  // o valor calado, a soma das fontes deixaria de fechar e a etapa 5 reabriria sozinha.
+  // `toVendaModel` dobra o valor no recurso próprio e o campo some na próxima escrita.
+  entrada: z.number().optional(),
   fgts: z.number(),
   proprios: z.number(),
   avaliacao: z.number().optional(),
@@ -77,6 +83,7 @@ export const processoSchema = z.object({
   valorVenal: z.number().optional(),
   conferenciaFinal: conferencia.optional(),
   preliminar: z.object({ existe: z.boolean(), arquivo: z.string().nullable() }).optional(),
+  analiseFin: analiseFinSchema.optional(),
   arquivado: z.boolean(),
 })
 
@@ -101,7 +108,7 @@ export interface Venda {
 }
 
 export function toVendaModel(row: VendaRow): Venda {
-  const processo = processoSchema.parse(row.dados) as Processo
+  const processo = migrarEntradaLegada(processoSchema.parse(row.dados) as Processo)
   // O id da coluna manda: o jsonb não pode «mudar» de processo por conta própria.
   return { id: row.id, versao: row.versao, processo: { ...processo, id: row.id } }
 }
@@ -122,11 +129,13 @@ export function toVendaColunas(p: Processo): Pick<VendaRow, 'corretor_id' | 'sta
  */
 export type ProcessoSemValores = Omit<Processo, 'pct' | 'adiantamentos' | 'fin'>
 
-export function recortarValores(p: Processo, podeValores: boolean): Processo | ProcessoSemValores {
-  if (podeValores) return p
+export function recortarValores(p: Processo, podeVer: boolean): Processo | ProcessoSemValores {
+  if (podeVer) return p
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { pct, adiantamentos, fin, ...resto } = p
-  return { ...resto, hist: p.hist.filter((h) => !/adiantamento/i.test(h.acao)) }
+  const { pct, adiantamentos, fin, analiseFin, ...resto } = p
+  // Quem não vê o financeiro sabe só EM QUE PONTO da análise ele está (selo da lista); quem enviou, quando e o
+  // motivo da devolução ficam com quem pode agir sobre eles.
+  return { ...resto, ...(analiseFin && { analiseFin: { status: analiseFin.status } }), hist: p.hist.filter((h) => !/adiantamento/i.test(h.acao)) }
 }
 
 // Garante que o schema continua cobrindo o tipo do domínio (e vice-versa).

@@ -1,5 +1,6 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes'
 import { validarAdiantamento } from './commission'
+import { bloqueioFinalizacao } from './analise-financeira'
 import { statusFinal } from './status'
 import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import type { ConferenciaFinal, FontesPagamento, FormaPagamento, GanhoCapital, Pessoa, Processo, ResponsavelAdiantamento } from './types'
@@ -179,7 +180,7 @@ export function salvarFinanceiro(
 ): Resultado {
   return alterar(estado, id, ator, quando, (p) => {
     const { valor, fin } = dados
-    const nums = [valor, fin.financiado, fin.entrada, fin.fgts, fin.proprios, fin.avaliacao ?? 0, fin.valorBem ?? 0]
+    const nums = [valor, fin.financiado, fin.fgts, fin.proprios, fin.avaliacao ?? 0, fin.valorBem ?? 0]
     if (nums.some((n) => !Number.isFinite(n) || n < 0)) return { ok: false, erro: 'Os valores não podem ser negativos.' }
     if (!FORMAS_PAGAMENTO.includes(fin.forma)) return { ok: false, erro: 'Escolha a forma de pagamento.' }
     if (fin.ganho && !OPCOES_GANHO.includes(fin.ganho)) return { ok: false, erro: 'Ganho de capital inválido.' }
@@ -197,6 +198,18 @@ export function salvarFinanceiro(
       processo: { ...p, valor, fin: { ...fin, financiado: fin.forma === 'À vista' ? 0 : fin.financiado } },
     }
   })
+}
+
+/**
+ * Estado guardado no navegador (demo) antes de o campo «Entrada» sair traz
+ * `fin.entrada`. Ignorá-lo faria a soma das fontes deixar de fechar num processo
+ * que já fechava — e a etapa 5 reabriria sozinha. A entrada antiga era dinheiro
+ * do comprador, então vai para o recurso próprio.
+ */
+export function migrarEntradaLegada(p: Processo): Processo {
+  const { entrada, ...fin } = p.fin as Processo['fin'] & { entrada?: number }
+  if (entrada === undefined) return p
+  return { ...p, fin: { ...fin, proprios: fin.proprios + (Number(entrada) || 0) } }
 }
 
 /**
@@ -257,12 +270,32 @@ export interface DadosImovel {
 }
 
 
+/**
+ * Valor venal é obrigatório (pedido da Olmi): é a base do ITBI e da escritura,
+ * e um processo que chega ao jurídico sem ele volta para a recepção. Antes só a
+ * conclusão da etapa 4 cobrava; salvar zero passava calado e o campo parecia
+ * preenchido. Agora salvar recusa — a pendência da etapa 4 continua como rede.
+ */
 export function salvarImovel(estado: Estado, id: string, dados: DadosImovel, ator: Ator, quando = agora()): Resultado {
   return alterar(estado, id, ator, quando, (p) => {
     if (!Number.isFinite(dados.valorVenal) || dados.valorVenal < 0) return { ok: false, erro: 'O valor venal não pode ser negativo.' }
+    if (dados.valorVenal === 0) return { ok: false, erro: 'Informe o valor venal do imóvel.' }
     const novo: Processo = { ...p, matriculaMae: dados.matriculaMae, valorVenal: dados.valorVenal }
     return { ok: true, acao: 'Atualizou os dados do imóvel', processo: novo }
   })
+}
+
+/**
+ * Só a matrícula-mãe, salva na hora pelo checkbox (troca a lista de documentos).
+ * Separada de `salvarImovel` porque, com o venal obrigatório, marcar a caixa
+ * antes de digitar o venal daria erro — e a lista não trocaria.
+ */
+export function marcarMatriculaMae(estado: Estado, id: string, matriculaMae: boolean, ator: Ator, quando = agora()): Resultado {
+  return alterar(estado, id, ator, quando, (p) => ({
+    ok: true,
+    acao: matriculaMae ? 'Marcou a matrícula como matrícula-mãe' : 'Desmarcou a matrícula-mãe',
+    processo: { ...p, matriculaMae },
+  }))
 }
 
 /**
@@ -281,6 +314,8 @@ export function salvarConferenciaFinal(
     if (dados.encaminhado && !(dados.documentacao && dados.valores && dados.comissao)) {
       return { ok: false, erro: 'Confira documentação, valores e comissão antes de encaminhar para finalização.' }
     }
+    const bloqueio = dados.encaminhado ? bloqueioFinalizacao(p.analiseFin) : null
+    if (bloqueio) return { ok: false, erro: bloqueio }
     if (!dados.responsavel.trim()) return { ok: false, erro: 'Informe o responsável pela conferência.' }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dados.data) || Number.isNaN(Date.parse(dados.data))) {
       return { ok: false, erro: 'Informe a data da conferência.' }

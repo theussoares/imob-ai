@@ -181,29 +181,19 @@ export interface PermissoesImovel {
 }
 
 /**
- * Corretor com `verTodos = proprio` só enxerga e altera os imóveis em que é o vendedor. Excluir é do dono
- * e do corretor vendedor (jurídico e recepção tiram do site mudando o status para rascunho). O servidor
- * repete esta regra: a tela só a espelha.
+ * Todo perfil com acesso ao painel vê e altera todos os imóveis do tenant: o corretor cadastra, abre contrato e
+ * edita qualquer um (decisão do cliente; antes só os que captou). Excluir é do dono e do corretor; jurídico e
+ * recepção tiram do site mudando o status para rascunho. Trocar o corretor vendedor segue de quem vê todos os
+ * processos (`verTodos`). O servidor repete esta regra: a tela só a espelha. Os PROCESSOS seguem outra regra,
+ * a de `processosVisiveis`.
  */
-/**
- * `vinculado` = o imóvel é de uma venda/locação do escopo da sessão (corretor): ele PODE VER, para o contrato
- * não apontar para um imóvel que ele não encontra, mas não edita nem exclui o que não captou.
- */
-export function permissoesImovel(matriz: MatrizPermissoes, sessao: Sessao, imovel: ImovelGestao | null, vinculado = false): PermissoesImovel {
-  const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
+export function permissoesImovel(matriz: MatrizPermissoes, sessao: Sessao): PermissoesImovel {
   const criar = matriz.criar?.[sessao.perfil] === 'sim'
-  if (!imovel) return { ver: true, criar, editar: false, excluir: false, trocarCorretor: todos }
-  const proprio = sessao.corretorId !== null && imovel.brokerId === sessao.corretorId
-  const meu = todos || proprio
-  return { ver: meu || vinculado, criar, editar: meu, excluir: meu && (sessao.perfil === 'dono' || proprio), trocarCorretor: todos }
-}
-
-export function imoveisVisiveis(matriz: MatrizPermissoes, sessao: Sessao, imoveis: ImovelGestao[], vinculados: ReadonlySet<string> = new Set()): ImovelGestao[] {
-  return imoveis.filter((i) => permissoesImovel(matriz, sessao, i, vinculados.has(i.id)).ver)
+  return { ver: true, criar, editar: true, excluir: sessao.perfil === 'dono' || sessao.perfil === 'corretor', trocarCorretor: matriz.verTodos?.[sessao.perfil] === 'sim' }
 }
 
 export function podeExcluirImovel(imovel: ImovelGestao, sessao: Sessao, matriz: MatrizPermissoes, locacoes: Locacao[]): { ok: true } | { ok: false; erro: string } {
-  if (!permissoesImovel(matriz, sessao, imovel).excluir) return { ok: false, erro: 'Você não pode excluir este imóvel.' }
+  if (!permissoesImovel(matriz, sessao).excluir) return { ok: false, erro: 'Você não pode excluir este imóvel.' }
   if (situacaoImovel(imovel.id, locacoes) === 'em-locacao') {
     return { ok: false, erro: 'Este imóvel tem locação em andamento. Encerre ou arquive a locação antes de excluir.' }
   }

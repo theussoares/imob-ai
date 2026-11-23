@@ -5,7 +5,7 @@ import type { Processo, ResponsavelAdiantamento } from '../../domain/types'
 
 const props = defineProps<{
   processo: Processo
-  /** false em processo final: lista só para consulta */
+  /** false em processo final, ou com o financeiro em análise/aprovado: lista só para consulta */
   editavel: boolean
 }>()
 const emit = defineEmits<{ registrar: [dados: NovoAdiantamento, arquivo: File | null]; remover: [id: string]; pagar: [id: string, arquivo: File | null] }>()
@@ -19,7 +19,7 @@ const ROTULO: Record<ResponsavelAdiantamento, string> = {
 const comissao = computed(() => calcularComissao(props.processo))
 
 const resp = ref<ResponsavelAdiantamento>('vendedor')
-const valor = ref<number | null>(null)
+const valor = ref(0)
 const data = ref(new Date().toISOString().slice(0, 10))
 const momento = ref<'adiantamento' | 'fim-contrato'>('adiantamento')
 const pago = ref(false)
@@ -42,7 +42,7 @@ function registrar() {
   // (é ela a fonte da regra, a tela só antecipa a mensagem).
   // Cada erro junto do SEU campo (e o foco nele), não numa linha solta no fim do formulário.
   erroValor.value = erroComprovante.value = ''
-  const v = validarAdiantamento(props.processo, { resp: resp.value, valor: valor.value ?? 0 })
+  const v = validarAdiantamento(props.processo, { resp: resp.value, valor: valor.value })
   if (!v.ok) erroValor.value = v.erro
   if (pago.value && !comprovante.value) erroComprovante.value = MSG_PAGO_SEM_COMPROVANTE
   if (erroValor.value || erroComprovante.value) {
@@ -51,13 +51,13 @@ function registrar() {
   }
   emit('registrar', {
     resp: resp.value,
-    valor: valor.value ?? 0,
+    valor: valor.value,
     data: data.value,
     momento: momento.value,
     pago: pago.value,
     comprovante: comprovante.value,
   }, arquivoComprovante.value)
-  valor.value = null
+  valor.value = 0
   pago.value = false
   comprovante.value = null
   arquivoComprovante.value = null
@@ -169,17 +169,12 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
           </select>
         </label>
         <label :class="rotuloCampo">
-          Valor (R$)
-          <input
-            v-model.number="valor"
-            type="number"
-            min="0"
-            step="0.01"
-            inputmode="decimal"
-            :class="campo"
+          Valor
+          <GestaoCampoMoeda
             id="adi-valor"
+            v-model="valor"
+            :invalido="!!erroValor"
             data-testid="adiantamento-valor"
-            :aria-invalid="erroValor ? 'true' : undefined"
             :aria-describedby="erroValor ? 'adi-e-valor' : undefined"
             @input="erroValor = ''"
           />
@@ -222,7 +217,7 @@ const rotuloCampo = 'flex flex-col gap-1 text-[length:var(--fs-label)] font-bold
           Registrar
         </button>
       </form>
-      <p v-else class="m-0 mt-3 text-[var(--ink-soft)]">Processo encerrado: adiantamentos só para consulta.</p>
+      <p v-else class="m-0 mt-3 text-[var(--ink-soft)]">Adiantamentos só para consulta: o processo está encerrado ou o financeiro não está aberto para edição.</p>
     </div>
   </section>
 </template>

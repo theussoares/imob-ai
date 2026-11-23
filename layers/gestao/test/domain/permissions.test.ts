@@ -52,13 +52,16 @@ describe('permissões do painel de gestão', () => {
     expect(vis('juridico')).toContain('financeiro')
     expect(vis('juridico')).not.toContain('config')
     expect(vis('juridico')).toContain('usuarios') // convida, mas não administra
-    expect(vis('recepcao')).not.toContain('usuarios')
+    expect(vis('recepcao')).toContain('usuarios') // convida, mas não administra
+    expect(vis('recepcao')).not.toContain('config')
     expect(vis('dono')).toHaveLength(MENU.length)
   })
 
-  it('só dono e jurídico podem convidar usuários', () => {
+  it('dono, jurídico e recepção convidam; só o dono administra', () => {
     expect(capacidades(matriz, sessaoDoPerfil('corretor')).convidar).toBe(false)
-    expect(capacidades(matriz, sessaoDoPerfil('recepcao')).convidar).toBe(false)
+    expect(capacidades(matriz, sessaoDoPerfil('recepcao')).convidar).toBe(true)
+    expect(capacidades(matriz, sessaoDoPerfil('recepcao')).admin).toBe(false)
+    expect(capacidades(matriz, sessaoDoPerfil('juridico')).admin).toBe(false)
     expect(capacidades(matriz, sessaoDoPerfil('juridico')).convidar).toBe(true)
     expect(capacidades(matriz, sessaoDoPerfil('dono')).convidar).toBe(true)
   })

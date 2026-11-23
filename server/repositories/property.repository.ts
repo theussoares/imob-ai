@@ -177,6 +177,27 @@ export async function listAllProperties(
   return attachBrokersAdmin(client, tenantId, data ?? [])
 }
 
+/**
+ * Uma página de imóveis do tenant (mais recentes primeiro) com o total que casa o filtro, na mesma consulta
+ * (`count: 'exact'`). Só `status` e `purpose` vão ao banco: texto e situação pedem a varredura de
+ * `listAllProperties` (busca sem acento; situação vem dos contratos). Mesmas colunas e embed das outras leituras.
+ */
+export async function listPropertiesPage(
+  client: Client,
+  tenantId: string,
+  filtro: { status?: Property['status'] | ''; purpose?: Property['purpose'] | '' },
+  pagina: number,
+  porPagina: number,
+): Promise<{ properties: Property[]; total: number }> {
+  let query = client.from('properties').select(`*, ${IMAGES_EMBED}`, { count: 'exact' }).eq('tenant_id', tenantId)
+  if (filtro.status) query = query.eq('status', filtro.status)
+  if (filtro.purpose) query = query.eq('purpose', filtro.purpose)
+  const de = (Math.max(1, pagina) - 1) * porPagina
+  const { data, error, count } = await query.order('updated_at', { ascending: false }).order('id', { ascending: true }).range(de, de + porPagina - 1)
+  if (error) throw error
+  return { properties: await attachBrokersAdmin(client, tenantId, data ?? []), total: count ?? 0 }
+}
+
 /** Imóveis do tenant por id (em lotes de 100), mesmas colunas e embed de `listAllProperties`. Lista vazia não vai ao banco. */
 export async function listPropertiesByIds(client: Client, tenantId: string, ids: string[]): Promise<Property[]> {
   const out: Property[] = []

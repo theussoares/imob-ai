@@ -9,7 +9,6 @@ import {
   definirDestaque,
   excluirImovel,
   formImovelVazio,
-  imoveisVisiveis,
   imovelParaForm,
   mudarStatusImovel,
   permissoesImovel,
@@ -125,27 +124,23 @@ describe('criarImovel e atualizarImovel', () => {
 
 describe('permissões do imóvel', () => {
   const base = imoveisSeed()
-  const im101 = base.find((i) => i.id === 'im-101')! // vendedor c1
   const im102 = base.find((i) => i.id === 'im-102')! // vendedor c2
 
-  it('corretor só vê e altera os dele; não troca o corretor', () => {
-    const c1 = sessao('corretor', 'c1')
-    expect(permissoesImovel(matriz, c1, im101)).toMatchObject({ ver: true, editar: true, excluir: true, trocarCorretor: false })
-    expect(permissoesImovel(matriz, c1, im102)).toMatchObject({ ver: false, editar: false, excluir: false })
-    expect(imoveisVisiveis(matriz, sessao('corretor', 'c2'), base).map((i) => i.brokerId)).toEqual(['c2', 'c2'])
+  it('corretor vê, edita e exclui qualquer imóvel; não troca o corretor vendedor', () => {
+    expect(permissoesImovel(matriz, sessao('corretor', 'c1'))).toMatchObject({ ver: true, editar: true, excluir: true, trocarCorretor: false })
   })
 
   it('recepção e jurídico veem, editam e trocam o corretor, mas não excluem', () => {
     for (const p of ['recepcao', 'juridico'] as const) {
-      expect(permissoesImovel(matriz, sessao(p), im102)).toMatchObject({ ver: true, editar: true, excluir: false, trocarCorretor: true })
+      expect(permissoesImovel(matriz, sessao(p))).toMatchObject({ ver: true, editar: true, excluir: false, trocarCorretor: true })
     }
   })
 
   it('dono faz tudo; criar segue a matriz', () => {
-    expect(permissoesImovel(matriz, sessao('dono'), im102)).toMatchObject({ ver: true, editar: true, excluir: true, trocarCorretor: true })
-    expect(permissoesImovel(matriz, sessao('corretor', 'c1'), null).criar).toBe(true)
+    expect(permissoesImovel(matriz, sessao('dono'))).toMatchObject({ ver: true, editar: true, excluir: true, trocarCorretor: true })
+    expect(permissoesImovel(matriz, sessao('corretor', 'c1')).criar).toBe(true)
     const sem = { ...matriz, criar: { ...matriz.criar, corretor: 'nao' as const } }
-    expect(permissoesImovel(sem, sessao('corretor', 'c1'), null).criar).toBe(false)
+    expect(permissoesImovel(sem, sessao('corretor', 'c1')).criar).toBe(false)
   })
 
   it('excluir é recusado com locação em andamento e sem permissão', () => {
@@ -171,17 +166,5 @@ describe('errosImovel: todos os erros de uma vez, por campo', () => {
     const r = validarImovel(f)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.erro).toBe(Object.values(errosImovel(f))[0])
-  })
-})
-
-describe('imóvel vinculado a contrato do corretor: vê, não edita', () => {
-  it('ver = true só com o vínculo; editar e excluir seguem do captador', () => {
-    const matriz = matrizPadrao()
-    const c1 = { perfil: 'corretor', nome: 'C', corretorId: 'c1' } as const
-    const alheio = imoveisSeed().find((i) => i.brokerId !== 'c1')!
-    expect(permissoesImovel(matriz, c1, alheio)).toMatchObject({ ver: false })
-    expect(permissoesImovel(matriz, c1, alheio, true)).toMatchObject({ ver: true, editar: false, excluir: false })
-    expect(imoveisVisiveis(matriz, c1, [alheio], new Set([alheio.id]))).toHaveLength(1)
-    expect(imoveisVisiveis(matriz, c1, [alheio], new Set(['outro']))).toHaveLength(0)
   })
 })

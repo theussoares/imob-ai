@@ -37,11 +37,25 @@ describe('itens por etapa', () => {
     expect(mae).not.toContain('Matrícula atualizada')
   })
 
-  it('etapa 5 só pede simulação, extrato e comprovante quando há financiamento, FGTS e entrada', () => {
-    const avista = { ...p, fin: { forma: 'À vista' as const, financiado: 0, entrada: 0, fgts: 0, proprios: 1 } }
+  it('etapa 5 só pede simulação, extrato e comprovante quando há financiamento, FGTS e recurso próprio', () => {
+    const avista = { ...p, fin: { forma: 'À vista' as const, financiado: 0, fgts: 0, proprios: 1 } }
     expect(nomes(avista, 5)).toEqual(['Proposta assinada pelas partes'])
-    const misto = { ...p, fin: { forma: 'Misto' as const, financiado: 1, entrada: 1, fgts: 1, proprios: 0 } }
+    const misto = { ...p, fin: { forma: 'Misto' as const, financiado: 1, fgts: 1, proprios: 1 } }
     expect(nomes(misto, 5)).toHaveLength(4)
+  })
+
+  // A entrada deixou de ser campo: é o FGTS mais o recurso próprio, os dois opcionais.
+  // Financiamento só com FGTS não tem dinheiro do bolso a comprovar.
+  it('comprovante da entrada acompanha o recurso próprio, não o FGTS', () => {
+    const soFgts = { ...p, fin: { forma: 'Financiamento' as const, financiado: 1, fgts: 1, proprios: 0 } }
+    expect(nomes(soFgts, 5)).not.toContain('Comprovante da entrada')
+    const comProprio = { ...soFgts, fin: { ...soFgts.fin, proprios: 1 } }
+    expect(nomes(comProprio, 5)).toContain('Comprovante da entrada')
+  })
+
+  it('financiamento sem FGTS nem recurso próprio pede só proposta e simulação', () => {
+    const cheio = { ...p, fin: { forma: 'Financiamento' as const, financiado: 1, fgts: 0, proprios: 0 } }
+    expect(nomes(cheio, 5)).toEqual(['Proposta assinada pelas partes', 'Simulação de financiamento'])
   })
 })
 
@@ -98,10 +112,10 @@ describe('pendências que bloqueiam a conclusão', () => {
 
   it('etapa 5 exige as fontes fechando o valor e os arquivos dos itens', () => {
     const e = novo()
-    const p = proc(e, 'V-2026-0158') // 320.000 = 256.000 financiado + 64.000 entrada; falta o comprovante da entrada
+    const p = proc(e, 'V-2026-0158') // 320.000 = 256.000 financiado + 64.000 recurso próprio; falta o comprovante da entrada
     const texto = pendenciasEtapa(p, e.documentos, 5)
     expect(texto).toEqual([expect.stringContaining('Comprovante da entrada')])
-    const furada = { ...p, fin: { ...p.fin, entrada: 1000 } }
+    const furada = { ...p, fin: { ...p.fin, fgts: 1000 } }
     expect(pendenciasEtapa(furada, e.documentos, 5).join(' ')).toContain('fontes de pagamento precisam fechar')
   })
 
@@ -149,7 +163,7 @@ describe('salvarFinanceiro continua valendo para a lista de itens', () => {
     const e = novo()
     const p = proc(e, 'V-2026-0158')
     const r = ok(
-      salvarFinanceiro(e, p.id, { valor: p.valor, fin: { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: p.valor } }, ator),
+      salvarFinanceiro(e, p.id, { valor: p.valor, fin: { forma: 'À vista', financiado: 0, fgts: 0, proprios: p.valor } }, ator),
     )
     expect(nomes(proc(r, p.id), 5)).toEqual(['Proposta assinada pelas partes'])
   })

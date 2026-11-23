@@ -1,3 +1,4 @@
+import { analiseEditavel } from './analise-financeira'
 import type { Locacao, MatrizPermissoes, PermChave, PermValor, Perfil, Processo, Sessao } from './types'
 
 export const PERFIS: Record<Perfil, { nome: string; usuario: string; corretorId: string | null; descricao: string }> = {
@@ -43,7 +44,8 @@ export const DEFINICOES_PERMISSAO: { chave: PermChave; rotulo: string; estados: 
   { chave: 'apagarDocs', rotulo: 'Apagar (arquivar) documentos e usar a lixeira', estados: ['sim', 'nao'] },
   { chave: 'juridico', rotulo: 'Análise e finalização jurídica', estados: ['sim', 'nao'] },
   { chave: 'arquivar', rotulo: 'Arquivar contratos', estados: ['sim', 'nao'] },
-  { chave: 'valores', rotulo: 'Ver valores, comissões, pagamentos e repasses', estados: ['sim', 'nao'] },
+  { chave: 'valores', rotulo: 'Ver valores, comissões, pagamentos e repasses (e analisar o financeiro)', estados: ['sim', 'nao'] },
+  { chave: 'financeiroLivre', rotulo: 'Preencher o financeiro do próprio processo (vale depois da análise)', estados: ['sim', 'proprio', 'nao'] },
   { chave: 'consulta', rotulo: 'Fazer consulta cadastral (SPC/Serasa)', estados: ['sim', 'nao'] },
   { chave: 'auditoria', rotulo: 'Ver o histórico de alterações (auditoria)', estados: ['sim', 'nao'] },
   { chave: 'convidar', rotulo: 'Convidar usuários por e-mail', estados: ['sim', 'nao'] },
@@ -69,9 +71,10 @@ export function matrizPadrao(): MatrizPermissoes {
     juridico: linha('nao', 'nao', 'sim', 'sim'),
     arquivar: linha('nao', 'nao', 'sim', 'sim'),
     valores: linha('nao', 'nao', 'sim', 'sim'),
+    financeiroLivre: linha('proprio', 'nao', 'sim', 'sim'),
     consulta: linha('nao', 'sim', 'sim', 'sim'),
     auditoria: linha('nao', 'nao', 'sim', 'sim'),
-    convidar: linha('nao', 'nao', 'sim', 'sim'),
+    convidar: linha('nao', 'sim', 'sim', 'sim'),
     admin: linha('nao', 'nao', 'nao', 'sim'),
   }
 }
@@ -84,6 +87,12 @@ export interface Capacidades {
   conferir: boolean
   juridico: boolean
   valores: boolean
+  /** `financeiroLivre` aplicado a ESTE processo (`proprio` = o corretor dele). Sem processo, «pode em algum?». */
+  financeiroLivre: boolean
+  /** Vê comissão, adiantamentos e fontes de pagamento: `valores` ou `financeiroLivre`. */
+  verFinanceiro: boolean
+  /** Edita o financeiro agora: `valores`, ou `financeiroLivre` + editar enquanto a análise não foi enviada ou foi devolvida. */
+  editarFinanceiro: boolean
   arquivar: boolean
   apagarDocs: boolean
   consulta: boolean
@@ -99,18 +108,25 @@ export interface Capacidades {
  * sem processo (`null`) a pergunta é "pode editar algo?", e `proprio` conta
  * como sim.
  */
-export function capacidades(matriz: MatrizPermissoes, sessao: Sessao, processo: Processo | null = null): Capacidades {
+export function capacidades(matriz: MatrizPermissoes, sessao: Sessao, processo: Pick<Processo, 'corretorId' | 'analiseFin'> | null = null): Capacidades {
   const v = (k: PermChave): PermValor => matriz[k]?.[sessao.perfil] ?? 'nao'
   const proprio = processo === null || processo.corretorId === sessao.corretorId
   const editar = v('editar')
+  const podeEditar = editar === 'sim' || (editar === 'proprio' && proprio)
+  const livre = v('financeiroLivre')
+  const financeiroLivre = livre === 'sim' || (livre === 'proprio' && proprio)
+  const valores = v('valores') === 'sim'
   return {
     verTodos: v('verTodos') === 'sim',
     criar: v('criar') === 'sim',
     enviarDocs: v('enviarDocs') === 'sim',
-    editar: editar === 'sim' || (editar === 'proprio' && proprio),
+    editar: podeEditar,
     conferir: v('conferir') === 'sim',
     juridico: v('juridico') === 'sim',
-    valores: v('valores') === 'sim',
+    valores,
+    financeiroLivre,
+    verFinanceiro: valores || financeiroLivre,
+    editarFinanceiro: valores || (financeiroLivre && podeEditar && analiseEditavel(processo?.analiseFin)),
     arquivar: v('arquivar') === 'sim',
     apagarDocs: v('apagarDocs') === 'sim',
     consulta: v('consulta') === 'sim',
@@ -167,6 +183,9 @@ export function menuVisivel(matriz: MatrizPermissoes, perfil: Perfil, chave: Cha
   }
 }
 
+/** Matriz guardada antes de uma permissão existir: a chave que falta recebe o padrão, nunca `undefined`. */
+export const matrizComPadrao = (salva: Partial<MatrizPermissoes> | null | undefined): MatrizPermissoes => ({ ...matrizPadrao(), ...salva })
+
 /** Processos que a sessão enxerga: corretor com `verTodos = proprio` só vê os seus. */
 export function processosVisiveis(matriz: MatrizPermissoes, sessao: Sessao, processos: Processo[]): Processo[] {
   const todos = matriz.verTodos?.[sessao.perfil] === 'sim'
@@ -199,8 +218,18 @@ export const PERMISSOES_FIXAS_DO_DONO: PermChave[] = ['admin', 'convidar']
 
 export const ROTULO_VALOR: Record<PermValor, string> = { sim: 'Sim', proprio: 'Só os próprios', nao: 'Não' }
 
-export const permissaoFixa = (chave: PermChave, perfil: Perfil): boolean =>
-  perfil === 'dono' && PERMISSOES_FIXAS_DO_DONO.includes(chave)
+/**
+ * Valor imposto a uma célula da matriz, ou `null` se a matriz decide. `admin`
+ * (usuários, permissões e configurações) é só do Dono: se a matriz pudesse dar
+ * `admin` à Recepção ou ao Jurídico, quem convida passaria a reescrever as
+ * permissões e a promover gente. Convidar é outra coisa — o Dono pode estender.
+ */
+export function valorFixo(chave: PermChave, perfil: Perfil): PermValor | null {
+  if (perfil === 'dono') return PERMISSOES_FIXAS_DO_DONO.includes(chave) ? 'sim' : null
+  return chave === 'admin' ? 'nao' : null
+}
+
+export const permissaoFixa = (chave: PermChave, perfil: Perfil): boolean => valorFixo(chave, perfil) !== null
 
 export type ResultadoMatriz = { ok: true; matriz: MatrizPermissoes } | { ok: false; erro: string }
 
@@ -209,8 +238,15 @@ export function alterarPermissao(matriz: MatrizPermissoes, chave: PermChave, per
   const def = DEFINICOES_PERMISSAO.find((d) => d.chave === chave)
   if (!def) return { ok: false, erro: 'Permissão desconhecida.' }
   if (!def.estados.includes(valor)) return { ok: false, erro: `«${def.rotulo}» não aceita «${ROTULO_VALOR[valor]}».` }
-  if (permissaoFixa(chave, perfil) && valor !== 'sim') {
-    return { ok: false, erro: 'O Dono não pode perder esta permissão: sem ela ninguém administraria o acesso.' }
+  const fixo = valorFixo(chave, perfil)
+  if (fixo && valor !== fixo) {
+    return {
+      ok: false,
+      erro:
+        fixo === 'sim'
+          ? 'O Dono não pode perder esta permissão: sem ela ninguém administraria o acesso.'
+          : 'Só o Dono administra usuários, permissões e configurações.',
+    }
   }
   return { ok: true, matriz: { ...matriz, [chave]: { ...matriz[chave], [perfil]: valor } } }
 }

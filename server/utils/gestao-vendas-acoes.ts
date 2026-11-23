@@ -9,6 +9,7 @@ import {
 import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '~~/layers/gestao/domain/acoes-ciclo'
 import {
   marcarAdiantamentoPago,
+  marcarMatriculaMae,
   registrarAdiantamento,
   removerAdiantamento,
   salvarConferenciaFinal,
@@ -16,6 +17,8 @@ import {
   salvarImovel,
   salvarPessoa,
 } from '~~/layers/gestao/domain/acoes-processo'
+import { aprovarAnaliseFinanceira, devolverAnaliseFinanceira, enviarAnaliseFinanceira } from '~~/layers/gestao/domain/acoes-analise'
+import { MOTIVO_MAX } from '~~/layers/gestao/domain/analise-financeira'
 import type { Capacidades } from '~~/layers/gestao/domain/permissions'
 import { STATUS_VENDA } from '~~/layers/gestao/domain/status'
 import type { StatusVenda } from '~~/layers/gestao/domain/types'
@@ -95,9 +98,10 @@ export const ACOES_VENDA = {
     schema: vazio,
     fn: (id) => (e, a, q) => restaurarProcesso(e, id, a, q),
   }),
-  // A aba de comissão só existe para `valores` (`podeValores` na tela).
+  // A aba de comissão é de quem edita o financeiro (`editarFinanceiro` na tela): `valores`, ou o corretor do
+  // processo (`financeiroLivre`) enquanto a análise não foi enviada ou foi devolvida.
   registrarAdiantamento: def({
-    permitido: (c) => c.valores,
+    permitido: (c) => c.editarFinanceiro,
     schema: z.object({
       resp: z.enum(['vendedor', 'captador', 'imob']),
       valor: z.number().finite(),
@@ -109,24 +113,23 @@ export const ACOES_VENDA = {
     fn: (id, d) => (e, a, q) => registrarAdiantamento(e, id, d, a, q),
   }),
   marcarAdiantamentoPago: def({
-    permitido: (c) => c.valores,
+    permitido: (c) => c.editarFinanceiro,
     schema: z.object({ adiantamentoId: z.string().max(32), comprovante: texto.nullable().optional() }),
     fn: (id, d) => (e, a, q) => marcarAdiantamentoPago(e, id, d.adiantamentoId, d, a, q),
   }),
   removerAdiantamento: def({
-    permitido: (c) => c.valores,
+    permitido: (c) => c.editarFinanceiro,
     schema: z.object({ adiantamentoId: z.string().max(32) }),
     fn: (id, d) => (e, a, q) => removerAdiantamento(e, id, d.adiantamentoId, a, q),
   }),
-  // Checklist comercial (etapa 5): grava valor e fontes, então exige editar E valores.
+  // Checklist comercial (etapa 5): grava valor e fontes, então exige editar E poder editar o financeiro.
   salvarFinanceiro: def({
-    permitido: (c) => c.editar && c.valores,
+    permitido: (c) => c.editar && c.editarFinanceiro,
     schema: z.object({
       valor: z.number().finite(),
       fin: z.object({
         forma: z.enum(['À vista', 'Financiamento', 'Misto']),
         financiado: z.number().finite(),
-        entrada: z.number().finite(),
         fgts: z.number().finite(),
         proprios: z.number().finite(),
         avaliacao: z.number().finite().optional(),
@@ -137,6 +140,22 @@ export const ACOES_VENDA = {
     }),
     fn: (id, d) => (e, a, q) => salvarFinanceiro(e, id, d, a, q),
   }),
+  // Análise do financeiro: quem edita envia; só `valores` aprova ou devolve (e não o próprio corretor).
+  enviarAnaliseFinanceira: def({
+    permitido: (c) => c.editarFinanceiro,
+    schema: vazio,
+    fn: (id) => (e, a, q) => enviarAnaliseFinanceira(e, id, a, q),
+  }),
+  aprovarAnaliseFinanceira: def({
+    permitido: (c) => c.valores,
+    schema: vazio,
+    fn: (id) => (e, a, q) => aprovarAnaliseFinanceira(e, id, a, q),
+  }),
+  devolverAnaliseFinanceira: def({
+    permitido: (c) => c.valores,
+    schema: z.object({ motivo: z.string().max(MOTIVO_MAX) }),
+    fn: (id, d) => (e, a, q) => devolverAnaliseFinanceira(e, id, d.motivo, a, q),
+  }),
   salvarPessoa: def({
     permitido: (c) => c.editar,
     schema: z.object({ quem: z.enum(['vendedor', 'comprador']), cpf: texto, telefone: texto, email: texto }),
@@ -146,6 +165,13 @@ export const ACOES_VENDA = {
     permitido: (c) => c.editar,
     schema: z.object({ matriculaMae: z.boolean(), valorVenal: z.number().finite() }),
     fn: (id, d) => (e, a, q) => salvarImovel(e, id, d, a, q),
+  }),
+  // Separada de `salvarImovel` porque o valor venal virou obrigatório: marcar a matrícula-mãe
+  // (que troca a lista de documentos) não pode esperar alguém achar o carnê do IPTU.
+  marcarMatriculaMae: def({
+    permitido: (c) => c.editar,
+    schema: z.object({ matriculaMae: z.boolean() }),
+    fn: (id, d) => (e, a, q) => marcarMatriculaMae(e, id, d.matriculaMae, a, q),
   }),
   // Conferência final é a etapa 6, da recepção (`podeNaEtapa(6)`).
   salvarConferenciaFinal: def({
