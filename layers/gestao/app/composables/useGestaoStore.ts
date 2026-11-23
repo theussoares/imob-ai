@@ -4,7 +4,7 @@ import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { configuracoesPadrao, encargosDaConfig, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos, validarArquivo } from '../../domain/documentos'
-import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
+import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizComPadrao, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
 import { imoveisSeed, situacaoImovel, type ImovelGestao } from '../../domain/imoveis'
 import { permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
@@ -115,7 +115,7 @@ export function useGestaoStore() {
     lerPersistido() {
       const g = lerBlob()
       return g
-        ? { processos: g.processos, documentos: g.documentos, locacoes: g.locacoes, matriz: g.matriz ?? matrizPadrao(), config: g.config ?? configuracoesPadrao(), consultas: Array.isArray(g.consultas) ? g.consultas : [], corretores: CORRETORES }
+        ? { processos: g.processos, documentos: g.documentos, locacoes: g.locacoes, matriz: matrizComPadrao(g.matriz), config: g.config ?? configuracoesPadrao(), consultas: Array.isArray(g.consultas) ? g.consultas : [], corretores: CORRETORES }
         : null
     },
     limparPersistido() {
@@ -271,7 +271,8 @@ export function useGestaoStore() {
     if (r.ok) aplicarMudanca(r)
   }
 
-  const abrirProcesso = async (dados: NovoProcesso) => comAplicar(await repo.abrirVenda(dados))
+  // Quem não tem `valores` abre com o financeiro em rascunho (em `http` o servidor decide; aqui vale para o mock).
+  const abrirProcesso = async (dados: NovoProcesso) => comAplicar(await repo.abrirVenda({ ...dados, comAnaliseFin: !caps()?.valores }))
   const abrirLocacao = async (dados: NovaLocacao) => comAplicar(await repo.abrirLocacao(dados))
 
   function comAplicar<T extends Resultado<Mudanca>>(r: T): T {
@@ -517,7 +518,7 @@ export function useGestaoStore() {
    */
   function matrizAtual(): MatrizPermissoes {
     if (http || carregado.value) return matriz.value
-    return lerBlob()?.matriz ?? matrizPadrao()
+    return matrizComPadrao(lerBlob()?.matriz)
   }
 
   const caps = (p: Processo | null = null) =>

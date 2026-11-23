@@ -53,6 +53,16 @@ const conferencia = z.object({
   data: z.string(),
 })
 
+/** Compartilhado com a locação. Sem isto o Zod descartaria `analiseFin` na leitura e a análise sumiria no próximo salvar. */
+export const analiseFinSchema = z.object({
+  status: z.enum(['rascunho', 'em-analise', 'aprovado', 'devolvido']),
+  enviadoPor: z.string().optional(),
+  enviadoEm: z.string().optional(),
+  decididoPor: z.string().optional(),
+  decididoEm: z.string().optional(),
+  motivo: z.string().optional(),
+})
+
 export const processoSchema = z.object({
   id: z.string(),
   tipo: z.literal('venda'),
@@ -77,6 +87,7 @@ export const processoSchema = z.object({
   valorVenal: z.number().optional(),
   conferenciaFinal: conferencia.optional(),
   preliminar: z.object({ existe: z.boolean(), arquivo: z.string().nullable() }).optional(),
+  analiseFin: analiseFinSchema.optional(),
   arquivado: z.boolean(),
 })
 
@@ -122,11 +133,13 @@ export function toVendaColunas(p: Processo): Pick<VendaRow, 'corretor_id' | 'sta
  */
 export type ProcessoSemValores = Omit<Processo, 'pct' | 'adiantamentos' | 'fin'>
 
-export function recortarValores(p: Processo, podeValores: boolean): Processo | ProcessoSemValores {
-  if (podeValores) return p
+export function recortarValores(p: Processo, podeVer: boolean): Processo | ProcessoSemValores {
+  if (podeVer) return p
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { pct, adiantamentos, fin, ...resto } = p
-  return { ...resto, hist: p.hist.filter((h) => !/adiantamento/i.test(h.acao)) }
+  const { pct, adiantamentos, fin, analiseFin, ...resto } = p
+  // Quem não vê o financeiro sabe só EM QUE PONTO da análise ele está (selo da lista); quem enviou, quando e o
+  // motivo da devolução ficam com quem pode agir sobre eles.
+  return { ...resto, ...(analiseFin && { analiseFin: { status: analiseFin.status } }), hist: p.hist.filter((h) => !/adiantamento/i.test(h.acao)) }
 }
 
 // Garante que o schema continua cobrindo o tipo do domínio (e vice-versa).

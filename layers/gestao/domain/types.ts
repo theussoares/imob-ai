@@ -17,6 +17,7 @@ export type PermChave =
   | 'juridico'
   | 'arquivar'
   | 'valores'
+  | 'financeiroLivre'
   | 'consulta'
   | 'auditoria'
   | 'convidar'
@@ -29,6 +30,24 @@ export interface Sessao {
   nome: string
   /** id do corretor quando o perfil é `corretor`; é o que filtra "só os meus". */
   corretorId: string | null
+}
+
+/**
+ * Análise do financeiro de um contrato (venda ou locação). Quem abre sem a permissão `valores` preenche o
+ * financeiro livremente, mas ele só vale depois de passar por quem tem `valores`. Ausente = sem análise (legado,
+ * ou aberto por quem já tem `valores`): não bloqueia nada.
+ */
+export type StatusAnaliseFin = 'rascunho' | 'em-analise' | 'aprovado' | 'devolvido'
+
+export interface AnaliseFinanceira {
+  status: StatusAnaliseFin
+  enviadoPor?: string
+  /** dd/mm/aaaa hh:mm, como o histórico. */
+  enviadoEm?: string
+  decididoPor?: string
+  decididoEm?: string
+  /** Motivo da devolução; só em `devolvido`. */
+  motivo?: string
 }
 
 export interface Pessoa {
@@ -124,6 +143,7 @@ export interface Processo {
   conferenciaFinal?: ConferenciaFinal
   /** Contrato preliminar (opcional): existe ou não e o nome do PDF anexado. */
   preliminar?: { existe: boolean; arquivo: string | null }
+  analiseFin?: AnaliseFinanceira
   arquivado: boolean
 }
 

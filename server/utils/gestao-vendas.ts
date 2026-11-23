@@ -78,9 +78,10 @@ const mascarada = (r: VendaResposta): VendaResposta => ({
   },
 })
 
-const resposta = (v: Venda, podeValores: boolean): VendaResposta => ({
+/** O recorte do financeiro é POR PROCESSO: `financeiroLivre = proprio` vale só para o corretor dele. */
+const resposta = (v: Venda, ctx: CtxVendas): VendaResposta => ({
   versao: v.versao,
-  processo: recortarValores(v.processo, podeValores),
+  processo: recortarValores(v.processo, capacidades(ctx.matriz, ctx.sessao, v.processo).verFinanceiro),
 })
 
 /** Corretor sem `verTodos` só enxerga o que é seu; sem vínculo com corretor, nada. */
@@ -118,7 +119,7 @@ export async function listarVendasDoMembro(
   // Mesmo critério do menu «Arquivados» (`menuVisivel`).
   if (filtro.arquivados && !(c.arquivar || c.apagarDocs)) throw proibido()
   const vendas = await listarVendas(ctx.db, escopoDe(ctx), { arquivado: filtro.arquivados })
-  return vendas.map((v) => mascarada(resposta(v, c.valores)))
+  return vendas.map((v) => mascarada(resposta(v, ctx)))
 }
 
 export interface FiltroPaginaVendas {
@@ -146,7 +147,7 @@ export async function listarVendasPaginaDoMembro(ctx: CtxVendas, filtro: FiltroP
   const c = capacidades(ctx.matriz, ctx.sessao)
   if (filtro.arquivados && !(c.arquivar || c.apagarDocs)) throw proibido()
   const escopo = escopoDe(ctx)
-  const paraResposta = (v: Venda) => mascarada(resposta(v, c.valores))
+  const paraResposta = (v: Venda) => mascarada(resposta(v, ctx))
 
   if (!filtro.q.trim()) {
     const base = { arquivado: filtro.arquivados, ...(filtro.status ? { status: filtro.status } : {}) }
@@ -194,7 +195,7 @@ export async function lerVendaDoMembro(ctx: CtxVendas, id: string): Promise<Vend
   // Arquivada some para quem não vê arquivados, igual à lista e à locação: 404, não 403.
   const c = capacidades(ctx.matriz, ctx.sessao)
   if (v.processo.arquivado && !(c.arquivar || c.apagarDocs)) throw naoEncontrado()
-  return resposta(v, c.valores)
+  return resposta(v, ctx)
 }
 
 const novoSchema = z.object({
@@ -239,7 +240,8 @@ export async function abrirVendaDoMembro(ctx: CtxVendas, corpo: unknown, deps: D
     const estado: Estado = { processos: ids.map((id) => ({ id }) as Processo), documentos: [], locacoes: [] }
     const r = abrirProcesso(
       estado,
-      { imovel: dados.imovel, imovelId: dados.imovelId, vendedor: dados.vendedor, comprador: dados.comprador, corretorId, captadorId, pct },
+      // Quem não tem `valores` abre com o financeiro em rascunho: o que preencher passa pela análise.
+      { imovel: dados.imovel, imovelId: dados.imovelId, vendedor: dados.vendedor, comprador: dados.comprador, corretorId, captadorId, pct, comAnaliseFin: !c.valores },
       ator,
       quando,
     )
@@ -248,7 +250,7 @@ export async function abrirVendaDoMembro(ctx: CtxVendas, corpo: unknown, deps: D
     const res = await inserirVenda(ctx.db, ctx.membro.tenantId, novo)
     if (res === 'ok') {
       await evento(ctx, deps, 'venda.abrir', novo.id)
-      return resposta({ id: novo.id, versao: 1, processo: novo }, c.valores)
+      return resposta({ id: novo.id, versao: 1, processo: novo }, ctx)
     }
   }
   throw createError({ statusCode: 409, statusMessage: 'Não foi possível numerar o processo agora. Tente de novo.' })
@@ -316,5 +318,5 @@ export async function executarAcaoVenda(
   })
 
   await evento(ctx, deps, `venda.${nome}`, id)
-  return resposta(novo, capacidades(ctx.matriz, ctx.sessao).valores)
+  return resposta(novo, ctx)
 }

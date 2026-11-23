@@ -1,5 +1,6 @@
 import { agora, type Ator, type Estado, type Resultado } from './acoes'
 import { validarAdiantamento } from './commission'
+import { bloqueioFinalizacao } from './analise-financeira'
 import { statusFinal } from './status'
 import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import type { ConferenciaFinal, FontesPagamento, FormaPagamento, GanhoCapital, Pessoa, Processo, ResponsavelAdiantamento } from './types'
@@ -281,6 +282,8 @@ export function salvarConferenciaFinal(
     if (dados.encaminhado && !(dados.documentacao && dados.valores && dados.comissao)) {
       return { ok: false, erro: 'Confira documentação, valores e comissão antes de encaminhar para finalização.' }
     }
+    const bloqueio = dados.encaminhado ? bloqueioFinalizacao(p.analiseFin) : null
+    if (bloqueio) return { ok: false, erro: bloqueio }
     if (!dados.responsavel.trim()) return { ok: false, erro: 'Informe o responsável pela conferência.' }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dados.data) || Number.isNaN(Date.parse(dados.data))) {
       return { ok: false, erro: 'Informe a data da conferência.' }

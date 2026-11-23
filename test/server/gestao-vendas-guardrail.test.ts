@@ -74,7 +74,7 @@ describe('mapper', () => {
 describe('mapa de ações', () => {
   test('cobre exatamente as ações do plano', () => {
     expect(Object.keys(ACOES_VENDA).sort()).toEqual(
-      ['mudarStatus', 'concluirEtapa', 'salvarAbertura', 'salvarObservacao', 'arquivarProcesso', 'restaurarProcesso', 'registrarAdiantamento', 'marcarAdiantamentoPago', 'removerAdiantamento', 'salvarFinanceiro', 'salvarPessoa', 'salvarImovel', 'salvarConferenciaFinal'].sort(),
+      ['mudarStatus', 'concluirEtapa', 'salvarAbertura', 'salvarObservacao', 'arquivarProcesso', 'restaurarProcesso', 'registrarAdiantamento', 'marcarAdiantamentoPago', 'removerAdiantamento', 'salvarFinanceiro', 'salvarPessoa', 'salvarImovel', 'salvarConferenciaFinal', 'enviarAnaliseFinanceira', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira'].sort(),
     )
   })
 
