@@ -2,14 +2,15 @@ import {
   aceitarConvite,
   autenticar,
   CODIGO_BLOQUEIO_DEMO_MS,
-  criarConvite,
   consultarConvite,
+  consultarRecuperacao,
+  criarConvite,
+  criarRecuperacao,
   emitirCodigo,
   estadoAuthVazio,
-  redefinirSenha,
+  redefinirSenha as redefinirSenhaDemo,
   revogarConvite,
   semearContas,
-  solicitarRedefinicao,
   verificarCodigo,
   type ContaPublica,
   type EstadoAuth,
@@ -49,8 +50,6 @@ export function useGestaoAuth() {
   /** Só existe em demo: o código que iria por e-mail, para a faixa «Demonstração». */
   const codigoDemo = useState<string | null>('gestao:codigo-demo', () => null)
   const senhaDemo = useState<string | null>('gestao:senha-demo', () => null)
-  /** Idem `codigoDemo`, para a tela «Esqueci minha senha» (que não passa pelo 2º fator). */
-  const codigoRedefinicaoDemo = useState<string | null>('gestao:codigo-redefinicao-demo', () => null)
 
   // --- http: o servidor é quem autentica; aqui só se chama e se guarda o que não é segredo ---
   const api = http ? useGestaoApi() : null
@@ -305,35 +304,6 @@ export function useGestaoAuth() {
     return c ? Math.max(0, Math.ceil((c.criadoEm + 60_000 - Date.now()) / 1000)) : 0
   }
 
-  // --- Esqueci minha senha ---
-  // Só demo: o estado aqui é o do navegador. Em `http` a conta é do Supabase Auth e a
-  // redefinição de verdade precisa de endpoint no servidor (ainda não existe).
-  const ERRO_REDEFINICAO_INDISPONIVEL = 'Para trocar a senha, fale com o Dono da imobiliária.'
-
-  /**
-   * Sempre `ok` para a tela, exista a conta ou não, e mesmo que o código tenha sido
-   * recusado por `aguarde`/`bloqueado`: essas respostas só existem para conta real e
-   * mostrá-las diria quem trabalha aqui. Só o captcha falta de verdade.
-   */
-  async function pedirRedefinicao(email: string, captcha: string) {
-    if (!demo) return { ok: false as const, erro: ERRO_REDEFINICAO_INDISPONIVEL }
-    if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA }
-    const r = await solicitarRedefinicao(await ler(), email, bloqueio(demo))
-    if (r.ok) gravar(r.estado)
-    codigoRedefinicaoDemo.value = demo && r.ok ? r.codigo : null
-    return { ok: true as const }
-  }
-
-  async function redefinir(email: string, codigo: string, senha: string, captcha: string) {
-    if (!demo) return { ok: false as const, erro: ERRO_REDEFINICAO_INDISPONIVEL, motivo: 'indisponivel' }
-    if (!captcha) return { ok: false as const, erro: ERRO_CAPTCHA, motivo: 'captcha' }
-    const r = await redefinirSenha(await ler(), { email, codigo: codigo.trim(), senha }, bloqueio(demo))
-    // Grava também na falha: é onde o contador de tentativas do código anda.
-    gravar(r.estado)
-    if (r.ok) codigoRedefinicaoDemo.value = null
-    return r
-  }
-
   // --- Convites ---
 
   async function convidar(email: string, perfil: Perfil, convidante: { nome: string; perfil: Perfil }, brokerId?: string) {
@@ -363,6 +333,49 @@ export function useGestaoAuth() {
     return r
   }
 
+  // --- Recuperação de senha ---
+
+  /**
+   * Pede o link. A resposta é a mesma exista a conta ou não (o servidor também não diz). Só o demo devolve o
+   * link, porque não há e-mail: fora dele `linkDemo` é sempre `null`.
+   */
+  async function recuperar(email: string, captcha: string): Promise<{ ok: true; linkDemo: string | null } | { ok: false; erro: string }> {
+    if (!captcha) return { ok: false, erro: ERRO_CAPTCHA }
+    if (http) {
+      try {
+        await api!.post('/api/gestao/auth/recuperar', { email, captcha }, { semToken: true })
+        return { ok: true, linkDemo: null }
+      } catch (e) {
+        return { ok: false, erro: paraFalha(e).erro }
+      }
+    }
+    const r = criarRecuperacao(await ler(), email)
+    if (r.token) gravar(r.estado)
+    return { ok: true, linkDemo: r.token ? `${window.location.origin}/gestao/redefinir-senha?token_hash=${r.token}` : null }
+  }
+
+  /** Só diz se o link ainda parece vivo (demo). No http o servidor só descobre ao gastar o token, de propósito. */
+  async function linkDeRecuperacaoValido(token: string): Promise<boolean> {
+    if (http) return !!token
+    return consultarRecuperacao(await ler(), token).ok
+  }
+
+  async function redefinir(token: string, senha: string, captcha: string): Promise<{ ok: true } | { ok: false; erro: string; motivo: string }> {
+    if (!captcha) return { ok: false, erro: ERRO_CAPTCHA, motivo: 'captcha' }
+    if (http) {
+      try {
+        await api!.post('/api/gestao/auth/redefinir', { tokenHash: token, senha, captcha }, { semToken: true })
+        return { ok: true }
+      } catch (e) {
+        const f = paraFalha(e)
+        return { ok: false, erro: f.erro, motivo: f.motivo ?? 'erro' }
+      }
+    }
+    const r = await redefinirSenhaDemo(await ler(), { token, senha })
+    gravar(r.estado)
+    return r.ok ? { ok: true } : { ok: false, erro: r.erro, motivo: r.motivo }
+  }
+
   return {
     demo,
     http,
@@ -370,7 +383,6 @@ export function useGestaoAuth() {
     pendente,
     codigoDemo,
     senhaDemo,
-    codigoRedefinicaoDemo,
     carregar,
     restaurarPendente,
     definirPendente,
@@ -378,11 +390,12 @@ export function useGestaoAuth() {
     reenviar,
     verificar,
     segundosParaReenvio,
-    pedirRedefinicao,
-    redefinir,
     convidar,
     revogar,
     consultar,
     aceitar,
+    recuperar,
+    linkDeRecuperacaoValido,
+    redefinir,
   }
 }

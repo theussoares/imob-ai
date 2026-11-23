@@ -8,7 +8,7 @@ import { MENU, menuVisivel } from '../../domain/permissions'
  * imobiliária deste domínio tem o recurso `gestao` (0056). É 404 e não redirect: com o
  * recurso desligado o painel não deve nem parecer existir. (3) usa a matriz que o Dono editou (`matrizAtual`), não a padrão.
  *
- * Públicas (sem sessão): login, convite, recuperação de senha e verificação do 2º fator. A verificação
+ * Públicas (sem sessão): login, convite e verificação do 2º fator. A verificação
  * só abre para quem acabou de passar pela senha («pendente de 2º fator»); sem isso
  * volta ao login — a tela de código não pode ser um ponto de entrada.
  */
@@ -25,10 +25,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const noLogin = to.path === '/gestao/login'
   const noConvite = to.path.startsWith('/gestao/convite/')
   const noVerificar = to.path === '/gestao/verificar'
-  const noRecuperar = to.path === '/gestao/recuperar-senha'
-  const publica = noLogin || noConvite || noVerificar || noRecuperar
+  // Recuperar e redefinir senha são de quem NÃO consegue entrar: sessão ativa não as barra.
+  const naRecuperacao = to.path === '/gestao/recuperar-senha' || to.path === '/gestao/redefinir-senha'
+  const publica = noLogin || noConvite || noVerificar || naRecuperacao
 
-  if (sessao.value && publica) return navigateTo('/gestao/vendas')
+  if (sessao.value && publica && !naRecuperacao) return navigateTo('/gestao/vendas')
 
   if (!sessao.value) {
     if (noVerificar) {

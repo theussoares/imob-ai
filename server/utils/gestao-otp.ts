@@ -45,7 +45,7 @@ export function hashTokenConvite(pepper: string, token: string): string {
  * Chave de contagem de falhas de login, sem o e-mail nem o IP em claro: a tabela
  * de falhas é de contagem, não de rastreio de quem tentou.
  */
-export function chaveDeFalha(pepper: string, tipo: 'conta' | 'ip', valor: string): string {
+export function chaveDeFalha(pepper: string, tipo: 'conta' | 'ip' | 'recuperar-conta' | 'recuperar-ip' | 'redefinir-ip', valor: string): string {
   return createHmac('sha256', pepper).update(`falha:${tipo}:${valor.trim().toLowerCase()}`).digest('hex')
 }
 
