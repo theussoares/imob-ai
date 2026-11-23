@@ -101,7 +101,7 @@ describe('depois de enviado, o corretor só lê', () => {
     const c = ctx('corretor', client, CORRETOR_A)
     await expect(rodar(c, 'registrarAdiantamento', ADIANTAMENTO)).rejects.toMatchObject({ statusCode: 403 })
     await expect(rodar(c, 'removerAdiantamento', { adiantamentoId: 'a1' })).rejects.toMatchObject({ statusCode: 403 })
-    await expect(rodar(c, 'salvarFinanceiro', { valor: 1, fin: { forma: 'À vista', financiado: 0, entrada: 0, fgts: 0, proprios: 0 } })).rejects.toMatchObject({ statusCode: 403 })
+    await expect(rodar(c, 'salvarFinanceiro', { valor: 1, fin: { forma: 'À vista', financiado: 0, fgts: 0, proprios: 0 } })).rejects.toMatchObject({ statusCode: 403 })
     await expect(rodar(c, 'enviarAnaliseFinanceira')).rejects.toMatchObject({ statusCode: 403 })
     expect(calls.some((x) => x.method === 'update')).toBe(false)
   })

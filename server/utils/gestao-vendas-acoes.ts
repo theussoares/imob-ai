@@ -9,6 +9,7 @@ import {
 import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '~~/layers/gestao/domain/acoes-ciclo'
 import {
   marcarAdiantamentoPago,
+  marcarMatriculaMae,
   registrarAdiantamento,
   removerAdiantamento,
   salvarConferenciaFinal,
@@ -129,7 +130,6 @@ export const ACOES_VENDA = {
       fin: z.object({
         forma: z.enum(['À vista', 'Financiamento', 'Misto']),
         financiado: z.number().finite(),
-        entrada: z.number().finite(),
         fgts: z.number().finite(),
         proprios: z.number().finite(),
         avaliacao: z.number().finite().optional(),
@@ -165,6 +165,13 @@ export const ACOES_VENDA = {
     permitido: (c) => c.editar,
     schema: z.object({ matriculaMae: z.boolean(), valorVenal: z.number().finite() }),
     fn: (id, d) => (e, a, q) => salvarImovel(e, id, d, a, q),
+  }),
+  // Separada de `salvarImovel` porque o valor venal virou obrigatório: marcar a matrícula-mãe
+  // (que troca a lista de documentos) não pode esperar alguém achar o carnê do IPTU.
+  marcarMatriculaMae: def({
+    permitido: (c) => c.editar,
+    schema: z.object({ matriculaMae: z.boolean() }),
+    fn: (id, d) => (e, a, q) => marcarMatriculaMae(e, id, d.matriculaMae, a, q),
   }),
   // Conferência final é a etapa 6, da recepção (`podeNaEtapa(6)`).
   salvarConferenciaFinal: def({

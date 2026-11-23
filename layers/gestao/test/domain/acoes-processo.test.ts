@@ -3,6 +3,8 @@ import type { Estado } from '../../domain/acoes'
 import {
   itensChecklist,
   marcarAdiantamentoPago,
+  marcarMatriculaMae,
+  migrarEntradaLegada,
   MSG_PAGO_SEM_COMPROVANTE,
   registrarAdiantamento,
   removerAdiantamento,
@@ -106,7 +108,7 @@ describe('removerAdiantamento', () => {
 })
 
 describe('salvarFinanceiro', () => {
-  const dados = { valor: 500000, fin: { forma: 'Misto' as const, financiado: 300000, entrada: 100000, fgts: 50000, proprios: 50000 } }
+  const dados = { valor: 500000, fin: { forma: 'Misto' as const, financiado: 300000, fgts: 50000, proprios: 150000 } }
 
   it('grava valor e fontes e registra no histórico', () => {
     const p = proc(ok(salvarFinanceiro(novo(), ABERTO, dados, ator, quando)), ABERTO)
@@ -121,7 +123,7 @@ describe('salvarFinanceiro', () => {
   })
 
   it('À vista zera o financiado', () => {
-    const p = proc(ok(salvarFinanceiro(novo(), ABERTO, { valor: 200000, fin: { forma: 'À vista', financiado: 999, entrada: 0, fgts: 0, proprios: 200000 } }, ator, quando)), ABERTO)
+    const p = proc(ok(salvarFinanceiro(novo(), ABERTO, { valor: 200000, fin: { forma: 'À vista', financiado: 999, fgts: 0, proprios: 200000 } }, ator, quando)), ABERTO)
     expect(p.fin.financiado).toBe(0)
   })
 
@@ -159,7 +161,7 @@ describe('adiantamento: momento, pago e comprovante', () => {
 })
 
 describe('salvarFinanceiro: campos da Olmi', () => {
-  const fin = { forma: 'Misto' as const, financiado: 300000, entrada: 100000, fgts: 0, proprios: 50000, avaliacao: 520000, ganho: 'Há ganho de capital' as const, bem: 'Carro Onix 2020', valorBem: 50000 }
+  const fin = { forma: 'Misto' as const, financiado: 300000, fgts: 0, proprios: 150000, avaliacao: 520000, ganho: 'Há ganho de capital' as const, bem: 'Carro Onix 2020', valorBem: 50000 }
 
   it('grava avaliação, ganho de capital e bem', () => {
     const p = proc(ok(salvarFinanceiro(novo(), ABERTO, { valor: 500000, fin }, ator, quando)), ABERTO)
@@ -211,6 +213,46 @@ describe('imóvel e checklist da etapa 4', () => {
     expect(p.matriculaMae).toBe(true)
     expect((p as { valorVenal?: number }).valorVenal).toBe(300000)
     expect(salvarImovel(novo(), ABERTO, { matriculaMae: false, valorVenal: -1 }, ator, quando).ok).toBe(false)
+  })
+
+  // Venal é base do ITBI e da escritura: salvar zero passava calado e o campo
+  // parecia preenchido até a etapa 4 travar. Agora o próprio salvar recusa.
+  it('salvarImovel recusa valor venal vazio (zero) ou não numérico, sem mutar o estado', () => {
+    const antes = novo()
+    const copia = JSON.parse(JSON.stringify(antes))
+    const r = salvarImovel(antes, ABERTO, { matriculaMae: false, valorVenal: 0 }, ator, quando)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.erro).toBe('Informe o valor venal do imóvel.')
+    expect(salvarImovel(antes, ABERTO, { matriculaMae: false, valorVenal: Number.NaN }, ator, quando).ok).toBe(false)
+    expect(antes).toEqual(copia)
+  })
+
+  // O checkbox salva na hora; com o venal obrigatório em salvarImovel, marcar a
+  // caixa antes de digitar o venal daria erro e a lista de documentos não trocaria.
+  it('marcarMatriculaMae grava sem exigir o venal e registra no histórico', () => {
+    const p = proc(ok(marcarMatriculaMae(novo(), ABERTO, true, ator, quando)), ABERTO)
+    expect(p.matriculaMae).toBe(true)
+    expect(p.hist[0]!.acao).toBe('Marcou a matrícula como matrícula-mãe')
+    const d = proc(ok(marcarMatriculaMae(novo(), ABERTO, false, ator, quando)), ABERTO)
+    expect(d.hist[0]!.acao).toBe('Desmarcou a matrícula-mãe')
+    expect(marcarMatriculaMae(novo(), CONCLUIDO, true, ator, quando).ok).toBe(false)
+  })
+})
+
+describe('migrarEntradaLegada', () => {
+  // Estado guardado no navegador antes de o campo sair: a entrada antiga vira
+  // recurso próprio, senão a soma deixa de fechar e a etapa 5 reabre sozinha.
+  it('soma a entrada antiga no recurso próprio e remove o campo', () => {
+    const p = proc(novo(), ABERTO)
+    const legado = { ...p, fin: { ...p.fin, proprios: 10000, entrada: 20000 } }
+    const m = migrarEntradaLegada(legado as typeof p)
+    expect(m.fin.proprios).toBe(30000)
+    expect('entrada' in m.fin).toBe(false)
+  })
+
+  it('processo já no formato novo volta intacto (mesma referência)', () => {
+    const p = proc(novo(), ABERTO)
+    expect(migrarEntradaLegada(p)).toBe(p)
   })
 })
 

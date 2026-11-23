@@ -155,14 +155,20 @@ Como dono, em `/gestao/vendas/V-2026-0155` (etapa 1). Botão `requisito-exemplo`
    pendência de contato; botão continua desabilitado (faltam arquivos).
 4. `requisito-exemplo` nos três itens → todos «Enviado»; `concluir-etapa` habilita; clicar →
    etapa 3, progresso «2 de 8», histórico com «Enviou o documento: …» (3x) e «Concluiu a etapa 2».
-5. Etapa 3: mesma exigência para o comprador. Etapa 4: `valor-venal` e a lista (Matrícula atualizada,
-   Comprovante do valor venal, Comprovante de água e luz); marcar `matricula-mae` e salvar troca a
-   matrícula por «Matrícula-mãe» + «Projeto/prancha do imóvel».
+5. Etapa 3: mesma exigência para o comprador. Etapa 4: `valor-venal` (obrigatório, com «R$» e
+   máscara) e a lista (Matrícula atualizada, Comprovante do valor venal, Comprovante de água e luz);
+   marcar `matricula-mae` troca na hora a matrícula por «Matrícula-mãe» + «Projeto/prancha do imóvel»,
+   mesmo com o venal vazio. `imovel-salvar` com o venal vazio → toast «Informe o valor venal do
+   imóvel.», campo em vermelho e `valor-venal-ajuda` «Obrigatório: …».
 6. Em `/gestao/vendas/V-2026-0158` (etapa 5): `fin-resumo` mostra valor da venda, soma das fontes e
    diferença; «As fontes de pagamento fecham com o valor da venda.»; a lista «Itens para conferir»
    tem Proposta (Enviado), Simulação (Enviado) e Comprovante da entrada (Pendente, com
    `requisito-enviar`). Enviar o que falta e `concluir-etapa` conclui.
-7. Mudar a forma para «À vista», ZERAR a entrada e o FGTS e salvar: a lista fica só com a proposta (com entrada maior que zero o comprovante da entrada continua sendo exigido: é regra, não defeito).
+7. Não existe mais campo «Entrada»: FGTS e Recurso próprio aparecem como «(opcional)». Mudar a forma
+   para «À vista» e salvar: a lista fica só com a proposta (à vista não pede comprovante da entrada).
+   Em financiamento, o comprovante da entrada só aparece com recurso próprio maior que zero.
+7a. Campos de valor: digitar «32000000» mostra «320.000,00»; letras são ignoradas; colar «1500,5»
+   dá «1.500,50»; zero aparece vazio com placeholder «0,00».
 8. `requisito-conferir` aparece só para recepção e dono (permissão conferir), nunca para corretor.
 9. Corretor sem permissão de envio não vê `requisito-enviar`; processo encerrado não mostra
    nenhum botão de envio ou conferência.

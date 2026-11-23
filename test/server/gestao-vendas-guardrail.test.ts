@@ -64,6 +64,16 @@ describe('mapper', () => {
     expect(v.versao).toBe(4)
   })
 
+  // Processo gravado quando o checklist ainda tinha o campo Entrada: sem a dobra o Zod
+  // descartaria o valor, as fontes deixariam de fechar e a etapa 5 voltaria a pedir ajuste.
+  test('lê processo antigo com `entrada` somando o valor ao recurso próprio', () => {
+    const p = processosSeed()[0]!
+    const antigo = { ...p, fin: { ...p.fin, entrada: 30000, proprios: 10000 } }
+    const v = toVendaModel({ id: p.id, tenant_id: 't', versao: 1, updated_at: '', ...toVendaColunas(antigo as typeof p) })
+    expect(v.processo.fin.proprios).toBe(40000)
+    expect('entrada' in v.processo.fin).toBe(false)
+  })
+
   test('o recorte sem valores remove exatamente pct, adiantamentos e fin', () => {
     const p = processosSeed()[0]!
     const r = recortarValores(p, false)
@@ -74,7 +84,7 @@ describe('mapper', () => {
 describe('mapa de ações', () => {
   test('cobre exatamente as ações do plano', () => {
     expect(Object.keys(ACOES_VENDA).sort()).toEqual(
-      ['mudarStatus', 'concluirEtapa', 'salvarAbertura', 'salvarObservacao', 'arquivarProcesso', 'restaurarProcesso', 'registrarAdiantamento', 'marcarAdiantamentoPago', 'removerAdiantamento', 'salvarFinanceiro', 'salvarPessoa', 'salvarImovel', 'salvarConferenciaFinal', 'enviarAnaliseFinanceira', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira'].sort(),
+      ['mudarStatus', 'concluirEtapa', 'salvarAbertura', 'salvarObservacao', 'arquivarProcesso', 'restaurarProcesso', 'registrarAdiantamento', 'marcarAdiantamentoPago', 'removerAdiantamento', 'salvarFinanceiro', 'salvarPessoa', 'salvarImovel', 'marcarMatriculaMae', 'salvarConferenciaFinal', 'enviarAnaliseFinanceira', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira'].sort(),
     )
   })
 

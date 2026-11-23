@@ -5,7 +5,7 @@ import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao }
 import * as loc from '../../domain/acoes-locacao'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { aprovarAnaliseFinanceira, devolverAnaliseFinanceira, enviarAnaliseFinanceira } from '../../domain/acoes-analise'
-import { marcarAdiantamentoPago, registrarAdiantamento, removerAdiantamento, salvarConferenciaFinal, salvarFinanceiro, salvarImovel, salvarPessoa } from '../../domain/acoes-processo'
+import { marcarAdiantamentoPago, marcarMatriculaMae, registrarAdiantamento, removerAdiantamento, salvarConferenciaFinal, salvarFinanceiro, salvarImovel, salvarPessoa } from '../../domain/acoes-processo'
 import { configuracoesPadrao, type ConfiguracoesGestao } from '../../domain/configuracoes'
 import { proximoIdConsulta, realizarConsulta, type ConsultaFeita, type EntradaConsulta } from '../../domain/consulta'
 import { completarProcesso } from '../../domain/novo-processo'
@@ -44,6 +44,7 @@ const VENDA: Record<string, Fn> = {
   salvarFinanceiro: (e, id, d, a) => salvarFinanceiro(e, id, d, a),
   salvarPessoa: (e, id, d, a) => salvarPessoa(e, id, d.quem, { cpf: d.cpf, telefone: d.telefone, email: d.email }, a),
   salvarImovel: (e, id, d, a) => salvarImovel(e, id, d, a),
+  marcarMatriculaMae: (e, id, d, a) => marcarMatriculaMae(e, id, d.matriculaMae, a),
   salvarConferenciaFinal: (e, id, d, a) => salvarConferenciaFinal(e, id, d, a),
   enviarAnaliseFinanceira: (e, id, _d, a) => enviarAnaliseFinanceira(e, id, a),
   aprovarAnaliseFinanceira: (e, id, _d, a) => aprovarAnaliseFinanceira(e, id, a),

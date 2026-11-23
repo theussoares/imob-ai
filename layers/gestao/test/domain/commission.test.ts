@@ -43,11 +43,11 @@ describe('comissão', () => {
   })
 
   it('conferência das fontes: fecha ou mostra quanto falta', () => {
-    expect(conferirFontes({ valor: 100000, fin: { forma: 'Misto', financiado: 70000, entrada: 20000, fgts: 10000, proprios: 0 } })).toEqual({
+    expect(conferirFontes({ valor: 100000, fin: { forma: 'Misto', financiado: 70000, fgts: 10000, proprios: 20000 } })).toEqual({
       fecha: true,
       diferenca: 0,
     })
-    const falta = conferirFontes({ valor: 100000, fin: { forma: 'Misto', financiado: 70000, entrada: 20000, fgts: 0, proprios: 0 } })
+    const falta = conferirFontes({ valor: 100000, fin: { forma: 'Misto', financiado: 70000, fgts: 0, proprios: 20000 } })
     expect(falta.fecha).toBe(false)
     expect(falta.diferenca).toBe(10000)
   })
