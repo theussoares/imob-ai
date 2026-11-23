@@ -15,7 +15,6 @@ import {
   getPropertyById,
   insertPropertyImages,
   listAllProperties,
-  listPropertiesByIds,
   listPropertyIdentities,
   updatePropertyFeatured,
   updatePropertyImageOrder,
@@ -50,8 +49,6 @@ export interface ContextoImoveis {
   invalidarCache: () => Promise<void>
   armazenarFoto: (foto: FotoPronta) => Promise<FotoArmazenada>
   locacoesDoImovel: (imovelId: string) => Promise<Locacao[]>
-  /** Ids de imóvel das vendas e locações ATIVAS do escopo do membro (corretor: só as dele). Ausente = nenhum. */
-  imoveisDosContratos?: () => Promise<Set<string>>
 }
 
 export const LIMITE_LISTA_IMOVEIS = 200
@@ -85,8 +82,7 @@ async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGesta
 }
 
 /**
- * Imóvel vinculado que o corretor NÃO captou: o id pode ser escolhido por ele ao abrir um contrato (só se confere o
- * tenant), então a ficha sai sem a referência interna (`location`). Proprietário e telefone ficam: é o corretor
+ * Imóvel que o membro NÃO captou: qualquer um pode ser escolhido ao abrir um contrato, então a ficha sai sem a referência interna (`location`). Proprietário e telefone ficam: é o corretor
  * quem abre o contrato e precisa dos dados do proprietário (decisão do cliente); o custo é que ele alcança esses
  * dados de qualquer imóvel do tenant que vincular a um contrato, o que o cliente aceitou.
  * Alternativa descartada: exigir que o corretor só use imóvel captado por ele; trava o fluxo que o pedido quer abrir.
@@ -96,48 +92,20 @@ function semCarteiraAlheia(i: ImovelGestao): ImovelGestao {
 }
 
 /**
- * Corretor vê os que captou (`broker_id`) e também os vinculados às vendas e locações do escopo dele
- * (`imovelId`), para o contrato não apontar para um imóvel que ele não encontra. Os vinculados entram só
- * para LEITURA (ver `permissoesImovel`): editar e excluir seguem do captador. Mesmo mapper, mesmas colunas.
+ * Todos os imóveis do tenant, para qualquer perfil: o corretor abre contrato com o imóvel que quiser. Os que ele
+ * NÃO captou saem sem a referência interna (`semCarteiraAlheia`) e só para leitura; editar e excluir seguem do captador.
+ * Mesmo mapper, mesmas colunas. O limite protege a resposta, não o escopo.
  */
 export async function listarImoveis(ctx: ContextoImoveis): Promise<ImovelGestao[]> {
   const sessao = sessaoDe(ctx)
-  const verTodos = permissoesImovel(ctx.matriz, sessao, null).trocarCorretor
-  // Corretor sem vínculo com um cadastro de corretor não é «dono» de nada: lista vazia,
-  // e não a lista inteira por ter `broker_id` indefinido no filtro.
-  if (!verTodos && !ctx.membro.brokerId) return []
-  const props = await listAllProperties(ctx.db, ctx.tenant.id, {
-    brokerId: verTodos ? undefined : ctx.membro.brokerId!,
-    limite: LIMITE_LISTA_IMOVEIS,
-    recentes: true,
-  })
-  let todos = props
-  let vinculados = new Set<string>()
-  if (!verTodos) {
-    vinculados = (await ctx.imoveisDosContratos?.()) ?? new Set<string>()
-    const jaTem = new Set(props.map((p) => p.id))
-    const faltam = [...vinculados].filter((id) => !jaTem.has(id))
-    todos = [...props, ...(await listPropertiesByIds(ctx.db, ctx.tenant.id, faltam))]
-  }
-  // O filtro do banco é o principal; este repete a regra do domínio como segunda barreira.
-  return todos
-    .map(toImovelGestao)
-    .filter((i) => permissoesImovel(ctx.matriz, sessao, i, vinculados.has(i.id)).ver)
-    .map((i) => (permissoesImovel(ctx.matriz, sessao, i).ver ? i : semCarteiraAlheia(i)))
+  const props = await listAllProperties(ctx.db, ctx.tenant.id, { limite: LIMITE_LISTA_IMOVEIS, recentes: true })
+  return props.map(toImovelGestao).map((i) => (permissoesImovel(ctx.matriz, sessao, i).editar ? i : semCarteiraAlheia(i)))
 }
 
-/** Leitura por id: além do que `carregarVisivel` deixa, o imóvel vinculado a um contrato do escopo (só leitura). */
+/** Leitura por id: qualquer imóvel do tenant; o que o membro não captou sai sem a referência interna. */
 export async function obterImovel(ctx: ContextoImoveis, id: string): Promise<ImovelGestao> {
-  try {
-    return (await carregarVisivel(ctx, id)).imovel
-  } catch (e) {
-    if ((e as { statusCode?: number }).statusCode !== 404 || !ctx.membro.brokerId) throw e
-    const vinculados = (await ctx.imoveisDosContratos?.()) ?? new Set<string>()
-    if (!vinculados.has(id)) throw e
-    const p = await getPropertyById(ctx.db, ctx.tenant.id, id)
-    if (!p) throw e
-    return semCarteiraAlheia(toImovelGestao(p))
-  }
+  const { imovel, perm } = await carregarVisivel(ctx, id)
+  return perm.editar ? imovel : semCarteiraAlheia(imovel)
 }
 
 /** Maior sufixo numérico de todos os códigos do tenant + 1. Colisão de corrida vira 23505 e é tratada na criação. */

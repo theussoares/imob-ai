@@ -103,24 +103,24 @@ const corpo = (over: Record<string, unknown> = {}) => ({
 })
 
 describe('listar', () => {
-  test('corretor só pede os dele: filtro broker_id, tenant e limite de 200 vão na query', async () => {
-    const { ctx, calls } = montar('corretor', { properties: { data: [row()], error: null }, brokers: { data: [corretorB], error: null } })
-    const r = await listarImoveis(ctx)
-    expect(r).toHaveLength(1)
+  test('corretor vê todos os imóveis do tenant: sem filtro de corretor, com tenant e limite de 200', async () => {
+    const { ctx, calls } = montar('corretor', { properties: { data: [row(), row({ id: IMOVEL_B, broker_id: 'b2' })], error: null }, brokers: { data: [corretorB], error: null } })
+    expect((await listarImoveis(ctx)).map((i) => i.id)).toEqual([IMOVEL_A, IMOVEL_B])
     expect(hadEq(calls, 'properties', 'tenant_id')).toBe(true)
-    expect(calls.find((c) => c.method === 'eq' && c.args[0] === 'broker_id')?.args[1]).toBe('b1')
+    expect(calls.some((c) => c.method === 'eq' && c.args[0] === 'broker_id')).toBe(false)
     expect(calls.find((c) => c.method === 'limit')?.args[0]).toBe(200)
   })
 
-  test('segunda barreira: linha de outro corretor que escapasse do filtro do banco é descartada', async () => {
-    const { ctx } = montar('corretor', { properties: { data: [row(), row({ id: IMOVEL_B, broker_id: 'b2' })], error: null } })
-    expect((await listarImoveis(ctx)).map((i) => i.id)).toEqual([IMOVEL_A])
+  test('o que o corretor não captou sai sem a referência interna; o dele sai inteiro', async () => {
+    const { ctx } = montar('corretor', { properties: { data: [row({ location: 'Bloco 2' }), row({ id: IMOVEL_B, broker_id: 'b2', location: 'Bloco 9' })], error: null }, brokers: { data: [corretorB], error: null } })
+    const r = await listarImoveis(ctx)
+    expect(r.find((i) => i.id === IMOVEL_A)?.location).toBe('Bloco 2')
+    expect(r.find((i) => i.id === IMOVEL_B)).toMatchObject({ location: null, ownerName: 'Helena' })
   })
 
-  test('corretor sem vínculo com cadastro de corretor: lista vazia e nem consulta o banco', async () => {
-    const { ctx, calls } = montar('corretor', {}, { membro: { userId: 'u1', nome: 'F', perfil: 'corretor', brokerId: null } })
-    expect(await listarImoveis(ctx)).toEqual([])
-    expect(calls).toEqual([])
+  test('corretor sem vínculo com cadastro de corretor também vê a lista (só não cria nem edita)', async () => {
+    const { ctx } = montar('corretor', { properties: { data: [row()], error: null }, brokers: { data: [corretorB], error: null } }, { membro: { userId: 'u1', nome: 'F', perfil: 'corretor', brokerId: null } })
+    expect(await listarImoveis(ctx)).toHaveLength(1)
   })
 
   test('dono vê todos: sem filtro de corretor', async () => {
@@ -139,67 +139,26 @@ describe('listar', () => {
   })
 })
 
-describe('imóveis vinculados aos contratos do corretor', () => {
-  const vinculados = () => ({ imoveisDosContratos: async () => new Set([IMOVEL_B]) })
-  const res = (): Res => ({
-    properties: [
-      { data: [row()], error: null }, // captados (broker_id)
-      { data: [row({ id: IMOVEL_B, broker_id: 'b2' }), row({ id: 'outro-que-nao-e-do-contrato', broker_id: 'b2' })], error: null }, // por id
-    ],
-    brokers: { data: [corretorB], error: null },
-  })
-
-  test('lista também o imóvel de venda/locação dele, em lote por id e com tenant; o que não é dele nem do contrato fica de fora', async () => {
-    const { ctx, calls } = montar('corretor', res(), vinculados())
-    expect((await listarImoveis(ctx)).map((i) => i.id).sort()).toEqual([IMOVEL_A, IMOVEL_B].sort())
-    const alheio = (await listarImoveis(montar('corretor', res(), vinculados()).ctx)).find((i) => i.id === IMOVEL_B)!
-    // Proprietário e telefone ficam (o corretor abre o contrato); a referência interna não.
-    expect(alheio).toMatchObject({ ownerName: 'Helena', ownerPhone: null, location: null })
-    const porId = calls.find((c) => c.table === 'properties' && c.method === 'in' && c.args[0] === 'id')
-    expect(porId?.args[1]).toEqual([IMOVEL_B])
-    expect(calls.filter((c) => c.method === 'eq' && c.args[0] === 'tenant_id').length).toBeGreaterThanOrEqual(2)
-  })
-
-  test('sem imóveis vinculados não faz a segunda consulta; dono não pede vínculo nenhum', async () => {
-    const um = montar('corretor', { properties: { data: [row()], error: null }, brokers: { data: [corretorB], error: null } }, { imoveisDosContratos: async () => new Set() })
-    await listarImoveis(um.ctx)
-    expect(um.calls.some((c) => c.table === 'properties' && c.method === 'in')).toBe(false)
-    let pediu = false
-    const dono = montar('dono', { properties: { data: [row()], error: null }, brokers: { data: [corretorB], error: null } }, { imoveisDosContratos: async () => ((pediu = true), new Set()) })
-    await listarImoveis(dono.ctx)
-    expect(pediu).toBe(false)
-  })
-
-  test('GET por id abre o vinculado; um id que não é do captador nem de contrato dele segue 404', async () => {
-    const outro = { properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null }, brokers: { data: [corretorB], error: null } }
-    const v = await obterImovel(montar('corretor', outro, vinculados()).ctx, IMOVEL_B)
-    expect(v).toMatchObject({ id: IMOVEL_B, ownerName: 'Helena', location: null })
-    expect(await status(obterImovel(montar('corretor', outro, { imoveisDosContratos: async () => new Set() }).ctx, IMOVEL_B))).toBe(404)
-  })
-
-  test('só leitura: editar o vinculado continua 404 (a porta de toda escrita é o captador)', async () => {
-    const outro = { properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null } }
-    expect(await status(excluirImovel(montar('corretor', outro, vinculados()).ctx, IMOVEL_B))).toBe(404)
-  })
-})
-
-describe('Review Focus 1 — corretor A pede o imóvel do corretor B pelo id', () => {
+describe('Review Focus 1 — corretor A lê o imóvel do corretor B, mas não escreve nele', () => {
   const outro = () => ({ properties: { data: row({ id: IMOVEL_B, broker_id: 'b2' }), error: null } })
 
-  test('GET → 404', async () => expect(await status(obterImovel(montar('corretor', outro()).ctx, IMOVEL_B))).toBe(404))
-  test('PUT → 404 e nada é gravado', async () => {
+  test('GET → abre, sem a referência interna', async () => {
+    const i = await obterImovel(montar('corretor', outro()).ctx, IMOVEL_B)
+    expect(i).toMatchObject({ id: IMOVEL_B, brokerId: 'b2', location: null })
+  })
+  test('PUT → 403 e nada é gravado', async () => {
     const { ctx, calls } = montar('corretor', outro())
-    expect(await status(atualizarImovel(ctx, IMOVEL_B, corpo()))).toBe(404)
+    expect(await status(atualizarImovel(ctx, IMOVEL_B, corpo()))).toBe(403)
     expect(calls.some((c) => c.method === 'update')).toBe(false)
   })
-  test('DELETE → 404 e nada é apagado', async () => {
+  test('DELETE → 403 e nada é apagado', async () => {
     const { ctx, calls } = montar('corretor', outro())
-    expect(await status(excluirImovel(ctx, IMOVEL_B))).toBe(404)
+    expect(await status(excluirImovel(ctx, IMOVEL_B))).toBe(403)
     expect(calls.some((c) => c.method === 'delete')).toBe(false)
   })
-  test('status → 404', async () => expect(await status(mudarStatus(montar('corretor', outro()).ctx, IMOVEL_B, 'draft'))).toBe(404))
-  test('destaque → 404', async () => expect(await status(definirDestaqueImovel(montar('corretor', outro()).ctx, IMOVEL_B, true))).toBe(404))
-  test('foto (adicionar, capa, mover, remover) → 404 e nenhuma foto é tocada', async () => {
+  test('status → 403', async () => expect(await status(mudarStatus(montar('corretor', outro()).ctx, IMOVEL_B, 'draft'))).toBe(403))
+  test('destaque → 403', async () => expect(await status(definirDestaqueImovel(montar('corretor', outro()).ctx, IMOVEL_B, true))).toBe(403))
+  test('foto (adicionar, capa, mover, remover) → 403 e nenhuma foto é tocada', async () => {
     const png = `data:image/webp;base64,${Buffer.from('RIFF\0\0\0\0WEBPxxxx', 'latin1').toString('base64')}`
     const casos = [
       (c: ContextoImoveis) => adicionarFotosImovel(c, IMOVEL_B, { fotos: [{ url: png, urlSm: null, alt: null }] }),
@@ -209,7 +168,7 @@ describe('Review Focus 1 — corretor A pede o imóvel do corretor B pelo id', (
     ]
     for (const caso of casos) {
       const { ctx, calls, estado } = montar('corretor', outro())
-      expect(await status(caso(ctx))).toBe(404)
+      expect(await status(caso(ctx))).toBe(403)
       expect(touched(calls, 'property_images')).toBe(false)
       expect(estado.subidas).toBe(0)
     }
@@ -226,9 +185,10 @@ describe('Review Focus 1 — corretor A pede o imóvel do corretor B pelo id', (
 })
 
 describe('corretor com vínculo vazio', () => {
-  test("brokerId '' não casa com imóvel antigo sem corretor: 404", async () => {
+  test("brokerId '' não casa com imóvel antigo sem corretor: lê, mas não edita (403)", async () => {
     const { ctx } = montar('corretor', { properties: { data: row({ broker_id: null }), error: null } }, { membro: { userId: 'u1', nome: 'F', perfil: 'corretor', brokerId: '' } })
-    expect(await status(obterImovel(ctx, IMOVEL_A))).toBe(404)
+    expect((await obterImovel(ctx, IMOVEL_A)).id).toBe(IMOVEL_A)
+    expect(await status(atualizarImovel(ctx, IMOVEL_A, corpo()))).toBe(403)
   })
 })
 

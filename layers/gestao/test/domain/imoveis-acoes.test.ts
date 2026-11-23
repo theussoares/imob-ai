@@ -128,11 +128,11 @@ describe('permissões do imóvel', () => {
   const im101 = base.find((i) => i.id === 'im-101')! // vendedor c1
   const im102 = base.find((i) => i.id === 'im-102')! // vendedor c2
 
-  it('corretor só vê e altera os dele; não troca o corretor', () => {
+  it('corretor vê todos os imóveis, mas só altera os dele; não troca o corretor', () => {
     const c1 = sessao('corretor', 'c1')
     expect(permissoesImovel(matriz, c1, im101)).toMatchObject({ ver: true, editar: true, excluir: true, trocarCorretor: false })
-    expect(permissoesImovel(matriz, c1, im102)).toMatchObject({ ver: false, editar: false, excluir: false })
-    expect(imoveisVisiveis(matriz, sessao('corretor', 'c2'), base).map((i) => i.brokerId)).toEqual(['c2', 'c2'])
+    expect(permissoesImovel(matriz, c1, im102)).toMatchObject({ ver: true, editar: false, excluir: false, trocarCorretor: false })
+    expect(imoveisVisiveis(matriz, sessao('corretor', 'c2'), base)).toHaveLength(base.length)
   })
 
   it('recepção e jurídico veem, editam e trocam o corretor, mas não excluem', () => {
@@ -171,17 +171,5 @@ describe('errosImovel: todos os erros de uma vez, por campo', () => {
     const r = validarImovel(f)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.erro).toBe(Object.values(errosImovel(f))[0])
-  })
-})
-
-describe('imóvel vinculado a contrato do corretor: vê, não edita', () => {
-  it('ver = true só com o vínculo; editar e excluir seguem do captador', () => {
-    const matriz = matrizPadrao()
-    const c1 = { perfil: 'corretor', nome: 'C', corretorId: 'c1' } as const
-    const alheio = imoveisSeed().find((i) => i.brokerId !== 'c1')!
-    expect(permissoesImovel(matriz, c1, alheio)).toMatchObject({ ver: false })
-    expect(permissoesImovel(matriz, c1, alheio, true)).toMatchObject({ ver: true, editar: false, excluir: false })
-    expect(imoveisVisiveis(matriz, c1, [alheio], new Set([alheio.id]))).toHaveLength(1)
-    expect(imoveisVisiveis(matriz, c1, [alheio], new Set(['outro']))).toHaveLength(0)
   })
 })
