@@ -14,6 +14,8 @@ const toast = useToast()
 const { askConfirm } = useConfirm()
 
 await auth.carregar()
+// O layout só carrega 'base' (matriz). Sem isto o select de corretor mostra o seed (c1…) em vez de `brokers`.
+await store.carregar(false, ['corretores'])
 
 const caps = computed(() => store.caps())
 const ehDono = computed(() => sessao.value?.perfil === 'dono')
