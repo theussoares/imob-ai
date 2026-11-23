@@ -6,7 +6,7 @@ import type { ConsultaFeita, EntradaConsulta } from '../../domain/consulta'
 import { type FiltroListaDocumentos, paginarDocumentos, type PaginaDocumentos, validarArquivo } from '../../domain/documentos'
 import { capacidades, locacoesArquivadas, locacoesVisiveis as filtrarLocacoesVisiveis, matrizPadrao, processosArquivados, processosVisiveis } from '../../domain/permissions'
 import { imoveisSeed, type ImovelGestao } from '../../domain/imoveis'
-import { imoveisVisiveis as filtrarImoveisVisiveis, permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
+import { permissoesImovel, podeExcluirImovel, type NovoImovel, type PermissoesImovel, type ResultadoImovel } from '../../domain/imoveis-acoes'
 import type { FotoNova } from '../../domain/imoveis-fotos'
 import type { PropertyStatus } from '~~/shared/models/property'
 import { locacoesSeed } from '../../domain/locacao-seed'
@@ -440,15 +440,15 @@ export function useGestaoStore() {
 
   const NEGADO = { ok: false, erro: 'Você não pode alterar este imóvel.' } as const
 
-  const permissoesDoImovel = (imovel: ImovelGestao | null): PermissoesImovel =>
+  const permissoesDoImovel = (): PermissoesImovel =>
     sessao.value
-      ? permissoesImovel(matriz.value, sessao.value, imovel)
+      ? permissoesImovel(matriz.value, sessao.value)
       : { ver: false, criar: false, editar: false, excluir: false, trocarCorretor: false }
 
   /** Checa a permissão no domínio e só então chama o repositório (o servidor repete a checagem). */
   function comPermissao<T>(id: string, chave: 'editar', fazer: () => Promise<T>): Promise<T | typeof NEGADO> {
     const imovel = imoveis.value.find((i) => i.id === id) ?? null
-    return imovel && !permissoesDoImovel(imovel)[chave] ? Promise.resolve(NEGADO) : fazer()
+    return imovel && !permissoesDoImovel()[chave] ? Promise.resolve(NEGADO) : fazer()
   }
 
   /** O repository devolve o imóvel inteiro; em `http` é ele (e não uma conta local) que manda na lista. */
@@ -458,16 +458,16 @@ export function useGestaoStore() {
   }
 
   async function cadastrarImovel(dados: NovoImovel): Promise<ResultadoImovel> {
-    if (!permissoesDoImovel(null).criar) return { ok: false, erro: 'Você não pode cadastrar imóveis.' }
+    if (!permissoesDoImovel().criar) return { ok: false, erro: 'Você não pode cadastrar imóveis.' }
     // Corretor só cadastra para si; trocar o vendedor é de quem vê todos.
-    const brokerId = permissoesDoImovel(null).trocarCorretor ? dados.brokerId : (sessao.value?.corretorId ?? dados.brokerId)
+    const brokerId = permissoesDoImovel().trocarCorretor ? dados.brokerId : (sessao.value?.corretorId ?? dados.brokerId)
     return guardarImovel(await imoveisRepo.criar({ ...dados, brokerId }))
   }
 
   const atualizarImovel = (id: string, dados: NovoImovel) =>
     comPermissao(id, 'editar', async () => {
       const atual = imoveis.value.find((i) => i.id === id)
-      const brokerId = permissoesDoImovel(atual ?? null).trocarCorretor ? dados.brokerId : (atual?.brokerId ?? dados.brokerId)
+      const brokerId = permissoesDoImovel().trocarCorretor ? dados.brokerId : (atual?.brokerId ?? dados.brokerId)
       return guardarImovel(await imoveisRepo.atualizar(id, { ...dados, brokerId }))
     })
 
@@ -545,7 +545,7 @@ export function useGestaoStore() {
     consultar,
     consultas: computed(() => consultas.value),
     imoveis: computed(() => imoveis.value),
-    imoveisVisiveis: computed(() => (sessao.value ? filtrarImoveisVisiveis(matriz.value, sessao.value, imoveis.value) : [])),
+    imoveisVisiveis: computed(() => (sessao.value ? imoveis.value : [])),
     permissoesDoImovel,
     cadastrarImovel,
     atualizarImovel,

@@ -21,7 +21,7 @@ await store.carregar(false, ['base', 'corretores', 'locacoes', 'vendas', 'imovei
 
 const filtro = reactive<FiltroImoveis>({ ...FILTRO_IMOVEIS_VAZIO })
 const lista = computed(() => filtrarImoveis(store.imoveisVisiveis.value, store.locacoes.value, filtro, store.processos.value))
-const podeCriar = computed(() => store.permissoesDoImovel(null).criar)
+const podeCriar = computed(() => store.permissoesDoImovel().criar)
 
 const nomeCorretor = (id: string) => store.corretores.value.find((c) => c.id === id)?.nome ?? '—'
 const preco = (valor: number, finalidade: 'venda' | 'aluguel') =>

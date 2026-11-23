@@ -63,16 +63,14 @@ const sessaoDe = (ctx: ContextoImoveis): Sessao => ({
   corretorId: ctx.membro.brokerId || null })
 
 /**
- * Imóvel do tenant que a sessão pode ver; senão 404. É a porta de TODA operação por id:
+ * Imóvel DESTE tenant (o tenant sai da sessão, nunca do corpo); senão 404. É a porta de TODA operação por id:
  * a conferência de escopo mora aqui, e não em cada função, para não existir caminho que a esqueça.
  */
 async function carregarVisivel(ctx: ContextoImoveis, id: string) {
   const p = await getPropertyById(ctx.db, ctx.tenant.id, id)
   if (!p) throw naoEncontrado()
   const imovel = toImovelGestao(p)
-  const perm = permissoesImovel(ctx.matriz, sessaoDe(ctx), imovel)
-  if (!perm.ver) throw naoEncontrado()
-  return { imovel, perm }
+  return { imovel, perm: permissoesImovel(ctx.matriz, sessaoDe(ctx)) }
 }
 
 async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGestao> {
@@ -81,31 +79,14 @@ async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGesta
   return toImovelGestao(p)
 }
 
-/**
- * Imóvel que o membro NÃO captou: qualquer um pode ser escolhido ao abrir um contrato, então a ficha sai sem a referência interna (`location`). Proprietário e telefone ficam: é o corretor
- * quem abre o contrato e precisa dos dados do proprietário (decisão do cliente); o custo é que ele alcança esses
- * dados de qualquer imóvel do tenant que vincular a um contrato, o que o cliente aceitou.
- * Alternativa descartada: exigir que o corretor só use imóvel captado por ele; trava o fluxo que o pedido quer abrir.
- */
-function semCarteiraAlheia(i: ImovelGestao): ImovelGestao {
-  return { ...i, location: null }
-}
-
-/**
- * Todos os imóveis do tenant, para qualquer perfil: o corretor abre contrato com o imóvel que quiser. Os que ele
- * NÃO captou saem sem a referência interna (`semCarteiraAlheia`) e só para leitura; editar e excluir seguem do captador.
- * Mesmo mapper, mesmas colunas. O limite protege a resposta, não o escopo.
- */
+/** Todos os imóveis do tenant, para qualquer perfil: o corretor abre contrato e edita o que quiser. O limite protege a resposta, não o escopo. */
 export async function listarImoveis(ctx: ContextoImoveis): Promise<ImovelGestao[]> {
-  const sessao = sessaoDe(ctx)
   const props = await listAllProperties(ctx.db, ctx.tenant.id, { limite: LIMITE_LISTA_IMOVEIS, recentes: true })
-  return props.map(toImovelGestao).map((i) => (permissoesImovel(ctx.matriz, sessao, i).editar ? i : semCarteiraAlheia(i)))
+  return props.map(toImovelGestao)
 }
 
-/** Leitura por id: qualquer imóvel do tenant; o que o membro não captou sai sem a referência interna. */
 export async function obterImovel(ctx: ContextoImoveis, id: string): Promise<ImovelGestao> {
-  const { imovel, perm } = await carregarVisivel(ctx, id)
-  return perm.editar ? imovel : semCarteiraAlheia(imovel)
+  return (await carregarVisivel(ctx, id)).imovel
 }
 
 /** Maior sufixo numérico de todos os códigos do tenant + 1. Colisão de corrida vira 23505 e é tratada na criação. */
@@ -129,7 +110,7 @@ async function assertCorretorDoTenant(ctx: ContextoImoveis, brokerId: string): P
 
 export async function criarImovel(ctx: ContextoImoveis, corpo: unknown): Promise<ImovelGestao> {
   const sessao = sessaoDe(ctx)
-  const perm = permissoesImovel(ctx.matriz, sessao, null)
+  const perm = permissoesImovel(ctx.matriz, sessao)
   if (!perm.criar) throw erro(403, 'Você não pode cadastrar imóveis.')
   const lido = lerCorpoImovel(corpo)
   if (!lido.ok) throw erro(422, lido.erro)
