@@ -16,6 +16,8 @@ import type { Perfil, UsuarioGestao } from './types'
 
 export const SENHA_MIN = 12
 export const CONVITE_VALIDADE_MS = 72 * 60 * 60 * 1000
+/** Link de nova senha: curto, porque quem o tem troca a senha da conta. */
+export const RECUPERACAO_VALIDADE_MS = 30 * 60 * 1000
 export const CODIGO_VALIDADE_MS = 10 * 60 * 1000
 export const CODIGO_MAX_TENTATIVAS = 5
 export const CODIGO_REENVIO_MS = 60 * 1000
@@ -72,10 +74,21 @@ export interface CodigoPendente {
   usado: boolean
 }
 
+/** Pedido de nova senha (demo). Em produção o token é do Supabase Auth e nunca fica em tela nem em localStorage. */
+export interface Recuperacao {
+  token: string
+  email: string
+  criadoEm: number
+  expiraEm: number
+  usadoEm: number | null
+}
+
 export interface EstadoAuth {
   contas: Conta[]
   convites: Convite[]
   codigos: CodigoPendente[]
+  /** Ausente em estado guardado antes da recuperação de senha. */
+  recuperacoes?: Recuperacao[]
 }
 
 export type ContaPublica = Pick<Conta, 'email' | 'nome' | 'perfil'>
@@ -362,6 +375,60 @@ export async function aceitarConvite(
       ...estado,
       contas: [...estado.contas, conta],
       convites: estado.convites.map((c) => (c.token === convite.token ? { ...c, usadoEm: d.agora } : c)),
+    },
+  }
+}
+
+// --- Recuperação de senha ---
+
+export const ERRO_RECUPERACAO = 'Este link expirou ou já foi usado. Peça um novo na tela de login.'
+
+/**
+ * Pedido de nova senha. Sem token na resposta quando a conta não existe, mas a tela diz a MESMA coisa nos
+ * dois casos: o demo mostra o link só porque não há e-mail, e só para conta que existe (o demo não tem
+ * o que esconder; em produção a resposta é igual e o link vai só por e-mail).
+ */
+export function criarRecuperacao(estado: EstadoAuth, email: string, parcial: Partial<Deps> = {}): { estado: EstadoAuth; token: string | null } {
+  const d = deps(parcial)
+  const e = normalizarEmail(email)
+  if (!estado.contas.some((c) => c.email === e)) return { estado, token: null }
+  const token = hex(d.rng(24))
+  const rec: Recuperacao = { token, email: e, criadoEm: d.agora, expiraEm: d.agora + RECUPERACAO_VALIDADE_MS, usadoEm: null }
+  // Um pedido novo invalida o anterior da mesma conta: só o último e-mail vale.
+  const outras = (estado.recuperacoes ?? []).filter((r) => r.email !== e || r.usadoEm !== null)
+  return { estado: { ...estado, recuperacoes: [...outras, rec] }, token }
+}
+
+export function consultarRecuperacao(estado: EstadoAuth, token: string, parcial: Partial<Deps> = {}): { ok: true; recuperacao: Recuperacao } | { ok: false; erro: string } {
+  const d = deps(parcial)
+  const r = (estado.recuperacoes ?? []).find((x) => x.token === token)
+  if (!r || r.usadoEm !== null || r.expiraEm <= d.agora) return { ok: false, erro: ERRO_RECUPERACAO }
+  return { ok: true, recuperacao: r }
+}
+
+/** Troca a senha da conta e gasta o link. Não abre sessão: o login segue pedindo senha e código. */
+export async function redefinirSenha(
+  estado: EstadoAuth,
+  dados: { token: string; senha: string },
+  parcial: Partial<Deps> = {},
+): Promise<ResultadoAuth> {
+  const d = deps(parcial)
+  const q = consultarRecuperacao(estado, dados.token, d)
+  if (!q.ok) return falha(estado, 'link', q.erro)
+  const conta = estado.contas.find((c) => c.email === q.recuperacao.email)
+  if (!conta) return falha(estado, 'link', ERRO_RECUPERACAO)
+  if (!validarSenha(dados.senha, { email: conta.email, nome: conta.nome }).ok) return falha(estado, 'senha', 'A senha não cumpre os requisitos.')
+
+  const salt = hex(d.rng(16))
+  const senhaHash = await hashSenha(dados.senha, salt, d.hash)
+  return {
+    ok: true,
+    estado: {
+      ...estado,
+      contas: estado.contas.map((c) => (c.email === conta.email ? { ...c, salt, senhaHash } : c)),
+      recuperacoes: (estado.recuperacoes ?? []).map((r) => (r.token === dados.token ? { ...r, usadoEm: d.agora } : r)),
+      // Código pendente de antes da troca não vale mais: quem tinha a senha antiga não segue entrando.
+      codigos: estado.codigos.filter((c) => c.email !== conta.email),
     },
   }
 }

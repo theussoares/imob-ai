@@ -141,6 +141,8 @@ describe('gestão: acesso às tabelas pelo código', () => {
     'server/api/gestao/auth/convite/[token].get.ts',
     'server/api/gestao/auth/aceitar.post.ts',
     'server/api/gestao/auth/login.post.ts',
+    'server/api/gestao/auth/recuperar.post.ts',
+    'server/api/gestao/auth/redefinir.post.ts',
     'server/api/gestao/auth/renovar.post.ts',
     'server/api/gestao/auth/sair.post.ts',
   ]

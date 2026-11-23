@@ -18,6 +18,7 @@ const erro = ref('')
 const enviando = ref(false)
 
 const contaCriada = computed(() => route.query.conta === 'criada')
+const senhaRedefinida = computed(() => route.query.senha === 'redefinida')
 const podeEnviar = computed(() => !!email.value.trim() && !!senha.value && !!captcha.value && !enviando.value)
 
 async function enviar() {
@@ -72,6 +73,15 @@ const campo =
           Conta criada com sucesso. Entre com seu e-mail e a senha que você definiu.
         </p>
 
+        <p
+          v-if="senhaRedefinida"
+          role="status"
+          class="m-0 rounded-xl border border-[var(--ok)] bg-[var(--brand-ghost)] p-3 font-semibold text-[var(--ok)]"
+          data-testid="aviso-senha-redefinida"
+        >
+          Senha alterada. Entre com a nova senha; vamos pedir o código enviado por e-mail.
+        </p>
+
         <div class="flex flex-col gap-1.5">
           <label for="login-email" class="font-semibold">E-mail</label>
           <input
@@ -96,6 +106,7 @@ const campo =
           autocomplete="current-password"
           testid="senha"
         />
+        <NuxtLink to="/gestao/recuperar-senha" class="-mt-2 w-fit font-semibold text-[var(--brand)]" data-testid="esqueci-senha">Esqueci minha senha</NuxtLink>
 
         <GestaoCaptcha v-model="captcha" />
 

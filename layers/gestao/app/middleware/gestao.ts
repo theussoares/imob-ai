@@ -25,9 +25,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const noLogin = to.path === '/gestao/login'
   const noConvite = to.path.startsWith('/gestao/convite/')
   const noVerificar = to.path === '/gestao/verificar'
-  const publica = noLogin || noConvite || noVerificar
+  // Recuperar e redefinir senha são de quem NÃO consegue entrar: sessão ativa não as barra.
+  const naRecuperacao = to.path === '/gestao/recuperar-senha' || to.path === '/gestao/redefinir-senha'
+  const publica = noLogin || noConvite || noVerificar || naRecuperacao
 
-  if (sessao.value && publica) return navigateTo('/gestao/vendas')
+  if (sessao.value && publica && !naRecuperacao) return navigateTo('/gestao/vendas')
 
   if (!sessao.value) {
     if (noVerificar) {
