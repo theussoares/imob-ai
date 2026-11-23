@@ -2,10 +2,13 @@ import {
   aceitarConvite,
   autenticar,
   CODIGO_BLOQUEIO_DEMO_MS,
-  criarConvite,
   consultarConvite,
+  consultarRecuperacao,
+  criarConvite,
+  criarRecuperacao,
   emitirCodigo,
   estadoAuthVazio,
+  redefinirSenha as redefinirSenhaDemo,
   revogarConvite,
   semearContas,
   verificarCodigo,
@@ -330,6 +333,49 @@ export function useGestaoAuth() {
     return r
   }
 
+  // --- Recuperação de senha ---
+
+  /**
+   * Pede o link. A resposta é a mesma exista a conta ou não (o servidor também não diz). Só o demo devolve o
+   * link, porque não há e-mail: fora dele `linkDemo` é sempre `null`.
+   */
+  async function recuperar(email: string, captcha: string): Promise<{ ok: true; linkDemo: string | null } | { ok: false; erro: string }> {
+    if (!captcha) return { ok: false, erro: ERRO_CAPTCHA }
+    if (http) {
+      try {
+        await api!.post('/api/gestao/auth/recuperar', { email, captcha }, { semToken: true })
+        return { ok: true, linkDemo: null }
+      } catch (e) {
+        return { ok: false, erro: paraFalha(e).erro }
+      }
+    }
+    const r = criarRecuperacao(await ler(), email)
+    if (r.token) gravar(r.estado)
+    return { ok: true, linkDemo: r.token ? `${window.location.origin}/gestao/redefinir-senha?token_hash=${r.token}` : null }
+  }
+
+  /** Só diz se o link ainda parece vivo (demo). No http o servidor só descobre ao gastar o token, de propósito. */
+  async function linkDeRecuperacaoValido(token: string): Promise<boolean> {
+    if (http) return !!token
+    return consultarRecuperacao(await ler(), token).ok
+  }
+
+  async function redefinir(token: string, senha: string, captcha: string): Promise<{ ok: true } | { ok: false; erro: string; motivo: string }> {
+    if (!captcha) return { ok: false, erro: ERRO_CAPTCHA, motivo: 'captcha' }
+    if (http) {
+      try {
+        await api!.post('/api/gestao/auth/redefinir', { tokenHash: token, senha, captcha }, { semToken: true })
+        return { ok: true }
+      } catch (e) {
+        const f = paraFalha(e)
+        return { ok: false, erro: f.erro, motivo: f.motivo ?? 'erro' }
+      }
+    }
+    const r = await redefinirSenhaDemo(await ler(), { token, senha })
+    gravar(r.estado)
+    return r.ok ? { ok: true } : { ok: false, erro: r.erro, motivo: r.motivo }
+  }
+
   return {
     demo,
     http,
@@ -348,5 +394,8 @@ export function useGestaoAuth() {
     revogar,
     consultar,
     aceitar,
+    recuperar,
+    linkDeRecuperacaoValido,
+    redefinir,
   }
 }

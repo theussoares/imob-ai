@@ -8,11 +8,15 @@ import {
   CODIGO_VALIDADE_MS,
   CONVITE_VALIDADE_MS,
   consultarConvite,
+  consultarRecuperacao,
   criarConvite,
+  criarRecuperacao,
   emitirCodigo,
   ERRO_LOGIN,
   estadoAuthVazio,
   gerarCodigo,
+  RECUPERACAO_VALIDADE_MS,
+  redefinirSenha,
   revogarConvite,
   segundosParaReenvio,
   semearContas,
@@ -461,5 +465,48 @@ describe('código de 2º fator', () => {
       const tarde = await emitirCodigo(estado, email, { agora: T0 + 1000 + CODIGO_BLOQUEIO_DEMO_MS, rng: rngFixo(8) })
       expect(tarde.ok).toBe(true)
     })
+  })
+})
+
+describe('recuperação de senha (demo)', () => {
+  const NOVA = 'Cavalo-Azul-Mesa-2026!'
+  const comConta = () => semearContas(USUARIOS, SENHA, { rng: rngFixo(7) })
+
+  it('conta que não existe: sem token e estado intacto (a tela diz o mesmo nos dois casos)', async () => {
+    const e = await comConta()
+    const r = criarRecuperacao(e, 'ninguem@x.com', { agora: T0, rng: rngFixo(1) })
+    expect(r.token).toBeNull()
+    expect(r.estado).toBe(e)
+  })
+
+  it('troca a senha: a antiga deixa de entrar, a nova entra, o link é gasto e o código pendente some', async () => {
+    const e0 = await comConta()
+    const email = USUARIOS[0]!.mail
+    const { estado: e1, token } = criarRecuperacao(e0, email, { agora: T0, rng: rngFixo(3) })
+    const r = await redefinirSenha(e1, { token: token!, senha: NOVA }, { agora: T0 + 1000, rng: rngFixo(4) })
+    expect(r.ok).toBe(true)
+    expect((await autenticar(r.estado, email, SENHA, { agora: T0 + 2000 })).ok).toBe(false)
+    expect((await autenticar(r.estado, email, NOVA, { agora: T0 + 2000 })).ok).toBe(true)
+    // Uso único.
+    expect((await redefinirSenha(r.estado, { token: token!, senha: NOVA }, { agora: T0 + 3000 })).ok).toBe(false)
+  })
+
+  it('vence em 30 minutos e um pedido novo invalida o anterior', async () => {
+    const e0 = await comConta()
+    const email = USUARIOS[0]!.mail
+    const a = criarRecuperacao(e0, email, { agora: T0, rng: rngFixo(3) })
+    expect(consultarRecuperacao(a.estado, a.token!, { agora: T0 + RECUPERACAO_VALIDADE_MS }).ok).toBe(false)
+    const b = criarRecuperacao(a.estado, email, { agora: T0 + 60_000, rng: rngFixo(9) })
+    expect(consultarRecuperacao(b.estado, a.token!, { agora: T0 + 61_000 }).ok).toBe(false)
+    expect(consultarRecuperacao(b.estado, b.token!, { agora: T0 + 61_000 }).ok).toBe(true)
+  })
+
+  it('senha fraca ou com o e-mail dentro é recusada e NÃO gasta o link', async () => {
+    const e0 = await comConta()
+    const email = USUARIOS[0]!.mail
+    const { estado: e1, token } = criarRecuperacao(e0, email, { agora: T0, rng: rngFixo(3) })
+    const r = await redefinirSenha(e1, { token: token!, senha: '12345678' }, { agora: T0 + 1000 })
+    expect(r).toMatchObject({ ok: false, motivo: 'senha' })
+    expect(consultarRecuperacao(r.estado, token!, { agora: T0 + 2000 }).ok).toBe(true)
   })
 })
