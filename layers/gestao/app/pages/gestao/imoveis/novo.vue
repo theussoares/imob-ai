@@ -11,7 +11,7 @@ const { sessao } = useGestaoSessao()
 await store.carregar(false, ['base', 'corretores', 'config', 'imoveis'])
 
 // Sem permissão de criar, a tela não abre (a guarda de rota só conhece a seção).
-if (!store.permissoesDoImovel(null).criar) await navigateTo('/gestao/imoveis')
+if (!store.permissoesDoImovel().criar) await navigateTo('/gestao/imoveis')
 
 // Quem cadastra vira o corretor vendedor; quem vê todos (recepção, jurídico, dono) escolhe.
 const form = ref(formImovelVazio(sessao.value?.corretorId ?? ''))
@@ -47,7 +47,7 @@ async function salvar() {
     <GestaoImovelForm
       v-model="form"
       :corretores="store.corretores.value"
-      :pode-trocar-corretor="store.permissoesDoImovel(null).trocarCorretor"
+      :pode-trocar-corretor="store.permissoesDoImovel().trocarCorretor"
       :telefone-site="store.config.value.imobiliaria.telefone"
       :erro="erro"
       :salvando="salvando"

@@ -12,12 +12,12 @@ const { askConfirm } = useConfirm()
 const { reduzir } = useRedimensionarFoto()
 await store.carregar(false, ['base', 'corretores', 'config', 'locacoes', 'vendas', 'imoveis'])
 
-// Só enxerga o que `imoveisVisiveis` devolve: corretor abrindo o imóvel de outro pela URL volta à lista.
+// Id que não existe no tenant (ou foi excluído) volta à lista.
 const imovel = computed(() => store.imoveisVisiveis.value.find((i) => i.id === String(route.params.id)) ?? null)
 if (!imovel.value) await navigateTo('/gestao/imoveis')
 useHead({ title: computed(() => `${imovel.value?.title ?? 'Imóvel'} · Gestão`) })
 
-const permissoes = computed(() => store.permissoesDoImovel(imovel.value))
+const permissoes = computed(() => store.permissoesDoImovel())
 const form = ref(imovel.value ? imovelParaForm(imovel.value) : null)
 const erro = ref('')
 const erroFoto = ref('')
@@ -104,7 +104,7 @@ const card = 'rounded-xl border border-[var(--line)] bg-[var(--paper)] p-4 shado
     </header>
 
     <p v-if="!permissoes.editar" role="note" class="m-0 rounded-xl border border-[var(--line-2)] bg-[var(--paper)] p-3 font-semibold text-[var(--ink-soft)]" data-testid="imovel-somente-leitura">
-      Somente leitura: este imóvel está no seu contrato, mas foi captado por outro corretor.
+      Somente leitura: seu perfil não pode alterar imóveis.
     </p>
 
     <!-- `fieldset disabled` desabilita todos os campos e botões de dentro de uma vez, inclusive os dos componentes filhos. -->

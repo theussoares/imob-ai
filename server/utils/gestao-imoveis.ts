@@ -15,7 +15,6 @@ import {
   getPropertyById,
   insertPropertyImages,
   listAllProperties,
-  listPropertiesByIds,
   listPropertyIdentities,
   updatePropertyFeatured,
   updatePropertyImageOrder,
@@ -50,8 +49,6 @@ export interface ContextoImoveis {
   invalidarCache: () => Promise<void>
   armazenarFoto: (foto: FotoPronta) => Promise<FotoArmazenada>
   locacoesDoImovel: (imovelId: string) => Promise<Locacao[]>
-  /** Ids de imóvel das vendas e locações ATIVAS do escopo do membro (corretor: só as dele). Ausente = nenhum. */
-  imoveisDosContratos?: () => Promise<Set<string>>
 }
 
 export const LIMITE_LISTA_IMOVEIS = 200
@@ -66,16 +63,14 @@ const sessaoDe = (ctx: ContextoImoveis): Sessao => ({
   corretorId: ctx.membro.brokerId || null })
 
 /**
- * Imóvel do tenant que a sessão pode ver; senão 404. É a porta de TODA operação por id:
+ * Imóvel DESTE tenant (o tenant sai da sessão, nunca do corpo); senão 404. É a porta de TODA operação por id:
  * a conferência de escopo mora aqui, e não em cada função, para não existir caminho que a esqueça.
  */
 async function carregarVisivel(ctx: ContextoImoveis, id: string) {
   const p = await getPropertyById(ctx.db, ctx.tenant.id, id)
   if (!p) throw naoEncontrado()
   const imovel = toImovelGestao(p)
-  const perm = permissoesImovel(ctx.matriz, sessaoDe(ctx), imovel)
-  if (!perm.ver) throw naoEncontrado()
-  return { imovel, perm }
+  return { imovel, perm: permissoesImovel(ctx.matriz, sessaoDe(ctx)) }
 }
 
 async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGestao> {
@@ -84,60 +79,14 @@ async function recarregar(ctx: ContextoImoveis, id: string): Promise<ImovelGesta
   return toImovelGestao(p)
 }
 
-/**
- * Imóvel vinculado que o corretor NÃO captou: o id pode ser escolhido por ele ao abrir um contrato (só se confere o
- * tenant), então a ficha sai sem a referência interna (`location`). Proprietário e telefone ficam: é o corretor
- * quem abre o contrato e precisa dos dados do proprietário (decisão do cliente); o custo é que ele alcança esses
- * dados de qualquer imóvel do tenant que vincular a um contrato, o que o cliente aceitou.
- * Alternativa descartada: exigir que o corretor só use imóvel captado por ele; trava o fluxo que o pedido quer abrir.
- */
-function semCarteiraAlheia(i: ImovelGestao): ImovelGestao {
-  return { ...i, location: null }
-}
-
-/**
- * Corretor vê os que captou (`broker_id`) e também os vinculados às vendas e locações do escopo dele
- * (`imovelId`), para o contrato não apontar para um imóvel que ele não encontra. Os vinculados entram só
- * para LEITURA (ver `permissoesImovel`): editar e excluir seguem do captador. Mesmo mapper, mesmas colunas.
- */
+/** Todos os imóveis do tenant, para qualquer perfil: o corretor abre contrato e edita o que quiser. O limite protege a resposta, não o escopo. */
 export async function listarImoveis(ctx: ContextoImoveis): Promise<ImovelGestao[]> {
-  const sessao = sessaoDe(ctx)
-  const verTodos = permissoesImovel(ctx.matriz, sessao, null).trocarCorretor
-  // Corretor sem vínculo com um cadastro de corretor não é «dono» de nada: lista vazia,
-  // e não a lista inteira por ter `broker_id` indefinido no filtro.
-  if (!verTodos && !ctx.membro.brokerId) return []
-  const props = await listAllProperties(ctx.db, ctx.tenant.id, {
-    brokerId: verTodos ? undefined : ctx.membro.brokerId!,
-    limite: LIMITE_LISTA_IMOVEIS,
-    recentes: true,
-  })
-  let todos = props
-  let vinculados = new Set<string>()
-  if (!verTodos) {
-    vinculados = (await ctx.imoveisDosContratos?.()) ?? new Set<string>()
-    const jaTem = new Set(props.map((p) => p.id))
-    const faltam = [...vinculados].filter((id) => !jaTem.has(id))
-    todos = [...props, ...(await listPropertiesByIds(ctx.db, ctx.tenant.id, faltam))]
-  }
-  // O filtro do banco é o principal; este repete a regra do domínio como segunda barreira.
-  return todos
-    .map(toImovelGestao)
-    .filter((i) => permissoesImovel(ctx.matriz, sessao, i, vinculados.has(i.id)).ver)
-    .map((i) => (permissoesImovel(ctx.matriz, sessao, i).ver ? i : semCarteiraAlheia(i)))
+  const props = await listAllProperties(ctx.db, ctx.tenant.id, { limite: LIMITE_LISTA_IMOVEIS, recentes: true })
+  return props.map(toImovelGestao)
 }
 
-/** Leitura por id: além do que `carregarVisivel` deixa, o imóvel vinculado a um contrato do escopo (só leitura). */
 export async function obterImovel(ctx: ContextoImoveis, id: string): Promise<ImovelGestao> {
-  try {
-    return (await carregarVisivel(ctx, id)).imovel
-  } catch (e) {
-    if ((e as { statusCode?: number }).statusCode !== 404 || !ctx.membro.brokerId) throw e
-    const vinculados = (await ctx.imoveisDosContratos?.()) ?? new Set<string>()
-    if (!vinculados.has(id)) throw e
-    const p = await getPropertyById(ctx.db, ctx.tenant.id, id)
-    if (!p) throw e
-    return semCarteiraAlheia(toImovelGestao(p))
-  }
+  return (await carregarVisivel(ctx, id)).imovel
 }
 
 /** Maior sufixo numérico de todos os códigos do tenant + 1. Colisão de corrida vira 23505 e é tratada na criação. */
@@ -161,7 +110,7 @@ async function assertCorretorDoTenant(ctx: ContextoImoveis, brokerId: string): P
 
 export async function criarImovel(ctx: ContextoImoveis, corpo: unknown): Promise<ImovelGestao> {
   const sessao = sessaoDe(ctx)
-  const perm = permissoesImovel(ctx.matriz, sessao, null)
+  const perm = permissoesImovel(ctx.matriz, sessao)
   if (!perm.criar) throw erro(403, 'Você não pode cadastrar imóveis.')
   const lido = lerCorpoImovel(corpo)
   if (!lido.ok) throw erro(422, lido.erro)
