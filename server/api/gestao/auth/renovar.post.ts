@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Sessão expirada.' })
   }
 
-  // Novo refresh token (rotação) e janela de 8 h reiniciada.
+  // Novo refresh token (rotação) e janela de 24 h reiniciada.
   gravarRefreshGestao(event, data.session.refresh_token)
   return { accessToken: data.session.access_token, expiresAt: data.session.expires_at ?? null }
 })

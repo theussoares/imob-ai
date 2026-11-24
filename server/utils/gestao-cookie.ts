@@ -16,11 +16,11 @@ import type { H3Event } from 'h3'
  * `SameSite=Strict` barra o envio em requisição de outro site (CSRF) — e as
  * chamadas autenticadas ainda exigem o Bearer, que o cookie não substitui.
  *
- * 8 h é o prazo de inatividade: cada renovação reemite o cookie (janela
- * deslizante). Sem renovar por 8 h, o cookie expira e pede login de novo.
+ * 24 h é o prazo de inatividade: cada renovação reemite o cookie (janela
+ * deslizante). Sem renovar por 24 h, o cookie expira e pede login de novo.
  */
 export const COOKIE_REFRESH_GESTAO = 'gestao_rt'
-export const INATIVIDADE_GESTAO_S = 8 * 60 * 60
+export const INATIVIDADE_GESTAO_S = 24 * 60 * 60
 
 const base = (event: H3Event) => ({
   httpOnly: true,
