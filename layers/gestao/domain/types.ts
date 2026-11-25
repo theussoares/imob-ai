@@ -133,7 +133,14 @@ export interface Processo {
   concluidas: boolean[]
   adiantamentos: Adiantamento[]
   hist: EventoHistorico[]
+  /** Observações do jurídico, da etapa 7. */
   obs: string
+  /**
+   * Observações do contrato: o que foi combinado entre as partes («metade no dia 10, o resto na
+   * escritura»). Separado de `obs` porque aquele é do jurídico, só na etapa 7; este vale o processo
+   * todo e aparece na lista. Opcional porque os processos gravados antes dele não o têm.
+   */
+  anotacoes?: string
   /** contrato PDF anexado (some do aviso «contratos sem PDF») */
   pdf: boolean
   /** Matrícula-mãe: exige projeto/prancha do imóvel (anotação da reunião). */

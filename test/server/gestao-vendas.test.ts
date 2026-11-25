@@ -268,6 +268,32 @@ describe('ações — permissão, regra, concorrência', () => {
     expect(calls.some((c) => c.method === 'update')).toBe(false)
   })
 
+  // Observações do contrato são livres para todo perfil que vê o processo (decisão de 25/11). A única
+  // barreira é o escopo: sem ele, um corretor anotaria no contrato de outro que nem pode abrir.
+  test('observações do contrato: todo perfil que vê o processo grava, até sem permissão nenhuma; fora do escopo é 404', async () => {
+    const gravar = async (c: CtxVendas['matriz'] | null, perfil: Perfil, brokerId: string | null = null) => {
+      const { client, calls } = fakeSupabase({ gestao_vendas: [{ data: row(processoDoCorretor(CORRETOR_A)), error: null }, { data: [{ id: ID }], error: null }] })
+      const base = ctx(perfil, client, brokerId)
+      await executarAcaoVenda(c ? { ...base, matriz: c } : base, ID, { versao: 1, acao: 'salvarAnotacoes', dados: { anotacoes: 'Metade em 10/12' } }, deps())
+      return (calls.find((x) => x.method === 'update')!.args[0] as { dados: Processo }).dados
+    }
+    for (const perfil of ['recepcao', 'juridico', 'dono'] as const) expect((await gravar(null, perfil)).anotacoes).toBe('Metade em 10/12')
+    expect((await gravar(null, 'corretor', CORRETOR_A)).hist[0]!.acao).toBe('Atualizou as observações do contrato')
+
+    // Recepção com editar, jurídico e valores desligados: continua gravando.
+    const travada = matrizPadrao()
+    travada.editar.recepcao = 'nao'
+    travada.juridico.recepcao = 'nao'
+    travada.valores.recepcao = 'nao'
+    expect((await gravar(travada, 'recepcao')).anotacoes).toBe('Metade em 10/12')
+
+    const { client, calls } = fakeSupabase({ gestao_vendas: { data: null, error: null } })
+    await expect(
+      executarAcaoVenda(ctx('corretor', client, CORRETOR_B), ID, { versao: 1, acao: 'salvarAnotacoes', dados: { anotacoes: 'x' } }, deps()),
+    ).rejects.toMatchObject({ statusCode: 404 })
+    expect(calls.some((c) => c.method === 'update')).toBe(false)
+  })
+
   test('as etapas 6 e 7 têm dono: recepção conclui a 6, não a 7; jurídico a 7, não a 5', async () => {
     const em = (etapa: number) => fakeSupabase({ gestao_vendas: { data: row(processoDoCorretor(CORRETOR_A, { etapa })), error: null } })
     await expect(executarAcaoVenda(ctx('recepcao', em(7).client), ID, { versao: 1, acao: 'concluirEtapa', dados: { etapa: 7 } }, deps())).rejects.toMatchObject({ statusCode: 403 })

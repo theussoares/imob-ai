@@ -5,7 +5,7 @@ import { tipoDeDocumento } from '~~/shared/utils/cpf-cnpj'
 import type { Processo } from './types'
 
 /**
- * Abertura editável, observações do jurídico e arquivamento.
+ * Abertura editável, observações (do jurídico e do contrato) e arquivamento.
  *
  * Arquivar NÃO usa `alterar`: aquela função recusa processo encerrado (é a regra
  * «final é só leitura»), e arquivar só faz sentido justamente em processo final.
@@ -57,6 +57,27 @@ export function salvarObservacao(estado: Estado, id: string, obs: string, ator: 
   return alterar(estado, id, ator, quando, (p) => {
     if (obs.length > LIMITE_OBS) return { ok: false, erro: `As observações passam de ${LIMITE_OBS} caracteres.` }
     return { ok: true, acao: 'Atualizou as observações do jurídico', processo: { ...p, obs: obs.trim() } }
+  })
+}
+
+export const LIMITE_ANOTACOES = 4000
+
+/**
+ * Observações do contrato (o que foi combinado). Livre para todo perfil que vê o processo — o
+ * escopo de quem vê é decidido fora (servidor e tela); aqui fica a regra do texto. Processo encerrado recusa, pela mesma regra
+ * de «final é só leitura» de `alterar`: um acordo novo depois da conclusão é um processo novo.
+ */
+export function salvarAnotacoes(estado: Estado, id: string, texto: string, ator: Ator, quando = agora()): Resultado {
+  return alterar(estado, id, ator, quando, (p) => {
+    if (texto.length > LIMITE_ANOTACOES) return { ok: false, erro: `As observações passam de ${LIMITE_ANOTACOES} caracteres.` }
+    // Só as pontas: quebra de linha no meio é a lista de parcelas que a pessoa digitou.
+    const limpo = texto.trim()
+    if (limpo === (p.anotacoes ?? '')) return { ok: false, erro: 'As observações não mudaram.' }
+    return {
+      ok: true,
+      acao: limpo ? 'Atualizou as observações do contrato' : 'Apagou as observações do contrato',
+      processo: { ...p, anotacoes: limpo },
+    }
   })
 }
 

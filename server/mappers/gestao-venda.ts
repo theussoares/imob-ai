@@ -78,6 +78,8 @@ export const processoSchema = z.object({
   adiantamentos: z.array(adiantamento),
   hist: z.array(z.object({ acao: z.string(), quem: z.string(), quando: z.string() })),
   obs: z.string(),
+  // Opcional: os processos gravados antes do campo não o têm, e exigi-lo derrubaria a leitura deles.
+  anotacoes: z.string().optional(),
   pdf: z.boolean(),
   matriculaMae: z.boolean().optional(),
   valorVenal: z.number().optional(),
@@ -126,6 +128,11 @@ export function toVendaColunas(p: Processo): Pick<VendaRow, 'corretor_id' | 'sta
  * o valor («Registrou adiantamento de R$ 5.000,00»), então recortar só os campos
  * deixaria o dado vazar pelo `hist`. Alternativa descartada: devolver tudo e
  * esconder na tela — o payload é o que sai do servidor, e a tela é só cliente.
+ *
+ * `anotacoes` (observações do contrato) fica, de propósito, mesmo podendo citar
+ * parcelas e datas: quem pediu o campo foi a recepção, que não tem `valores`, para
+ * anotar o combinado e consultá-lo na lista. Cortar aqui esconderia o texto de
+ * quem o escreveu. É texto livre que a equipe escreve sabendo que todos leem.
  */
 export type ProcessoSemValores = Omit<Processo, 'pct' | 'adiantamentos' | 'fin'>
 

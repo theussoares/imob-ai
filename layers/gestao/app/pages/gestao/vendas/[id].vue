@@ -35,7 +35,11 @@ const docs = computed(() =>
 
 // Etapa em exibição: estado local. Navegar pelas etapas não altera o processo.
 const etapaVista = ref(processo.value?.etapa ?? 1)
-const aba = ref<'etapas' | 'comissao'>('etapas')
+const aba = ref<'etapas' | 'comissao' | 'observacoes'>('etapas')
+// Mesmo critério do servidor (`salvarAnotacoes` em gestao-vendas-acoes.ts): todo perfil que vê o
+// processo escreve; só o processo encerrado trava, como o resto dele.
+const podeAnotar = computed(() => !final.value)
+const motivoSemAnotar = computed(() => (podeAnotar.value ? '' : 'Processo encerrado: somente consulta.'))
 
 const prog = computed(() => progresso(processo.value?.concluidas ?? []))
 // Comissão: quem vê o financeiro deste processo (`valores`, ou o corretor dele com `financeiroLivre`).
@@ -155,6 +159,11 @@ function salvarDadosAbertura(dados: DadosAbertura) {
 function salvarObs(texto: string) {
   const p = processo.value
   if (p) void executar(p.id, 'salvarObservacao', { obs: texto }, 'Observações salvas.')
+}
+
+function salvarAnotacoes(texto: string) {
+  const p = processo.value
+  if (p) void executar(p.id, 'salvarAnotacoes', { anotacoes: texto }, 'Observações do contrato salvas.')
 }
 
 async function cancelarVenda() {
@@ -360,6 +369,17 @@ const aba_ = (ativa: boolean) =>
       >
         Comissão
       </button>
+      <!-- Para todo perfil que vê o processo: quem pediu o campo foi a recepção, que não vê a comissão. -->
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="aba === 'observacoes'"
+        :class="aba_(aba === 'observacoes')"
+        data-testid="aba-observacoes"
+        @click="aba = 'observacoes'"
+      >
+        Observações<span v-if="processo.anotacoes" class="ml-1.5 inline-block size-2 rounded-full bg-[var(--brand)] align-middle" aria-label="(preenchidas)" />
+      </button>
       <!-- Fora do painel de etapa de propósito: vale em qualquer etapa, perfil e
            status — processo encerrado é só leitura, mas consultar documento não. -->
       <NuxtLink
@@ -386,6 +406,13 @@ const aba_ = (ativa: boolean) =>
           />
           <GestaoComissao :processo="processo" :editavel="podeEditarFinanceiro" @registrar="registrar" @remover="remover" @pagar="pagarAdiantamento" />
         </template>
+        <GestaoObservacoesContrato
+          v-else-if="aba === 'observacoes'"
+          :processo="processo"
+          :editavel="podeAnotar"
+          :motivo="motivoSemAnotar"
+          @salvar="salvarAnotacoes"
+        />
         <template v-else>
           <GestaoEtapaPainel
             :processo="processo"
