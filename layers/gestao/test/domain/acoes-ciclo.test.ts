@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Estado } from '../../domain/acoes'
 import { mudarStatus } from '../../domain/acoes'
-import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '../../domain/acoes-ciclo'
+import { arquivarProcesso, LIMITE_ANOTACOES, restaurarProcesso, salvarAbertura, salvarAnotacoes, salvarObservacao } from '../../domain/acoes-ciclo'
 import { documentosSeedCompleto, processosSeed } from '../../domain/seed'
 
 const ator = { nome: 'Paulo Ribeiro' }
@@ -54,6 +54,33 @@ describe('salvarObservacao', () => {
   it('grava e limita o tamanho', () => {
     expect(proc(ok(salvarObservacao(novo(), 'V-2026-0142', '  Matrícula ok  ', ator)), 'V-2026-0142').obs).toBe('Matrícula ok')
     expect(salvarObservacao(novo(), 'V-2026-0142', 'x'.repeat(2001), ator).ok).toBe(false)
+  })
+})
+
+// Observações do contrato: o combinado entre as partes, pedido pela recepção da Olmi (25/11).
+describe('salvarAnotacoes', () => {
+  it('grava aparando só as pontas (as quebras de linha das parcelas ficam) e registra no histórico', () => {
+    const texto = '  Metade em 10/12.\nRestante na escritura.  '
+    const p = proc(ok(salvarAnotacoes(novo(), 'V-2026-0142', texto, ator)), 'V-2026-0142')
+    expect(p.anotacoes).toBe('Metade em 10/12.\nRestante na escritura.')
+    expect(p.obs).toBe(proc(novo(), 'V-2026-0142').obs) // a observação do jurídico não é tocada
+    expect(p.hist[0]!.acao).toBe('Atualizou as observações do contrato')
+  })
+
+  it('apagar o texto fica no histórico como apagado', () => {
+    const e = ok(salvarAnotacoes(novo(), 'V-2026-0142', 'combinado', ator))
+    expect(proc(ok(salvarAnotacoes(e, 'V-2026-0142', '   ', ator)), 'V-2026-0142').hist[0]!.acao).toBe('Apagou as observações do contrato')
+  })
+
+  // Sem isto, cada clique em «Salvar» sem mudança enchia o histórico de linhas iguais.
+  it('recusa texto igual ao salvo, inclusive em processo antigo sem o campo', () => {
+    expect(salvarAnotacoes(novo(), 'V-2026-0142', '  ', ator)).toMatchObject({ ok: false, erro: 'As observações não mudaram.' })
+  })
+
+  it('limita o tamanho e trata processo encerrado como só leitura', () => {
+    expect(salvarAnotacoes(novo(), 'V-2026-0142', 'x'.repeat(LIMITE_ANOTACOES), ator).ok).toBe(true)
+    expect(salvarAnotacoes(novo(), 'V-2026-0142', 'x'.repeat(LIMITE_ANOTACOES + 1), ator).ok).toBe(false)
+    expect(salvarAnotacoes(novo(), 'V-2026-0133', 'depois do fim', ator).ok).toBe(false)
   })
 })
 

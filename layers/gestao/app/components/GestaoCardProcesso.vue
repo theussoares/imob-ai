@@ -43,6 +43,13 @@ const semContrato = computed(() => !props.processo.pdf && props.processo.status 
       <dd>{{ processo.updated }}</dd>
     </dl>
 
+    <!-- Três linhas e não o texto inteiro: um acordo longo esticaria o card e desalinharia a grade.
+         O texto completo fica na aba Observações e no `title`. -->
+    <div v-if="processo.anotacoes" class="rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2" data-testid="card-observacoes">
+      <p class="text-[length:var(--fs-caption)] font-bold text-[var(--ink-soft)]">Observações</p>
+      <p class="line-clamp-3 break-words whitespace-pre-line text-[length:var(--fs-ui)]" :title="processo.anotacoes">{{ processo.anotacoes }}</p>
+    </div>
+
     <!-- Âmbar sobre fundo claro com texto escuro (≥ 4,5:1), como no chip de status. -->
     <p
       v-if="pendencias > 0"

@@ -74,6 +74,22 @@ describe('mapper', () => {
     expect('entrada' in v.processo.fin).toBe(false)
   })
 
+  // Processo gravado antes do campo: exigir `anotacoes` no Zod derrubaria a leitura de todas as vendas antigas.
+  test('lê processo antigo sem `anotacoes`, e o campo volta na ida e volta quando existe', () => {
+    const p = processosSeed()[0]!
+    const { anotacoes: _sem, ...antigo } = p
+    void _sem
+    expect(() => toVendaModel({ id: p.id, tenant_id: 't', versao: 1, updated_at: '', ...toVendaColunas(antigo as typeof p) })).not.toThrow()
+    const com = { ...p, anotacoes: 'Metade em 10/12' }
+    expect(toVendaModel({ id: p.id, tenant_id: 't', versao: 1, updated_at: '', ...toVendaColunas(com) }).processo.anotacoes).toBe('Metade em 10/12')
+  })
+
+  // A recepção (sem `valores`) pediu o campo para anotar o combinado: o recorte não pode escondê-lo dela.
+  test('o recorte sem valores mantém as observações do contrato', () => {
+    const p = { ...processosSeed()[0]!, anotacoes: 'Metade em 10/12' }
+    expect(recortarValores(p, false).anotacoes).toBe('Metade em 10/12')
+  })
+
   test('o recorte sem valores remove exatamente pct, adiantamentos e fin', () => {
     const p = processosSeed()[0]!
     const r = recortarValores(p, false)
@@ -84,7 +100,7 @@ describe('mapper', () => {
 describe('mapa de ações', () => {
   test('cobre exatamente as ações do plano', () => {
     expect(Object.keys(ACOES_VENDA).sort()).toEqual(
-      ['mudarStatus', 'concluirEtapa', 'salvarAbertura', 'salvarObservacao', 'arquivarProcesso', 'restaurarProcesso', 'registrarAdiantamento', 'marcarAdiantamentoPago', 'removerAdiantamento', 'salvarFinanceiro', 'salvarPessoa', 'salvarImovel', 'marcarMatriculaMae', 'salvarConferenciaFinal', 'enviarAnaliseFinanceira', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira'].sort(),
+      ['mudarStatus', 'concluirEtapa', 'salvarAbertura', 'salvarObservacao', 'salvarAnotacoes', 'arquivarProcesso', 'restaurarProcesso', 'registrarAdiantamento', 'marcarAdiantamentoPago', 'removerAdiantamento', 'salvarFinanceiro', 'salvarPessoa', 'salvarImovel', 'marcarMatriculaMae', 'salvarConferenciaFinal', 'enviarAnaliseFinanceira', 'aprovarAnaliseFinanceira', 'devolverAnaliseFinanceira'].sort(),
     )
   })
 

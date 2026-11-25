@@ -6,7 +6,14 @@ import {
   type Resultado,
   type Estado,
 } from '~~/layers/gestao/domain/acoes'
-import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '~~/layers/gestao/domain/acoes-ciclo'
+import {
+  arquivarProcesso,
+  LIMITE_ANOTACOES,
+  restaurarProcesso,
+  salvarAbertura,
+  salvarAnotacoes,
+  salvarObservacao,
+} from '~~/layers/gestao/domain/acoes-ciclo'
 import {
   marcarAdiantamentoPago,
   marcarMatriculaMae,
@@ -87,6 +94,15 @@ export const ACOES_VENDA = {
     permitido: (c) => c.juridico,
     schema: z.object({ obs: z.string().max(5000) }),
     fn: (id, d) => (e, a, q) => salvarObservacao(e, id, d.obs, a, q),
+  }),
+  // Observações do contrato são livres para todo perfil que VÊ o processo (decisão de 25/11): é o
+  // caderno de combinados da equipe, não um cadastro. Quem não vê o processo nem chega aqui — o
+  // despachante responde 404 antes, pelo mesmo escopo do GET. Por isso não há capacidade a checar.
+  // O teto do Zod fica acima do domínio para o usuário receber a frase do domínio, e não um 422 genérico.
+  salvarAnotacoes: def({
+    permitido: () => true,
+    schema: z.object({ anotacoes: z.string().max(LIMITE_ANOTACOES * 2) }),
+    fn: (id, d) => (e, a, q) => salvarAnotacoes(e, id, d.anotacoes, a, q),
   }),
   arquivarProcesso: def({
     permitido: (c) => c.arquivar,

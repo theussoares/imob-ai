@@ -1,7 +1,7 @@
 import * as acoes from '../../domain/acoes'
 import { encargosDaConfig } from '../../domain/configuracoes'
 import { agora as agoraDominio, type Ator, type Estado, type NovoProcesso, type Resultado as ResultadoDominio } from '../../domain/acoes'
-import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarObservacao } from '../../domain/acoes-ciclo'
+import { arquivarProcesso, restaurarProcesso, salvarAbertura, salvarAnotacoes, salvarObservacao } from '../../domain/acoes-ciclo'
 import * as loc from '../../domain/acoes-locacao'
 import type { NovaLocacao } from '../../domain/acoes-locacao'
 import { aprovarAnaliseFinanceira, devolverAnaliseFinanceira, enviarAnaliseFinanceira } from '../../domain/acoes-analise'
@@ -36,6 +36,7 @@ const VENDA: Record<string, Fn> = {
   concluirEtapa: (e, id, d, a) => acoes.concluirEtapa(e, id, d.etapa, a),
   salvarAbertura: (e, id, d, a) => salvarAbertura(e, id, d, a),
   salvarObservacao: (e, id, d, a) => salvarObservacao(e, id, d.obs, a),
+  salvarAnotacoes: (e, id, d, a) => salvarAnotacoes(e, id, d.anotacoes, a),
   arquivarProcesso: (e, id, _d, a) => arquivarProcesso(e, id, a),
   restaurarProcesso: (e, id, _d, a) => restaurarProcesso(e, id, a),
   registrarAdiantamento: (e, id, d, a) => registrarAdiantamento(e, id, d, a),
